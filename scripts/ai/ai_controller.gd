@@ -132,6 +132,11 @@ func _update_actions() -> void:
 	var speed := maxf(racer.current_speed, 6.0)
 	var react_lead := speed * (0.5 + float(difficulty.get("reaction_delay", 0.3)))
 	var branch_id := int(racer.guide_cache.get("path", -1))
+	# Hints on a branch are stored in branch-local offsets; convert the
+	# racer's mapped main-line progress back to branch-local space.
+	if branch_id >= 0:
+		var branch_idx := int(racer.guide_cache.get("branch_idx_%d" % branch_id, 0))
+		progress = float(branch_idx) * PathGuide.SAMPLE_SPACING
 
 	# Hints: jump / slide zones.
 	slide_held = false

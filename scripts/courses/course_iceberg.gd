@@ -12,13 +12,15 @@ const OCEAN_Y: float = -2.0
 
 var _bobbers: Array[Dictionary] = []  # {node, base_y, phase, amp, speed}
 var _bob_time: float = 0.0
-## Prefix arclength per baked guide point. PathGuide.nearest() reports offsets
-## as index * SAMPLE_SPACING, but Curve3D bakes points DENSER than the bake
-## interval (measured avg ~1.4m for this course), so index-space offsets outrun
-## true arclength by ~45%. transform_at()/point_at() consume true arclength, so
-## anything placed from a nearest() offset lands far ahead of its landmark.
-## This table converts: index space (racer progress, hints) <-> arclength
-## (geometry placement). See _arc_near()/_offset_near().
+## Prefix arclength per guide sample point. PathGuide.nearest() reports offsets
+## as index * SAMPLE_SPACING while transform_at()/point_at() consume true
+## arclength. With the current PathGuide (uniform resampling in _init) the two
+## spaces coincide and this table is the identity; it is kept because an
+## earlier PathGuide used Godot's adaptively-tessellated baked points directly
+## (avg ~1.4m spacing -> nearest() offsets outran arclength by ~45%, teleporting
+## respawns forward and displacing every offset-placed prop). The table keeps
+## hint space (racer progress) and placement space (geometry) correct under
+## BOTH behaviors. See _arc_near()/_offset_near().
 var _arc: PackedFloat32Array = PackedFloat32Array()
 
 
@@ -112,11 +114,12 @@ func build_course() -> void:
 	finalize()
 
 	# Rebuild checkpoints in the SAME offset space racer progress uses (index
-	# space from PathGuide.nearest). The base class steps in arclength, which
-	# racers' inflated index-space progress passes ~45% early — a faller would
-	# then respawn at a checkpoint transform hundreds of meters AHEAD of where
-	# it actually fell (verified in race_sim: racers skipped the whole swim
-	# channel). Offsets below are index space; transforms are true geometry.
+	# space from PathGuide.nearest). Identical to the base behavior while
+	# PathGuide samples uniformly, but immune to the earlier non-uniform
+	# sampling, under which racers' inflated index-space progress crossed
+	# arclength-placed checkpoints ~45% early and a faller respawned hundreds
+	# of meters AHEAD of where it fell (verified in race_sim: racers skipped
+	# the whole swim channel). Offsets are index space; transforms geometry.
 	checkpoint_offsets.clear()
 	checkpoint_transforms.clear()
 	var finish_idx_offset := _index_offset_of_arc(finish_offset)

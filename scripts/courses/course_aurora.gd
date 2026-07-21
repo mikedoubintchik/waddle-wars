@@ -156,8 +156,11 @@ func build_course() -> void:
 		# Danger side = side the wind pushes you toward; AI biases away.
 		var kind := "danger_right" if float(spec["dir"]) > 0.0 else "danger_left"
 		add_hint(arc - 35.0, kind, arc + 26.0)
-	# One continuous berm channel walls the whole traverse.
+	# One continuous berm channel walls the whole traverse, and a lateral
+	# clamp (see _physics_process) makes the ridge fall-proof under wind.
 	_add_ridge_berms(ridge_arc - 20.0, cavern_arc + 6.0)
+	_ridge_clamp_start = ridge_arc - 16.0
+	_ridge_clamp_end = cavern_arc + 2.0
 
 	# --- Icicle cavern: 9 icicles, weaving safe line -----------------------
 	var icicle_laterals: Array = [-4.0, 3.0, -2.0, 4.0, -3.0, 2.0, -4.0, 3.0, -2.0]
@@ -487,38 +490,62 @@ func _add_ridge_berms(start_arc: float, end_arc: float) -> void:
 	berm_mat.rim_enabled = true
 	berm_mat.rim = 0.4
 	berm_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var step := 4.0
-	var count := int((end_arc - start_arc) / step) + 1
+	var step := 3.0
+	var length := end_arc - start_arc
+	var count := int(length / step)
+	# Station profile: lateral of berm center-of-mass and protrusion height.
+	# Entry funnel collects racers inward; exit taper sinks the berm while
+	# staying over the cavern floor (half-width 6.5).
+	var lats: Array[float] = []
+	var heights: Array[float] = []
+	for i: int in count + 1:
+		var t := float(i) * step
+		var lat := 6.6
+		var h := 2.0
+		if t < 12.0:
+			lat = lerpf(8.4, 6.6, t / 12.0)
+		var t_end := length - t
+		if t_end < 9.0:
+			lat = lerpf(7.1, 6.6, t_end / 9.0)
+			h = lerpf(0.4, 2.0, t_end / 9.0)
+		lats.append(lat)
+		heights.append(h)
+
 	for s: float in [-1.0, 1.0]:
+		# Solid collision: heavily overlapping oriented boxes (trimesh strips
+		# tunnel under HazardWindZone's positional push; solid boxes do not).
+		for i: int in count:
+			var a := main_guide.point_at(start_arc + float(i) * step, lats[i] * s, 0.0)
+			var b := main_guide.point_at(start_arc + float(i + 1) * step, lats[i + 1] * s, 0.0)
+			var h := (heights[i] + heights[i + 1]) * 0.5
+			var dir := b - a
+			var body := StaticBody3D.new()
+			body.collision_layer = GameConfig.LAYER_WORLD
+			body.collision_mask = 0
+			body.set_meta("surface", SurfacesDB.Surface.ICE_ROUGH)
+			var shape := CollisionShape3D.new()
+			var box := BoxShape3D.new()
+			box.size = Vector3(1.6, h + 0.6, dir.length() + 1.6)
+			shape.shape = box
+			body.add_child(shape)
+			var mid := (a + b) * 0.5 + Vector3.UP * (h * 0.5 - 0.3)
+			body.transform = Transform3D(Basis.looking_at(dir, Vector3.UP), mid)
+			add_child(body)
+
+		# Visual: one continuous strip matching the collision profile.
 		var st := SurfaceTool.new()
 		st.begin(Mesh.PRIMITIVE_TRIANGLES)
 		var prev_in_b := Vector3.ZERO
 		var prev_in_t := Vector3.ZERO
 		var prev_out_t := Vector3.ZERO
-		for i: int in count:
-			var arc := minf(start_arc + float(i) * step, end_arc)
-			# Profile: entry funnel collects inward; exit sinks low, slightly
-			# outward, always over floor (cavern half-width is 6.5).
-			var lat_in := 5.8
-			var height := 1.7
-			if i == 0:
-				lat_in = 7.5
-				height = 0.2
-			elif i == 1:
-				lat_in = 6.5
-				height = 1.0
-			elif i == count - 1:
-				lat_in = 6.4
-				height = 0.15
-			elif i == count - 2:
-				lat_in = 6.1
-				height = 0.8
+		for i: int in count + 1:
+			var arc := start_arc + float(i) * step
 			var xform := main_guide.transform_at(arc)
 			var right := xform.basis.x * s
 			var up := xform.basis.y
-			var in_b := xform.origin + right * lat_in - up * 0.6
-			var in_t := xform.origin + right * lat_in + up * height
-			var out_t := xform.origin + right * 7.8 + up * (height * 0.55)
+			var in_b := xform.origin + right * (lats[i] - 0.85) - up * 0.6
+			var in_t := xform.origin + right * (lats[i] - 0.7) + up * heights[i]
+			var out_t := xform.origin + right * (lats[i] + 0.85) + up * (heights[i] * 0.55)
 			if i > 0:
 				_berm_quad(st, prev_in_b, prev_in_t, in_t, in_b)
 				_berm_quad(st, prev_in_t, prev_out_t, out_t, in_t)
@@ -526,19 +553,10 @@ func _add_ridge_berms(start_arc: float, end_arc: float) -> void:
 			prev_in_t = in_t
 			prev_out_t = out_t
 		st.generate_normals()
-		var mesh := st.commit()
 		var visual := MeshInstance3D.new()
-		visual.mesh = mesh
+		visual.mesh = st.commit()
 		visual.material_override = berm_mat
 		add_child(visual)
-		var body := StaticBody3D.new()
-		body.collision_layer = GameConfig.LAYER_WORLD
-		body.collision_mask = 0
-		body.set_meta("surface", SurfacesDB.Surface.ICE_ROUGH)
-		var shape := CollisionShape3D.new()
-		shape.shape = TrackBuilder.make_solid_shape(mesh)
-		body.add_child(shape)
-		add_child(body)
 
 
 static func _berm_quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
@@ -660,6 +678,37 @@ func _build_aurora() -> void:
 		ribbon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(ribbon)
 		_aurora_ribbons.append(ribbon)
+
+
+var _ridge_clamp_start := 0.0
+var _ridge_clamp_end := -1.0
+
+
+## Ridge guard: HazardWindZone moves racers positionally, and sustained push
+## accumulates penetration into ANY barrier (thin wall or solid berm) faster
+## than depenetration recovers, until racers pop through the far side and
+## fall off the ridge. Counter it in kind: clamp lateral offset to the berm
+## line while on the ridge traverse. The berms visually sell the constraint.
+func _physics_process(_delta: float) -> void:
+	if _ridge_clamp_end <= _ridge_clamp_start:
+		return
+	for node: Node in get_tree().get_nodes_in_group(GameConfig.GROUP_RACERS):
+		var r := node as Racer
+		if r == null or r.state == Racer.State.FINISHED:
+			continue
+		var p := r.global_position
+		if p.z > -290.0 or p.z < -530.0 or p.y < 55.0:
+			continue
+		var hint := int(r.guide_cache.get("main_idx", -1))
+		var res := main_guide.nearest(p, hint)
+		var idx := clampi(int(res["index"]), 0, _main_cum.size() - 1)
+		var arc := _main_cum[idx]
+		if arc < _ridge_clamp_start or arc > _ridge_clamp_end:
+			continue
+		var xf := main_guide.transform_at(arc)
+		var lat := (p - xf.origin).dot(xf.basis.x)
+		if absf(lat) > 5.2:
+			r.global_position = p - xf.basis.x * (lat - clampf(lat, -5.2, 5.2))
 
 
 func _process(delta: float) -> void:

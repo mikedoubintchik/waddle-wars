@@ -375,6 +375,11 @@ func _tick_recovering(delta: float) -> void:
 
 func _tick_finished(delta: float) -> void:
 	_finish_slowdown = maxf(_finish_slowdown - delta * 0.35, 0.0)
+	# Never coast off the end of the course after finishing.
+	if course != null and course.get("main_guide") != null:
+		var guide: PathGuide = course.get("main_guide")
+		if progress > guide.length - 12.0:
+			_finish_slowdown = 0.0
 	current_speed = move_toward(current_speed, BASE_SPEED * 0.5 * _finish_slowdown, 6.0 * delta)
 	_steer_offset = lerpf(_steer_offset, 0.0, minf(delta * 4.0, 1.0))
 	_facing_yaw = _wrap_lerp_angle(_facing_yaw, _guide_yaw, minf(delta * 4.0, 1.0))
@@ -619,8 +624,15 @@ func respawn_at_checkpoint() -> void:
 
 
 func _check_kill_plane() -> void:
-	if course != null and global_position.y < float(course.get("kill_y")):
-		respawn_at_checkpoint()
+	if course == null or global_position.y >= float(course.get("kill_y")):
+		return
+	if state == State.FINISHED:
+		# Finished racers that somehow tumble off just snap back on-track.
+		global_transform = last_checkpoint_transform
+		current_speed = 0.0
+		vertical_velocity = 0.0
+		return
+	respawn_at_checkpoint()
 
 
 func finish_race_now(time_seconds: float) -> void:
