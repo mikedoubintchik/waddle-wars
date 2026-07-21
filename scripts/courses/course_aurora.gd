@@ -236,12 +236,6 @@ func build_course() -> void:
 	add_ground_plane(-32.0, Color(0.09, 0.12, 0.2))
 
 
-## Index-space offset (PathGuide convention: index * 2), the space racer
-## progress and hints live in.
-func _offset_near(point: Vector3) -> float:
-	return float(main_guide.nearest(point, -1)["offset"])
-
-
 ## True arc-length offset, the space point_at/transform_at expect.
 func _arc_near(point: Vector3) -> float:
 	var idx := int(main_guide.nearest(point, -1)["index"])

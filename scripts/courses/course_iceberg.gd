@@ -229,7 +229,7 @@ func build_course() -> void:
 		"sun_color": Color(1.0, 0.8, 0.6),
 		"sun_energy": 1.1,
 		"fog_color": Color(0.97, 0.68, 0.52),
-		"fog_density": 0.004,
+		"fog_density": 0.0022,
 		"snow": false,
 	})
 	# The ocean IS the ground plane: ~6m below the lowest water surface, well
