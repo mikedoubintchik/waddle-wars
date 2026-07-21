@@ -177,10 +177,12 @@ func build_course() -> void:
 	add_hint(cavern_mid_arc, "danger_right", cavern_end_arc)
 
 	# --- Geyser field: 6 staggered geysers on the wide downhill ------------
+	# Kept well upstream of the corkscrew so launches land on the wide
+	# downhill, never past the spiral's entry curve.
 	var geyser_laterals: Array = [-5.0, 4.0, -1.0, 5.0, -4.0, 1.0]
 	var geyser_phases: Array = [0.0, 0.9, 1.7, 2.3, 0.5, 1.3]
 	for i: int in 6:
-		var offset := merge_arc + 16.0 + float(i) * 21.0
+		var offset := merge_arc + 12.0 + float(i) * 17.0
 		var geyser := HazardGeyser.new()
 		geyser.phase_offset = float(geyser_phases[i])
 		geyser.position = main_guide.point_at(offset, float(geyser_laterals[i]), 0.0)

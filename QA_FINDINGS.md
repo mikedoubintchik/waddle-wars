@@ -13,6 +13,19 @@ Every finding below was confirmed by reading the code; fix and mark FIXED with e
    so after one pickup, item boxes refuse all further pickups. Entire powerup system dead for all
    8 racers; AI `_should_use_item` is dead code. Verified still true at fb761ac.
    Fix: in `_physics_process` read the edge, e.g. `if controller.item_pressed and state != State.FINISHED: use_held_item()` before `consume_edges()`.
+   **Supervisor-verified patch (ran race_sim on a patched clone — PASS, no crash):** insert before `move_and_slide()` in `_physics_process`:
+   ```gdscript
+   if controller.item_pressed and state != State.FINISHED and held_item != "":
+       use_held_item()
+   ```
+
+1b. **[OPEN — CRITICAL] No item boxes spawn on any course — `add_item_row()` has zero callers.**
+   `scripts/courses/course_base.gd:434` defines `add_item_row`, but no course script calls it
+   (verified by grep across scripts/courses at c8898b1). Even with finding #1 fixed, instrumented
+   race_sim shows **0 powerup activations** because no racer can ever hold an item. Both #1 and #1b
+   must be fixed for spec §5 "at least five polished power-ups" to be satisfiable.
+   Fix: call `add_item_row(...)` at sensible offsets in glacier/aurora/iceberg course builds
+   (and Endless segments), then re-run sim and confirm activations > 0.
 
 ## HIGH
 

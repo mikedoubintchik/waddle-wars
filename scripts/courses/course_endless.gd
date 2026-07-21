@@ -76,13 +76,13 @@ func build_course() -> void:
 
 	_decorate()
 	build_environment({
-		"sky_top": Color(0.35, 0.62, 0.88),
+		"sky_top": Color(0.2, 0.5, 0.86),
 		"sky_horizon": Color(0.82, 0.92, 1.0),
 		"ground_color": Color(0.85, 0.92, 0.98),
 		"sun_angle_deg": -44.0,
 		"sun_energy": 1.25,
 		"fog_color": Color(0.82, 0.9, 1.0),
-		"fog_density": 0.004,
+		"fog_density": 0.0018,
 		"snow": true,
 	})
 	var lowest := INF
