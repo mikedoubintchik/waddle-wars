@@ -80,13 +80,13 @@ func setup(config: Dictionary) -> void:
 	body_mesh.rings = 16
 	_body = _mesh(_root, body_mesh, body_color, Vector3(0, 0.46, 0))
 
-	# Belly patch: flattened lighter sphere pushed forward.
+	# Belly patch: flattened lighter sphere that visibly pokes out the front.
 	var belly_mesh := SphereMesh.new()
 	belly_mesh.radius = 0.30
 	belly_mesh.height = 0.78
 	belly_mesh.radial_segments = 20
 	belly_mesh.rings = 12
-	_belly = _mesh(_root, belly_mesh, belly_color, Vector3(0, 0.42, -0.09), Vector3.ZERO, Vector3(0.82, 0.9, 0.62))
+	_belly = _mesh(_root, belly_mesh, belly_color, Vector3(0, 0.42, -0.17), Vector3.ZERO, Vector3(0.78, 0.88, 0.72))
 
 	# Head anchor sits atop the egg (the egg itself is the head silhouette).
 	_head_anchor = Node3D.new()

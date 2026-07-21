@@ -138,20 +138,25 @@ func build_course() -> void:
 	var spiral_end_arc := _arc_near(Vector3(80, -6.1, -985))
 
 	# --- Windy ridge: three alternating crosswind zones --------------------
+	# Wind moves racers positionally (it bypasses velocity), so each zone is
+	# flanked by thick ice berms: the wind rattles you, the berms keep the
+	# ridge survivable, and the danger hints make the AI pre-compensate.
 	var wind_specs: Array = [
-		{"arc": ridge_arc + 18.0, "dir": 1.0, "strength": 5.0},
-		{"arc": (ridge_mid_arc + ridge_late_arc) * 0.5, "dir": -1.0, "strength": 6.0},
-		{"arc": ridge_end_arc - 16.0, "dir": 1.0, "strength": 4.5},
+		{"arc": ridge_arc + 18.0, "dir": 1.0, "strength": 4.0},
+		{"arc": (ridge_mid_arc + ridge_late_arc) * 0.5, "dir": -1.0, "strength": 4.5},
+		{"arc": ridge_end_arc - 16.0, "dir": 1.0, "strength": 4.0},
 	]
 	for spec: Dictionary in wind_specs:
-		var xform := main_guide.transform_at(float(spec["arc"]))
+		var arc := float(spec["arc"])
+		var xform := main_guide.transform_at(arc)
 		var wind := HazardWindZone.new()
-		wind.configure(xform.basis.x * float(spec["dir"]), float(spec["strength"]), Vector3(14.0, 8.0, 44.0))
+		wind.configure(xform.basis.x * float(spec["dir"]), float(spec["strength"]), Vector3(14.0, 8.0, 34.0))
 		wind.transform = Transform3D(xform.basis, xform.origin + xform.basis.y * 3.0)
 		add_child(wind)
+		_add_wind_berms(arc)
 		# Danger side = side the wind pushes you toward; AI biases away.
 		var kind := "danger_right" if float(spec["dir"]) > 0.0 else "danger_left"
-		add_hint(float(spec["arc"]) - 35.0, kind, float(spec["arc"]) + 28.0)
+		add_hint(arc - 35.0, kind, arc + 26.0)
 
 	# --- Icicle cavern: 9 icicles, weaving safe line -----------------------
 	var icicle_laterals: Array = [-4.0, 3.0, -2.0, 4.0, -3.0, 2.0, -4.0, 3.0, -2.0]
@@ -466,6 +471,64 @@ func _decorate() -> void:
 		else:
 			TrackBuilder.add_ice_crystal(self, xform2.origin + xform2.basis.x * lateral2 + Vector3.DOWN * 1.0,
 				rng.randf_range(2.0, 6.5), Color(0.55, 0.8, 1.0) if rng.randf() > 0.5 else Color(0.7, 0.5, 1.0))
+
+
+## Thick wind-carved ice berms lining both ridge edges through a wind zone.
+## Built as one continuous extruded strip per side (smooth inner face, ends
+## funneled outward) so the positional push of HazardWindZone can never
+## shove racers off the ridge or wedge them in a corner pocket.
+func _add_wind_berms(center_arc: float) -> void:
+	var berm_mat := StandardMaterial3D.new()
+	berm_mat.albedo_color = Color(0.3, 0.42, 0.62)
+	berm_mat.roughness = 0.25
+	berm_mat.rim_enabled = true
+	berm_mat.rim = 0.4
+	berm_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var half := 26.0
+	var step := 4.0
+	for s: float in [-1.0, 1.0]:
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var count := int(half * 2.0 / step) + 1
+		var prev_in_b := Vector3.ZERO
+		var prev_in_t := Vector3.ZERO
+		var prev_out_t := Vector3.ZERO
+		for i: int in count:
+			var arc := center_arc - half + float(i) * step
+			var is_end := i == 0 or i == count - 1
+			var lat_in := 7.2 if is_end else 5.7   # funnel the ends outward
+			var height := 0.3 if is_end else 1.5
+			var xform := main_guide.transform_at(arc)
+			var right := xform.basis.x * s
+			var up := xform.basis.y
+			var in_b := xform.origin + right * lat_in - up * 0.6
+			var in_t := xform.origin + right * lat_in + up * height
+			var out_t := xform.origin + right * 7.6 + up * (height * 0.6)
+			if i > 0:
+				_berm_quad(st, prev_in_b, prev_in_t, in_t, in_b)
+				_berm_quad(st, prev_in_t, prev_out_t, out_t, in_t)
+			prev_in_b = in_b
+			prev_in_t = in_t
+			prev_out_t = out_t
+		st.generate_normals()
+		var mesh := st.commit()
+		var visual := MeshInstance3D.new()
+		visual.mesh = mesh
+		visual.material_override = berm_mat
+		add_child(visual)
+		var body := StaticBody3D.new()
+		body.collision_layer = GameConfig.LAYER_WORLD
+		body.collision_mask = 0
+		body.set_meta("surface", SurfacesDB.Surface.ICE_ROUGH)
+		var shape := CollisionShape3D.new()
+		shape.shape = TrackBuilder.make_solid_shape(mesh)
+		body.add_child(shape)
+		add_child(body)
+
+
+static func _berm_quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
+	st.add_vertex(a); st.add_vertex(c); st.add_vertex(b)
+	st.add_vertex(a); st.add_vertex(d); st.add_vertex(c)
 
 
 func _add_station_light(pos: Vector3) -> void:

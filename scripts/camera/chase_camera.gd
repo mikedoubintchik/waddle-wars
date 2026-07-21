@@ -70,7 +70,7 @@ func _physics_process(delta: float) -> void:
 		look_point = target.global_position + Vector3.UP * 0.8
 	else:
 		var height := 2.5
-		var distance := 5.4
+		var distance := 5.0
 		if target.state == Racer.State.SLIDING:
 			height = 2.0
 			distance = 6.0
@@ -81,7 +81,7 @@ func _physics_process(delta: float) -> void:
 			height = 2.9
 		distance += speed_ratio * 0.7
 		desired_pos = target.global_position - forward * distance + Vector3.UP * height
-		look_point = target.global_position + forward * (4.0 + speed_ratio * 4.0) + Vector3.UP * 1.0
+		look_point = target.global_position + forward * (3.2 + speed_ratio * 3.2) + Vector3.UP * 0.9
 
 	if not _initialized:
 		_smoothed_pos = desired_pos

@@ -142,13 +142,16 @@ func _build_foreground() -> void:
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(overlay)
 
+	# Logo block anchored to the upper third so the penguin diorama stays
+	# clear of the wordmark; the prompt sits low near the ice floe.
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.anchor_bottom = 0.42
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(center)
 	var vbox := VBoxContainer.new()
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", 34)
+	vbox.add_theme_constant_override("separation", 20)
 	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	center.add_child(vbox)
 
@@ -170,7 +173,14 @@ func _build_foreground() -> void:
 	_prompt.add_theme_constant_override("outline_size", 8)
 	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_prompt.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.add_child(_prompt)
+	_prompt.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_prompt.anchor_left = 0.5
+	_prompt.anchor_right = 0.5
+	_prompt.anchor_top = 0.86
+	_prompt.anchor_bottom = 0.86
+	_prompt.offset_left = -220.0
+	_prompt.offset_right = 220.0
+	overlay.add_child(_prompt)
 
 	var version := Label.new()
 	version.text = "v%s" % GameConfig.GAME_VERSION

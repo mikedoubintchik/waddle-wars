@@ -40,13 +40,16 @@ func build_course() -> void:
 		p(2, 11.5, -100, {"width": 20.0}),
 		# 2. Berg-hop: wide right-swinging arc of connected bergs, widths
 		# breathing 22 -> 14 -> 20 -> 12 so each berg reads distinct.
+		# wall_l stays ON at -240/-540: the branch corridor is well clear of the
+		# main edge by those spots, and the wall catches racers whose guide yaw
+		# (sampled far ahead by PathGuide's index-space offsets) cuts the arc.
 		p(14, 11, -170, {"width": 22.0, "wall_l": false}),
-		p(34, 10.5, -240, {"width": 16.0, "wall_l": false}),
-		p(52, 10, -310, {"width": 14.0}),
+		p(34, 10.5, -240, {"width": 16.0}),
+		p(52, 10, -310, {"width": 16.0}),
 		p(56, 9.5, -380, {"width": 20.0}),
-		p(44, 9, -440, {"width": 12.0}),
-		p(24, 8.5, -490, {"width": 16.0, "wall_l": false}),
-		p(6, 8, -540, {"width": 18.0, "wall_l": false}),
+		p(44, 9, -440, {"width": 13.0}),
+		p(24, 8.5, -490, {"width": 18.0, "wall_l": false}),
+		p(6, 8, -540, {"width": 18.0}),
 		p(0, 8, -590, {"width": 16.0}),
 		# 3. Moving-platform crossing: floorless span bridged by sliding slabs.
 		p(0, 8, -620, {"width": 14.0}),
@@ -177,6 +180,13 @@ func build_course() -> void:
 	# --- Wave ramp crest hops + slide fun -----------------------------------
 	for crest: Vector3 in [Vector3(0, 8.6, -1028), Vector3(-4, 8.6, -1070), Vector3(-8, 8.6, -1112)]:
 		add_hint(_offset_near(crest) - 2.0, "jump")
+
+	# Keep AI biased to the inside-right through the berg arc: the left edge
+	# borders the shortcut void and the far-ahead guide yaw tempts a left cut.
+	add_hint(_offset_near(Vector3(34, 10.5, -240)) - 20.0, "danger_left",
+		_offset_near(Vector3(52, 10, -310)) + 10.0)
+	add_hint(_offset_near(Vector3(56, 9.5, -380)), "danger_left",
+		_offset_near(Vector3(24, 8.5, -490)))
 
 	# Shortcut is flat smooth ice: sliding it hard is the whole point. Branch
 	# hints are matched against MAPPED main-line progress, so use entry..exit.

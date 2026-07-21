@@ -21,13 +21,13 @@ static func surface_material(surface: SurfacesDB.Surface) -> StandardMaterial3D:
 			mat.albedo_color = Color(0.99, 0.99, 1.0)
 			mat.roughness = 1.0
 		SurfacesDB.Surface.ICE_SMOOTH:
-			mat.albedo_color = Color(0.62, 0.82, 0.95)
+			mat.albedo_color = Color(0.42, 0.68, 0.94)
 			mat.roughness = 0.08
 			mat.metallic = 0.25
 			mat.rim_enabled = true
 			mat.rim = 0.4
 		SurfacesDB.Surface.ICE_ROUGH:
-			mat.albedo_color = Color(0.7, 0.84, 0.93)
+			mat.albedo_color = Color(0.56, 0.74, 0.9)
 			mat.roughness = 0.45
 		SurfacesDB.Surface.BOOST:
 			mat.albedo_color = Color(1.0, 0.72, 0.2)
@@ -172,7 +172,7 @@ static func _emit_walls(root: Node3D, left: PackedVector3Array, right: PackedVec
 	var instance := MeshInstance3D.new()
 	instance.mesh = mesh
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.75, 0.88, 0.97, 0.75)
+	mat.albedo_color = Color(0.45, 0.65, 0.88, 0.8)
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.roughness = 0.2
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
@@ -204,7 +204,7 @@ static func _emit_skirt(root: Node3D, left: PackedVector3Array, right: PackedVec
 	var instance := MeshInstance3D.new()
 	instance.mesh = st.commit()
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.55, 0.72, 0.88)
+	mat.albedo_color = Color(0.42, 0.6, 0.8)
 	mat.roughness = 0.7
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	instance.material_override = mat

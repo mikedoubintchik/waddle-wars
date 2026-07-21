@@ -291,14 +291,8 @@ func _make_panel(parent: Control) -> PanelContainer:
 
 
 func _add_button(parent: Control, text: String, action: Callable) -> void:
-	var button := Button.new()
-	button.text = text
-	button.custom_minimum_size = Vector2(240, 56)
-	button.add_theme_font_size_override("font_size", 28)
-	button.pressed.connect(func() -> void:
-		AudioManager.ui_click()
-		action.call())
-	button.mouse_entered.connect(AudioManager.ui_hover)
-	button.focus_entered.connect(AudioManager.ui_hover)
+	var button := UITheme.make_button(text, Vector2(240, 56), 26)
+	UITheme.hook_sounds(button)
+	button.pressed.connect(action)
 	parent.add_child(button)
 	_buttons.append(button)

@@ -132,13 +132,13 @@ func build_course() -> void:
 
 	_decorate()
 	build_environment({
-		"sky_top": Color(0.3, 0.6, 0.9),
+		"sky_top": Color(0.18, 0.45, 0.85),
 		"sky_horizon": Color(0.8, 0.92, 1.0),
 		"ground_color": Color(0.85, 0.92, 0.98),
 		"sun_angle_deg": -50.0,
-		"sun_energy": 1.35,
+		"sun_energy": 1.45,
 		"fog_color": Color(0.8, 0.9, 1.0),
-		"fog_density": 0.0035,
+		"fog_density": 0.0018,
 		"snow": true,
 	})
 	add_ground_plane(-24.0, Color(0.88, 0.93, 0.98))
