@@ -9,10 +9,8 @@ var _buttons: Array[Button] = []
 
 
 func _ready() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.08, 0.14, 0.26)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
+	UITheme.make_background(self)
+	UITheme.apply_ui_scale(self)
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
@@ -104,16 +102,10 @@ func _show_difficulty_step() -> void:
 
 
 func _add_option(title: String, desc: String, action: Callable) -> void:
-	var button := Button.new()
-	button.custom_minimum_size = Vector2(560, 64 if desc == "" else 84)
-	button.text = title if desc == "" else "%s\n%s" % [title, desc]
-	button.add_theme_font_size_override("font_size", 26)
-	button.clip_text = false
-	button.pressed.connect(func() -> void:
-		AudioManager.ui_click()
-		action.call())
-	button.mouse_entered.connect(AudioManager.ui_hover)
-	button.focus_entered.connect(AudioManager.ui_hover)
+	var button := UITheme.make_button(title if desc == "" else "%s\n%s" % [title, desc],
+		Vector2(620, 64 if desc == "" else 88), 24)
+	UITheme.hook_sounds(button)
+	button.pressed.connect(action)
 	_content.add_child(button)
 	_buttons.append(button)
 

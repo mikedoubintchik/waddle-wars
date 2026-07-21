@@ -144,7 +144,7 @@ func build_course() -> void:
 	var wind_specs: Array = [
 		{"arc": ridge_arc + 18.0, "dir": 1.0, "strength": 4.0},
 		{"arc": (ridge_mid_arc + ridge_late_arc) * 0.5, "dir": -1.0, "strength": 4.5},
-		{"arc": ridge_end_arc - 16.0, "dir": 1.0, "strength": 4.0},
+		{"arc": ridge_end_arc - 34.0, "dir": 1.0, "strength": 4.0},
 	]
 	for spec: Dictionary in wind_specs:
 		var arc := float(spec["arc"])
@@ -153,10 +153,11 @@ func build_course() -> void:
 		wind.configure(xform.basis.x * float(spec["dir"]), float(spec["strength"]), Vector3(14.0, 8.0, 34.0))
 		wind.transform = Transform3D(xform.basis, xform.origin + xform.basis.y * 3.0)
 		add_child(wind)
-		_add_wind_berms(arc)
 		# Danger side = side the wind pushes you toward; AI biases away.
 		var kind := "danger_right" if float(spec["dir"]) > 0.0 else "danger_left"
 		add_hint(arc - 35.0, kind, arc + 26.0)
+	# One continuous berm channel walls the whole traverse.
+	_add_ridge_berms(ridge_arc - 20.0, cavern_arc + 6.0)
 
 	# --- Icicle cavern: 9 icicles, weaving safe line -----------------------
 	var icicle_laterals: Array = [-4.0, 3.0, -2.0, 4.0, -3.0, 2.0, -4.0, 3.0, -2.0]
@@ -473,37 +474,51 @@ func _decorate() -> void:
 				rng.randf_range(2.0, 6.5), Color(0.55, 0.8, 1.0) if rng.randf() > 0.5 else Color(0.7, 0.5, 1.0))
 
 
-## Thick wind-carved ice berms lining both ridge edges through a wind zone.
-## Built as one continuous extruded strip per side (smooth inner face, ends
-## funneled outward) so the positional push of HazardWindZone can never
-## shove racers off the ridge or wedge them in a corner pocket.
-func _add_wind_berms(center_arc: float) -> void:
+## Thick wind-carved ice berms lining both edges of the whole ridge
+## traverse as one continuous extruded strip per side. The positional push
+## of HazardWindZone tunnels through the thin default track walls, and any
+## segment joints or outward tapers create wedge pockets or exit ramps —
+## so this is a single smooth channel: a collector funnel at the entry, a
+## low inward taper at the cavern end, thick everywhere.
+func _add_ridge_berms(start_arc: float, end_arc: float) -> void:
 	var berm_mat := StandardMaterial3D.new()
 	berm_mat.albedo_color = Color(0.3, 0.42, 0.62)
 	berm_mat.roughness = 0.25
 	berm_mat.rim_enabled = true
 	berm_mat.rim = 0.4
 	berm_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var half := 26.0
 	var step := 4.0
+	var count := int((end_arc - start_arc) / step) + 1
 	for s: float in [-1.0, 1.0]:
 		var st := SurfaceTool.new()
 		st.begin(Mesh.PRIMITIVE_TRIANGLES)
-		var count := int(half * 2.0 / step) + 1
 		var prev_in_b := Vector3.ZERO
 		var prev_in_t := Vector3.ZERO
 		var prev_out_t := Vector3.ZERO
 		for i: int in count:
-			var arc := center_arc - half + float(i) * step
-			var is_end := i == 0 or i == count - 1
-			var lat_in := 7.2 if is_end else 5.7   # funnel the ends outward
-			var height := 0.3 if is_end else 1.5
+			var arc := minf(start_arc + float(i) * step, end_arc)
+			# Profile: entry funnel collects inward; exit sinks low, slightly
+			# outward, always over floor (cavern half-width is 6.5).
+			var lat_in := 5.8
+			var height := 1.7
+			if i == 0:
+				lat_in = 7.5
+				height = 0.2
+			elif i == 1:
+				lat_in = 6.5
+				height = 1.0
+			elif i == count - 1:
+				lat_in = 6.4
+				height = 0.15
+			elif i == count - 2:
+				lat_in = 6.1
+				height = 0.8
 			var xform := main_guide.transform_at(arc)
 			var right := xform.basis.x * s
 			var up := xform.basis.y
 			var in_b := xform.origin + right * lat_in - up * 0.6
 			var in_t := xform.origin + right * lat_in + up * height
-			var out_t := xform.origin + right * 7.6 + up * (height * 0.6)
+			var out_t := xform.origin + right * 7.8 + up * (height * 0.55)
 			if i > 0:
 				_berm_quad(st, prev_in_b, prev_in_t, in_t, in_b)
 				_berm_quad(st, prev_in_t, prev_out_t, out_t, in_t)
