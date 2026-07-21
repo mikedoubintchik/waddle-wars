@@ -26,7 +26,21 @@ func _ready() -> void:
 	_visual = MeshInstance3D.new()
 	_visual.mesh = _get_fish_mesh()
 	_visual.material_override = _get_material()
+	_visual.scale = Vector3.ONE * 1.35
 	add_child(_visual)
+	# Soft glow ring so fish read clearly at race speed.
+	var ring := MeshInstance3D.new()
+	var ring_mesh := TorusMesh.new()
+	ring_mesh.inner_radius = 0.42
+	ring_mesh.outer_radius = 0.5
+	ring.mesh = ring_mesh
+	var ring_mat := StandardMaterial3D.new()
+	ring_mat.albedo_color = Color(0.55, 0.9, 1.0, 0.35)
+	ring_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ring.material_override = ring_mat
+	ring.rotation.x = deg_to_rad(90)
+	_visual.add_child(ring)
 	_base_y = position.y
 	_bob_time = randf() * TAU
 	body_entered.connect(_on_body_entered)
