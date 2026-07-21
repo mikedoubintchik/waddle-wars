@@ -185,7 +185,8 @@ func _select_category(category: String) -> void:
 
 
 func _rebuild_items() -> void:
-	for child in _item_grid.get_children():
+	for child: Node in _item_grid.get_children():
+		_item_grid.remove_child(child)
 		child.queue_free()
 	if _current_category != "body":
 		_item_grid.add_child(_make_none_button())
@@ -218,7 +219,7 @@ func _make_item_button(id: String) -> Button:
 	elif unlocked:
 		status = "Owned"
 	else:
-		status = "%d <> fish" % int(info.get("cost", 0))
+		status = "%d ><> fish" % int(info.get("cost", 0))
 	var text := "%s\n%s" % [String(info.get("name", id)), status]
 	var button := UITheme.make_button(text, Vector2(0, 88), 21)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -249,7 +250,7 @@ func _on_item_pressed(id: String) -> void:
 func _on_cosmetics_changed() -> void:
 	_refresh_preview()
 	var focused_index := -1
-	var focus_owner := get_viewport().gui_get_focus_owner()
+	var focus_owner: Control = get_viewport().gui_get_focus_owner()
 	if focus_owner != null and focus_owner.get_parent() == _item_grid:
 		focused_index = focus_owner.get_index()
 	_rebuild_items()
@@ -267,7 +268,7 @@ func _restore_item_focus(index: int) -> void:
 
 
 func _update_fish_label(total: int) -> void:
-	_fish_label.text = "<> %d fish" % total
+	_fish_label.text = "><>  %d fish" % total
 
 
 func _go_back() -> void:

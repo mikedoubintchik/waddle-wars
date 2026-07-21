@@ -46,10 +46,16 @@ func _ready() -> void:
 	manager.player_finished.connect(func(_racer: Racer) -> void:
 		camera_rig.enter_finish_mode())
 	manager.player.respawned.connect(func(_racer: Racer) -> void:
-		camera_rig.add_shake(0.4))
+		camera_rig.add_shake(0.4)
+		_vibrate(0.3, 0.5, 0.3))
 	manager.player.stunned_changed.connect(func(_racer: Racer, is_stunned: bool) -> void:
 		if is_stunned:
-			camera_rig.add_shake(0.5))
+			camera_rig.add_shake(0.5)
+			_vibrate(0.5, 0.8, 0.4))
+	manager.player.shove_landed.connect(func(_attacker: Racer, _victim: Racer) -> void:
+		_vibrate(0.2, 0.4, 0.15))
+	manager.player_finished.connect(func(_racer: Racer) -> void:
+		_vibrate(0.4, 0.6, 0.5))
 
 	hud = RaceHUD.new()
 	add_child(hud)
@@ -81,6 +87,14 @@ func _ready() -> void:
 
 	var music := String(CoursesDB.get_item(course_id).get("music", "music_race"))
 	AudioManager.play_music(music)
+
+
+## Controller rumble, gated by the vibration setting.
+func _vibrate(weak: float, strong: float, duration: float) -> void:
+	if GameConfig.is_headless() or not bool(SettingsManager.get_setting("gameplay", "vibration")):
+		return
+	for device: int in Input.get_connected_joypads():
+		Input.start_joy_vibration(device, weak, strong, duration)
 
 
 func _instantiate_course_script(path: String) -> CourseBase:

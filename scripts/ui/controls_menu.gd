@@ -158,6 +158,7 @@ func _begin_capture(action: String, family: String) -> void:
 	_capture_label.text = "Press any %s for  %s" % [device, String(ACTION_NAMES.get(action, action))]
 	_capture_overlay.visible = true
 	_capture_overlay.reset_size()
+	_capture_overlay.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	set_process_input(true)
 
 

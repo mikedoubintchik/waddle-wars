@@ -6,6 +6,8 @@ GAME_SPEC.md is the authoritative product specification.
 
 BUILD_STATUS.md records implementation status, test evidence, blockers, and the next highest-priority work. It must reflect reality rather than optimistic claims.
 
+QA_FINDINGS.md contains independently verified defects from a supervisor QA session. Treat OPEN items there as high-priority work: fix them and mark them FIXED with evidence, or rebut them with evidence. Check it every work cycle.
+
 The project is not complete merely because it launches. Completion requires the functionality, content, quality, testing, visual review, documentation, and platform-readiness requirements in GAME_SPEC.md.
 
 ## Primary objective

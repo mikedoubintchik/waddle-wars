@@ -15,8 +15,15 @@ var length: float = 0.0
 func _init(p_curve: Curve3D) -> void:
 	curve = p_curve
 	curve.bake_interval = SAMPLE_SPACING
-	points = curve.get_baked_points()
 	length = curve.get_baked_length()
+	# Godot's baked points are adaptively tessellated (NOT uniformly spaced),
+	# so resample uniformly: index * SAMPLE_SPACING is then a true arc-length
+	# offset, consistent with sample_baked everywhere else.
+	var count := int(length / SAMPLE_SPACING) + 1
+	points = PackedVector3Array()
+	points.resize(count)
+	for i: int in count:
+		points[i] = curve.sample_baked(float(i) * SAMPLE_SPACING)
 
 
 ## Returns {offset, index, distance, position}. hint_index < 0 = global search.
