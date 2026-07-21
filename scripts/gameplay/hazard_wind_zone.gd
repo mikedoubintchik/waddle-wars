@@ -59,7 +59,7 @@ func _ready() -> void:
 		add_child(particles)
 
 
-func _physics_process(delta: float) -> void:
+func _physics_process(_delta: float) -> void:
 	for racer: Racer in _inside:
 		if is_instance_valid(racer) and racer.state != Racer.State.FINISHED:
-			racer.global_position += push_direction * strength * delta
+			racer.apply_wind(push_direction * strength)

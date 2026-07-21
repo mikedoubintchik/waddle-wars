@@ -391,9 +391,19 @@ func _tick_finished(delta: float) -> void:
 	_apply_velocity()
 
 
+## External continuous force (wind). Consumed every physics tick so pushes
+## go through move_and_slide and can never tunnel through colliders.
+var _external_push: Vector3 = Vector3.ZERO
+
+
+func apply_wind(push: Vector3) -> void:
+	_external_push = push
+
+
 func _apply_velocity() -> void:
 	var dir := _yaw_to_dir(_velocity_yaw)
-	velocity = dir * current_speed + Vector3.UP * vertical_velocity
+	velocity = dir * current_speed + Vector3.UP * vertical_velocity + _external_push
+	_external_push = Vector3.ZERO
 	rotation.y = _facing_yaw
 
 
