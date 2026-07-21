@@ -83,10 +83,17 @@ func _ready() -> void:
 	if SettingsManager.touch_controls_enabled():
 		var touch := TouchControls.new()
 		add_child(touch)
-		touch.setup(manager.player.controller as PlayerController)
+		# Player.setup is deferred by RaceManager, so controller is still null here;
+		# defer the wire-up so it runs after the controller exists.
+		_setup_touch_deferred.call_deferred(touch)
 
 	var music := String(CoursesDB.get_item(course_id).get("music", "music_race"))
 	AudioManager.play_music(music)
+
+
+## Runs after RaceManager's deferred player.setup, so the controller exists.
+func _setup_touch_deferred(touch: TouchControls) -> void:
+	touch.setup(manager.player.controller as PlayerController)
 
 
 ## Controller rumble, gated by the vibration setting.

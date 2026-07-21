@@ -169,6 +169,8 @@ func _physics_process(delta: float) -> void:
 		_:
 			_tick_ground_air(delta)
 
+	if controller.item_pressed and state != State.FINISHED and held_item != "":
+		use_held_item()
 	move_and_slide()
 	_check_kill_plane()
 	_update_visual(delta)
