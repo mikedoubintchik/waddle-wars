@@ -67,6 +67,7 @@ fi
 run_case "time_trial ghost" res://tests/race_sim.tscn -- course=glacier tt
 run_case "endless_sim" res://tests/endless_sim.tscn
 run_case "tutorial_sim" res://tests/tutorial_sim.tscn
+run_case "grand_prix_sim" res://tests/gp_sim.tscn
 
 echo ""
 echo "=== SUMMARY ==="

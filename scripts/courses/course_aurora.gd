@@ -143,7 +143,7 @@ func build_course() -> void:
 	# ridge survivable, and the danger hints make the AI pre-compensate.
 	var wind_specs: Array = [
 		{"arc": ridge_arc + 18.0, "dir": 1.0, "strength": 4.0},
-		{"arc": (ridge_mid_arc + ridge_late_arc) * 0.5, "dir": -1.0, "strength": 4.5},
+		{"arc": (ridge_mid_arc + ridge_late_arc) * 0.5, "dir": -1.0, "strength": 4.0},
 		{"arc": ridge_end_arc - 34.0, "dir": 1.0, "strength": 4.0},
 	]
 	for spec: Dictionary in wind_specs:
