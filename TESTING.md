@@ -109,11 +109,30 @@ touch buttons reachable, no horizontal letterboxing artifacts.
 
 ## Last validation results
 
-_To be filled in by the primary agent after each validation run._
-
-- Date/time:
-- Godot version/binary:
-- `run_tests.sh` summary:
-- Headless import/parse check:
-- Manual checks performed:
-- Known issues:
+- **Date/time:** 2026-07-21 03:05 (local)
+- **Godot:** 4.7.1.stable.official.a13da4feb (`/opt/homebrew/bin/godot`)
+- **`run_tests.sh` summary:** ALL PASSED (exit 0) —
+  `unit_tests` (49/49 checks), `menu_load_test`, `race_sim glacier`,
+  `race_sim aurora`, `race_sim iceberg`, `time_trial ghost`, `endless_sim`
+  (deterministic-seed check + storm-end flow), `tutorial_sim`,
+  `grand_prix_sim` (3 rounds, 117 points distributed, standings sorted).
+- **Difficulty coverage:** `race_sim glacier difficulty=chill` PASS,
+  `race_sim aurora difficulty=emperor` PASS (all 8 racers finish at every
+  difficulty tested).
+- **Headless import/parse:** clean — zero script/parse/import errors.
+- **Runtime log audit:** full windowed race run stderr shows no repeated
+  errors (only Godot's benign exit-time ObjectDB note from force-quit).
+- **Exports:** Windows (`waddle-wars-windows.exe`, 115MB), macOS
+  (`waddle-wars-macos.zip`, 65MB), Linux (`waddle-wars-linux.x86_64`, 79MB)
+  all export successfully with 4.7.1 templates; exported macOS app
+  boot-tested headless (exit 0, no errors). Android preset validated but not
+  built (no keystore on this machine); iOS documented in README.
+- **Manual/visual checks:** screenshot review of title, main menu,
+  mode select, customize, achievements, settings, results, pause overlay,
+  countdown, mid-race HUD on all 3 courses + tutorial + endless, at
+  1920×1080 / 1280×720 / 2560×1440 / 2400×1080. Fixed during review:
+  penguin belly geometry, title logo overlap, washed-out palette, unthemed
+  buttons, fish readability, fog density.
+- **Known issues:** gamepad binding labels show raw indices ("Pad 0") in the
+  remap screen; trail cosmetics render in-race but not in the customize
+  preview panel.

@@ -109,6 +109,11 @@ func setup(key: String, name_text: String, player: bool, visual_config: Dictiona
 	visual = PenguinVisual.new()
 	visual.setup(visual_config)
 	add_child(visual)
+	var trail_id := String(visual_config.get("trail", ""))
+	if trail_id != "" and not GameConfig.is_headless():
+		var trail := TrailEffect.create(trail_id)
+		if trail != null:
+			add_child(trail)
 	_facing_yaw = rotation.y
 	_velocity_yaw = rotation.y
 	last_checkpoint_transform = global_transform

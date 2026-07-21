@@ -61,6 +61,7 @@ func _spawn_racers() -> void:
 		"hat": equipped.get("hat", ""),
 		"scarf": equipped.get("scarf", ""),
 		"goggles": equipped.get("goggles", ""),
+		"trail": equipped.get("trail", ""),
 	}
 	if body_info.has("crest_color"):
 		config["crest_color"] = body_info["crest_color"]

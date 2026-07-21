@@ -71,6 +71,9 @@ func _ready() -> void:
 	var monitor := ShotMonitor.new()
 	monitor.out_path = _out_path
 	monitor.wait_time = _wait
+	for arg: String in OS.get_cmdline_user_args():
+		if arg == "pause=1":
+			monitor.open_pause = true
 	get_tree().root.add_child.call_deferred(monitor)
 
 
@@ -79,13 +82,24 @@ class ShotMonitor:
 
 	var out_path: String = ""
 	var wait_time: float = 2.5
+	var open_pause: bool = false
 	var _elapsed: float = 0.0
 	var _done: bool = false
+	var _paused_sent: bool = false
+
+	func _ready() -> void:
+		process_mode = Node.PROCESS_MODE_ALWAYS  # keep capturing while paused
 
 	func _process(delta: float) -> void:
 		if _done:
 			return
 		_elapsed += delta
+		if open_pause and not _paused_sent and _elapsed > wait_time - 1.0:
+			_paused_sent = true
+			var press := InputEventAction.new()
+			press.action = "pause"
+			press.pressed = true
+			Input.parse_input_event(press)
 		if _elapsed < wait_time:
 			return
 		_done = true
