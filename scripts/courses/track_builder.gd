@@ -83,6 +83,7 @@ static func build_ribbon(points: Array, name_hint: String = "Track") -> Node3D:
 	var surfaces: Array[int] = []
 	var walls_l: Array[bool] = []
 	var walls_r: Array[bool] = []
+	var gaps: Array[bool] = []
 	for i: int in sample_count + 1:
 		var offset := minf(float(i) * SAMPLE, guide.length)
 		var ctrl := _control_index_for(control_offsets, offset)
@@ -95,19 +96,22 @@ static func build_ribbon(points: Array, name_hint: String = "Track") -> Node3D:
 		left_pts.append(xform.origin - xform.basis.x * (width * 0.5))
 		right_pts.append(xform.origin + xform.basis.x * (width * 0.5))
 		surfaces.append(int(p.get("surface", SurfacesDB.Surface.PACKED_SNOW)))
-		walls_l.append(bool(p.get("wall_l", true)))
-		walls_r.append(bool(p.get("wall_r", true)))
+		walls_l.append(bool(p.get("wall_l", true)) and not bool(p.get("gap", false)))
+		walls_r.append(bool(p.get("wall_r", true)) and not bool(p.get("gap", false)))
+		gaps.append(bool(p.get("gap", false)))
 
-	# Floor meshes split into runs of identical surface.
+	# Floor meshes split into runs of identical surface; gap runs are skipped
+	# entirely (hazard tiles or jumps bridge them).
 	var run_start := 0
 	for i: int in range(1, surfaces.size() + 1):
-		if i == surfaces.size() or surfaces[i] != surfaces[run_start]:
-			_emit_floor_run(root, left_pts, right_pts, run_start, i, surfaces[run_start] as SurfacesDB.Surface)
+		if i == surfaces.size() or surfaces[i] != surfaces[run_start] or gaps[i] != gaps[run_start]:
+			if not gaps[run_start]:
+				_emit_floor_run(root, left_pts, right_pts, run_start, i, surfaces[run_start] as SurfacesDB.Surface)
 			run_start = i
 	# Walls split into runs of wall-enabled.
 	_emit_walls(root, left_pts, right_pts, walls_l, true)
 	_emit_walls(root, left_pts, right_pts, walls_r, false)
-	_emit_skirt(root, left_pts, right_pts)
+	_emit_skirt(root, left_pts, right_pts, gaps)
 	return root
 
 
@@ -184,12 +188,14 @@ static func _emit_walls(root: Node3D, left: PackedVector3Array, right: PackedVec
 
 
 ## Visual-only side skirts so the track reads as thick ice, not paper.
-static func _emit_skirt(root: Node3D, left: PackedVector3Array, right: PackedVector3Array) -> void:
+static func _emit_skirt(root: Node3D, left: PackedVector3Array, right: PackedVector3Array, gaps: Array[bool] = []) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var drop := Vector3.DOWN * 10.0
 	var out := 2.0
 	for i: int in left.size() - 1:
+		if not gaps.is_empty() and (gaps[i] or gaps[i + 1]):
+			continue
 		var dir_l := (left[i] - right[i]).normalized() * out
 		var dir_l2 := (left[i + 1] - right[i + 1]).normalized() * out
 		_quad(st, left[i], left[i] + dir_l + drop, left[i + 1] + dir_l2 + drop, left[i + 1], 0.0, 1.0)

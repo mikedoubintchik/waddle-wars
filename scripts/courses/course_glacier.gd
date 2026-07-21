@@ -67,8 +67,10 @@ func build_course() -> void:
 	# Cracking-ice shortcut: cuts the safe loop, narrow smooth ice.
 	var branch_pts: Array = [
 		p(0, 23.3, -652, {"width": 10.0, "surface": ICE, "wall_l": false, "wall_r": false}),
-		p(-4, 22, -710, {"width": 7.0, "surface": ICE, "wall_l": false, "wall_r": false}),
-		p(-4, 19, -780, {"width": 7.0, "surface": ICE, "wall_l": false, "wall_r": false}),
+		p(-4, 22, -700, {"width": 8.0, "surface": ICE, "wall_l": false, "wall_r": false}),
+		# The crevasse: no floor, only cracking ice tiles bridge it.
+		p(-4, 21, -724, {"width": 8.0, "gap": true, "wall_l": false, "wall_r": false}),
+		p(-4, 19.5, -790, {"width": 8.0, "surface": ICE, "wall_l": false, "wall_r": false}),
 		p(0, 15.5, -872, {"width": 10.0, "surface": ICE, "wall_l": false, "wall_r": false}),
 	]
 	var shortcut := add_branch(branch_pts, 0.65, "cracking_ice")
@@ -91,6 +93,29 @@ func build_course() -> void:
 	var downhill_offset := _offset_near(Vector3(-10, 8, -1220))
 	TrackBuilder.add_boost_pad(self, main_guide, downhill_offset + 20.0, -3.0)
 	TrackBuilder.add_boost_pad(self, main_guide, downhill_offset + 60.0, 3.0)
+
+	# Rolling snowballs on the wide descending slope: two lanes, offset
+	# timing, plus AI danger hints steering bots toward the safe side.
+	var snowball_slope_start := _offset_near(Vector3(0, 15, -880))
+	var snowball_slope_end := _offset_near(Vector3(-4, 9, -1020))
+	var ball_a := HazardSnowball.new()
+	ball_a.configure(main_guide, snowball_slope_start, snowball_slope_end, -4.5, 15.0)
+	add_child(ball_a)
+	var ball_b := HazardSnowball.new()
+	ball_b.configure(main_guide, snowball_slope_start + 60.0, snowball_slope_end, 4.5, 13.0)
+	add_child(ball_b)
+	add_hint(snowball_slope_start - 30.0, "danger_left", snowball_slope_start + 40.0)
+	add_hint(snowball_slope_start + 40.0, "danger_right", snowball_slope_end)
+
+	# Cracking ice tiles bridge the shortcut's crevasse: speed is safety.
+	var gap_start := float(shortcut.nearest(Vector3(-4, 21, -724), -1)["offset"]) - 6.0
+	var gap_end := float(shortcut.nearest(Vector3(-4, 19.5, -790), -1)["offset"]) + 6.0
+	var tile_offset := gap_start
+	while tile_offset < gap_end:
+		var tile := HazardCrackingIce.new()
+		add_child(tile)
+		tile.global_position = shortcut.point_at(tile_offset, 0.0, -0.25)
+		tile_offset += 5.8
 
 	# Item rows and fish.
 	add_item_row(120.0)

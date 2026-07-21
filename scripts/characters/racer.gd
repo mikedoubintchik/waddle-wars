@@ -469,6 +469,22 @@ func receive_shove(attacker: Racer) -> bool:
 	return true
 
 
+## Comedic stumble away from a world position (seal bumps, soft hazards).
+func receive_shove_from_position(source: Vector3) -> void:
+	if _invuln_timer > 0.0 or state == State.FINISHED:
+		return
+	if _has_shield:
+		break_shield()
+		return
+	_stumble_timer = STUMBLE_TIME
+	var push := (global_position - source).normalized()
+	push.y = 0.0
+	global_position += push * 0.5
+	current_speed *= 0.65
+	if visual != null:
+		visual.trigger_squash(0.78)
+
+
 ## Full stun (snowball hit, major hazard).
 func apply_stun(source: String = "") -> bool:
 	if _invuln_timer > 0.0 or state == State.FINISHED:
