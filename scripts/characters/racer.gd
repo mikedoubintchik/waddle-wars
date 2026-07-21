@@ -74,6 +74,7 @@ var _shield_visual: MeshInstance3D = null
 var _was_on_floor: bool = false
 var _airborne_from_jump: bool = false
 var _slide_particles: GPUParticles3D = null
+var _bubble_particles: GPUParticles3D = null
 var _finish_slowdown: float = 1.0
 var _collision_shape: CollisionShape3D = null
 var _capsule: CapsuleShape3D = null
@@ -147,6 +148,34 @@ func _make_slide_particles() -> void:
 	_slide_particles.emitting = false
 	_slide_particles.position = Vector3(0, 0.1, 0.4)
 	add_child(_slide_particles)
+	# Underwater bubbles while swimming.
+	_bubble_particles = GPUParticles3D.new()
+	var bubble_mat := ParticleProcessMaterial.new()
+	bubble_mat.direction = Vector3.UP
+	bubble_mat.spread = 20.0
+	bubble_mat.initial_velocity_min = 0.8
+	bubble_mat.initial_velocity_max = 1.8
+	bubble_mat.gravity = Vector3(0, 2.5, 0)
+	bubble_mat.scale_min = 0.3
+	bubble_mat.scale_max = 0.8
+	bubble_mat.color = Color(0.8, 0.95, 1.0, 0.7)
+	_bubble_particles.process_material = bubble_mat
+	var bubble := SphereMesh.new()
+	bubble.radius = 0.05
+	bubble.height = 0.1
+	bubble.radial_segments = 6
+	bubble.rings = 4
+	var bubble_draw := StandardMaterial3D.new()
+	bubble_draw.albedo_color = Color(0.85, 0.96, 1.0, 0.55)
+	bubble_draw.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	bubble_draw.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bubble.material = bubble_draw
+	_bubble_particles.draw_pass_1 = bubble
+	_bubble_particles.amount = 16
+	_bubble_particles.lifetime = 0.8
+	_bubble_particles.emitting = false
+	_bubble_particles.position = Vector3(0, 0.4, 0.3)
+	add_child(_bubble_particles)
 
 
 func _physics_process(delta: float) -> void:
@@ -349,6 +378,8 @@ func _tick_swimming(delta: float) -> void:
 		AudioManager.play_sfx_3d("sfx_splash", global_position, randf_range(1.0, 1.15), -4.0)
 	if _water_areas.is_empty():
 		_set_state(State.AIRBORNE)
+	if _bubble_particles != null:
+		_bubble_particles.emitting = global_position.y < _water_surface_y - 0.1
 	_apply_velocity()
 
 
@@ -419,6 +450,8 @@ func _apply_velocity() -> void:
 func _set_state(new_state: State) -> void:
 	if state == new_state or state == State.FINISHED:
 		return
+	if state == State.SWIMMING and _bubble_particles != null:
+		_bubble_particles.emitting = false
 	state = new_state
 	state_changed.emit(new_state)
 

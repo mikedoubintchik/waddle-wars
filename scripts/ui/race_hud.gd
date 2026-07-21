@@ -199,11 +199,51 @@ func set_endless_status(score: int, distance: float, storm_gap: float) -> void:
 		_time_label.add_theme_color_override("font_color", Color(1, 1, 1))
 
 
+## Screen-edge speed lines shown while boosted / at slide top speed.
+var _speed_lines: Control = null
+var _speed_line_items: Array[ColorRect] = []
+
+
+func _ensure_speed_lines() -> void:
+	if _speed_lines != null:
+		return
+	_speed_lines = Control.new()
+	_speed_lines.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_speed_lines.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_speed_lines.modulate.a = 0.0
+	_root.add_child(_speed_lines)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 99
+	for i: int in 14:
+		var line := ColorRect.new()
+		line.color = Color(1, 1, 1, rng.randf_range(0.25, 0.5))
+		var vertical := rng.randf() > 0.5
+		var length := rng.randf_range(80.0, 220.0)
+		line.custom_minimum_size = Vector2(3, length)
+		var edge := rng.randf()
+		line.anchor_left = 0.02 if edge < 0.5 else 0.94
+		line.anchor_top = rng.randf_range(0.05, 0.8)
+		line.anchor_right = line.anchor_left
+		line.anchor_bottom = line.anchor_top
+		line.rotation = deg_to_rad(rng.randf_range(-6.0, 6.0))
+		if not vertical:
+			line.anchor_left = rng.randf_range(0.1, 0.9)
+			line.anchor_top = 0.03 if edge < 0.5 else 0.92
+		_speed_lines.add_child(line)
+		_speed_line_items.append(line)
+
+
 func _process(_delta: float) -> void:
 	if manager == null or player == null or not is_instance_valid(player):
 		return
 	if manager.started and not _endless_mode:
 		_time_label.text = format_time(manager.race_time)
+	# Speed lines fade with extreme speed; respect reduced-flashing setting.
+	_ensure_speed_lines()
+	var reduced := bool(SettingsManager.get_setting("accessibility", "reduced_flashing"))
+	var over_speed := clampf((player.current_speed / Racer.BASE_SPEED - 1.25) * 1.4, 0.0, 1.0)
+	var target_alpha := 0.0 if reduced else over_speed * 0.6
+	_speed_lines.modulate.a = lerpf(_speed_lines.modulate.a, target_alpha, 0.15)
 	_speed_bar.value = clampf(player.current_speed / Racer.SLIDE_MAX_SPEED, 0.0, 1.0)
 	if player.course != null and player.course is CourseBase:
 		var course := player.course as CourseBase
