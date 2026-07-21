@@ -31,6 +31,24 @@ func setup(p_manager: RaceManager, p_player: Racer) -> void:
 	player.item_received.connect(_on_item_received)
 	player.item_used.connect(_on_item_used)
 	player.checkpoint_reached.connect(_on_checkpoint)
+	# Accessibility: visual captions for important audio events.
+	player.stunned_changed.connect(func(_racer: Racer, is_stunned: bool) -> void:
+		if is_stunned:
+			_audio_cue("Bonk!"))
+	player.shove_landed.connect(func(_attacker: Racer, _victim: Racer) -> void:
+		_audio_cue("Shove landed!"))
+	player.respawned.connect(func(_racer: Racer) -> void:
+		_audio_cue("Back on track"))
+
+
+func _audio_cue(text: String) -> void:
+	if not bool(SettingsManager.get_setting("accessibility", "audio_visual_cues")):
+		return
+	_checkpoint_label.text = text
+	_checkpoint_label.modulate = Color(1.0, 0.9, 0.5, 1.0)
+	var tween := create_tween()
+	tween.tween_interval(0.9)
+	tween.tween_property(_checkpoint_label, "modulate:a", 0.0, 0.4)
 
 
 func _build() -> void:

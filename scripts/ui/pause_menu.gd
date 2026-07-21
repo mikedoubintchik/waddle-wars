@@ -10,6 +10,18 @@ var _buttons: Array[Button] = []
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 50
+	Input.joy_connection_changed.connect(_on_joy_connection_changed)
+
+
+func _exit_tree() -> void:
+	if Input.joy_connection_changed.is_connected(_on_joy_connection_changed):
+		Input.joy_connection_changed.disconnect(_on_joy_connection_changed)
+
+
+func _on_joy_connection_changed(_device: int, connected: bool) -> void:
+	if not connected and not _paused and not GameConfig.is_headless() \
+			and bool(SettingsManager.get_setting("accessibility", "pause_on_disconnect")):
+		_open()
 
 
 func _unhandled_input(event: InputEvent) -> void:
