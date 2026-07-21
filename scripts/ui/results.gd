@@ -116,13 +116,81 @@ func _build_gp_standings(parent: Control) -> void:
 		var standings_sorted := standings
 		if not standings_sorted.is_empty():
 			var winner := String(standings_sorted[0]["name"])
-			_title(parent, "🏆 Cup Winner: %s" % winner, 40, Color(1.0, 0.85, 0.25))
+			_title(parent, "Cup Winner: %s!" % winner, 40, Color(1.0, 0.85, 0.25))
+			_build_podium(parent, standings_sorted)
 			var player_place := 1
 			for i: int in standings_sorted.size():
 				if String(standings_sorted[i].get("key", "")) == "player":
 					player_place = i + 1
 			Game.gp_round = CoursesDB.GRAND_PRIX_ORDER.size()  # mark complete
 			Progression.submit_gp_result(Game.difficulty_id, player_place, int(standings_sorted[player_place - 1]["points"]) if player_place <= standings_sorted.size() else 0)
+			AudioManager.play_sfx("sfx_victory")
+
+
+## Cup ceremony: 3D podium with the top three penguins, winner celebrating.
+func _build_podium(parent: Control, standings: Array[Dictionary]) -> void:
+	if GameConfig.is_headless():
+		return
+	var viewport_container := SubViewportContainer.new()
+	viewport_container.custom_minimum_size = Vector2(560, 260)
+	viewport_container.stretch = true
+	var viewport := SubViewport.new()
+	viewport.own_world_3d = true
+	viewport.transparent_bg = true
+	viewport_container.add_child(viewport)
+	parent.add_child(viewport_container)
+
+	var world := Node3D.new()
+	viewport.add_child(world)
+	var camera := Camera3D.new()
+	camera.position = Vector3(0, 1.6, 4.6)
+	camera.rotation_degrees = Vector3(-8, 0, 0)
+	camera.fov = 45.0
+	world.add_child(camera)
+	var light := DirectionalLight3D.new()
+	light.rotation_degrees = Vector3(-45, -30, 0)
+	light.light_energy = 1.4
+	world.add_child(light)
+
+	var heights := [1.0, 0.65, 0.4]
+	var slots := [Vector3(0, 0, 0), Vector3(-1.5, 0, 0.3), Vector3(1.5, 0, 0.3)]
+	var podium_colors := [Color(1.0, 0.85, 0.25), Color(0.8, 0.85, 0.9), Color(0.8, 0.6, 0.4)]
+	var penguins: Array[PenguinVisual] = []
+	for i: int in mini(3, standings.size()):
+		var box := MeshInstance3D.new()
+		var mesh := BoxMesh.new()
+		mesh.size = Vector3(1.2, float(heights[i]), 1.2)
+		box.mesh = mesh
+		box.material_override = PenguinVisual.get_material(podium_colors[i], 0.3, 0.4)
+		box.position = slots[i] + Vector3(0, float(heights[i]) * 0.5, 0)
+		world.add_child(box)
+		var key := String(standings[i].get("key", ""))
+		var penguin := PenguinVisual.new()
+		if key == "player":
+			var body := CosmeticsDB.get_item(Progression.get_equipped("body"))
+			penguin.setup({
+				"body_color": body.get("body_color", Color(0.13, 0.16, 0.22)),
+				"belly_color": body.get("belly_color", Color(0.95, 0.94, 0.9)),
+				"hat": Progression.get_equipped("hat"),
+			})
+		else:
+			var info := PersonalitiesDB.get_item(key)
+			penguin.setup({
+				"body_color": info.get("body_color", Color(0.13, 0.16, 0.22)),
+				"belly_color": info.get("belly_color", Color(0.95, 0.94, 0.9)),
+			})
+		penguin.position = slots[i] + Vector3(0, float(heights[i]), 0)
+		penguin.rotation.y = PI  # penguin forward is -Z; camera sits at +Z
+		penguin.set_pose(PenguinVisual.Pose.CELEBRATE if i == 0 else PenguinVisual.Pose.IDLE)
+		world.add_child(penguin)
+		penguins.append(penguin)
+	var ticker := Timer.new()
+	ticker.wait_time = 1.0 / 30.0
+	ticker.autostart = true
+	ticker.timeout.connect(func() -> void:
+		for penguin: PenguinVisual in penguins:
+			penguin.tick(1.0 / 30.0, 0.5))
+	viewport_container.add_child(ticker)
 
 
 func _build_endless(parent: Control) -> void:

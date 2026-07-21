@@ -27,7 +27,11 @@ func setup_tutorial(p_course: CourseTutorial, p_powerups: PowerupSystem) -> void
 	course.racer_crossed_finish.connect(_on_finish)
 
 	player = Racer.new()
-	var controller := PlayerController.new()
+	var controller: RacerController
+	if RaceManager.autopilot_player:
+		controller = AIController.new()
+	else:
+		controller = PlayerController.new()
 	get_parent().add_child.call_deferred(player)
 	var equipped := Progression.equipped()
 	var body_info := CosmeticsDB.get_item(String(equipped.get("body", "body_classic")))
@@ -63,8 +67,11 @@ func _after_spawn() -> void:
 	var xform := course.start_grid_transform(0)
 	player.global_transform = xform
 	player.last_checkpoint_transform = xform
-	var shove_offset := course.main_guide.nearest(Vector3(0, 13, -450), -1)["offset"]
-	var buddy_xform := course.main_guide.transform_at(float(shove_offset))
+	if RaceManager.autopilot_player and player.controller is AIController:
+		(player.controller as AIController).configure(
+			player, course, PersonalitiesDB.get_item("gus"), DifficultyDB.get_item("competitive"), 99)
+	var shove_offset: float = course.main_guide.nearest(Vector3(0, 13, -450), -1)["offset"]
+	var buddy_xform := course.main_guide.transform_at(shove_offset)
 	buddy.global_transform = Transform3D(buddy_xform.basis, buddy_xform.origin + Vector3.UP * 0.5)
 	buddy.last_checkpoint_transform = buddy.global_transform
 	buddy.speed_scale = 0.0  # stands still until bumped; recovers in place

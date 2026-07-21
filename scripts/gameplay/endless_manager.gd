@@ -5,9 +5,9 @@ extends RaceManager
 ## The run ends when the storm catches the player (or the course somehow
 ## runs out, which grants a completion bonus).
 
-const STORM_START_GAP: float = 90.0
-const STORM_BASE_SPEED: float = 9.0
-const STORM_ACCEL: float = 0.045  # storm speed grows over time
+const STORM_START_GAP: float = 80.0
+const STORM_BASE_SPEED: float = 10.5
+const STORM_ACCEL: float = 0.055  # storm speed grows over time
 
 var hud: RaceHUD = null
 var storm_offset: float = -STORM_START_GAP

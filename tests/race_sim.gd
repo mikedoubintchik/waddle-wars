@@ -10,14 +10,17 @@ var _monitor_added: bool = false
 func _ready() -> void:
 	var course_id := "glacier"
 	var difficulty := "competitive"
+	var time_trial := false
 	for arg: String in OS.get_cmdline_user_args():
 		if arg.begins_with("course="):
 			course_id = arg.trim_prefix("course=")
 		elif arg.begins_with("difficulty="):
 			difficulty = arg.trim_prefix("difficulty=")
-	print("[race_sim] course=%s difficulty=%s" % [course_id, difficulty])
+		elif arg == "tt":
+			time_trial = true
+	print("[race_sim] course=%s difficulty=%s tt=%s" % [course_id, difficulty, str(time_trial)])
 
-	Game.mode = Game.Mode.QUICK_RACE
+	Game.mode = Game.Mode.TIME_TRIAL if time_trial else Game.Mode.QUICK_RACE
 	Game.course_id = course_id
 	Game.difficulty_id = difficulty
 	RaceManager.autopilot_player = true
@@ -79,16 +82,23 @@ class RaceSimMonitor:
 	func _finish() -> void:
 		Engine.time_scale = 1.0
 		var results := Game.last_race_results
+		var expected := 1 if Game.mode == Game.Mode.TIME_TRIAL else 8
 		print("[race_sim] RESULTS (%d rows):" % results.size())
 		var failures: Array[String] = []
 		for row: Dictionary in results:
 			print("  %d. %-8s time=%.1f fish=%d dnf=%s" % [
 				int(row["position"]), String(row["name"]),
-				float(row["time"]), int(row["fish"]), str(bool(row["dnf"]))])
-			if bool(row["dnf"]):
+				float(row["time"]), int(row["fish"]), str(bool(row.get("dnf", false)))])
+			if bool(row.get("dnf", false)):
 				failures.append("%s DNF" % String(row["name"]))
-		if results.size() != 8:
-			failures.append("expected 8 results, got %d" % results.size())
+		if Game.mode == Game.Mode.TIME_TRIAL:
+			var ghost_file := GhostSystem.ghost_path(Game.course_id)
+			if not FileAccess.file_exists(ghost_file):
+				failures.append("no ghost file recorded at %s" % ghost_file)
+			else:
+				print("[race_sim] ghost file present: %s" % ghost_file)
+		if results.size() != expected:
+			failures.append("expected %d results, got %d" % [expected, results.size()])
 		if failures.is_empty():
 			print("[race_sim] PASS course=%s" % course_id)
 			get_tree().quit(0)
