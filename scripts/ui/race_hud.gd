@@ -62,8 +62,8 @@ func _build() -> void:
 	_time_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_time_label.anchor_left = 0.5
 	_time_label.anchor_right = 0.5
-	_time_label.offset_left = -80
-	_time_label.offset_right = 80
+	_time_label.offset_left = -280
+	_time_label.offset_right = 280
 	_time_label.offset_top = 22
 	_time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_time_label.add_theme_font_size_override("font_size", int(34 * hud_scale))
@@ -168,10 +168,23 @@ func _build() -> void:
 	_root.add_child(_center_label)
 
 
+## Endless mode: time label doubles as score/distance/storm readout.
+var _endless_mode: bool = false
+
+
+func set_endless_status(score: int, distance: float, storm_gap: float) -> void:
+	_endless_mode = true
+	_time_label.text = "Score %d   •   %dm   •   Storm %dm" % [score, int(distance), int(storm_gap)]
+	if storm_gap < 25.0:
+		_time_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.4))
+	else:
+		_time_label.add_theme_color_override("font_color", Color(1, 1, 1))
+
+
 func _process(_delta: float) -> void:
 	if manager == null or player == null or not is_instance_valid(player):
 		return
-	if manager.started:
+	if manager.started and not _endless_mode:
 		_time_label.text = format_time(manager.race_time)
 	_speed_bar.value = clampf(player.current_speed / Racer.SLIDE_MAX_SPEED, 0.0, 1.0)
 	if player.course != null and player.course is CourseBase:

@@ -27,6 +27,7 @@ func configure(p_guide: PathGuide, p_start: float, p_end: float, p_lateral: floa
 
 
 func _ready() -> void:
+	add_to_group(&"hazards")
 	_visual = MeshInstance3D.new()
 	var mesh := SphereMesh.new()
 	mesh.radius = radius

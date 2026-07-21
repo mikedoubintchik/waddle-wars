@@ -23,6 +23,7 @@ func configure(p_guide: PathGuide, p_offset: float, p_sweep: float, p_speed: flo
 
 
 func _ready() -> void:
+	add_to_group(&"hazards")
 	_phase = randf() * TAU
 	_body_visual = Node3D.new()
 	add_child(_body_visual)

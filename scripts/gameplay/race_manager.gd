@@ -30,6 +30,7 @@ var _countdown_timer: float = 0.0
 var _position_timer: float = 0.0
 var _finish_countdown: float = -1.0
 var _completed: bool = false
+var _final_music: bool = false
 var _rng := RandomNumberGenerator.new()
 
 
@@ -139,6 +140,11 @@ func _physics_process(delta: float) -> void:
 		_position_timer = 0.25
 		_update_positions()
 		_update_rubberband()
+		# Final-stretch music escalation.
+		if not _final_music and player != null and is_instance_valid(player) \
+				and course.finish_offset > 0.0 and player.progress > course.finish_offset * 0.78:
+			_final_music = true
+			AudioManager.play_music("music_final", 0.8)
 
 	if _finish_countdown > 0.0:
 		_finish_countdown -= delta

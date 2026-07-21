@@ -16,6 +16,7 @@ var _floor_y: float = 0.0
 
 
 func _ready() -> void:
+	add_to_group(&"hazards")
 	_rest_y = position.y
 	_floor_y = position.y - 12.0
 	var space_check := PhysicsRayQueryParameters3D.create(

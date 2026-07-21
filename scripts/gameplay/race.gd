@@ -55,9 +55,22 @@ func _ready() -> void:
 	add_child(hud)
 	hud.setup(manager, manager.player)
 	if Game.mode == Game.Mode.TIME_TRIAL and course.course_id != "":
-		var best := Progression.best_time(course.course_id)
-		if best > 0.0:
-			hud.show_message("Best: %s" % RaceHUD.format_time(best))
+		var ghost := GhostSystem.new()
+		add_child(ghost)
+		ghost.setup(manager.player, course.course_id)
+		manager.race_started.connect(ghost.start_run)
+		manager.player_finished.connect(func(racer: Racer) -> void:
+			ghost.recording = false
+			var best := Progression.best_time(course.course_id)
+			if best <= 0.0 or racer.finish_time < best:
+				ghost.save_recording(racer.finish_time)
+			ghost.stop_run())
+		if ghost.has_ghost():
+			hud.show_message("Ghost: %s" % RaceHUD.format_time(ghost.ghost_total_time()))
+		else:
+			var best := Progression.best_time(course.course_id)
+			if best > 0.0:
+				hud.show_message("Best: %s" % RaceHUD.format_time(best))
 
 	add_child(PauseMenu.new())
 
