@@ -132,6 +132,20 @@ func _refresh_preview() -> void:
 		config["crest_color"] = body_info["crest_color"]
 	_penguin.setup(config)
 	_penguin.set_pose(PenguinVisual.Pose.IDLE)
+	# Preview the equipped trail as gentle ambient particles around the floe.
+	if _preview_trail != null:
+		_preview_trail.queue_free()
+		_preview_trail = null
+	var trail_id := Progression.get_equipped("trail")
+	if trail_id != "":
+		_preview_trail = TrailEffect.create(trail_id)
+		if _preview_trail != null:
+			_preview_trail.position = Vector3(0, 0.3, 0.5)
+			_preview_trail.emitting = true
+			_penguin.add_child(_preview_trail)
+
+
+var _preview_trail: GPUParticles3D = null
 
 
 func _process(delta: float) -> void:

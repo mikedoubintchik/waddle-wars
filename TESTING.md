@@ -134,5 +134,22 @@ touch buttons reachable, no horizontal letterboxing artifacts.
   penguin belly geometry, title logo overlap, washed-out palette, unthemed
   buttons, fish readability, fog density.
 - **Known issues:** gamepad binding labels show raw indices ("Pad 0") in the
-  remap screen; trail cosmetics render in-race but not in the customize
-  preview panel.
+  remap screen. (Trail cosmetics now also render in the customize preview panel
+  as of the 2026-07-24 checkpoint.)
+
+## Supervisor final validation — 2026-07-24 (post-cutoff)
+
+Reset deadline 2026-07-21T06:59:53-04:00 has passed. Fastest meaningful
+validation run on the working tree at final checkpoint:
+
+| Check | Command | Result |
+|-------|---------|--------|
+| Parse/import | `godot --headless --import .` | clean, 0 errors |
+| Race sim (glacier) | `godot --headless tests/race_sim.tscn` | PASS, 8/8 finish |
+| Race sim (aurora) | `... -- course=aurora` | PASS (earlier run) |
+| Race sim (iceberg) | `... -- course=iceberg` | PASS (earlier run) |
+| Power-up activation | instrumented sim | 10 activations, was 0 |
+
+Outstanding defects tracked in QA_FINDINGS.md: 4 FIXED, 14 OPEN. `run_tests.sh`
+full suite exceeded 10 min wall-clock in the supervisor environment — recommend
+a fast-subset flag before relying on it in CI.

@@ -5,7 +5,7 @@ Every finding below was confirmed by reading the code; fix and mark FIXED with e
 
 ## CRITICAL
 
-1. **[OPEN] Power-ups can never be activated — `item_pressed` has no consumer.**
+1. **[FIXED @1636b1e — supervisor-verified: instrumented sim shows 10 activations (snowball/shield/magnet/blizzard), PASS] Power-ups can never be activated — `item_pressed` has no consumer.**
    `scripts/characters/racer.gd` (~line 170 / 547-563). PlayerController and AIController set
    `controller.item_pressed`, but nothing reads it before `consume_edges()` wipes it each tick.
    `use_held_item()` (racer.gd:563) has ZERO callers → `item_used` never fires →
@@ -19,7 +19,7 @@ Every finding below was confirmed by reading the code; fix and mark FIXED with e
        use_held_item()
    ```
 
-1b. **[OPEN — CRITICAL] No item boxes spawn on any course — `add_item_row()` has zero callers.**
+1b. **[FIXED @1636b1e — add_item_row now called in glacier/aurora/iceberg/endless; verified by activation sim] No item boxes spawn on any course — `add_item_row()` has zero callers.**
    `scripts/courses/course_base.gd:434` defines `add_item_row`, but no course script calls it
    (verified by grep across scripts/courses at c8898b1). Even with finding #1 fixed, instrumented
    race_sim shows **0 powerup activations** because no racer can ever hold an item. Both #1 and #1b
@@ -29,7 +29,7 @@ Every finding below was confirmed by reading the code; fix and mark FIXED with e
 
 ## HIGH
 
-2. **[OPEN] TouchControls wired to null controller.** `scripts/gameplay/race.gd:80`.
+2. **[FIXED @1636b1e — race.gd:88 defers wire-up via _setup_touch_deferred; sim PASS] TouchControls wired to null controller.** `scripts/gameplay/race.gd:80`.
    `player.setup` is `call_deferred` (race_manager.gd), but `touch.setup(manager.player.controller)`
    runs synchronously in `_ready` while `controller` is still null. TouchControls stores null forever;
    every JUMP/SLIDE/SHOVE/ITEM tap → "Attempt to call function ... in base 'Nil'"; steer drag is a
@@ -51,7 +51,7 @@ Every finding below was confirmed by reading the code; fix and mark FIXED with e
 
 ## MEDIUM
 
-6. **[OPEN] AI branch hints in wrong coordinate space.** `scripts/ai/ai_controller.gd:138` +
+6. **[FIXED @cefbf0d — builder converted hint space; commit message confirms] AI branch hints in wrong coordinate space.** `scripts/ai/ai_controller.gd:138` +
    `scripts/courses/course_glacier.gd:87`. On-branch `racer.progress` is main-line-mapped (~700-930)
    but hints registered branch-local (10-120); `hints_in_range` can never match; `_slide_zone_until`
    same bug. Shortcut slide hint provably unreachable (only opportunistic ICE_SMOOTH slide saves it).

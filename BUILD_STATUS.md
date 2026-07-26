@@ -63,7 +63,28 @@ Desktop exports built and boot-tested. Screenshot review at 4 resolutions.
 - Music stored as WAV (~13MB); regenerate/convert via tools/generate_audio.py if size matters.
 - Race pace: autopilot finishes ~1.7–3.4 min depending on course/difficulty; human first-timers land in the 2–4 min spec window via hazards/recoveries.
 
+## Supervisor final validation (post-cutoff, 2026-07-24)
+
+Independent supervisor session. Reset deadline (2026-07-21T06:59:53-04:00) has
+passed; builder session ended at its provider token limit after commit 649711c.
+Final state validated on the working tree:
+
+- `godot --headless --import .` → clean, zero parse/script errors.
+- `godot --headless tests/race_sim.tscn` → PASS course=glacier; earlier runs
+  PASS on aurora + iceberg; 8/8 racers finish.
+- Power-ups proven live: instrumented sim showed 10 activations
+  (snowball/shield/magnet/blizzard) — earlier they were dead code.
+- QA_FINDINGS.md: 4 FIXED with evidence (powerup consumer, item-box spawns,
+  touch-controls null wire-up, AI branch-hint space), **14 OPEN** remaining
+  (rubberband granularity, focus-loss pause soft-lock, silent course fallback,
+  uphill slide floor, save-merge typing, per-frame allocs, misc low). The
+  "full acceptance checklist verified complete" claim above is optimistic:
+  treat QA_FINDINGS.md OPEN items as the real remaining work.
+- This checkpoint also lands an uncommitted trail-preview addition to the
+  customize screen (resolves the prior "trails not in customize preview" note).
+
 ## Development history
 
-See git log — 15 checkpoint commits from skeleton → core slice → hazards →
-courses → modes → UI/audio integration → test suite → polish → exports.
+See git log — checkpoint commits from skeleton → core slice → hazards →
+courses → modes → UI/audio integration → test suite → polish → exports →
+supervisor QA + fixes.
