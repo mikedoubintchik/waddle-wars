@@ -158,8 +158,10 @@ func build_course() -> void:
 		"clouds": true,
 		"cloud_color": Color(1.0, 0.96, 0.87, 0.82),
 	})
+	# Sparkle raised so the distant ice sheet reads as sunlit glitter, backing
+	# the additive sun-glint bands placed by _decorate_sun_glint().
 	add_ground_plane(-24.0, Color(0.78, 0.86, 0.97), 4000.0,
-		VisualLibrary.snow_material(Color(0.78, 0.86, 0.97), 0.2))
+		VisualLibrary.snow_material(Color(0.78, 0.86, 0.97), 0.5))
 
 
 ## TrackBuilder ships edge walls as a pale translucent blue and skirts as a
@@ -206,20 +208,27 @@ func _decorate() -> void:
 		density = 0.5
 
 	var crystal_transforms: Array[Transform3D] = []
+	var icicle_transforms: Array[Transform3D] = []
 	_decorate_flags()
-	_decorate_cave(crystal_transforms)
+	_decorate_cave(crystal_transforms, icicle_transforms)
 	_decorate_scatter(density, crystal_transforms)
 	_decorate_snowbanks(density)
 	_decorate_walkways()
 	_decorate_spectators(density)
 	_decorate_mountains()
+	_decorate_cliffs(density)
+	_decorate_crevasse_cracks()
+	_decorate_fog(density)
+	_decorate_sun_glint()
 
-	# One shared multimesh for every ice crystal cluster on the course.
+	# One shared multimesh for every ice crystal cluster on the course, plus a
+	# second for hanging icicles (same mesh flipped in the instance transform).
 	# Cached rock_material is shared — duplicate before tweaking gloss.
 	var crystal_mat := VisualLibrary.rock_material(Color(0.7, 0.87, 1.0)).duplicate() as StandardMaterial3D
 	crystal_mat.roughness = 0.12
 	crystal_mat.metallic = 0.05
 	_add_multimesh(VisualLibrary.ice_crystal_mesh(), crystal_transforms, crystal_mat, "IceCrystals")
+	_add_multimesh(VisualLibrary.ice_crystal_mesh(), icicle_transforms, crystal_mat, "Icicles")
 
 
 func _add_multimesh(mesh: Mesh, transforms: Array[Transform3D], material: Material, name_hint: String) -> void:
@@ -241,6 +250,14 @@ func _add_multimesh(mesh: Mesh, transforms: Array[Transform3D], material: Materi
 func _crystal_transform(pos: Vector3, height: float) -> Transform3D:
 	var crystal_basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(height * 0.7, height, height * 0.7))
 	return Transform3D(crystal_basis, pos)
+
+
+## Hanging icicle: the shared crystal mesh flipped upside-down. pos is the
+## attachment point (underside of a bar / arch); the tip reaches height below.
+func _icicle_transform(pos: Vector3, height: float) -> Transform3D:
+	var icicle_basis := Basis(Vector3.UP, rng.randf() * TAU) * Basis(Vector3.RIGHT, PI) \
+		* Basis.from_scale(Vector3(height * 0.45, height, height * 0.45))
+	return Transform3D(icicle_basis, pos)
 
 
 ## Route flags every ~70m alternating sides: pole multimesh + red/blue pennant
@@ -265,6 +282,29 @@ func _decorate_flags() -> void:
 			blue_transforms.append(flag_transform)
 		side = -side
 		offset += 70.0
+	# Event-energy clusters: dense pennant rows on both sides of the start
+	# plateau and the finish straight (red/blue plus gold accents), so the
+	# bookend moments of the race read as a staged event, not empty snow.
+	var gold_transforms: Array[Transform3D] = []
+	var cluster_offsets: Array[float] = [8.0, 20.0, 32.0, 44.0, 56.0]
+	for i: int in 5:
+		cluster_offsets.append(finish_offset - 10.0 - float(i) * 13.0)
+	for cluster_offset: float in cluster_offsets:
+		var cluster_xform := main_guide.transform_at(cluster_offset)
+		for side_sign: float in [-1.0, 1.0]:
+			var lateral := (10.6 + rng.randf_range(0.0, 1.8)) * side_sign
+			var base := cluster_xform.origin + cluster_xform.basis.x * lateral
+			var yaw := Basis(Vector3.UP, rng.randf() * TAU)
+			pole_transforms.append(Transform3D(yaw, base + Vector3.UP * 1.5))
+			var flag_basis := yaw * Basis(Vector3(0, 0, 1), deg_to_rad(-90.0))
+			var flag_transform := Transform3D(flag_basis, base + Vector3.UP * 2.7 + yaw * Vector3(0.5, 0.0, 0.0))
+			var pick := rng.randi_range(0, 2)
+			if pick == 0:
+				red_transforms.append(flag_transform)
+			elif pick == 1:
+				blue_transforms.append(flag_transform)
+			else:
+				gold_transforms.append(flag_transform)
 	var pole_mesh := CylinderMesh.new()
 	pole_mesh.top_radius = 0.05
 	pole_mesh.bottom_radius = 0.07
@@ -275,20 +315,51 @@ func _decorate_flags() -> void:
 	_add_multimesh(pole_mesh, pole_transforms, TrackBuilder.prop_material(Color(0.5, 0.35, 0.2)), "FlagPoles")
 	_add_multimesh(flag_mesh, red_transforms, TrackBuilder.prop_material(Color(0.92, 0.22, 0.25)), "FlagsRed")
 	_add_multimesh(flag_mesh, blue_transforms, TrackBuilder.prop_material(Color(0.2, 0.45, 0.95)), "FlagsBlue")
+	_add_multimesh(flag_mesh, gold_transforms, TrackBuilder.prop_material(Color(0.98, 0.78, 0.22)), "FlagsGold")
 
 
-## Ice cave slalom: shared fresnel-ice arches + crystal clusters, plus
-## clusters framing the low slide tunnel.
-func _decorate_cave(crystal_transforms: Array[Transform3D]) -> void:
+## Ice cave slalom: a monumental wind-carved natural ice arch gateway at the
+## entrance, smooth high-segment fresnel-ice arches through the slalom,
+## towering crystal monoliths (3-8m — landmark scale, not garden gnomes), and
+## icicle clusters hanging under the arch crown and the low slide bars.
+func _decorate_cave(crystal_transforms: Array[Transform3D], icicle_transforms: Array[Transform3D]) -> void:
 	var cave_start := _offset_near(Vector3(8, 30, -460))
 	var cave_end := _offset_near(Vector3(0, 26, -565))
+
+	# Monumental gateway spanning the track where the slalom begins.
+	var gate_xform := main_guide.transform_at(cave_start - 6.0)
+	var arch_gate := MeshInstance3D.new()
+	arch_gate.name = "IceArchGateway"
+	arch_gate.mesh = _ice_arch_mesh(4242)
+	var gate_mat := VisualLibrary.rock_material(Color(1.0, 1.0, 1.0)).duplicate() as StandardMaterial3D
+	gate_mat.roughness = 0.18
+	gate_mat.rim_enabled = true
+	gate_mat.rim = 0.35
+	arch_gate.material_override = gate_mat
+	arch_gate.transform = Transform3D(gate_xform.basis, gate_xform.origin + Vector3.DOWN * 1.2)
+	add_child(arch_gate)
+	# Icicle fringe under the arch crown (well above racer height).
+	for _i: int in 6:
+		var hang := gate_xform.origin + gate_xform.basis.x * rng.randf_range(-4.5, 4.5) \
+			+ Vector3.UP * rng.randf_range(8.2, 10.2) + gate_xform.basis.z * rng.randf_range(-1.2, 1.2)
+		icicle_transforms.append(_icicle_transform(hang, rng.randf_range(1.3, 2.3)))
+	# Towering monolith crystals flanking the gateway feet.
+	for side_sign: float in [-1.0, 1.0]:
+		crystal_transforms.append(_crystal_transform(
+			gate_xform.origin + gate_xform.basis.x * (11.0 * side_sign) + Vector3.DOWN * 0.5,
+			rng.randf_range(6.0, 9.0)))
+		crystal_transforms.append(_crystal_transform(
+			gate_xform.origin + gate_xform.basis.x * (13.5 * side_sign) - gate_xform.basis.z * 6.0 + Vector3.DOWN * 0.8,
+			rng.randf_range(3.5, 6.0)))
+
+	# Slalom interior: smooth high-segment ice arches (no low-poly banding).
 	var torus := TorusMesh.new()
 	torus.inner_radius = 8.0
 	torus.outer_radius = 10.5
-	torus.rings = 24
-	torus.ring_segments = 10
+	torus.rings = 48
+	torus.ring_segments = 16
 	var arch_mat := VisualLibrary.ice_material(Color(0.28, 0.6, 0.98), 0.8)
-	var cave_offset := cave_start
+	var cave_offset := cave_start + 20.0
 	while cave_offset < cave_end:
 		var xform := main_guide.transform_at(cave_offset)
 		var arch := MeshInstance3D.new()
@@ -299,7 +370,7 @@ func _decorate_cave(crystal_transforms: Array[Transform3D]) -> void:
 		for side_sign: float in [-1.0, 1.0]:
 			crystal_transforms.append(_crystal_transform(
 				xform.origin + xform.basis.x * (8.5 * side_sign) + Vector3.DOWN * 0.5,
-				rng.randf_range(2.0, 5.0)))
+				rng.randf_range(3.5, 8.0)))
 		cave_offset += 22.0
 	var tunnel_offset := _offset_near(Vector3(0, 24.5, -620))
 	for bar_offset: float in [tunnel_offset - 15.0, tunnel_offset + 13.0]:
@@ -307,7 +378,70 @@ func _decorate_cave(crystal_transforms: Array[Transform3D]) -> void:
 		for side_sign: float in [-1.0, 1.0]:
 			crystal_transforms.append(_crystal_transform(
 				xform2.origin + xform2.basis.x * (7.5 * side_sign),
-				rng.randf_range(2.5, 4.5)))
+				rng.randf_range(3.0, 6.0)))
+	# Icicles fringe the undersides of the two slide bars: they whip past
+	# overhead as racers belly-slide through, selling the low clearance.
+	for bar_offset: float in [tunnel_offset - 12.0, tunnel_offset + 10.0]:
+		var bar_xform := main_guide.transform_at(bar_offset)
+		for k: int in 6:
+			var lateral := rng.randf_range(4.0, 7.4) * (1.0 if k % 2 == 0 else -1.0)
+			var hang := bar_xform.origin + bar_xform.basis.x * lateral + bar_xform.basis.y * 1.03
+			icicle_transforms.append(_icicle_transform(hang, rng.randf_range(0.45, 0.85)))
+
+
+## Monumental wind-carved natural ice arch: an elliptical sweep with an
+## irregular 7-gon cross-section, thick flared feet buried below grade,
+## per-face glacial banding (deep blue feet -> pale crown) and snow dusting
+## on up-facing crown faces. Faces are emitted double-sided so the gateway
+## reads correctly from every camera angle. Local X spans the track.
+func _ice_arch_mesh(seed_value: int) -> ArrayMesh:
+	var mrng := RandomNumberGenerator.new()
+	mrng.seed = seed_value
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var segs := 16
+	var sides := 7
+	var half_span := 13.0
+	var rise := 12.0
+	var deep := Color(0.2, 0.44, 0.68)
+	var pale := Color(0.78, 0.9, 1.0)
+	var snow := Color(0.96, 0.98, 1.0)
+	var rings: Array[PackedVector3Array] = []
+	var ring_dirs: Array[Vector3] = []  # in-plane outward direction per ring
+	for s: int in segs + 1:
+		var theta := lerpf(-0.1 * PI, 1.1 * PI, float(s) / float(segs))
+		var center := Vector3(cos(theta) * half_span, sin(theta) * rise, 0.0)
+		var arc := clampf(sin(theta), 0.0, 1.0)
+		var thickness := lerpf(3.3, 1.8, arc) * mrng.randf_range(0.92, 1.08)
+		var depth := lerpf(2.6, 1.6, arc) * mrng.randf_range(0.92, 1.08)
+		var out_dir := Vector3(cos(theta), sin(theta), 0.0)
+		var ring: PackedVector3Array = []
+		for j: int in sides:
+			var phi := TAU * float(j) / float(sides)
+			var wobble := mrng.randf_range(0.85, 1.15)
+			ring.append(center + out_dir * (cos(phi) * thickness * wobble) + Vector3(0.0, 0.0, sin(phi) * depth * wobble))
+		rings.append(ring)
+		ring_dirs.append(out_dir)
+	for s: int in segs:
+		var t_mid := clampf(sin(lerpf(-0.1 * PI, 1.1 * PI, (float(s) + 0.5) / float(segs))), 0.0, 1.0)
+		for j: int in sides:
+			var k := (j + 1) % sides
+			var phi_mid := TAU * (float(j) + 0.5) / float(sides)
+			var shade := mrng.randf_range(0.88, 1.04)
+			var col := deep.lerp(pale, t_mid)
+			col = Color(col.r * shade, col.g * shade, minf(col.b * (shade + 0.03), 1.0))
+			var up_amount := clampf(ring_dirs[s].y * cos(phi_mid), 0.0, 1.0)
+			col = col.lerp(snow, up_amount * t_mid * 0.85)
+			var a := rings[s][j]
+			var b := rings[s][k]
+			var c := rings[s + 1][k]
+			var d := rings[s + 1][j]
+			_ctri(st, a, b, c, col)
+			_ctri(st, a, c, d, col)
+			_ctri(st, a, c, b, col)
+			_ctri(st, a, d, c, col)
+	st.generate_normals()
+	return st.commit()
 
 
 ## Snow-capped rocks (two multimeshes: boulder + cap) and extra crystals
@@ -401,24 +535,255 @@ func _decorate_walkways() -> void:
 
 
 ## Spectator penguins at the start, the finish, and overlooking the
-## cracking-ice shortcut from the safe loop.
+## cracking-ice shortcut from the safe loop. Start/finish crowds are dense
+## (two loose depth rows) so the race bookends feel like a staged event.
 func _decorate_spectators(density: float) -> void:
-	var start_count := maxi(int(10.0 * density), 4)
+	var start_count := maxi(int(16.0 * density), 6)
 	for i: int in start_count:
 		var near_start := main_guide.transform_at(rng.randf_range(10.0, 90.0))
-		var lateral := (11.5 + rng.randf_range(0.0, 4.0)) * (1.0 if i % 2 == 0 else -1.0)
+		var lateral := (11.5 + rng.randf_range(0.0, 6.5)) * (1.0 if i % 2 == 0 else -1.0)
 		TrackBuilder.add_spectator(self, near_start.origin + near_start.basis.x * lateral, near_start.origin, rng)
-	var finish_count := maxi(int(8.0 * density), 4)
+	var finish_count := maxi(int(14.0 * density), 6)
 	for i: int in finish_count:
 		var near_finish := main_guide.transform_at(finish_offset - rng.randf_range(5.0, 70.0))
-		var lateral := (11.5 + rng.randf_range(0.0, 4.0)) * (1.0 if i % 2 == 0 else -1.0)
+		var lateral := (11.5 + rng.randf_range(0.0, 6.5)) * (1.0 if i % 2 == 0 else -1.0)
 		TrackBuilder.add_spectator(self, near_finish.origin + near_finish.basis.x * lateral, near_finish.origin, rng)
 	var overlook := _offset_near(Vector3(38, 21, -740))
-	var overlook_count := maxi(int(6.0 * density), 3)
+	var overlook_count := maxi(int(7.0 * density), 3)
 	for _i: int in overlook_count:
 		var xform := main_guide.transform_at(overlook + rng.randf_range(-25.0, 25.0))
 		var pos := xform.origin - xform.basis.x * (12.0 + rng.randf_range(0.0, 3.0))
 		TrackBuilder.add_spectator(self, pos, xform.origin, rng)
+
+
+## --- Cliffs, crevasse cracks, fog, glint ------------------------------------
+
+## Towering striated ice cliff walls flanking the cave approach, the deep-snow
+## climb, and the final downhill. Three cached mesh variants instanced through
+## MultiMesh; vertex colors bake the striation, blue ice base band, and snow
+## rim, so the whole feature costs three draw calls.
+func _decorate_cliffs(density: float) -> void:
+	var buckets: Array = [[], [], []]
+	var step := 16.0 / maxf(density, 0.5)
+	var cave_start := _offset_near(Vector3(8, 30, -460))
+	_add_cliff_run(buckets, cave_start - 130.0, cave_start - 12.0, -1.0, 17.0, step)
+	_add_cliff_run(buckets, cave_start - 100.0, cave_start - 24.0, 1.0, 20.0, step)
+	var climb := _offset_near(Vector3(8, 14, -1120))
+	_add_cliff_run(buckets, climb - 55.0, climb + 30.0, 1.0, 15.0, step)
+	var downhill := _offset_near(Vector3(-16, 3, -1290))
+	_add_cliff_run(buckets, downhill - 80.0, downhill + 55.0, -1.0, 19.0, step)
+	_add_cliff_run(buckets, downhill - 40.0, downhill + 90.0, 1.0, 16.0, step)
+	var cliff_mat := VisualLibrary.rock_material(Color(1.0, 1.0, 1.0)).duplicate() as StandardMaterial3D
+	cliff_mat.roughness = 0.45
+	for v: int in 3:
+		var typed: Array[Transform3D] = []
+		for t: Transform3D in buckets[v] as Array:
+			typed.append(t)
+		_add_multimesh(_cliff_mesh(7000 + v), typed, cliff_mat, "IceCliffs_%d" % v)
+
+
+## Chains cliff slabs along the guide so runs follow track curvature instead
+## of clipping across it. Each slab faces the track from its side.
+func _add_cliff_run(buckets: Array, start_offset: float, end_offset: float, side: float, base_height: float, step: float) -> void:
+	var offset := start_offset
+	while offset < end_offset:
+		var xform := main_guide.transform_at(offset)
+		var lateral := (18.5 + rng.randf_range(0.0, 3.5)) * side
+		var pos := xform.origin + xform.basis.x * lateral + Vector3.DOWN * 3.5
+		var toward := -xform.basis.x * side
+		var yaw := atan2(toward.x, toward.z)
+		var cliff_basis := Basis(Vector3.UP, yaw + rng.randf_range(-0.08, 0.08)) * Basis.from_scale(Vector3(
+			rng.randf_range(19.0, 25.0),
+			base_height * rng.randf_range(0.85, 1.3),
+			rng.randf_range(4.5, 7.0)))
+		(buckets[rng.randi_range(0, 2)] as Array).append(Transform3D(cliff_basis, pos))
+		offset += step
+
+
+## Unit-scale striated ice cliff slab: x -0.5..0.5, y 0..~1, front toward +Z.
+## Column faces carry vertical striation bands (bright/dark streaks), a deep
+## blue ice band at the base, snow along the top rim; recessed return faces
+## between columns are crevice-dark and double-sided. Deterministic per seed.
+func _cliff_mesh(seed_value: int) -> ArrayMesh:
+	var mrng := RandomNumberGenerator.new()
+	mrng.seed = seed_value
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var cols := 9
+	var wall := Color(0.5, 0.68, 0.88)
+	var ice_deep := Color(0.16, 0.36, 0.6)
+	var snow := Color(0.94, 0.97, 1.0)
+	var prev_z := 0.0
+	var prev_top := 0.0
+	for i: int in cols:
+		var x0 := -0.5 + float(i) / float(cols)
+		var x1 := -0.5 + float(i + 1) / float(cols)
+		var z := mrng.randf_range(0.0, 0.16)
+		var top := mrng.randf_range(0.8, 1.0)
+		var streak := mrng.randf_range(0.55, 1.12)
+		var face := Color(wall.r * streak, wall.g * (0.3 + 0.7 * streak), wall.b * (0.55 + 0.45 * streak))
+		var y_ice := mrng.randf_range(0.14, 0.22)
+		var y_snow := top - mrng.randf_range(0.1, 0.18)
+		# Front striation bands: blue ice base -> streaked wall -> snow rim.
+		_cquad(st, Vector3(x0, 0.0, z), Vector3(x1, 0.0, z), Vector3(x1, y_ice, z), Vector3(x0, y_ice, z), ice_deep)
+		_cquad(st, Vector3(x0, y_ice, z), Vector3(x1, y_ice, z), Vector3(x1, y_snow, z), Vector3(x0, y_snow, z), face)
+		_cquad(st, Vector3(x0, y_snow, z), Vector3(x1, y_snow, z), Vector3(x1, top, z), Vector3(x0, top, z), face.lerp(snow, 0.85))
+		# Snow-capped shelf running back from the rim.
+		_cquad(st, Vector3(x0, top, z), Vector3(x1, top, z), Vector3(x1, top, z - 0.4), Vector3(x0, top, z - 0.4), snow)
+		if i > 0:
+			var crevice := Color(face.r * 0.4, face.g * 0.45, face.b * 0.55)
+			var hi := maxf(top, prev_top)
+			_cquad(st, Vector3(x0, 0.0, prev_z), Vector3(x0, 0.0, z), Vector3(x0, hi, z), Vector3(x0, hi, prev_z), crevice)
+			_cquad(st, Vector3(x0, 0.0, z), Vector3(x0, 0.0, prev_z), Vector3(x0, hi, prev_z), Vector3(x0, hi, z), crevice)
+		prev_z = z
+		prev_top = top
+	st.generate_normals()
+	return st.commit()
+
+
+## Crevasse cracks flush with the ice near the cracking-ice shortcut: dark
+## jagged strips with a cold blue emission tint (below the bloom threshold —
+## a glow tint, not a lightshow), telling the thin-ice story before and after
+## the gap.
+func _decorate_crevasse_cracks() -> void:
+	if branches.is_empty():
+		return
+	var shortcut_guide: PathGuide = branches[0]["guide"]
+	var entry := float(branches[0]["entry"])
+	var transforms: Array[Transform3D] = []
+	# Warning cracks on the main line just before the branch peels off.
+	for i: int in 4:
+		transforms.append(_crack_transform(main_guide, entry - 34.0 + float(i) * 9.0, rng.randf_range(-3.0, 3.0)))
+	# Branch ice before and after the crevasse gap.
+	var gap_start := float(shortcut_guide.nearest(Vector3(-4, 21, -724), -1)["offset"]) - 10.0
+	var gap_end := float(shortcut_guide.nearest(Vector3(-4, 19.5, -790), -1)["offset"]) + 10.0
+	var offset := 10.0
+	while offset < gap_start - 4.0:
+		transforms.append(_crack_transform(shortcut_guide, offset, rng.randf_range(-2.2, 2.2)))
+		offset += 8.0
+	offset = gap_end + 4.0
+	while offset < shortcut_guide.length - 8.0:
+		transforms.append(_crack_transform(shortcut_guide, offset, rng.randf_range(-2.2, 2.2)))
+		offset += 9.0
+	var crack_mat := StandardMaterial3D.new()
+	crack_mat.vertex_color_use_as_albedo = true
+	crack_mat.albedo_color = Color(1.0, 1.0, 1.0)
+	crack_mat.roughness = 0.35
+	crack_mat.emission_enabled = true
+	crack_mat.emission = Color(0.1, 0.32, 0.75)
+	crack_mat.emission_energy_multiplier = 0.4
+	_add_multimesh(_crack_mesh(9090), transforms, crack_mat, "CrevasseCracks")
+
+
+func _crack_transform(guide: PathGuide, offset: float, lateral: float) -> Transform3D:
+	var pos := guide.point_at(offset, lateral, 0.04)
+	var crack_basis := Basis(Vector3.UP, guide.yaw_at(offset) + rng.randf_range(-0.5, 0.5)) \
+		* Basis.from_scale(Vector3(rng.randf_range(1.6, 2.8), 1.0, rng.randf_range(7.0, 13.0)))
+	return Transform3D(crack_basis, pos)
+
+
+## Unit jagged crack strip lying in the XZ plane: runs along Z (-0.5..0.5),
+## tapered ends, zigzag midline. Vertex colors: near-black navy core with
+## lighter fractured-blue segments.
+func _crack_mesh(seed_value: int) -> ArrayMesh:
+	var mrng := RandomNumberGenerator.new()
+	mrng.seed = seed_value
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var segs := 7
+	var core := Color(0.02, 0.07, 0.18)
+	var rim := Color(0.12, 0.3, 0.55)
+	var mid_x: Array[float] = []
+	var half_w: Array[float] = []
+	for i: int in segs + 1:
+		var t := float(i) / float(segs)
+		mid_x.append(mrng.randf_range(-0.07, 0.07) if i > 0 and i < segs else 0.0)
+		half_w.append(0.004 + sin(t * PI) * mrng.randf_range(0.028, 0.05))
+	for i: int in segs:
+		var z0 := -0.5 + float(i) / float(segs)
+		var z1 := -0.5 + float(i + 1) / float(segs)
+		var col := core.lerp(rim, mrng.randf_range(0.0, 0.45))
+		_cquad(st,
+			Vector3(mid_x[i + 1] - half_w[i + 1], 0.0, z1),
+			Vector3(mid_x[i + 1] + half_w[i + 1], 0.0, z1),
+			Vector3(mid_x[i] + half_w[i], 0.0, z0),
+			Vector3(mid_x[i] - half_w[i], 0.0, z0),
+			col)
+	st.generate_normals()
+	return st.commit()
+
+
+## Low drifting ground-fog wisps in the crevasse field, the valley floor and
+## the finish straight: soft unshaded billboards on slow sine drift tweens.
+## Skipped entirely on low particle quality (density 0.5).
+func _decorate_fog(density: float) -> void:
+	if density <= 0.5:
+		return
+	var fog_mat := StandardMaterial3D.new()
+	fog_mat.albedo_color = Color(0.88, 0.94, 1.0, 0.16)
+	fog_mat.albedo_texture = VisualLibrary.soft_radial_texture(64, 0.8)
+	fog_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fog_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	fog_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	var regions: Array[Vector2] = [
+		Vector2(_offset_near(Vector3(22, 23, -690)), _offset_near(Vector3(12, 17, -840))),
+		Vector2(_offset_near(Vector3(-8, 12, -950)), _offset_near(Vector3(-4, 9, -1020))),
+		Vector2(finish_offset - 90.0, finish_offset - 5.0),
+	]
+	var per_region := maxi(int(4.0 * density), 2)
+	for region: Vector2 in regions:
+		for _i: int in per_region:
+			var offset := rng.randf_range(region.x, region.y)
+			var lateral := rng.randf_range(7.0, 18.0) * (1.0 if rng.randf() > 0.5 else -1.0)
+			var pos := main_guide.point_at(offset, lateral, rng.randf_range(0.6, 2.2))
+			var wisp := MeshInstance3D.new()
+			var quad := QuadMesh.new()
+			quad.size = Vector2(rng.randf_range(13.0, 24.0), rng.randf_range(3.5, 6.5))
+			wisp.mesh = quad
+			wisp.material_override = fog_mat
+			wisp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			wisp.position = pos
+			add_child(wisp)
+			var drift := Vector3(rng.randf_range(-6.0, 6.0), rng.randf_range(0.2, 0.7), rng.randf_range(-4.0, 4.0))
+			var dur := rng.randf_range(7.0, 12.0)
+			var tw := wisp.create_tween()
+			tw.set_loops()
+			tw.tween_property(wisp, "position", pos + drift, dur).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+			tw.tween_property(wisp, "position", pos, dur).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+## Sun-glint shimmer bands lying flat on the distant ice sheet: stretched
+## soft additive quads placed toward the sun and beyond the finish vista.
+func _decorate_sun_glint() -> void:
+	var glint_mat := StandardMaterial3D.new()
+	glint_mat.albedo_color = Color(1.0, 0.96, 0.82, 0.55)
+	glint_mat.albedo_texture = VisualLibrary.soft_radial_texture(64, 0.7)
+	glint_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	glint_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glint_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	# Horizontal direction the sunlight arrives from (build_environment yaw -35).
+	var sun_dir := Vector3(-sin(deg_to_rad(35.0)), 0.0, cos(deg_to_rad(35.0)))
+	var placements: Array[Vector3] = [
+		Vector3(0.0, 0.0, -560.0) + sun_dir * 470.0,
+		Vector3(-80.0, 0.0, -1790.0),
+	]
+	for pos: Vector3 in placements:
+		var band := MeshInstance3D.new()
+		var plane := PlaneMesh.new()
+		plane.size = Vector2(rng.randf_range(420.0, 520.0), rng.randf_range(55.0, 80.0))
+		band.mesh = plane
+		band.material_override = glint_mat
+		band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		band.position = Vector3(pos.x, -23.4, pos.z)
+		band.rotation.y = atan2(sun_dir.x, sun_dir.z)
+		add_child(band)
+
+
+## Quad as two front-facing triangles; corners given as (bottom-left,
+## bottom-right, top-right, top-left) from the viewpoint of the visible side.
+static func _cquad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, color: Color) -> void:
+	_ctri(st, a, d, c, color)
+	_ctri(st, a, c, b, color)
 
 
 ## --- Distant mountains ------------------------------------------------------
@@ -460,22 +825,34 @@ func _place_mountain(seed_value: int, center: Vector3, dist_min: float, dist_max
 		return
 
 
-## Unit-scale (about 1m tall) irregular ridged cone, deterministic per seed.
-## Per-face colors: rock with vertical streak variation below the snowline,
-## snow above, blended in a transition band; haze lerps toward horizon blue.
+## Unit-scale (about 1m tall) irregular ridged peak, deterministic per seed.
+## Twelve-sided with four rings for a smooth, craggy silhouette (blockiness
+## is low segment counts). Per-face colors: dark exposed rock with vertical
+## streak variation, a subtle glacial blue ice band at the base, and a sharp
+## snowline into white caps; haze lerps toward horizon blue for the far ring.
 func _mountain_mesh(seed_value: int, haze: float) -> ArrayMesh:
 	var mrng := RandomNumberGenerator.new()
 	mrng.seed = seed_value
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var sides := 8
-	var ring_heights: Array[float] = [0.0, mrng.randf_range(0.38, 0.5), mrng.randf_range(0.68, 0.78)]
-	var ring_radii: Array[float] = [1.0, mrng.randf_range(0.52, 0.66), mrng.randf_range(0.24, 0.34)]
+	var sides := 12
+	var ring_heights: Array[float] = [
+		0.0,
+		mrng.randf_range(0.3, 0.4),
+		mrng.randf_range(0.55, 0.65),
+		mrng.randf_range(0.76, 0.84),
+	]
+	var ring_radii: Array[float] = [
+		1.0,
+		mrng.randf_range(0.64, 0.78),
+		mrng.randf_range(0.4, 0.5),
+		mrng.randf_range(0.2, 0.28),
+	]
 	var column_scale: Array[float] = []
 	var streaks: Array[float] = []
 	for i: int in sides:
 		column_scale.append(mrng.randf_range(0.78, 1.28))
-		streaks.append(mrng.randf_range(0.5, 1.05))
+		streaks.append(mrng.randf_range(0.7, 1.2))
 	var rings: Array[PackedVector3Array] = []
 	for r: int in ring_heights.size():
 		var ring: PackedVector3Array = []
@@ -485,11 +862,12 @@ func _mountain_mesh(seed_value: int, haze: float) -> ArrayMesh:
 			var y := ring_heights[r] + (mrng.randf_range(-0.04, 0.05) if r > 0 else 0.0)
 			ring.append(Vector3(cos(angle) * radius, y, sin(angle) * radius))
 		rings.append(ring)
-	var apex := Vector3(mrng.randf_range(-0.08, 0.08), mrng.randf_range(0.95, 1.1), mrng.randf_range(-0.08, 0.08))
-	var snowline := mrng.randf_range(0.5, 0.6)
-	# Dark base values on purpose: ACES + sky ambient lift vertex colors a lot,
-	# so mid-gray-brown here reads as sunlit rock, not near-white.
-	var rock_base := Color(0.26, 0.24, 0.26).lerp(Color(0.33, 0.26, 0.19), mrng.randf())
+	var apex := Vector3(mrng.randf_range(-0.06, 0.06), mrng.randf_range(0.97, 1.1), mrng.randf_range(-0.06, 0.06))
+	var snowline := mrng.randf_range(0.48, 0.62)
+	# Very dark base values on purpose: ACES + strong sky ambient lift vertex
+	# colors roughly two stops, so 0.12-0.2 here reads as sunlit alpine rock
+	# with real presence instead of washed-out near-white.
+	var rock_base := Color(0.13, 0.125, 0.14).lerp(Color(0.2, 0.155, 0.11), mrng.randf())
 	for r: int in ring_heights.size() - 1:
 		for i: int in sides:
 			var j := (i + 1) % sides
@@ -510,15 +888,22 @@ func _mountain_mesh(seed_value: int, haze: float) -> ArrayMesh:
 
 
 func _mountain_face_color(height: float, snowline: float, rock_base: Color, streak: float, haze: float) -> Color:
-	var rock := Color(rock_base.r * streak, rock_base.g * streak, rock_base.b * streak)
+	# Blue channel decays slower than red/green so shadowed streaks cool off.
+	var rock := Color(rock_base.r * streak, rock_base.g * streak, rock_base.b * (0.6 + 0.4 * streak))
 	var snow := Color(0.95, 0.97, 1.0)
 	var col: Color
-	if height > snowline + 0.05:
+	if height > snowline + 0.02:
 		col = snow
-	elif height > snowline - 0.1:
-		col = rock.lerp(snow, (height - (snowline - 0.1)) / 0.15)
+	elif height > snowline - 0.03:
+		# Sharp snowline: a crisp 5%-of-height transition band, not a smear.
+		col = rock.lerp(snow, (height - (snowline - 0.03)) / 0.05)
 	else:
 		col = rock
+	# Subtle glacial blue ice band where the peak meets the snowfield. Faces
+	# carry the average height of their corners (bottom band ~0.15-0.2), so
+	# the 0.28 threshold tints the whole base ring, fading with altitude.
+	if height < 0.28:
+		col = col.lerp(Color(0.22, 0.4, 0.6), (1.0 - height / 0.28) * 0.5)
 	return col.lerp(Color(0.6, 0.77, 0.96), haze)
 
 

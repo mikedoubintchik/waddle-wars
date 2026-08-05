@@ -15,13 +15,40 @@ const SPARKLE_SHADER: Shader = preload("res://assets/shaders/sparkle_pickup.gdsh
 static var _materials: Dictionary = {}
 static var _meshes: Dictionary = {}
 static var _textures: Dictionary = {}
+static var _detail_level_cache: float = -1.0
+
+
+## Shader micro-detail level derived from the display quality preset, read
+## once per session: low = 0.0, medium = 0.5, high = 1.0. Headless runs get
+## 0.0 (nothing renders; keeps compiled variants cheapest). Shaders skip all
+## detail additions entirely when this is 0.
+static func shader_detail_level() -> float:
+	if _detail_level_cache >= 0.0:
+		return _detail_level_cache
+	if GameConfig.is_headless():
+		_detail_level_cache = 0.0
+		return _detail_level_cache
+	match String(SettingsManager.get_setting("display", "quality_preset")):
+		"low":
+			_detail_level_cache = 0.0
+		"medium":
+			_detail_level_cache = 0.5
+		_:
+			_detail_level_cache = 1.0
+	return _detail_level_cache
+
+
+static func _resolve_detail(detail: float) -> float:
+	return detail if detail >= 0.0 else shader_detail_level()
 
 
 ## --- Shader materials --------------------------------------------------------
 
 ## Snow with procedural detail + view-dependent sparkle. sparkle 0..~1.
-static func snow_material(tint: Color, sparkle: float = 0.55) -> ShaderMaterial:
-	var key := "snow_%s_%.2f" % [tint.to_html(false), sparkle]
+## detail < 0 (default) = auto from the quality preset; 0..1 forces a level.
+static func snow_material(tint: Color, sparkle: float = 0.55, detail: float = -1.0) -> ShaderMaterial:
+	var d := _resolve_detail(detail)
+	var key := "snow_%s_%.2f_%.2f" % [tint.to_html(false), sparkle, d]
 	if _materials.has(key):
 		return _materials[key]
 	var mat := ShaderMaterial.new()
@@ -29,13 +56,16 @@ static func snow_material(tint: Color, sparkle: float = 0.55) -> ShaderMaterial:
 	mat.set_shader_parameter("tint", tint)
 	mat.set_shader_parameter("shadow_tint", Color(tint.r * 0.82, tint.g * 0.88, tint.b * 1.0))
 	mat.set_shader_parameter("sparkle_strength", sparkle)
+	mat.set_shader_parameter("detail_level", d)
 	_materials[key] = mat
 	return mat
 
 
 ## Ice with fresnel rim + fake interior depth. clarity 0..1 (1 = clear/deep).
-static func ice_material(tint: Color, clarity: float = 0.7) -> ShaderMaterial:
-	var key := "ice_%s_%.2f" % [tint.to_html(false), clarity]
+## detail < 0 (default) = auto from the quality preset; 0..1 forces a level.
+static func ice_material(tint: Color, clarity: float = 0.7, detail: float = -1.0) -> ShaderMaterial:
+	var d := _resolve_detail(detail)
+	var key := "ice_%s_%.2f_%.2f" % [tint.to_html(false), clarity, d]
 	if _materials.has(key):
 		return _materials[key]
 	var mat := ShaderMaterial.new()
@@ -44,6 +74,7 @@ static func ice_material(tint: Color, clarity: float = 0.7) -> ShaderMaterial:
 	mat.set_shader_parameter("deep_tint", Color(tint.r * 0.25, tint.g * 0.45, tint.b * 0.62))
 	mat.set_shader_parameter("clarity", clarity)
 	mat.set_shader_parameter("roughness_base", lerpf(0.4, 0.06, clarity))
+	mat.set_shader_parameter("detail_level", d)
 	_materials[key] = mat
 	return mat
 
@@ -51,8 +82,10 @@ static func ice_material(tint: Color, clarity: float = 0.7) -> ShaderMaterial:
 ## Animated water. Foam: paint mesh vertex COLOR.r toward 0.0 near shores
 ## (meshes without vertex colors get crest foam only). Track channels suit the
 ## defaults; for huge ocean planes pass a lower wave_scale (e.g. 0.06).
-static func water_material(deep: Color, shallow: Color, wave_height: float = 0.18, wave_scale: float = 0.35) -> ShaderMaterial:
-	var key := "water_%s_%s_%.2f_%.3f" % [deep.to_html(false), shallow.to_html(false), wave_height, wave_scale]
+## detail < 0 (default) = auto from the quality preset; 0..1 forces a level.
+static func water_material(deep: Color, shallow: Color, wave_height: float = 0.18, wave_scale: float = 0.35, detail: float = -1.0) -> ShaderMaterial:
+	var d := _resolve_detail(detail)
+	var key := "water_%s_%s_%.2f_%.3f_%.2f" % [deep.to_html(false), shallow.to_html(false), wave_height, wave_scale, d]
 	if _materials.has(key):
 		return _materials[key]
 	var mat := ShaderMaterial.new()
@@ -61,17 +94,21 @@ static func water_material(deep: Color, shallow: Color, wave_height: float = 0.1
 	mat.set_shader_parameter("shallow_color", shallow)
 	mat.set_shader_parameter("wave_height", wave_height)
 	mat.set_shader_parameter("wave_scale", wave_scale)
+	mat.set_shader_parameter("detail_level", d)
 	_materials[key] = mat
 	return mat
 
 
 ## Additive scrolling aurora curtain for ribbon/plane meshes.
-static func aurora_material() -> ShaderMaterial:
-	var key := "aurora"
+## detail < 0 (default) = auto from the quality preset; 0..1 forces a level.
+static func aurora_material(detail: float = -1.0) -> ShaderMaterial:
+	var d := _resolve_detail(detail)
+	var key := "aurora_%.2f" % d
 	if _materials.has(key):
 		return _materials[key]
 	var mat := ShaderMaterial.new()
 	mat.shader = AURORA_SHADER
+	mat.set_shader_parameter("detail_level", d)
 	_materials[key] = mat
 	return mat
 

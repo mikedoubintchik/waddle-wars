@@ -2,6 +2,17 @@ extends Control
 ## Main menu: themed button stack with staggered entrance animation, a live
 ## penguin diorama panel, and a fish/level chip.
 
+## Same drawn fish glyph as the race HUD and customize menu currency counters
+## (race_hud.gd / customize_menu.gd) so the icon is consistent across screens.
+const FISH_ICON_SVG := """<svg xmlns="http://www.w3.org/2000/svg" width="60" height="40" viewBox="0 0 60 40">
+<path d="M3 20 L19 8 L19 32 Z" fill="#6fc0ee"/>
+<ellipse cx="34" cy="21" rx="21" ry="12" fill="#8fd8f8"/>
+<path d="M26 11 Q35 3 44 11 Q35 15 26 11 Z" fill="#5fb0e2"/>
+<path d="M20 21 Q34 31 50 22 Q34 27 20 21 Z" fill="#5fb0e2" opacity="0.7"/>
+<circle cx="45" cy="17" r="3.2" fill="#0e2036"/>
+<circle cx="46.2" cy="15.8" r="1.1" fill="#ffffff"/>
+</svg>"""
+
 var _buttons: Array[Button] = []
 var _penguin: PenguinVisual
 var _fish_label: Label
@@ -29,6 +40,7 @@ func _ready() -> void:
 	var title := UITheme.heading(GameConfig.GAME_NAME, 62)
 	title.add_theme_color_override("font_color", Color(0.97, 0.99, 1.0))
 	vbox.add_child(title)
+	vbox.add_child(UITheme.accent_rule(300.0))
 	var tagline := UITheme.sub_label("Slide. Shove. Snack. Repeat.", 20)
 	tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(tagline)
@@ -153,11 +165,33 @@ func _build_status_chip() -> void:
 	row.add_theme_constant_override("separation", 18)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	chip.add_child(row)
+	var fish_box := HBoxContainer.new()
+	fish_box.add_theme_constant_override("separation", 8)
+	row.add_child(fish_box)
+	var fish_tex := _make_fish_texture()
+	if fish_tex != null:
+		var fish_icon := TextureRect.new()
+		fish_icon.texture = fish_tex
+		fish_icon.custom_minimum_size = Vector2(36, 24)
+		fish_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fish_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		fish_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		fish_box.add_child(fish_icon)
+	else:
+		# SVG module unavailable: fall back to a glyph so the counter
+		# still reads correctly.
+		var fish_glyph := Label.new()
+		fish_glyph.text = "><>"
+		fish_glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		fish_glyph.add_theme_font_size_override("font_size", 22)
+		fish_glyph.add_theme_color_override("font_color", Color(0.55, 0.85, 0.95))
+		fish_box.add_child(fish_glyph)
 	_fish_label = Label.new()
 	_fish_label.add_theme_font_size_override("font_size", 22)
 	_fish_label.add_theme_color_override("font_color", UITheme.COLOR_GOLD)
-	_fish_label.text = "><> %d" % Progression.get_fish()
-	row.add_child(_fish_label)
+	_fish_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_fish_label.text = "%d" % Progression.get_fish()
+	fish_box.add_child(_fish_label)
 	var level_label := Label.new()
 	level_label.add_theme_font_size_override("font_size", 22)
 	level_label.add_theme_color_override("font_color", UITheme.COLOR_ACCENT)
@@ -167,7 +201,14 @@ func _build_status_chip() -> void:
 
 
 func _on_fish_changed(total: int) -> void:
-	_fish_label.text = "><> %d" % total
+	_fish_label.text = "%d" % total
+
+
+static func _make_fish_texture() -> ImageTexture:
+	var img := Image.new()
+	if img.load_svg_from_string(FISH_ICON_SVG, 2.0) != OK:
+		return null
+	return ImageTexture.create_from_image(img)
 
 
 func _play_entrance() -> void:

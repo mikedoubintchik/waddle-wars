@@ -2,14 +2,15 @@ extends Control
 ## Post-race results: standings, rewards, Grand Prix standings between
 ## rounds, cup ceremony after the final round, records for TT / Endless.
 
+const MEDAL_COLORS: Array[String] = ["#f5c542", "#c9d2dc", "#cd8f5a"]
+const MEDAL_RIMS: Array[String] = ["#c98f1b", "#8d99a6", "#96683f"]
+
 var _buttons: Array[Button] = []
 
 
 func _ready() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.07, 0.13, 0.24)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
+	UITheme.make_background(self)
+	_add_celebration_glow()
 
 	var scroll := ScrollContainer.new()
 	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -42,12 +43,77 @@ func _ready() -> void:
 		_buttons[0].grab_focus()
 
 
-func _title(parent: Control, text: String, size: int = 56, color: Color = Color(0.95, 0.97, 1.0)) -> void:
+## Warm radial glow behind the headline area; brighter gold when the player
+## podiumed so the screen reads celebratory at a glance.
+func _add_celebration_glow() -> void:
+	var podium := false
+	for row: Dictionary in Game.last_race_results:
+		if bool(row.get("is_player", false)) and int(row.get("position", 8)) <= 3:
+			podium = true
+	var grad := Gradient.new()
+	var core := Color(0.96, 0.78, 0.28, 0.22) if podium else Color(0.5, 0.75, 0.95, 0.13)
+	grad.colors = PackedColorArray([core, Color(core.r, core.g, core.b, 0.0)])
+	grad.offsets = PackedFloat32Array([0.0, 1.0])
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.18)
+	tex.fill_to = Vector2(0.5, 0.75)
+	var glow := TextureRect.new()
+	glow.texture = tex
+	glow.stretch_mode = TextureRect.STRETCH_SCALE
+	glow.set_anchors_preset(Control.PRESET_FULL_RECT)
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(glow)
+
+
+## Circular medal glyph with ribbon for podium positions (0-indexed place).
+## Place is shown as pip dots (SVG <text> is unsupported by the rasterizer).
+static func _medal_svg(place: int) -> String:
+	var fill := MEDAL_COLORS[place]
+	var rim := MEDAL_RIMS[place]
+	var pips := ""
+	var count := place + 1
+	for i: int in count:
+		var x := 18.0 + (float(i) - float(count - 1) * 0.5) * 7.0
+		pips += "<circle cx=\"%.1f\" cy=\"30\" r=\"2.6\" fill=\"%s\"/>" % [x, rim]
+	return """<svg xmlns="http://www.w3.org/2000/svg" width="36" height="48" viewBox="0 0 36 48">
+<path d="M10 2 L18 16 L26 2 L20 2 L18 6 L16 2 Z" fill="#5a7ba6"/>
+<path d="M10 2 L14 2 L20 13 L16 16 Z" fill="#48648a"/>
+<circle cx="18" cy="30" r="14" fill="%s" stroke="%s" stroke-width="2.5"/>
+<circle cx="18" cy="30" r="9.5" fill="none" stroke="%s" stroke-width="1.5" opacity="0.55"/>
+%s
+</svg>""" % [fill, rim, rim, pips]
+
+
+## Position cell: medal icon for top three, plain number otherwise.
+static func _position_cell(place_number: int) -> Control:
+	if place_number >= 1 and place_number <= 3:
+		var texture := UITheme.make_icon(_medal_svg(place_number - 1), 1.0)
+		if texture != null:
+			var icon := TextureRect.new()
+			icon.texture = texture
+			icon.custom_minimum_size = Vector2(36, 48)
+			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			return icon
 	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", size)
+	label.text = "%d." % place_number
+	label.add_theme_font_size_override("font_size", 24)
+	label.add_theme_color_override("font_color", Color(0.9, 0.94, 1.0))
+	return label
+
+
+func _title(parent: Control, text: String, size: int = 56, color: Color = Color(0.95, 0.97, 1.0)) -> void:
+	var label: Label
+	if size >= 40:
+		label = UITheme.heading(text, size)
+	else:
+		label = Label.new()
+		label.text = text
+		label.add_theme_font_size_override("font_size", size)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_color_override("font_color", color)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	parent.add_child(label)
 
 
@@ -80,8 +146,8 @@ func _build_race_results(parent: Control) -> void:
 	for row: Dictionary in Game.last_race_results:
 		var is_player := bool(row.get("is_player", false))
 		var color := Color(1.0, 0.9, 0.4) if is_player else Color(0.9, 0.94, 1.0)
+		grid.add_child(_position_cell(int(row.get("position", 0))))
 		var cells := [
-			"%d." % int(row.get("position", 0)),
 			String(row.get("name", "?")),
 			"DNF" if bool(row.get("dnf", false)) else RaceHUD.format_time(float(row.get("time", 0.0))),
 			str(int(row.get("fish", 0))),
@@ -91,6 +157,7 @@ func _build_race_results(parent: Control) -> void:
 			cell_label.text = cell
 			cell_label.add_theme_font_size_override("font_size", 24)
 			cell_label.add_theme_color_override("font_color", color)
+			cell_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			grid.add_child(cell_label)
 
 
@@ -106,11 +173,13 @@ func _build_gp_standings(parent: Control) -> void:
 		var row: Dictionary = standings[i]
 		var is_player := String(row.get("key", "")) == "player"
 		var color := Color(1.0, 0.9, 0.4) if is_player else Color(0.9, 0.94, 1.0)
-		for cell: String in ["%d." % (i + 1), String(row["name"]), "%d pts" % int(row["points"])]:
+		grid.add_child(_position_cell(i + 1))
+		for cell: String in [String(row["name"]), "%d pts" % int(row["points"])]:
 			var label := Label.new()
 			label.text = cell
 			label.add_theme_font_size_override("font_size", 24)
 			label.add_theme_color_override("font_color", color)
+			label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			grid.add_child(label)
 	if Game.is_final_gp_round():
 		var standings_sorted := standings
@@ -278,13 +347,11 @@ func _build_buttons(parent: Control) -> void:
 
 func _make_panel(parent: Control) -> PanelContainer:
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.17, 0.3, 0.85)
-	style.set_corner_radius_all(14)
-	style.content_margin_left = 30
-	style.content_margin_right = 30
-	style.content_margin_top = 18
-	style.content_margin_bottom = 18
+	var style := UITheme.make_panel_style(Color(0.075, 0.129, 0.220, 0.92))
+	style.content_margin_left = 32.0
+	style.content_margin_right = 32.0
+	style.content_margin_top = 20.0
+	style.content_margin_bottom = 20.0
 	panel.add_theme_stylebox_override("panel", style)
 	parent.add_child(panel)
 	return panel

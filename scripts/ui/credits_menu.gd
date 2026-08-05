@@ -23,6 +23,7 @@ func _ready() -> void:
 	var logo := UITheme.heading(GameConfig.GAME_NAME.to_upper(), 64)
 	logo.add_theme_color_override("font_color", UITheme.COLOR_ACCENT)
 	_content.add_child(logo)
+	_content.add_child(UITheme.accent_rule(320.0, UITheme.COLOR_GOLD))
 
 	var studio := UITheme.heading("a %s production" % GameConfig.STUDIO_NAME, 26)
 	studio.add_theme_color_override("font_color", UITheme.COLOR_GOLD)

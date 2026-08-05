@@ -24,15 +24,29 @@ const CHANNEL_SHALLOW: Color = Color(0.5, 0.84, 0.8)
 ## Track tints cooled toward white-blue: under the warm sunrise light the
 ## default snow/ice tints tone-mapped to low-contrast lilac-pink against the
 ## water. Cool albedo balances the warm sun so racers and fish pop.
-const TRACK_SNOW_TINT: Color = Color(0.82, 0.9, 1.0)
+## Screenshot review round 2: 0.82/0.9 still tone-mapped lilac under the low
+## warm sun, so the snow floor is nudged brighter/whiter (blue bias kept
+## subtle so the sunrise mood survives).
+const TRACK_SNOW_TINT: Color = Color(0.92, 0.96, 1.0)
 const TRACK_ICE_TINT: Color = Color(0.4, 0.72, 1.0)
 const TRACK_RICE_TINT: Color = Color(0.5, 0.74, 0.96)
 ## Azure ice for the big horizon bergs — must read as ICE, not rock, even
 ## under the warm sun.
 const HORIZON_BERG_TINT: Color = Color(0.62, 0.8, 0.96)
+## Yaw of the sunrise sun (must match the build_environment sun_yaw_deg).
+## Horizontal direction TO the sun is (sin, 0, cos) of this yaw; the glint
+## corridor, hero-berg backlight placement and warm rim tints all key off it.
+const SUN_YAW_DEG: float = 40.0
+## Warm rim color for sun-facing ice edges (hero bergs) and the glint band.
+const SUN_WARM_RIM: Color = Color(1.0, 0.8, 0.56)
 
 var _bobbers: Array[Dictionary] = []  # {node, base_y, phase, amp, speed}
 var _bob_time: float = 0.0
+var _buoy_lamps: Array[Dictionary] = []  # {mat, phase, period, lit} blinking tops
+var _spinners: Array[Dictionary] = []  # {node, speed} slow yaw (seabird flocks)
+var _drift_foam: MeshInstance3D = null  # near-track foam patches, drift in _process
+var _drift_origin: Vector3 = Vector3.ZERO
+var _hero_centers: Array[Vector3] = []  # sculpted hero-berg spots (seabird anchors)
 var _water_lines: Array[Array] = []  # swim channel point arrays, kept for edge foam
 var _foam_st: SurfaceTool = null  # batches every foam quad into one mesh/draw call
 ## Prefix arclength per guide sample point. PathGuide.nearest() reports offsets
@@ -263,7 +277,7 @@ func build_course() -> void:
 		# purple, which tinted the whole track lilac from below.
 		"ground_color": Color(0.12, 0.24, 0.34),
 		"sun_angle_deg": -13.0,
-		"sun_yaw_deg": 40.0,
+		"sun_yaw_deg": SUN_YAW_DEG,
 		"sun_color": Color(1.0, 0.76, 0.52),
 		"sun_energy": 1.25,
 		"sun_angle_max": 30.0,
@@ -328,12 +342,26 @@ func _index_offset_of_arc(arc_offset: float) -> float:
 
 
 func _process(delta: float) -> void:
-	if _bobbers.is_empty():
+	if _bobbers.is_empty() and _spinners.is_empty() and _buoy_lamps.is_empty() and _drift_foam == null:
 		return
 	_bob_time += delta
 	for b: Dictionary in _bobbers:
 		var node := b["node"] as Node3D
 		node.position.y = float(b["base_y"]) + sin(_bob_time * float(b["speed"]) + float(b["phase"])) * float(b["amp"])
+	for s: Dictionary in _spinners:
+		(s["node"] as Node3D).rotation.y += float(s["speed"]) * delta
+	# Buoy lamps blink like real navigation lights: hard on/off on a per-buoy
+	# period. Material writes only on state flips (cheap; 8 mats, ~1 flip/s).
+	for l: Dictionary in _buoy_lamps:
+		var lit := fmod(_bob_time + float(l["phase"]), float(l["period"])) < 0.5
+		if lit != bool(l["lit"]):
+			l["lit"] = lit
+			(l["mat"] as StandardMaterial3D).emission_energy_multiplier = 3.4 if lit else 0.3
+	# The whole near-track foam-patch sheet drifts slowly relative to the swell
+	# so surface water reads as moving even between wave crests.
+	if _drift_foam != null:
+		_drift_foam.position = _drift_origin + Vector3(
+			sin(_bob_time * 0.045) * 3.5, 0.0, cos(_bob_time * 0.06) * 2.5)
 
 
 ## --- Scenery ----------------------------------------------------------------
@@ -395,7 +423,7 @@ func _decorate() -> void:
 		if not headless:
 			for k: int in 3:
 				var bang := TAU * float(k) / 3.0 + rng.randf()
-				_foam_quad(Vector3(bpos.x + cos(bang) * 1.3, OCEAN_Y + 0.5, bpos.z + sin(bang) * 1.3),
+				_foam_quad(Vector3(bpos.x + cos(bang) * 1.3, OCEAN_Y + 0.68, bpos.z + sin(bang) * 1.3),
 					rng.randf_range(1.0, 1.6))
 
 	# Distant whale silhouettes, slowly rising and sinking.
@@ -405,11 +433,12 @@ func _decorate() -> void:
 		var lat3 := rng.randf_range(150.0, 240.0) * (1.0 if i % 2 == 0 else -1.0)
 		_add_whale(xf3.origin + xf3.basis.x * lat3, rng.randf() * TAU)
 
-	# Snow-covered research boats far off in the bay.
+	# Snow-covered research boats anchored mid-distance in the bay — near
+	# enough that the bow/bridge/mast silhouette and warm windows resolve.
 	for i: int in 2:
 		var o4 := [600.0, 1450.0][i] as float
 		var xf4 := main_guide.transform_at(minf(o4, main_guide.length - 40.0))
-		var lat4 := rng.randf_range(200.0, 260.0) * (-1.0 if i % 2 == 0 else 1.0)
+		var lat4 := rng.randf_range(150.0, 210.0) * (-1.0 if i % 2 == 0 else 1.0)
 		_add_boat(xf4.origin + xf4.basis.x * lat4, rng.randf() * TAU)
 
 	# Drifting bergs scattered across the whole bay: faceted low-poly
@@ -424,6 +453,9 @@ func _decorate() -> void:
 		var berg := MeshInstance3D.new()
 		berg.mesh = VisualLibrary.berg_mesh(rng.randi_range(0, 7))
 		berg.material_override = berg_mat
+		# Decorative silhouette off the racing line: under the -13 deg sun its
+		# cast shadow stretches into a huge foreground blob, so shadows are off.
+		berg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var s := rng.randf_range(4.0, 11.0)
 		berg.scale = Vector3(s * rng.randf_range(0.9, 1.4), s * rng.randf_range(0.45, 0.8), s)
 		berg.position = Vector3(bpos5.x, OCEAN_Y - s * 0.08, bpos5.z)
@@ -437,8 +469,9 @@ func _decorate() -> void:
 				# Berg base radius in world = mesh base (0.7-1.25) * x-scale
 				# (0.9-1.4)s; keep the collar at/just outside that so blobs
 				# poke out from under every silhouette instead of hiding inside.
+				# Foam rides at OCEAN_Y + 0.68, above the 0.55 swell crests.
 				var ring_r := s * rng.randf_range(1.1, 1.45)
-				_foam_quad(Vector3(bpos5.x + cos(ang) * ring_r, OCEAN_Y + 0.5, bpos5.z + sin(ang) * ring_r),
+				_foam_quad(Vector3(bpos5.x + cos(ang) * ring_r, OCEAN_Y + 0.68, bpos5.z + sin(ang) * ring_r),
 					rng.randf_range(0.25, 0.5) * s)
 
 	# Snow drifts flanking the racing line: soft sculpted texture on the
@@ -456,6 +489,18 @@ func _decorate() -> void:
 		drift.position = xf6.origin + xf6.basis.x * lat6 + Vector3.DOWN * 0.35
 		drift.rotation.y = rng.randf() * TAU
 		add_child(drift)
+
+	# Cinematic set dressing: sculpted hero bergs with waterline notches, a
+	# breaching-whale arc pair, circling seabird flocks, drifting near-track
+	# foam patches, and the sun-glint corridor. Visual-only, batched or
+	# few-node, all skipped headless. Hero bergs first: seabirds anchor to
+	# them and their churn collars batch into the shared foam surface.
+	if not headless:
+		_add_hero_bergs()
+		_add_breach_arcs()
+		_add_seabirds()
+		_add_drift_foam()
+		_add_sun_glint()
 
 	# Foam bands hugging the swim channel edges, then one batched commit for
 	# every foam quad placed above (single mesh, single draw call).
@@ -519,6 +564,8 @@ func _add_horizon_bergs() -> void:
 			var berg := MeshInstance3D.new()
 			berg.mesh = VisualLibrary.berg_mesh(rng.randi_range(0, 7))
 			berg.material_override = berg_mat
+			# Horizon skyline only — never let these giants cast into the scene.
+			berg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			var s := rng.randf_range(26.0, 54.0)
 			berg.scale = Vector3(s * rng.randf_range(0.9, 1.5), s * rng.randf_range(0.5, 0.85), s)
 			berg.position = Vector3(center.x + rng.randf_range(-80.0, 80.0),
@@ -554,9 +601,15 @@ func _add_ocean_detail() -> void:
 	var sheet := MeshInstance3D.new()
 	sheet.name = "OceanDetail"
 	sheet.mesh = plane
-	# wave_height 0.45 keeps crests under the foam blobs at OCEAN_Y + 0.5;
+	# wave_height 0.55 keeps crests under the foam blobs at OCEAN_Y + 0.68;
 	# wave_scale 0.08 -> ~46m primary wavelength, ~4 samples per wave at 12m.
-	sheet.material_override = VisualLibrary.water_material(OCEAN_DEEP, OCEAN_SHALLOW, 0.45, 0.08)
+	# Duplicated (cache-safe) so this sheet alone gets extra crest whitecaps
+	# and a slightly slower swell: rolling waves stay READABLE at race height
+	# without touching the shared channel/far-sheet water materials.
+	var ocean_mat := VisualLibrary.water_material(OCEAN_DEEP, OCEAN_SHALLOW, 0.55, 0.08).duplicate() as ShaderMaterial
+	ocean_mat.set_shader_parameter("crest_foam", 0.38)
+	ocean_mat.set_shader_parameter("wave_speed", 0.9)
+	sheet.material_override = ocean_mat
 	sheet.position = Vector3((min_x + max_x) * 0.5, OCEAN_Y, (min_z + max_z) * 0.5)
 	sheet.extra_cull_margin = 4.0  # flat PlaneMesh AABB + vertex displacement
 	add_child(sheet)
@@ -600,6 +653,13 @@ func _add_buoy(pos: Vector3, port: bool) -> void:
 	buoy.position = pos
 	add_child(buoy)
 	_bobbers.append({"node": buoy, "base_y": pos.y, "phase": rng.randf() * TAU, "amp": 0.3, "speed": 0.9})
+	# Blinking navigation lamp (real buoys flash): per-buoy period/phase so the
+	# bay twinkles asynchronously. lm is created per buoy, never shared, so the
+	# _process blink writes cannot leak into other materials. Headless sims
+	# skip registration (no renderer to blink for).
+	if not GameConfig.is_headless():
+		_buoy_lamps.append({"mat": lm, "phase": rng.randf() * 3.0,
+			"period": rng.randf_range(1.7, 2.6), "lit": true})
 
 
 func _add_whale(pos: Vector3, yaw: float) -> void:
@@ -635,6 +695,9 @@ func _add_whale(pos: Vector3, yaw: float) -> void:
 	_bobbers.append({"node": whale, "base_y": whale.position.y, "phase": rng.randf() * TAU, "amp": 0.5, "speed": 0.25})
 
 
+## Research vessel anchored in the bay: wedge bow, two-tier superstructure,
+## mast with crossbar, funnel, deck gear — a detailed inhabited silhouette
+## rather than the old plain box, with warm window light and a masthead lamp.
 func _add_boat(pos: Vector3, yaw: float) -> void:
 	var boat := Node3D.new()
 	var hull := MeshInstance3D.new()
@@ -644,6 +707,17 @@ func _add_boat(pos: Vector3, yaw: float) -> void:
 	hull.material_override = TrackBuilder.prop_material(Color(0.9, 0.9, 0.92))
 	hull.position.y = 1.1
 	boat.add_child(hull)
+	# Wedge bow: PrismMesh rotated so the apex points along +X past the hull
+	# end (Rz(-90): local +Y apex -> world +X). Same 2.6m cross-section as the
+	# hull so the join is seamless.
+	var bow := MeshInstance3D.new()
+	var bow_mesh := PrismMesh.new()
+	bow_mesh.size = Vector3(2.6, 4.5, 5.5)
+	bow.mesh = bow_mesh
+	bow.material_override = TrackBuilder.prop_material(Color(0.9, 0.9, 0.92))
+	bow.position = Vector3(10.2, 1.1, 0.0)
+	bow.rotation.z = -PI / 2.0
+	boat.add_child(bow)
 	var stripe := MeshInstance3D.new()
 	var stripe_mesh := BoxMesh.new()
 	stripe_mesh.size = Vector3(16.2, 0.5, 5.7)
@@ -665,6 +739,42 @@ func _add_boat(pos: Vector3, yaw: float) -> void:
 	cabin.material_override = TrackBuilder.prop_material(Color(0.85, 0.87, 0.9))
 	cabin.position = Vector3(-3.5, 3.9, 0.0)
 	boat.add_child(cabin)
+	# Bridge tier above the main cabin: stepped superstructure silhouette.
+	var bridge := MeshInstance3D.new()
+	var bridge_mesh := BoxMesh.new()
+	bridge_mesh.size = Vector3(3.0, 1.6, 2.8)
+	bridge.mesh = bridge_mesh
+	bridge.material_override = TrackBuilder.prop_material(Color(0.88, 0.9, 0.93))
+	bridge.position = Vector3(-3.0, 6.0, 0.0)
+	boat.add_child(bridge)
+	# Funnel aft of the cabin with a dark cap band.
+	var funnel := MeshInstance3D.new()
+	var funnel_mesh := CylinderMesh.new()
+	funnel_mesh.top_radius = 0.5
+	funnel_mesh.bottom_radius = 0.65
+	funnel_mesh.height = 2.4
+	funnel.mesh = funnel_mesh
+	funnel.material_override = TrackBuilder.prop_material(Color(0.82, 0.55, 0.2))
+	funnel.position = Vector3(-6.4, 4.8, 0.0)
+	boat.add_child(funnel)
+	var funnel_cap := MeshInstance3D.new()
+	var cap_mesh := CylinderMesh.new()
+	cap_mesh.top_radius = 0.52
+	cap_mesh.bottom_radius = 0.52
+	cap_mesh.height = 0.4
+	funnel_cap.mesh = cap_mesh
+	funnel_cap.material_override = TrackBuilder.prop_material(Color(0.2, 0.22, 0.26))
+	funnel_cap.position = Vector3(-6.4, 6.1, 0.0)
+	boat.add_child(funnel_cap)
+	# Deck gear: crates/winch housing forward — breaks up the deck line.
+	for gear: Vector3 in [Vector3(2.5, 3.05, 1.2), Vector3(4.4, 2.95, -1.1)]:
+		var crate := MeshInstance3D.new()
+		var crate_mesh := BoxMesh.new()
+		crate_mesh.size = Vector3(1.5, 1.0, 1.3)
+		crate.mesh = crate_mesh
+		crate.material_override = TrackBuilder.prop_material(Color(0.75, 0.6, 0.4))
+		crate.position = gear
+		boat.add_child(crate)
 	var antenna := MeshInstance3D.new()
 	var ant_mesh := CylinderMesh.new()
 	ant_mesh.top_radius = 0.05
@@ -674,6 +784,17 @@ func _add_boat(pos: Vector3, yaw: float) -> void:
 	antenna.material_override = TrackBuilder.prop_material(Color(0.4, 0.42, 0.46))
 	antenna.position = Vector3(-3.5, 7.2, 0.0)
 	boat.add_child(antenna)
+	# Crossbar yard on the mast: instantly reads "ship" in silhouette.
+	var yard := MeshInstance3D.new()
+	var yard_mesh := CylinderMesh.new()
+	yard_mesh.top_radius = 0.04
+	yard_mesh.bottom_radius = 0.04
+	yard_mesh.height = 2.6
+	yard.mesh = yard_mesh
+	yard.material_override = TrackBuilder.prop_material(Color(0.4, 0.42, 0.46))
+	yard.position = Vector3(-3.5, 8.3, 0.0)
+	yard.rotation.x = PI / 2.0
+	boat.add_child(yard)
 	# Warm lit-window band around the cabin + masthead lamp: distant boats read
 	# as inhabited silhouettes against the sunrise (both catch the glow pass).
 	var window_mat := StandardMaterial3D.new()
@@ -707,6 +828,341 @@ func _add_boat(pos: Vector3, yaw: float) -> void:
 	_bobbers.append({"node": boat, "base_y": boat.position.y, "phase": rng.randf() * TAU, "amp": 0.2, "speed": 0.35})
 
 
+## --- Cinematic set dressing --------------------------------------------------
+
+## Horizontal unit vector pointing AT the sunrise sun (matches the
+## DirectionalLight built from sun_yaw_deg: for yaw Y rotation, the light
+## shines along (-sin, *, -cos), so toward-sun is (sin, 0, cos)).
+static func _sun_dir_h() -> Vector3:
+	return Vector3(sin(deg_to_rad(SUN_YAW_DEG)), 0.0, cos(deg_to_rad(SUN_YAW_DEG)))
+
+
+## Azure hero-berg ice with a WARM fresnel rim: a cache-safe duplicate of the
+## shared ice material with rim tint pushed toward the sun color; the ice
+## shader's built-in rim emission then carries a slight sunrise glow on every
+## silhouette edge — backlit ice without a second light.
+func _warm_rim_ice_material() -> ShaderMaterial:
+	var mat := VisualLibrary.ice_material(HORIZON_BERG_TINT, 0.5).duplicate() as ShaderMaterial
+	mat.set_shader_parameter("rim_tint", SUN_WARM_RIM)
+	mat.set_shader_parameter("rim_strength", 0.62)
+	mat.set_shader_parameter("rim_power", 2.2)
+	return mat
+
+
+## Three MASSIVE sculpted hero bergs (30-60m class) mid-distance off the
+## racing line: seeded faceted silhouettes scaled way up in warm-rim azure
+## ice, each with a dark wave-cut waterline notch band, a darker water halo,
+## and a churn foam collar. The middle one is a natural double-pillar arch.
+## Two sit on the sun side so their rims read backlit; one balances far side.
+## Lateral clearance: max base radius = 1.25 * (1.1 * s) ~ 1.4s, well inside
+## every dist below, so no hero ice ever crowds the racing surface.
+func _add_hero_bergs() -> void:
+	var warm := _warm_rim_ice_material()
+	# Notch band multiplies the berg's baked per-face vertex colors into a
+	# dark teal: the shadowed, wave-worn undercut right at the waterline.
+	var notch_mat := VisualLibrary.rock_material(Color(0.16, 0.3, 0.4))
+	var halo_mat := StandardMaterial3D.new()
+	halo_mat.albedo_color = Color(0.01, 0.09, 0.13, 0.42)
+	halo_mat.albedo_texture = VisualLibrary.soft_radial_texture(64, 0.9)
+	halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	halo_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	halo_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	halo_mat.render_priority = 1
+	var sun_h := _sun_dir_h()
+	var specs: Array[Dictionary] = [
+		{"f": 0.24, "side": 1.0, "s": 46.0, "dist": 220.0, "arch": false},
+		{"f": 0.52, "side": 1.0, "s": 38.0, "dist": 205.0, "arch": true},
+		{"f": 0.8, "side": -1.0, "s": 54.0, "dist": 300.0, "arch": false},
+	]
+	for spec: Dictionary in specs:
+		var xf := main_guide.transform_at(main_guide.length * float(spec["f"]))
+		var center := Vector3(xf.origin.x, 0.0, xf.origin.z) \
+			+ sun_h * (float(spec["dist"]) * float(spec["side"]))
+		_hero_centers.append(center)
+		var s := float(spec["s"])
+		if bool(spec["arch"]):
+			_hero_arch(center, s, warm, notch_mat)
+		else:
+			_hero_berg(center, s, rng.randi_range(0, 7), warm, notch_mat)
+		_add_water_halo(center, s * 2.6, halo_mat)
+		for k: int in 8:
+			var a := TAU * (float(k) + rng.randf() * 0.6) / 8.0
+			var r := s * rng.randf_range(1.05, 1.35)
+			_foam_quad(Vector3(center.x + cos(a) * r, OCEAN_Y + 0.68, center.z + sin(a) * r),
+				rng.randf_range(0.14, 0.24) * s)
+
+
+func _hero_berg(center: Vector3, s: float, mesh_seed: int, mat: ShaderMaterial,
+		notch_mat: StandardMaterial3D) -> void:
+	var yaw := rng.randf() * TAU
+	var sx := s * rng.randf_range(0.85, 1.1)
+	var sy := s * rng.randf_range(0.55, 0.8)
+	var sz := s * rng.randf_range(0.85, 1.1)
+	var berg := MeshInstance3D.new()
+	berg.mesh = VisualLibrary.berg_mesh(mesh_seed)
+	berg.material_override = mat
+	# Hero-scale silhouette: its low-sun shadow would reach the track as a
+	# giant blob. Decorative only, so it casts no shadow.
+	berg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	berg.scale = Vector3(sx, sy, sz)
+	berg.position = Vector3(center.x, OCEAN_Y - sy * 0.04, center.z)
+	berg.rotation.y = yaw
+	add_child(berg)
+	_add_waterline_notch(center, mesh_seed, yaw, sx, sz, notch_mat)
+
+
+## Dark waterline band: the SAME seeded silhouette, xz-inflated 5% and
+## y-squashed to a ~1.5m skin whose widest base ring sits just below the
+## waterline. A hero-scale berg barely tapers this close to its base, so the
+## inflated copy stays proud of the ice only in a thin band at the water —
+## reading as the wave-cut notch every real berg carries.
+func _add_waterline_notch(center: Vector3, mesh_seed: int, yaw: float, sx: float, sz: float,
+		notch_mat: StandardMaterial3D) -> void:
+	var notch := MeshInstance3D.new()
+	notch.mesh = VisualLibrary.berg_mesh(mesh_seed)
+	notch.material_override = notch_mat
+	notch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	notch.scale = Vector3(sx * 1.05, 1.5, sz * 1.05)
+	notch.position = Vector3(center.x, OCEAN_Y - 0.4, center.z)
+	notch.rotation.y = yaw
+	add_child(notch)
+
+
+## Natural ice arch: two inward-leaning pillar bergs bridged by a lying-berg
+## lintel. Same seeded mesh family so the facet language matches; at
+## mid-distance the trio silhouettes into one wave-carved arch.
+func _hero_arch(center: Vector3, s: float, mat: ShaderMaterial,
+		notch_mat: StandardMaterial3D) -> void:
+	var yaw := rng.randf() * TAU
+	# rotation.y = yaw maps local +X to this world direction.
+	var axis := Vector3(cos(yaw), 0.0, -sin(yaw))
+	var perp := Vector3(-axis.z, 0.0, axis.x)  # horizontal lean axis
+	var gap := s * 0.85
+	var lean := 0.16
+	var pillar_seeds: Array[int] = [2, 5]
+	for i: int in 2:
+		var side := -1.0 if i == 0 else 1.0
+		var pcx := center + axis * (gap * side)
+		var sx := s * rng.randf_range(0.5, 0.6)
+		var sy := s * rng.randf_range(0.75, 0.85)
+		var sz := s * rng.randf_range(0.5, 0.6)
+		var pillar := MeshInstance3D.new()
+		pillar.mesh = VisualLibrary.berg_mesh(pillar_seeds[i])
+		pillar.material_override = mat
+		pillar.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		pillar.scale = Vector3(sx, sy, sz)
+		pillar.position = Vector3(pcx.x, OCEAN_Y - 1.0, pcx.z)
+		pillar.rotation.y = yaw + side * 0.4
+		# Lean the tops toward each other: rotating about perp by +angle moves
+		# local UP toward -axis (UP -> UP*cos - axis*sin), so lean*side points
+		# both tops at the arch center.
+		pillar.rotate(perp, lean * side)
+		add_child(pillar)
+		_add_waterline_notch(pcx, pillar_seeds[i], yaw + side * 0.4, sx, sz, notch_mat)
+	var lintel := MeshInstance3D.new()
+	lintel.mesh = VisualLibrary.berg_mesh(7)
+	lintel.material_override = mat
+	lintel.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	lintel.scale = Vector3(s * 1.15, s * 0.28, s * 0.42)
+	lintel.position = Vector3(center.x, OCEAN_Y + s * 0.92, center.z)
+	lintel.rotation.y = yaw
+	add_child(lintel)
+
+
+## Soft dark halo on the water around a hero berg: sells the mass shadow and
+## deepens the waterline band from race distance. Sits between the swell
+## crests (0.55) and the drifting foam layer (0.66).
+func _add_water_halo(center: Vector3, radius: float, mat: StandardMaterial3D) -> void:
+	var halo := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(radius * 2.0, radius * 2.0)
+	halo.mesh = plane
+	halo.material_override = mat
+	# Transparent overlay: the shadow pass ignores alpha, so without this the
+	# whole halo quad shadows the water as one giant hard-edged blob.
+	halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	halo.position = Vector3(center.x, OCEAN_Y + 0.62, center.z)
+	add_child(halo)
+
+
+## Breaching-whale story beats: dark torus arcs standing vertically in the
+## water far off toward the sun — most of the ring submerged so only a smooth
+## back-arc breaches — plus a dorsal fin and splash foam where the body meets
+## the sea. StandardMaterial rim lighting catches the sunrise backlight along
+## the arc edge, so they read as backlit giants, not black blobs.
+func _add_breach_arcs() -> void:
+	var sun_h := _sun_dir_h()
+	var body_mat := StandardMaterial3D.new()
+	body_mat.albedo_color = Color(0.13, 0.15, 0.2)
+	body_mat.roughness = 0.55
+	body_mat.rim_enabled = true
+	body_mat.rim = 0.7
+	body_mat.rim_tint = 0.25
+	var specs: Array[Dictionary] = [
+		{"f": 0.36, "dist": 340.0, "r": 9.0},
+		{"f": 0.66, "dist": 420.0, "r": 11.0},
+	]
+	for spec: Dictionary in specs:
+		var xf := main_guide.transform_at(main_guide.length * float(spec["f"]))
+		var center := Vector3(xf.origin.x, 0.0, xf.origin.z) + sun_h * float(spec["dist"])
+		var r := float(spec["r"])
+		var depth := r * 0.42
+		var yaw := atan2(sun_h.x, sun_h.z) + PI / 2.0 + rng.randf_range(-0.5, 0.5)
+		var whale := Node3D.new()
+		whale.position = Vector3(center.x, OCEAN_Y - depth, center.z)
+		whale.rotation.y = yaw
+		add_child(whale)
+		var arc := MeshInstance3D.new()
+		arc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var torus := TorusMesh.new()
+		torus.inner_radius = r - 1.7
+		torus.outer_radius = r
+		torus.rings = 40
+		torus.ring_segments = 10
+		arc.mesh = torus
+		arc.material_override = body_mat
+		# Scale local Y (donut axis) BEFORE the x-rotation stands the ring up:
+		# thins the body laterally without shearing.
+		arc.scale = Vector3(1.0, 0.55, 1.0)
+		arc.rotation.x = PI / 2.0
+		whale.add_child(arc)
+		var fin := MeshInstance3D.new()
+		var fin_mesh := PrismMesh.new()
+		fin_mesh.size = Vector3(2.0, 1.8, 0.4)
+		fin.mesh = fin_mesh
+		fin.material_override = body_mat
+		fin.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		fin.position = Vector3(rng.randf_range(-1.2, 1.2), r - 0.2, 0.0)
+		fin.rotation.z = deg_to_rad(-12.0)
+		whale.add_child(fin)
+		# Splash foam where the arc pierces the surface (chord of the ring's
+		# midline circle at waterline depth), batched into the shared foam mesh.
+		var rm := r - 0.85
+		var chord := sqrt(maxf(rm * rm - depth * depth, 1.0))
+		var dirx := Vector3(cos(yaw), 0.0, -sin(yaw))
+		for side: float in [-1.0, 1.0]:
+			var splash := Vector3(center.x, 0.0, center.z) + dirx * (chord * side)
+			for k: int in 3:
+				_foam_quad(Vector3(splash.x + rng.randf_range(-2.0, 2.0), OCEAN_Y + 0.68,
+					splash.z + rng.randf_range(-2.0, 2.0)), rng.randf_range(2.0, 3.5))
+
+
+## Seabird flocks circling high over the first and last hero bergs: thin dark
+## billboard quads on slow-spinning pivots — distant gulls riding thermals.
+## One shared mesh + material across every bird; pivots yaw in _process.
+func _add_seabirds() -> void:
+	if _hero_centers.is_empty():
+		return
+	var bird_mesh := QuadMesh.new()
+	bird_mesh.size = Vector2(1.7, 0.4)
+	var bird_mat := StandardMaterial3D.new()
+	bird_mat.albedo_color = Color(0.2, 0.22, 0.28)
+	bird_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bird_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	var anchors: Array[Vector3] = [_hero_centers[0], _hero_centers[_hero_centers.size() - 1]]
+	for a_i: int in anchors.size():
+		var anchor := anchors[a_i]
+		var pivot := Node3D.new()
+		pivot.position = Vector3(anchor.x, OCEAN_Y + rng.randf_range(46.0, 62.0), anchor.z)
+		add_child(pivot)
+		for b: int in 5:
+			var bird := MeshInstance3D.new()
+			bird.mesh = bird_mesh
+			bird.material_override = bird_mat
+			bird.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var ang := TAU * float(b) / 5.0 + rng.randf() * 0.8
+			var rad := rng.randf_range(7.0, 15.0)
+			bird.position = Vector3(cos(ang) * rad, rng.randf_range(-3.0, 3.0), sin(ang) * rad)
+			pivot.add_child(bird)
+		_spinners.append({"node": pivot, "speed": 0.22 if a_i % 2 == 0 else -0.17})
+
+
+## Sparse foam patches on the near-track water: small clustered quads batched
+## into ONE mesh whose root node slow-drifts in _process, so the surface
+## visibly moves at race height even between swell crests.
+func _add_drift_foam() -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var o := 40.0
+	while o < main_guide.length - 40.0:
+		var xf := main_guide.transform_at(o)
+		for side: float in [-1.0, 1.0]:
+			if rng.randf() < 0.35:
+				continue
+			var lat := rng.randf_range(26.0, 110.0) * side
+			var base := xf.origin + xf.basis.x * lat
+			var cpos := Vector3(base.x, OCEAN_Y + 0.66, base.z)
+			for k: int in rng.randi_range(2, 3):
+				_flat_quad(st, cpos + Vector3(rng.randf_range(-3.0, 3.0), 0.0, rng.randf_range(-3.0, 3.0)),
+					rng.randf_range(1.6, 3.4))
+		o += 58.0
+	var mesh := st.commit()
+	if mesh.get_surface_count() == 0:
+		return
+	_drift_foam = MeshInstance3D.new()
+	_drift_foam.name = "DriftFoam"
+	_drift_foam.mesh = mesh
+	# Alpha blobs read as opaque quads in the shadow pass — no casting.
+	_drift_foam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(1.0, 0.97, 0.92, 0.38)
+	mat.albedo_texture = VisualLibrary.soft_radial_texture(64, 0.8)
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.render_priority = 2
+	_drift_foam.material_override = mat
+	add_child(_drift_foam)
+	_drift_origin = _drift_foam.position
+
+
+## Sun-glint corridor + whitecap band: a lane of warm sparkle quads marching
+## across the water toward the sun from anchor points along the course, quads
+## growing with distance, plus sparse white caps in the same lane. Emission
+## energy 2.4 clears the 1.1 glow threshold so the lane blooms like low-sun
+## glitter on open water. One batched mesh, one draw call.
+func _add_sun_glint() -> void:
+	var sun_h := _sun_dir_h()
+	var perp := Vector3(-sun_h.z, 0.0, sun_h.x)
+	var low_detail := String(SettingsManager.get_setting("display", "particle_quality")) == "low"
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var anchor_step := 460.0 if low_detail else 300.0
+	var o := 130.0
+	while o < main_guide.length - 60.0:
+		var base := main_guide.position_at(o)
+		var d := 46.0
+		while d < 330.0:
+			if rng.randf() > 0.3:
+				var pos := Vector3(base.x, OCEAN_Y + 0.72, base.z) + sun_h * d \
+					+ perp * rng.randf_range(-16.0, 16.0)
+				_flat_quad(st, pos, lerpf(0.55, 2.1, d / 330.0) * rng.randf_range(0.7, 1.3))
+				if rng.randf() < 0.28:
+					_foam_quad(pos + perp * rng.randf_range(4.0, 10.0) + Vector3(0.0, -0.04, 0.0),
+						rng.randf_range(1.2, 2.4))
+			d += rng.randf_range(11.0, 20.0)
+		o += anchor_step
+	var mesh := st.commit()
+	if mesh.get_surface_count() == 0:
+		return
+	var glints := MeshInstance3D.new()
+	glints.name = "SunGlints"
+	glints.mesh = mesh
+	# Alpha sparkle quads must not shadow the water they decorate.
+	glints.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(1.0, 0.85, 0.6, 0.75)
+	mat.albedo_texture = VisualLibrary.soft_radial_texture(32, 0.95)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.7, 0.38)
+	mat.emission_energy_multiplier = 2.4
+	mat.render_priority = 2
+	glints.material_override = mat
+	add_child(glints)
+
+
 ## --- Water + foam upgrades --------------------------------------------------
 
 ## Swap the flat StandardMaterial water ribbon from TrackBuilder.build_water
@@ -724,12 +1180,9 @@ func _upgrade_water_surface(water_root: Node3D) -> void:
 			return
 
 
-## Append one flat foam blob (soft radial quad) to the batched foam surface.
-## World-space, random spin, laid flat; call only between the SurfaceTool
-## begin in _decorate and _commit_foam.
-func _foam_quad(pos: Vector3, size: float) -> void:
-	if _foam_st == null:
-		return
+## Append one flat blob (soft radial quad) to ANY SurfaceTool batch.
+## World-space, random spin, laid flat on XZ.
+func _flat_quad(st: SurfaceTool, pos: Vector3, size: float) -> void:
 	var ang := rng.randf() * TAU
 	var half := size * 0.5
 	var ax := Vector3(cos(ang), 0.0, sin(ang)) * half
@@ -738,18 +1191,26 @@ func _foam_quad(pos: Vector3, size: float) -> void:
 	var b := pos + ax - az
 	var c := pos + ax + az
 	var d := pos - ax + az
-	_foam_st.set_uv(Vector2(0.0, 0.0))
-	_foam_st.add_vertex(a)
-	_foam_st.set_uv(Vector2(1.0, 0.0))
-	_foam_st.add_vertex(b)
-	_foam_st.set_uv(Vector2(1.0, 1.0))
-	_foam_st.add_vertex(c)
-	_foam_st.set_uv(Vector2(0.0, 0.0))
-	_foam_st.add_vertex(a)
-	_foam_st.set_uv(Vector2(1.0, 1.0))
-	_foam_st.add_vertex(c)
-	_foam_st.set_uv(Vector2(0.0, 1.0))
-	_foam_st.add_vertex(d)
+	st.set_uv(Vector2(0.0, 0.0))
+	st.add_vertex(a)
+	st.set_uv(Vector2(1.0, 0.0))
+	st.add_vertex(b)
+	st.set_uv(Vector2(1.0, 1.0))
+	st.add_vertex(c)
+	st.set_uv(Vector2(0.0, 0.0))
+	st.add_vertex(a)
+	st.set_uv(Vector2(1.0, 1.0))
+	st.add_vertex(c)
+	st.set_uv(Vector2(0.0, 1.0))
+	st.add_vertex(d)
+
+
+## Append one flat foam blob to the batched foam surface. Call only between
+## the SurfaceTool begin in _decorate and _commit_foam.
+func _foam_quad(pos: Vector3, size: float) -> void:
+	if _foam_st == null:
+		return
+	_flat_quad(_foam_st, pos, size)
 
 
 ## Foam blobs along both lateral edges of a swim channel point line, so the
@@ -782,6 +1243,8 @@ func _commit_foam() -> void:
 	var foam := MeshInstance3D.new()
 	foam.name = "FoamBlobs"
 	foam.mesh = _foam_st.commit()
+	# Alpha blobs read as opaque quads in the shadow pass — no casting.
+	foam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(1.0, 0.96, 0.9, 0.5)
 	mat.albedo_texture = VisualLibrary.soft_radial_texture(64, 0.85)

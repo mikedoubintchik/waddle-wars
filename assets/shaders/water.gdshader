@@ -1,7 +1,10 @@
 // Water: 2-octave sine vertex displacement with analytic normals, scrolling
 // noise shading, fresnel toward the horizon, optional foam band via vertex
 // color (paint COLOR.r toward 0.0 for foam — unset vertex color = no foam).
-// Mobile-cheap: no textures, no screen-space reads.
+// High-detail additions (gated by detail_level, skipped entirely at 0):
+// secondary fine ripple octave, noise-broken foam edges, sharp glitter-broken
+// specular sun path. Mobile-cheap: no textures, no screen-space reads;
+// 2 extra noise samples inside the uniform detail branch.
 shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_disabled, diffuse_burley, specular_schlick_ggx;
 
@@ -14,6 +17,13 @@ uniform float wave_scale = 0.35;
 uniform float wave_speed = 1.1;
 uniform float fresnel_power = 3.0;
 uniform float crest_foam : hint_range(0.0, 1.0) = 0.25;
+// 0 = base look (cheapest), 1 = full micro-detail. Set by VisualLibrary from
+// the display quality preset (low=0, medium=0.5, high=1).
+uniform float detail_level : hint_range(0.0, 1.0) = 1.0;
+uniform vec3 sun_direction = vec3(-0.4, 0.55, -0.3);
+uniform float sun_glint_strength : hint_range(0.0, 3.0) = 1.1;
+uniform float sun_glint_power = 180.0;
+uniform float foam_break_scale = 2.6;
 
 varying vec3 world_pos;
 varying float wave_h;      // -1..1 relative crest height
@@ -59,12 +69,38 @@ void fragment() {
 	// Scrolling surface shimmer (fake normal-map shading).
 	vec2 uv = world_pos.xz * 0.5 + vec2(TIME * 0.14, TIME * -0.09);
 	float n = value_noise(uv) * 0.6 + value_noise(uv * 2.9 - TIME * 0.07) * 0.4;
+	float ripple = 0.5;
+	if (detail_level > 0.001) {
+		// Secondary fine ripple octave: counter-scrolled so the surface keeps
+		// texture up close instead of dissolving into flat color.
+		ripple = value_noise(world_pos.xz * 3.4 + vec2(TIME * -0.21, TIME * 0.26));
+		n = mix(n, n * 0.75 + ripple * 0.25, detail_level);
+	}
 
 	vec3 water = mix(deep_color.rgb, shallow_color.rgb, fresnel * 0.8 + n * 0.2);
 	float crest = smoothstep(1.0 - crest_foam, 1.0, wave_h * 0.5 + 0.5) * n;
 	float foam = clamp(foam_mask + crest, 0.0, 1.0);
+	if (detail_level > 0.001) {
+		// Break the foam band edge with noise: lacy fringe instead of a solid
+		// stripe, with slight interior density variation.
+		float ftex = value_noise(world_pos.xz * foam_break_scale + vec2(TIME * 0.11, TIME * -0.07));
+		float broken = smoothstep(0.2, 0.85, foam + (ftex - 0.5) * 0.8);
+		foam = mix(foam, broken * (0.75 + 0.25 * ftex), detail_level);
+	}
 	ALBEDO = mix(water, foam_color.rgb, foam);
 	ROUGHNESS = mix(0.06, 0.55, foam);
 	SPECULAR = 0.7;
+
+	if (detail_level > 0.001) {
+		// Sharp specular sun path: mirror-reflection glint off the analytic
+		// wave normal, broken up by the fine ripple into a glittering lane.
+		vec3 n_world = normalize((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
+		vec3 view_world = normalize(CAMERA_POSITION_WORLD - world_pos);
+		vec3 sun = normalize(sun_direction);
+		float glint = pow(clamp(dot(reflect(-sun, n_world), view_world), 0.0, 1.0), sun_glint_power);
+		EMISSION = vec3(1.0, 0.98, 0.9) * glint * sun_glint_strength
+				* (0.35 + 0.65 * ripple) * (1.0 - foam) * detail_level;
+	}
+
 	ALPHA = clamp(alpha_value + foam * 0.1 + fresnel * 0.08, 0.0, 1.0);
 }

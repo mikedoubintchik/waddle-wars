@@ -1,6 +1,18 @@
 extends Control
 ## Achievement gallery plus player level, XP progress, and lifetime stats.
 
+const BADGE_UNLOCKED_SVG: String = """<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
+<path d="M22 3 L26.7 14.3 L38.9 15.3 L29.6 23.2 L32.4 35.1 L22 28.8 L11.6 35.1 L14.4 23.2 L5.1 15.3 L17.3 14.3 Z" fill="#f5c542" stroke="#c98f1b" stroke-width="2" stroke-linejoin="round"/>
+<path d="M22 9 L24.8 15.8 L32 16.4 L26.5 21.1 L28.2 28.2 L22 24.4 Z" fill="#fff2c0" opacity="0.65"/>
+</svg>"""
+
+const BADGE_LOCKED_SVG: String = """<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
+<rect x="10" y="19" width="24" height="18" rx="4" fill="#3a4a5e"/>
+<path d="M15 19 V14 a7 7 0 0 1 14 0 V19" stroke="#3a4a5e" stroke-width="4" fill="none"/>
+<circle cx="22" cy="27" r="3" fill="#22303f"/>
+<rect x="20.6" y="27" width="2.8" height="6" rx="1.2" fill="#22303f"/>
+</svg>"""
+
 
 func _ready() -> void:
 	UITheme.make_background(self)
@@ -8,10 +20,10 @@ func _ready() -> void:
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 40)
-	margin.add_theme_constant_override("margin_right", 40)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_bottom", 24)
+	margin.add_theme_constant_override("margin_left", UITheme.SCREEN_MARGIN)
+	margin.add_theme_constant_override("margin_right", UITheme.SCREEN_MARGIN)
+	margin.add_theme_constant_override("margin_top", 28)
+	margin.add_theme_constant_override("margin_bottom", 28)
 	add_child(margin)
 
 	var layout := VBoxContainer.new()
@@ -80,13 +92,13 @@ func _build_player_panel() -> PanelContainer:
 	xp_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	xp_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var bar_bg := StyleBoxFlat.new()
-	bar_bg.bg_color = Color(0.06, 0.1, 0.17)
+	bar_bg.bg_color = UITheme.COLOR_BG_DEEP
 	bar_bg.set_corner_radius_all(6)
-	var bar_fill := StyleBoxFlat.new()
-	bar_fill.bg_color = UITheme.COLOR_ACCENT
-	bar_fill.set_corner_radius_all(6)
+	bar_bg.set_border_width_all(1)
+	bar_bg.border_color = Color(UITheme.COLOR_ACCENT, 0.3)
 	xp_bar.add_theme_stylebox_override("background", bar_bg)
-	xp_bar.add_theme_stylebox_override("fill", bar_fill)
+	xp_bar.add_theme_stylebox_override("fill",
+		UITheme.make_bar_fill(Color(0.30, 0.62, 0.90), Color(0.55, 0.88, 1.0)))
 	level_row.add_child(xp_bar)
 
 	var xp_label := Label.new()
@@ -135,14 +147,26 @@ func _build_achievement_row(id: String) -> PanelContainer:
 	row.add_theme_constant_override("separation", 16)
 	panel.add_child(row)
 
-	var badge := Label.new()
-	badge.text = "*" if unlocked else "-"
-	badge.add_theme_font_size_override("font_size", 34)
-	badge.add_theme_color_override("font_color", UITheme.COLOR_GOLD if unlocked else UITheme.COLOR_DISABLED)
-	badge.custom_minimum_size = Vector2(44, 0)
-	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(badge)
+	var badge_texture := UITheme.make_icon(BADGE_UNLOCKED_SVG if unlocked else BADGE_LOCKED_SVG, 1.0)
+	if badge_texture != null:
+		var badge := TextureRect.new()
+		badge.texture = badge_texture
+		badge.custom_minimum_size = Vector2(44, 44)
+		badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		badge.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		if not unlocked:
+			badge.modulate = Color(1.0, 1.0, 1.0, 0.75)
+		row.add_child(badge)
+	else:
+		var badge := Label.new()
+		badge.text = "*" if unlocked else "-"
+		badge.add_theme_font_size_override("font_size", 34)
+		badge.add_theme_color_override("font_color", UITheme.COLOR_GOLD if unlocked else UITheme.COLOR_DISABLED)
+		badge.custom_minimum_size = Vector2(44, 0)
+		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(badge)
 
 	var text_box := VBoxContainer.new()
 	text_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL

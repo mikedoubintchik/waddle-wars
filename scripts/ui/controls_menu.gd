@@ -27,10 +27,10 @@ func _ready() -> void:
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 40)
-	margin.add_theme_constant_override("margin_right", 40)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_bottom", 24)
+	margin.add_theme_constant_override("margin_left", UITheme.SCREEN_MARGIN)
+	margin.add_theme_constant_override("margin_right", UITheme.SCREEN_MARGIN)
+	margin.add_theme_constant_override("margin_top", 28)
+	margin.add_theme_constant_override("margin_bottom", 28)
 	add_child(margin)
 
 	var layout := VBoxContainer.new()
@@ -65,9 +65,15 @@ func _ready() -> void:
 	scroll.add_child(list)
 
 	var header_row := _make_row(list)
-	header_row.add_child(_cell_label("Action", UITheme.COLOR_ACCENT, 24))
-	header_row.add_child(_cell_label("Keyboard", UITheme.COLOR_ACCENT, 24))
-	header_row.add_child(_cell_label("Gamepad", UITheme.COLOR_ACCENT, 24))
+	var header_panel := header_row.get_parent() as PanelContainer
+	var header_style := UITheme.make_panel_style(Color(0.055, 0.098, 0.172, 0.9), Color(UITheme.COLOR_ACCENT, 0.4))
+	header_style.content_margin_top = 10.0
+	header_style.content_margin_bottom = 10.0
+	header_panel.add_theme_stylebox_override("panel", header_style)
+	for header_text: String in ["Action", "Keyboard", "Gamepad"]:
+		var cell := _cell_label(header_text, UITheme.COLOR_ACCENT, 24)
+		cell.add_theme_font_override("font", UITheme.display_font())
+		header_row.add_child(cell)
 
 	for action: String in SettingsManager.REMAPPABLE_ACTIONS:
 		var row := _make_row(list)

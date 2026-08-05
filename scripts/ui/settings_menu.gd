@@ -11,14 +11,14 @@ func _ready() -> void:
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 40)
-	margin.add_theme_constant_override("margin_right", 40)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_bottom", 24)
+	margin.add_theme_constant_override("margin_left", UITheme.SCREEN_MARGIN)
+	margin.add_theme_constant_override("margin_right", UITheme.SCREEN_MARGIN)
+	margin.add_theme_constant_override("margin_top", 28)
+	margin.add_theme_constant_override("margin_bottom", 28)
 	add_child(margin)
 
 	var layout := VBoxContainer.new()
-	layout.add_theme_constant_override("separation", 12)
+	layout.add_theme_constant_override("separation", 14)
 	margin.add_child(layout)
 
 	var header := HBoxContainer.new()
@@ -144,17 +144,28 @@ func _build_accessibility_section() -> void:
 
 func _section(section_title: String) -> VBoxContainer:
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", UITheme.make_panel_style())
+	var style := UITheme.make_panel_style()
+	style.content_margin_left = 26.0
+	style.content_margin_right = 26.0
+	style.content_margin_top = 18.0
+	style.content_margin_bottom = 20.0
+	panel.add_theme_stylebox_override("panel", style)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_sections.add_child(panel)
 	var body := VBoxContainer.new()
-	body.add_theme_constant_override("separation", 8)
+	body.add_theme_constant_override("separation", 10)
 	panel.add_child(body)
 	var label := Label.new()
 	label.text = section_title
+	label.add_theme_font_override("font", UITheme.display_font())
 	label.add_theme_font_size_override("font_size", 28)
 	label.add_theme_color_override("font_color", UITheme.COLOR_ACCENT)
 	body.add_child(label)
+	var rule := ColorRect.new()
+	rule.color = Color(UITheme.COLOR_ACCENT, 0.28)
+	rule.custom_minimum_size = Vector2(0, 2)
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_child(rule)
 	return body
 
 
@@ -177,6 +188,7 @@ func _add_option_row(parent: VBoxContainer, section: String, key: String, label_
 	var picker := OptionButton.new()
 	picker.custom_minimum_size = Vector2(240, 40)
 	picker.add_theme_font_size_override("font_size", 19)
+	UITheme.style_option_button(picker)
 	var current := String(SettingsManager.get_setting(section, key))
 	for i: int in options.size():
 		var pair: Array = options[i]
@@ -196,6 +208,7 @@ func _add_int_option_row(parent: VBoxContainer, section: String, key: String, la
 	var picker := OptionButton.new()
 	picker.custom_minimum_size = Vector2(240, 40)
 	picker.add_theme_font_size_override("font_size", 19)
+	UITheme.style_option_button(picker)
 	var current := int(SettingsManager.get_setting(section, key))
 	for i: int in options.size():
 		var pair: Array = options[i]
@@ -223,6 +236,7 @@ func _add_slider_row(parent: VBoxContainer, section: String, key: String, label_
 	slider.step = step
 	slider.custom_minimum_size = Vector2(240, 32)
 	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	UITheme.style_slider(slider)
 	slider.value = float(SettingsManager.get_setting(section, key))
 	var update_label := func() -> void:
 		if as_percent:

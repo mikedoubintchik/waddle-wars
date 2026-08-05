@@ -23,7 +23,7 @@ static func default_settings() -> Dictionary:
 			"quality_preset": "high",  # low | medium | high
 			"shadow_quality": "high",  # off | low | medium | high
 			"particle_quality": "high",  # low | medium | high
-			"msaa": "2x",  # off | 2x | 4x
+			"msaa": "4x",  # off | 2x | 4x
 			"fps_limit": 0,  # 0 = uncapped
 		},
 		"audio": {

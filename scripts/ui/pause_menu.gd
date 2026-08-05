@@ -53,26 +53,22 @@ func _open() -> void:
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_panel.add_child(center)
 	var box := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.14, 0.24, 0.95)
-	style.set_corner_radius_all(16)
-	style.set_border_width_all(2)
-	style.border_color = Color(0.4, 0.6, 0.9)
-	style.content_margin_left = 40
-	style.content_margin_right = 40
-	style.content_margin_top = 28
-	style.content_margin_bottom = 28
+	var style := UITheme.make_panel_style(Color(0.06, 0.108, 0.19, 0.96), Color(UITheme.COLOR_ACCENT, 0.55))
+	style.set_corner_radius_all(18)
+	style.content_margin_left = 44.0
+	style.content_margin_right = 44.0
+	style.content_margin_top = 30.0
+	style.content_margin_bottom = 30.0
+	style.shadow_size = 14
 	box.add_theme_stylebox_override("panel", style)
 	center.add_child(box)
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 12)
 	box.add_child(vbox)
 
-	var title := Label.new()
-	title.text = "Paused"
-	title.add_theme_font_size_override("font_size", 44)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var title := UITheme.heading("Paused", 44)
 	vbox.add_child(title)
+	vbox.add_child(UITheme.accent_rule(180.0))
 
 	_buttons.clear()
 	_add_button(vbox, "Resume", _close)
@@ -88,12 +84,15 @@ func _open() -> void:
 		label.text = bus_info[0]
 		label.custom_minimum_size.x = 90
 		label.add_theme_font_size_override("font_size", 22)
+		label.add_theme_color_override("font_color", UITheme.COLOR_TEXT)
 		row.add_child(label)
 		var slider := HSlider.new()
 		slider.min_value = 0.0
 		slider.max_value = 1.0
 		slider.step = 0.05
 		slider.custom_minimum_size.x = 200
+		slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		UITheme.style_slider(slider)
 		slider.value = float(SettingsManager.get_setting("audio", String(bus_info[1])))
 		var key := String(bus_info[1])
 		slider.value_changed.connect(func(value: float) -> void:
@@ -107,15 +106,9 @@ func _open() -> void:
 
 
 func _add_button(parent: Control, text: String, action: Callable) -> void:
-	var button := Button.new()
-	button.text = text
-	button.custom_minimum_size = Vector2(280, 52)
-	button.add_theme_font_size_override("font_size", 26)
-	button.pressed.connect(func() -> void:
-		AudioManager.ui_click()
-		action.call())
-	button.mouse_entered.connect(AudioManager.ui_hover)
-	button.focus_entered.connect(AudioManager.ui_hover)
+	var button := UITheme.make_button(text, Vector2(280, 52), 26)
+	UITheme.hook_sounds(button)
+	button.pressed.connect(action)
 	parent.add_child(button)
 	_buttons.append(button)
 
