@@ -11,7 +11,8 @@ const OCEAN_DEEP: Color = Color(0.05, 0.13, 0.3)
 const OCEAN_SHALLOW: Color = Color(0.46, 0.42, 0.66)
 
 var _elapsed: float = 0.0
-var _prompt: Label
+var _started: bool = false
+var _prompt: Button
 var _logo: Label
 var _camera: Camera3D
 var _penguins: Array[PenguinVisual] = []
@@ -25,6 +26,7 @@ var _aurora_ribbons: Array[MeshInstance3D] = []
 func _ready() -> void:
 	_build_diorama()
 	_build_foreground()
+	_build_tap_catcher()
 	AudioManager.play_music("music_title")
 
 
@@ -404,28 +406,22 @@ func _build_foreground() -> void:
 	_logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(_logo)
 
-	# Ice-white over dark water: bright fill + soft navy outline + drop shadow
-	# keeps the prompt readable against the ocean (contrast QA finding).
-	_prompt = Label.new()
-	_prompt.text = "Press Start"
-	_prompt.add_theme_font_size_override("font_size", 36)
-	_prompt.add_theme_color_override("font_color", Color(0.96, 0.99, 1.0))
-	_prompt.add_theme_color_override("font_outline_color", Color(0.03, 0.08, 0.18, 0.9))
-	_prompt.add_theme_constant_override("outline_size", 10)
-	_prompt.add_theme_color_override("font_shadow_color", Color(0.0, 0.02, 0.08, 0.55))
-	_prompt.add_theme_constant_override("shadow_offset_x", 0)
-	_prompt.add_theme_constant_override("shadow_offset_y", 3)
-	_prompt.add_theme_constant_override("shadow_outline_size", 6)
-	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_prompt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Real button beats a "press start" prompt on touch devices; the full-rect
+	# TapCatcher below it still lets a tap anywhere begin the game.
+	_prompt = UITheme.make_button("Begin", Vector2(260, 64), 30)
+	_prompt.focus_mode = Control.FOCUS_ALL
 	_prompt.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_prompt.anchor_left = 0.5
 	_prompt.anchor_right = 0.5
-	_prompt.anchor_top = 0.86
-	_prompt.anchor_bottom = 0.86
-	_prompt.offset_left = -220.0
-	_prompt.offset_right = 220.0
+	_prompt.anchor_top = 0.84
+	_prompt.anchor_bottom = 0.84
+	_prompt.offset_left = -130.0
+	_prompt.offset_right = 130.0
+	_prompt.offset_top = 0.0
+	_prompt.offset_bottom = 64.0
+	_prompt.pressed.connect(_start_game)
 	overlay.add_child(_prompt)
+	_prompt.grab_focus.call_deferred()
 
 	var version := Label.new()
 	version.text = "v%s" % GameConfig.GAME_VERSION
@@ -469,9 +465,37 @@ func _process(delta: float) -> void:
 		_prompt.modulate.a = 0.8 + 0.2 * sin(_elapsed * pulse_speed)
 
 
+## Topmost full-rect invisible control: guarantees taps reach the start
+## routine even when another Control or browser quirk would swallow the
+## event before _unhandled_input (mobile-web tap-to-start QA finding).
+func _build_tap_catcher() -> void:
+	var catcher := Control.new()
+	catcher.name = "TapCatcher"
+	catcher.set_anchors_preset(Control.PRESET_FULL_RECT)
+	catcher.mouse_filter = Control.MOUSE_FILTER_STOP
+	catcher.gui_input.connect(_on_tap_catcher_input)
+	add_child(catcher)
+
+
+func _on_tap_catcher_input(event: InputEvent) -> void:
+	if (event is InputEventScreenTouch and event.pressed) \
+			or (event is InputEventMouseButton and event.pressed):
+		_start_game()
+
+
+## Single start path; safe to call from multiple input handlers. The same
+## gesture that unlocks web audio must also start the game, so nothing here
+## waits on or is gated by any audio call succeeding.
+func _start_game() -> void:
+	if _started:
+		return
+	_started = true
+	AudioManager.ui_click()
+	SceneRouter.go_to(Game.SCENE_MAIN_MENU)
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_accept") or event.is_action_pressed("pause") \
 			or (event is InputEventScreenTouch and event.pressed) \
 			or (event is InputEventMouseButton and event.pressed):
-		AudioManager.ui_click()
-		SceneRouter.go_to(Game.SCENE_MAIN_MENU)
+		_start_game()

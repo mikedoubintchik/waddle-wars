@@ -93,7 +93,15 @@ func touch_controls_enabled() -> bool:
 		return true
 	if mode == "off":
 		return false
-	return GameConfig.is_mobile() or GameConfig.has_touchscreen()
+	# Auto: native mobile builds, any available touchscreen (covers mobile web
+	# browsers via DisplayServer.is_touchscreen_available), or a web export
+	# running on a phone/tablet OS in case the touchscreen probe fails.
+	return GameConfig.is_mobile() or GameConfig.has_touchscreen() or is_mobile_web()
+
+
+## Web export running in a browser on a mobile OS.
+static func is_mobile_web() -> bool:
+	return OS.has_feature("web_android") or OS.has_feature("web_ios")
 
 
 ## --- Control remapping ---------------------------------------------------

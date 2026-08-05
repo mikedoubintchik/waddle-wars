@@ -94,6 +94,22 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_elapsed += delta
 	var skip := Input.is_action_just_pressed("ui_accept") or Input.is_action_just_pressed("pause")
-	if not _routed and (_elapsed > 2.4 or skip):
-		_routed = true
-		SceneRouter.go_to(Game.SCENE_TITLE)
+	if _elapsed > 2.4 or skip:
+		_route()
+
+
+## _input (not _unhandled_input) so a tap skips the splash even if a Control
+## in this scene consumes it first — touch-first mobile-web requirement.
+func _input(event: InputEvent) -> void:
+	if (event is InputEventScreenTouch and event.pressed) \
+			or (event is InputEventMouseButton and event.pressed):
+		_route()
+
+
+## Single route path; guarded so auto-route, action skip, and tap skip
+## cannot double-fire.
+func _route() -> void:
+	if _routed:
+		return
+	_routed = true
+	SceneRouter.go_to(Game.SCENE_TITLE)

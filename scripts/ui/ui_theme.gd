@@ -18,6 +18,16 @@ const COLOR_SHADOW: Color = Color(0.0, 0.0, 0.0, 0.35)
 ## Standard side margin for full-screen menu layouts.
 const SCREEN_MARGIN: int = 48
 
+## Minimum comfortable touch target height (logical px) and list spacing on
+## touch devices. Applied centrally so every menu inherits them.
+const TOUCH_MIN_HEIGHT: int = 48
+const TOUCH_SPACING: int = 12
+
+## Left-edge back-swipe gesture tuning (attach_swipe_back).
+const SWIPE_BACK_EDGE_WIDTH: float = 36.0
+const SWIPE_BACK_DISTANCE: float = 80.0
+const SWIPE_BACK_TIME_MS: int = 600
+
 const AURORA_SHADER_CODE: String = """
 shader_type canvas_item;
 render_mode blend_add;
@@ -38,6 +48,20 @@ void fragment() {
 
 static var _display_font: FontVariation = null
 static var _button_font: FontVariation = null
+
+
+## True when a touchscreen is present (phones, tablets, touch laptops).
+## Headless runs always report false so sims stay deterministic.
+static func is_touch() -> bool:
+	if GameConfig.is_headless():
+		return false
+	return DisplayServer.is_touchscreen_available()
+
+
+## List/row separation helper: authored value on desktop, at least
+## TOUCH_SPACING on touch devices so rows never crowd fingertips.
+static func spacing(base: int) -> int:
+	return maxi(base, TOUCH_SPACING) if is_touch() else base
 
 
 ## Emboldened, letter-spaced variation of the default font for large headers.
@@ -62,6 +86,8 @@ static func bold_font() -> FontVariation:
 static func make_button(text: String, size: Vector2 = Vector2(320, 52), font_size: int = 24) -> Button:
 	var button := Button.new()
 	button.text = text
+	if is_touch():
+		size.y = maxf(size.y, float(TOUCH_MIN_HEIGHT))
 	button.custom_minimum_size = size
 	button.add_theme_font_override("font", bold_font())
 	button.add_theme_font_size_override("font_size", font_size)
@@ -254,6 +280,10 @@ static func style_slider(slider: HSlider) -> void:
 	slider.add_theme_stylebox_override("slider", track)
 	slider.add_theme_stylebox_override("grabber_area", fill)
 	slider.add_theme_stylebox_override("grabber_area_highlight", fill)
+	# Touchscreens get a taller control rect: the track stays slim but the
+	# whole rect accepts drags, so fingertips land reliably.
+	if is_touch():
+		slider.custom_minimum_size.y = maxf(slider.custom_minimum_size.y, float(TOUCH_MIN_HEIGHT))
 
 
 ## Applies the button style family to an OptionButton picker.
@@ -275,6 +305,13 @@ static func style_option_button(picker: OptionButton) -> void:
 	picker.add_theme_stylebox_override("hover", hover)
 	picker.add_theme_stylebox_override("pressed", hover)
 	picker.add_theme_stylebox_override("focus", focus)
+	# Touchscreens: taller picker plus a roomier dropdown so each popup row
+	# is a comfortable tap target.
+	if is_touch():
+		picker.custom_minimum_size.y = maxf(picker.custom_minimum_size.y, float(TOUCH_MIN_HEIGHT))
+		var popup := picker.get_popup()
+		popup.add_theme_font_size_override("font_size", 22)
+		popup.add_theme_constant_override("v_separation", 16)
 
 
 ## Wires standard UI sounds onto a button. Call for every interactive button.
@@ -282,6 +319,68 @@ static func hook_sounds(button: BaseButton) -> void:
 	button.mouse_entered.connect(AudioManager.ui_hover)
 	button.focus_entered.connect(AudioManager.ui_hover)
 	button.pressed.connect(AudioManager.ui_click)
+
+
+## Left-edge right-swipe "back" gesture for touch menus. Adds an invisible
+## SWIPE_BACK_EDGE_WIDTH-wide full-height strip along the left edge of
+## `node`; a touch (or drag with the mouse) that starts inside the strip and
+## travels right more than SWIPE_BACK_DISTANCE within SWIPE_BACK_TIME_MS
+## fires `callback` once. The strip is edge-only, so sliders, lists, and
+## buttons elsewhere on screen are unaffected. Call after building the
+## menu's children so the strip sits on top of them. The callback should be
+## the same action as the screen's Back button.
+static func attach_swipe_back(node: Control, callback: Callable) -> void:
+	var edge := Control.new()
+	edge.name = "SwipeBackEdge"
+	edge.anchor_left = 0.0
+	edge.anchor_right = 0.0
+	edge.anchor_top = 0.0
+	edge.anchor_bottom = 1.0
+	edge.offset_left = 0.0
+	edge.offset_right = SWIPE_BACK_EDGE_WIDTH
+	edge.offset_top = 0.0
+	edge.offset_bottom = 0.0
+	edge.mouse_filter = Control.MOUSE_FILTER_STOP
+	edge.focus_mode = Control.FOCUS_NONE
+	node.add_child(edge)
+	# Gesture state shared by the lambda across events.
+	var state := {"tracking": false, "start_x": 0.0, "start_ms": 0}
+	edge.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventScreenTouch:
+			var touch := event as InputEventScreenTouch
+			if touch.pressed:
+				state["tracking"] = true
+				state["start_x"] = touch.position.x
+				state["start_ms"] = Time.get_ticks_msec()
+			else:
+				state["tracking"] = false
+			return
+		if event is InputEventMouseButton:
+			var click := event as InputEventMouseButton
+			if click.button_index == MOUSE_BUTTON_LEFT:
+				if click.pressed:
+					state["tracking"] = true
+					state["start_x"] = click.position.x
+					state["start_ms"] = Time.get_ticks_msec()
+				else:
+					state["tracking"] = false
+			return
+		if not bool(state["tracking"]):
+			return
+		var drag_x: float
+		if event is InputEventScreenDrag:
+			drag_x = (event as InputEventScreenDrag).position.x
+		elif event is InputEventMouseMotion:
+			drag_x = (event as InputEventMouseMotion).position.x
+		else:
+			return
+		if Time.get_ticks_msec() - int(state["start_ms"]) > SWIPE_BACK_TIME_MS:
+			state["tracking"] = false
+			return
+		if drag_x - float(state["start_x"]) >= SWIPE_BACK_DISTANCE:
+			state["tracking"] = false
+			AudioManager.ui_click()
+			callback.call())
 
 
 ## Full-rect animated menu backdrop: three-stop navy gradient, faint aurora

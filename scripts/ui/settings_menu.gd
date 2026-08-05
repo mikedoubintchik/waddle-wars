@@ -56,6 +56,7 @@ func _ready() -> void:
 
 	controls_button.grab_focus()
 	SettingsManager.setting_changed.connect(_on_setting_changed)
+	UITheme.attach_swipe_back(self, _go_back)
 
 
 func _on_setting_changed(key: String, _value: Variant) -> void:
@@ -153,7 +154,7 @@ func _section(section_title: String) -> VBoxContainer:
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_sections.add_child(panel)
 	var body := VBoxContainer.new()
-	body.add_theme_constant_override("separation", 10)
+	body.add_theme_constant_override("separation", UITheme.spacing(10))
 	panel.add_child(body)
 	var label := Label.new()
 	label.text = section_title
@@ -230,6 +231,7 @@ func _add_slider_row(parent: VBoxContainer, section: String, key: String, label_
 	value_label.add_theme_color_override("font_color", UITheme.COLOR_TEXT_DIM)
 	value_label.custom_minimum_size = Vector2(64, 0)
 	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	var slider := HSlider.new()
 	slider.min_value = min_value
 	slider.max_value = max_value
@@ -259,6 +261,9 @@ func _add_slider_row(parent: VBoxContainer, section: String, key: String, label_
 func _add_toggle_row(parent: VBoxContainer, section: String, key: String, label_text: String) -> void:
 	var row := _row(parent, label_text)
 	var toggle := CheckButton.new()
+	if UITheme.is_touch():
+		# The switch glyph is small; give fingertips a full-height target.
+		toggle.custom_minimum_size = Vector2(88, UITheme.TOUCH_MIN_HEIGHT)
 	toggle.button_pressed = bool(SettingsManager.get_setting(section, key))
 	toggle.toggled.connect(func(pressed_state: bool) -> void:
 		SettingsManager.set_setting(section, key, pressed_state))

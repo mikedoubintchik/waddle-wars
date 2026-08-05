@@ -83,9 +83,10 @@ func _ready() -> void:
 	add_child(center)
 	_content = VBoxContainer.new()
 	_content.alignment = BoxContainer.ALIGNMENT_CENTER
-	_content.add_theme_constant_override("separation", 14)
+	_content.add_theme_constant_override("separation", UITheme.spacing(14))
 	center.add_child(_content)
 	_show_mode_step()
+	UITheme.attach_swipe_back(self, _go_back_step)
 
 
 func _clear() -> void:
@@ -266,12 +267,18 @@ func _play_entrance() -> void:
 		tween.tween_property(button, "modulate:a", 1.0, 0.22)
 
 
+## One step back through the flow; from the first step, back to the main
+## menu. Shared by ui_cancel and the edge-swipe back gesture.
+func _go_back_step() -> void:
+	match _step:
+		"mode":
+			SceneRouter.go_to(Game.SCENE_MAIN_MENU)
+		"course":
+			_show_mode_step()
+		"difficulty":
+			_show_course_step() if _chosen_mode != Game.Mode.GRAND_PRIX else _show_mode_step()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		match _step:
-			"mode":
-				SceneRouter.go_to(Game.SCENE_MAIN_MENU)
-			"course":
-				_show_mode_step()
-			"difficulty":
-				_show_course_step() if _chosen_mode != Game.Mode.GRAND_PRIX else _show_mode_step()
+		_go_back_step()

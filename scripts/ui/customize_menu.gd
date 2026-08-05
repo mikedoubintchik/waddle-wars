@@ -18,6 +18,7 @@ var _fish_label: Label
 var _tab_buttons: Dictionary = {}  # category -> Button
 var _item_grid: GridContainer
 var _current_category: String = "body"
+var _desc_label: Label
 
 
 func _ready() -> void:
@@ -79,6 +80,7 @@ func _ready() -> void:
 
 	_refresh_preview()
 	_select_category("body")
+	UITheme.attach_swipe_back(self, _go_back)
 	var body_tab: Button = _tab_buttons["body"]
 	body_tab.grab_focus()
 
@@ -222,7 +224,7 @@ func _build_shop(parent: HBoxContainer) -> void:
 	parent.add_child(right)
 
 	var tabs := HBoxContainer.new()
-	tabs.add_theme_constant_override("separation", 8)
+	tabs.add_theme_constant_override("separation", UITheme.spacing(8))
 	right.add_child(tabs)
 	for category: String in CosmeticsDB.CATEGORIES:
 		var tab := UITheme.make_button(String(CosmeticsDB.CATEGORY_NAMES[category]), Vector2(0, 44), 19)
@@ -242,9 +244,16 @@ func _build_shop(parent: HBoxContainer) -> void:
 	_item_grid = GridContainer.new()
 	_item_grid.columns = 2
 	_item_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_item_grid.add_theme_constant_override("h_separation", 10)
-	_item_grid.add_theme_constant_override("v_separation", 10)
+	_item_grid.add_theme_constant_override("h_separation", UITheme.spacing(10))
+	_item_grid.add_theme_constant_override("v_separation", UITheme.spacing(10))
 	scroll.add_child(_item_grid)
+
+	# Description strip: tooltips are hover-only, so touch (and keyboard)
+	# players read the focused/tapped item's flavor text here instead.
+	_desc_label = UITheme.sub_label("", 18)
+	_desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_desc_label.custom_minimum_size = Vector2(0, 26)
+	right.add_child(_desc_label)
 
 
 func _select_category(category: String) -> void:
@@ -274,6 +283,10 @@ func _make_none_button() -> Button:
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.mouse_entered.connect(AudioManager.ui_hover)
 	button.focus_entered.connect(AudioManager.ui_hover)
+	var show_desc := func() -> void:
+		_show_item_desc("Wear nothing in this category.")
+	button.mouse_entered.connect(show_desc)
+	button.focus_entered.connect(show_desc)
 	button.pressed.connect(func() -> void:
 		AudioManager.ui_click()
 		Progression.equip(_current_category, ""))
@@ -294,13 +307,23 @@ func _make_item_button(id: String) -> Button:
 	var text := "%s\n%s" % [String(info.get("name", id)), status]
 	var button := UITheme.make_button(text, Vector2(0, 88), 21)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.tooltip_text = String(info.get("desc", ""))
+	var desc := String(info.get("desc", ""))
+	button.tooltip_text = desc
 	if is_equipped:
 		button.add_theme_color_override("font_color", UITheme.COLOR_GOLD)
 	button.mouse_entered.connect(AudioManager.ui_hover)
 	button.focus_entered.connect(AudioManager.ui_hover)
+	var show_desc := func() -> void:
+		_show_item_desc(desc)
+	button.mouse_entered.connect(show_desc)
+	button.focus_entered.connect(show_desc)
 	button.pressed.connect(_on_item_pressed.bind(id))
 	return button
+
+
+func _show_item_desc(text: String) -> void:
+	if _desc_label != null:
+		_desc_label.text = text
 
 
 func _on_item_pressed(id: String) -> void:

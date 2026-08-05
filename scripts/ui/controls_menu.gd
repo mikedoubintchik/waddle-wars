@@ -61,7 +61,7 @@ func _ready() -> void:
 
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", 10)
+	list.add_theme_constant_override("separation", UITheme.spacing(10))
 	scroll.add_child(list)
 
 	var header_row := _make_row(list)
@@ -101,6 +101,7 @@ func _ready() -> void:
 		touch_box.add_child(UITheme.sub_label(hint, 19))
 
 	_build_capture_overlay()
+	UITheme.attach_swipe_back(self, _go_back)
 	if _first_button != null:
 		_first_button.grab_focus()
 
@@ -151,7 +152,7 @@ func _build_capture_overlay() -> void:
 	_capture_label.add_theme_color_override("font_color", UITheme.COLOR_GOLD)
 	_capture_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(_capture_label)
-	var hint := UITheme.sub_label("Esc cancels", 19)
+	var hint := UITheme.sub_label("Esc or tap anywhere cancels", 19)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(hint)
 
@@ -172,6 +173,13 @@ func _input(event: InputEvent) -> void:
 	if _capturing_action == "":
 		return
 	if Time.get_ticks_msec() - _capture_started_at < 150:
+		return
+	# Touch players have no Esc: any tap or click cancels capture mode.
+	var tap_cancel := (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed) \
+		or (event is InputEventMouseButton and (event as InputEventMouseButton).pressed)
+	if tap_cancel:
+		get_viewport().set_input_as_handled()
+		_end_capture()
 		return
 	if event is InputEventKey and (event as InputEventKey).pressed:
 		var key_event := event as InputEventKey

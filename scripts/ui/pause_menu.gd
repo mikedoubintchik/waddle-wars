@@ -101,6 +101,8 @@ func _open() -> void:
 	_add_button(vbox, "Quit to Menu", func() -> void:
 		get_tree().paused = false
 		Game.quit_race_to_menu())
+	# Edge swipe resumes, mirroring the Resume button for touch players.
+	UITheme.attach_swipe_back(_panel, _close)
 	if not _buttons.is_empty():
 		_buttons[0].grab_focus()
 

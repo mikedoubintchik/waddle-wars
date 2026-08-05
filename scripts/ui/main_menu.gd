@@ -72,6 +72,8 @@ func _ready() -> void:
 	right.add_child(_build_diorama_panel())
 
 	_build_status_chip()
+	UITheme.attach_swipe_back(self, func() -> void:
+		SceneRouter.go_to(Game.SCENE_TITLE))
 	_play_entrance()
 
 	if not _buttons.is_empty():

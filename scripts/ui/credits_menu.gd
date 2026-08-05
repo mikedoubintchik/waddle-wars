@@ -80,6 +80,7 @@ func _ready() -> void:
 	var button_center := CenterContainer.new()
 	button_center.add_child(back_button)
 	_content.add_child(button_center)
+	UITheme.attach_swipe_back(self, _go_back)
 	back_button.grab_focus()
 
 

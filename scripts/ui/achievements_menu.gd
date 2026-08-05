@@ -58,12 +58,13 @@ func _ready() -> void:
 
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", 8)
+	list.add_theme_constant_override("separation", UITheme.spacing(8))
 	scroll.add_child(list)
 
 	for id: String in AchievementsDB.ORDER:
 		list.add_child(_build_achievement_row(id))
 
+	UITheme.attach_swipe_back(self, _go_back)
 	back_button.grab_focus()
 
 
