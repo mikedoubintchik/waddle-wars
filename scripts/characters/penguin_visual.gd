@@ -924,7 +924,9 @@ func tick(delta: float, speed_ratio: float) -> void:
 			brow_target = deg_to_rad(-6.0)
 		Pose.SLIDE:
 			target_tilt.x = deg_to_rad(80.0)
-			target_y = -0.28
+			# Lathe body pivots at foot level (old egg pivoted mid-body): the
+			# -0.28 drop buried the head — lift so the belly skims the snow.
+			target_y = 0.14
 			flipper_l_target = deg_to_rad(-52.0)
 			flipper_r_target = deg_to_rad(52.0)
 			flipper_swing = sin(_time * 3.0) * deg_to_rad(3.0)

@@ -21,6 +21,10 @@ func tick(delta: float) -> void:
 	var raw := Input.get_axis("steer_left", "steer_right")
 	if absf(touch_steer) > 0.05:
 		raw = clampf(raw + touch_steer, -1.0, 1.0)
+	# Racer yaw math: +steer_offset = +yaw = world-LEFT (-sin), so the raw
+	# axis (left=-1/right=+1) must be negated for the player. AI generates
+	# steer in the racer's native convention already — do not "fix" it there.
+	raw = -raw
 	# Keyboard input benefits from smoothing; analog passes through.
 	var smooth_rate := 9.0 if absf(raw) > absf(_smoothed_steer) else 12.0
 	_smoothed_steer = move_toward(_smoothed_steer, raw, smooth_rate * delta)

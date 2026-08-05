@@ -333,14 +333,56 @@ static func add_flag(parent: Node3D, pos: Vector3, color: Color = Color(0.9, 0.2
 	pole.material_override = prop_material(Color(0.5, 0.35, 0.2))
 	pole.position = pos + Vector3.UP * 1.5
 	parent.add_child(pole)
+	var finial := MeshInstance3D.new()
+	var finial_mesh := SphereMesh.new()
+	finial_mesh.radius = 0.09
+	finial_mesh.height = 0.18
+	finial_mesh.radial_segments = 12
+	finial_mesh.rings = 6
+	finial.mesh = finial_mesh
+	finial.material_override = prop_material(Color(0.85, 0.72, 0.35))
+	finial.position = pos + Vector3.UP * 3.05
+	parent.add_child(finial)
 	var flag := MeshInstance3D.new()
-	var flag_mesh := PrismMesh.new()
-	flag_mesh.size = Vector3(1.0, 0.6, 0.06)
-	flag.mesh = flag_mesh
-	flag.material_override = prop_material(color)
-	flag.position = pos + Vector3.UP * 2.7 + Vector3(0.5, 0, 0)
-	flag.rotation.z = deg_to_rad(-90)
+	flag.mesh = _pennant_mesh()
+	var flag_mat := prop_material(color)
+	flag.material_override = flag_mat
+	flag.position = pos + Vector3.UP * 2.85
 	parent.add_child(flag)
+
+
+## Gently curved double-sided pennant built once and shared.
+static var _pennant_cache: ArrayMesh = null
+static func _pennant_mesh() -> ArrayMesh:
+	if _pennant_cache != null:
+		return _pennant_cache
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# Tapered pennant: 4 segments from hoist (full height) to a point, each
+	# segment swept back with a slight sine curl so it reads as cloth.
+	var segs := 4
+	var length := 1.15
+	var half_h := 0.24
+	var prev_top := Vector3(0.0, half_h, 0.0)
+	var prev_bot := Vector3(0.0, -half_h, 0.0)
+	for i: int in segs:
+		var t := float(i + 1) / float(segs)
+		var x := length * t
+		var z := sin(t * PI) * 0.10
+		var h := half_h * (1.0 - t)
+		var top := Vector3(x, h, z)
+		var bot := Vector3(x, -h, z)
+		for tri: Array in [[prev_top, prev_bot, top], [prev_bot, bot, top]]:
+			for v: Vector3 in tri:
+				st.add_vertex(v)
+		for tri: Array in [[prev_top, top, prev_bot], [prev_bot, top, bot]]:
+			for v: Vector3 in tri:
+				st.add_vertex(v)
+		prev_top = top
+		prev_bot = bot
+	st.generate_normals()
+	_pennant_cache = st.commit()
+	return _pennant_cache
 
 
 static func add_rock(parent: Node3D, pos: Vector3, scale_factor: float = 1.0, rng: RandomNumberGenerator = null) -> void:
