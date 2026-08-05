@@ -911,7 +911,7 @@ func tick(delta: float, speed_ratio: float) -> void:
 	match pose:
 		Pose.RUN:
 			target_tilt.z = sin(wave) * deg_to_rad(9.0) * clampf(speed_ratio, 0.2, 1.0)
-			target_tilt.x = deg_to_rad(6.0) * speed_ratio
+			target_tilt.x = deg_to_rad(-6.0) * speed_ratio  # slight forward hustle lean
 			target_y = absf(sin(wave)) * 0.05 * speed_ratio
 			flipper_swing = sin(wave) * deg_to_rad(22.0) * clampf(speed_ratio, 0.3, 1.0)
 			_head_anchor.position.y = HEAD_Y + sin(wave * 2.0) * 0.012
@@ -923,7 +923,9 @@ func tick(delta: float, speed_ratio: float) -> void:
 			flipper_swing = sin(_time * 1.8) * deg_to_rad(4.0)
 			brow_target = deg_to_rad(-6.0)
 		Pose.SLIDE:
-			target_tilt.x = deg_to_rad(80.0)
+			# Negative X pitch = head toward -Z (forward); positive read as
+			# lying on the back in-game.
+			target_tilt.x = deg_to_rad(-80.0)
 			# Lathe body pivots at foot level (old egg pivoted mid-body): the
 			# -0.28 drop buried the head — lift so the belly skims the snow.
 			target_y = 0.14
@@ -937,7 +939,7 @@ func tick(delta: float, speed_ratio: float) -> void:
 			flipper_r_target = deg_to_rad(70.0)
 			brow_target = deg_to_rad(-4.0)
 		Pose.SWIM:
-			target_tilt.x = deg_to_rad(72.0)
+			target_tilt.x = deg_to_rad(-72.0)
 			target_y = -0.2
 			flipper_swing = sin(_time * 9.0) * deg_to_rad(30.0)
 			flipper_l_target = deg_to_rad(-40.0)
