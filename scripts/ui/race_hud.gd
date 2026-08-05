@@ -2,6 +2,25 @@ class_name RaceHUD
 extends CanvasLayer
 ## In-race HUD: position, progress, item, fish, speed, countdown, time,
 ## messages. Scales with the accessibility HUD-scale setting.
+## Visual theme: deep navy rounded panels, ice-blue accents, warm yellow
+## position highlight, soft drop shadows.
+
+const PANEL_NAVY := Color(0.05, 0.09, 0.17, 0.86)
+const PANEL_NAVY_DEEP := Color(0.035, 0.065, 0.13, 0.72)
+const ACCENT_ICE := Color(0.55, 0.8, 1.0)
+const ACCENT_YELLOW := Color(1.0, 0.85, 0.25)
+const OUTLINE_NAVY := Color(0.07, 0.14, 0.27)
+const SHADOW_SOFT := Color(0.0, 0.0, 0.0, 0.32)
+const ITEM_ICON_EMPTY := Color(0.16, 0.26, 0.42)
+
+const FISH_ICON_SVG := """<svg xmlns="http://www.w3.org/2000/svg" width="60" height="40" viewBox="0 0 60 40">
+<path d="M3 20 L19 8 L19 32 Z" fill="#6fc0ee"/>
+<ellipse cx="34" cy="21" rx="21" ry="12" fill="#8fd8f8"/>
+<path d="M26 11 Q35 3 44 11 Q35 15 26 11 Z" fill="#5fb0e2"/>
+<path d="M20 21 Q34 31 50 22 Q34 27 20 21 Z" fill="#5fb0e2" opacity="0.7"/>
+<circle cx="45" cy="17" r="3.2" fill="#0e2036"/>
+<circle cx="46.2" cy="15.8" r="1.1" fill="#ffffff"/>
+</svg>"""
 
 var manager: RaceManager = null
 var player: Racer = null
@@ -13,6 +32,8 @@ var _fish_label: Label
 var _item_panel: PanelContainer
 var _item_label: Label
 var _item_icon: ColorRect
+var _item_style: StyleBoxFlat
+var _item_pulse: Tween = null
 var _speed_bar: ProgressBar
 var _progress_bar: ProgressBar
 var _center_label: Label
@@ -51,6 +72,73 @@ func _audio_cue(text: String) -> void:
 	tween.tween_property(_checkpoint_label, "modulate:a", 0.0, 0.4)
 
 
+## Shared rounded navy card style with soft drop shadow.
+func _panel_style(corner: float = 12.0, margin_h: float = 14.0, margin_v: float = 6.0) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = PANEL_NAVY
+	style.set_corner_radius_all(int(corner))
+	style.set_border_width_all(2)
+	style.border_color = Color(ACCENT_ICE, 0.45)
+	style.content_margin_left = margin_h
+	style.content_margin_right = margin_h
+	style.content_margin_top = margin_v
+	style.content_margin_bottom = margin_v
+	style.shadow_color = SHADOW_SOFT
+	style.shadow_size = 5
+	style.shadow_offset = Vector2(0, 3)
+	return style
+
+
+## Rounded gradient fill for progress-style bars, baked into a texture so
+## the fill keeps soft corners (StyleBoxFlat cannot gradient).
+static func _make_gradient_fill(from: Color, to: Color) -> StyleBoxTexture:
+	var w := 96
+	var h := 16
+	var radius := 6.0
+	var img := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
+	for y: int in h:
+		# Subtle vertical shading: lighter crest at the top of the bar.
+		var shade := 1.0 + (0.5 - float(y) / float(h - 1)) * 0.28
+		for x: int in w:
+			var color := from.lerp(to, float(x) / float(w - 1))
+			color.r = minf(color.r * shade, 1.0)
+			color.g = minf(color.g * shade, 1.0)
+			color.b = minf(color.b * shade, 1.0)
+			var ax := minf(float(x), float(w - 1 - x))
+			var ay := minf(float(y), float(h - 1 - y))
+			if ax < radius and ay < radius:
+				var dx := radius - ax
+				var dy := radius - ay
+				var dist := sqrt(dx * dx + dy * dy) - radius
+				color.a *= clampf(0.5 - dist, 0.0, 1.0)
+			img.set_pixel(x, y, color)
+	var sb := StyleBoxTexture.new()
+	sb.texture = ImageTexture.create_from_image(img)
+	sb.texture_margin_left = radius
+	sb.texture_margin_right = radius
+	return sb
+
+
+func _style_bar(bar: ProgressBar, fill_from: Color, fill_to: Color) -> void:
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = PANEL_NAVY_DEEP
+	bg.set_corner_radius_all(8)
+	bg.set_border_width_all(1)
+	bg.border_color = Color(ACCENT_ICE, 0.35)
+	bg.shadow_color = SHADOW_SOFT
+	bg.shadow_size = 3
+	bg.shadow_offset = Vector2(0, 2)
+	bar.add_theme_stylebox_override("background", bg)
+	bar.add_theme_stylebox_override("fill", _make_gradient_fill(fill_from, fill_to))
+
+
+static func _make_fish_texture() -> ImageTexture:
+	var img := Image.new()
+	if img.load_svg_from_string(FISH_ICON_SVG, 2.0) != OK:
+		return null
+	return ImageTexture.create_from_image(img)
+
+
 func _build() -> void:
 	_root = Control.new()
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -58,104 +146,134 @@ func _build() -> void:
 	var hud_scale := float(SettingsManager.get_setting("accessibility", "hud_scale"))
 	add_child(_root)
 
-	# Position (top left).
+	# Position card (top left).
+	var pos_panel := PanelContainer.new()
+	pos_panel.position = Vector2(24, 20)
+	pos_panel.add_theme_stylebox_override("panel", _panel_style(14.0, 16.0, 2.0))
+	_root.add_child(pos_panel)
 	var pos_box := HBoxContainer.new()
-	pos_box.position = Vector2(30, 24)
-	_root.add_child(pos_box)
+	pos_box.add_theme_constant_override("separation", 6)
+	pos_panel.add_child(pos_box)
 	_position_label = Label.new()
 	_position_label.text = "8"
 	_position_label.add_theme_font_size_override("font_size", int(76 * hud_scale))
 	_position_label.add_theme_color_override("font_color", Color(1, 1, 1))
 	_position_label.add_theme_constant_override("outline_size", 8)
-	_position_label.add_theme_color_override("font_outline_color", Color(0.1, 0.2, 0.4))
+	_position_label.add_theme_color_override("font_outline_color", OUTLINE_NAVY)
 	pos_box.add_child(_position_label)
 	_position_suffix = Label.new()
 	_position_suffix.text = "th / 8"
+	_position_suffix.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_position_suffix.add_theme_font_size_override("font_size", int(30 * hud_scale))
-	_position_suffix.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
+	_position_suffix.add_theme_color_override("font_color", Color(ACCENT_ICE, 0.95))
 	pos_box.add_child(_position_suffix)
 
-	# Time (top center).
+	# Time pill (top center).
+	var time_panel := PanelContainer.new()
+	time_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	time_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	time_panel.offset_left = 0
+	time_panel.offset_right = 0
+	time_panel.offset_top = 20
+	time_panel.add_theme_stylebox_override("panel", _panel_style(18.0, 18.0, 5.0))
+	_root.add_child(time_panel)
 	_time_label = Label.new()
-	_time_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_time_label.anchor_left = 0.5
-	_time_label.anchor_right = 0.5
-	_time_label.offset_left = -280
-	_time_label.offset_right = 280
-	_time_label.offset_top = 22
 	_time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_time_label.add_theme_font_size_override("font_size", int(34 * hud_scale))
+	_time_label.add_theme_color_override("font_color", Color(1, 1, 1))
 	_time_label.add_theme_constant_override("outline_size", 6)
-	_time_label.add_theme_color_override("font_outline_color", Color(0.1, 0.2, 0.4))
-	_root.add_child(_time_label)
+	_time_label.add_theme_color_override("font_outline_color", OUTLINE_NAVY)
+	time_panel.add_child(_time_label)
 
-	# Item slot (top right).
+	# Item slot (top right); border pulses while an item is held.
 	_item_panel = PanelContainer.new()
 	_item_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_item_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_item_panel.offset_left = -170
-	_item_panel.offset_top = 22
-	_item_panel.offset_right = -28
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.06, 0.12, 0.22, 0.75)
-	style.set_corner_radius_all(12)
-	style.set_border_width_all(2)
-	style.border_color = Color(0.5, 0.7, 0.95)
-	style.content_margin_left = 12
-	style.content_margin_right = 12
-	style.content_margin_top = 8
-	style.content_margin_bottom = 8
-	_item_panel.add_theme_stylebox_override("panel", style)
+	_item_panel.offset_top = 20
+	_item_panel.offset_right = -24
+	_item_style = _panel_style(14.0, 12.0, 8.0)
+	_item_style.border_color = Color(ACCENT_ICE, 0.55)
+	_item_panel.add_theme_stylebox_override("panel", _item_style)
 	var item_box := VBoxContainer.new()
+	item_box.add_theme_constant_override("separation", 4)
+	item_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	_item_panel.add_child(item_box)
+	var icon_center := CenterContainer.new()
+	item_box.add_child(icon_center)
 	_item_icon = ColorRect.new()
 	_item_icon.custom_minimum_size = Vector2(46 * hud_scale, 46 * hud_scale)
-	_item_icon.color = Color(0.2, 0.3, 0.45)
-	item_box.add_child(_item_icon)
+	_item_icon.color = ITEM_ICON_EMPTY
+	icon_center.add_child(_item_icon)
 	_item_label = Label.new()
 	_item_label.text = "No Item"
 	_item_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_item_label.add_theme_font_size_override("font_size", int(17 * hud_scale))
+	_item_label.add_theme_color_override("font_color", Color(0.85, 0.93, 1.0))
 	item_box.add_child(_item_label)
 	_root.add_child(_item_panel)
 
-	# Fish (bottom left).
+	# Fish counter card (bottom left) with generated fish icon.
+	var fish_panel := PanelContainer.new()
+	fish_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	fish_panel.grow_horizontal = Control.GROW_DIRECTION_END
+	fish_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	fish_panel.offset_left = 24
+	fish_panel.offset_top = -80
+	fish_panel.offset_bottom = -24
+	fish_panel.add_theme_stylebox_override("panel", _panel_style(14.0, 14.0, 5.0))
+	_root.add_child(fish_panel)
 	var fish_box := HBoxContainer.new()
-	fish_box.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	fish_box.offset_left = 30
-	fish_box.offset_top = -76
-	_root.add_child(fish_box)
-	var fish_icon := Label.new()
-	fish_icon.text = "><>"
-	fish_icon.add_theme_font_size_override("font_size", int(30 * hud_scale))
-	fish_icon.add_theme_color_override("font_color", Color(0.55, 0.85, 0.95))
-	fish_box.add_child(fish_icon)
+	fish_box.add_theme_constant_override("separation", 8)
+	fish_panel.add_child(fish_box)
+	var fish_tex := _make_fish_texture()
+	if fish_tex != null:
+		var fish_icon := TextureRect.new()
+		fish_icon.texture = fish_tex
+		fish_icon.custom_minimum_size = Vector2(40 * hud_scale, 27 * hud_scale)
+		fish_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fish_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		fish_box.add_child(fish_icon)
+	else:
+		# SVG module unavailable: fall back to a glyph so the counter
+		# still reads correctly.
+		var fish_glyph := Label.new()
+		fish_glyph.text = "><>"
+		fish_glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		fish_glyph.add_theme_font_size_override("font_size", int(30 * hud_scale))
+		fish_glyph.add_theme_color_override("font_color", Color(0.55, 0.85, 0.95))
+		fish_box.add_child(fish_glyph)
 	_fish_label = Label.new()
-	_fish_label.text = " 0"
+	_fish_label.text = "0"
+	_fish_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_fish_label.add_theme_font_size_override("font_size", int(34 * hud_scale))
+	_fish_label.add_theme_color_override("font_color", Color(1, 1, 1))
 	_fish_label.add_theme_constant_override("outline_size", 6)
-	_fish_label.add_theme_color_override("font_outline_color", Color(0.1, 0.2, 0.4))
+	_fish_label.add_theme_color_override("font_outline_color", OUTLINE_NAVY)
 	fish_box.add_child(_fish_label)
 
-	# Speed bar (bottom right).
+	# Speed bar (bottom right): ice blue rising to warm yellow at top speed.
 	_speed_bar = ProgressBar.new()
 	_speed_bar.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	_speed_bar.offset_left = -230
 	_speed_bar.offset_top = -56
 	_speed_bar.offset_right = -30
-	_speed_bar.offset_bottom = -36
+	_speed_bar.offset_bottom = -38
 	_speed_bar.max_value = 1.0
 	_speed_bar.show_percentage = false
+	_style_bar(_speed_bar, Color(0.35, 0.65, 0.95), ACCENT_YELLOW)
 	_root.add_child(_speed_bar)
 
-	# Course progress (bottom center).
+	# Course progress (bottom center): deep ice to bright ice gradient.
 	_progress_bar = ProgressBar.new()
 	_progress_bar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_progress_bar.anchor_left = 0.32
 	_progress_bar.anchor_right = 0.68
-	_progress_bar.offset_top = -44
+	_progress_bar.offset_top = -46
 	_progress_bar.offset_bottom = -30
 	_progress_bar.max_value = 1.0
 	_progress_bar.show_percentage = false
+	_style_bar(_progress_bar, Color(0.3, 0.6, 0.95), Color(0.62, 0.9, 1.0))
 	_root.add_child(_progress_bar)
 
 	_checkpoint_label = Label.new()
@@ -167,6 +285,8 @@ func _build() -> void:
 	_checkpoint_label.offset_top = -80
 	_checkpoint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_checkpoint_label.add_theme_font_size_override("font_size", int(24 * hud_scale))
+	_checkpoint_label.add_theme_constant_override("outline_size", 5)
+	_checkpoint_label.add_theme_color_override("font_outline_color", OUTLINE_NAVY)
 	_checkpoint_label.modulate.a = 0.0
 	_root.add_child(_checkpoint_label)
 
@@ -182,7 +302,7 @@ func _build() -> void:
 	_center_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_center_label.add_theme_font_size_override("font_size", int(120 * hud_scale))
 	_center_label.add_theme_constant_override("outline_size", 12)
-	_center_label.add_theme_color_override("font_outline_color", Color(0.1, 0.2, 0.4))
+	_center_label.add_theme_color_override("font_outline_color", OUTLINE_NAVY)
 	_root.add_child(_center_label)
 
 
@@ -298,7 +418,8 @@ func _on_positions(_standings: Array[Racer]) -> void:
 
 
 func _on_fish(_racer: Racer, _value: int) -> void:
-	_fish_label.text = " %d" % player.fish_count
+	_fish_label.text = "%d" % player.fish_count
+	_fish_label.pivot_offset = _fish_label.size * 0.5
 	var tween := create_tween()
 	_fish_label.scale = Vector2.ONE * 1.3
 	tween.tween_property(_fish_label, "scale", Vector2.ONE, 0.18)
@@ -312,11 +433,38 @@ func _on_item_received(_racer: Racer, item_id: String) -> void:
 	_item_panel.scale = Vector2.ONE * 1.15
 	_item_panel.pivot_offset = _item_panel.size * 0.5
 	tween.tween_property(_item_panel, "scale", Vector2.ONE, 0.2)
+	_start_item_pulse()
 
 
 func _on_item_used(_racer: Racer, _item_id: String) -> void:
 	_item_label.text = "No Item"
-	_item_icon.color = Color(0.2, 0.3, 0.45)
+	_item_icon.color = ITEM_ICON_EMPTY
+	_stop_item_pulse()
+
+
+## Slow warm glow pulse on the item frame while an item is held. With
+## reduced flashing enabled the frame holds a static bright highlight.
+func _start_item_pulse() -> void:
+	_stop_item_pulse()
+	if bool(SettingsManager.get_setting("accessibility", "reduced_flashing")):
+		_item_style.border_color = ACCENT_YELLOW
+		return
+	_item_pulse = create_tween()
+	_item_pulse.set_loops()
+	_item_pulse.tween_method(_set_item_glow, 0.0, 1.0, 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_item_pulse.tween_method(_set_item_glow, 1.0, 0.0, 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+func _stop_item_pulse() -> void:
+	if _item_pulse != null and _item_pulse.is_valid():
+		_item_pulse.kill()
+	_item_pulse = null
+	_set_item_glow(0.0)
+
+
+func _set_item_glow(amount: float) -> void:
+	_item_style.border_color = Color(ACCENT_ICE, 0.55).lerp(ACCENT_YELLOW, amount)
+	_item_style.shadow_color = SHADOW_SOFT.lerp(Color(ACCENT_YELLOW, 0.4), amount)
 
 
 func _on_checkpoint(_racer: Racer, index: int) -> void:

@@ -277,6 +277,14 @@ func start_grid_transform(slot: int) -> Transform3D:
 
 ## params: sky_top, sky_horizon, ground_color, sun_angle_deg, sun_energy,
 ## sun_color, fog_color, fog_density, ambient_energy, snow (bool), stars (bool)
+## Optional (all backward compatible, sensible defaults):
+##   sun_angle_max (deg, sun disc/halo size, default 15.0), sun_curve (0.08),
+##   sky_energy (sky brightness multiplier, 1.0), exposure (tonemap, 1.05),
+##   sky_contribution (ambient from sky, 1.0), fog_height + fog_height_density
+##   (height fog, off unless fog_height given), glow (bool, default true;
+##   auto-off when particle_quality == "low"), glow_threshold (1.1),
+##   shadow_distance (140.0), clouds (bool) + cloud_color, distant_bergs
+##   (bool) + berg_color/berg_count/berg_distance/berg_y.
 func build_environment(params: Dictionary) -> void:
 	var world_env := WorldEnvironment.new()
 	var env := Environment.new()
@@ -286,18 +294,34 @@ func build_environment(params: Dictionary) -> void:
 	sky_mat.sky_horizon_color = params.get("sky_horizon", Color(0.75, 0.88, 0.98))
 	sky_mat.ground_bottom_color = params.get("ground_color", Color(0.7, 0.8, 0.9))
 	sky_mat.ground_horizon_color = params.get("sky_horizon", Color(0.75, 0.88, 0.98))
-	sky_mat.sun_angle_max = 30.0
+	sky_mat.sun_angle_max = float(params.get("sun_angle_max", 15.0))
+	sky_mat.sun_curve = float(params.get("sun_curve", 0.08))
+	sky_mat.sky_energy_multiplier = float(params.get("sky_energy", 1.0))
 	sky.sky_material = sky_mat
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.ambient_light_energy = float(params.get("ambient_energy", 1.0))
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.ambient_light_sky_contribution = float(params.get("sky_contribution", 1.0))
+	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	env.tonemap_exposure = float(params.get("exposure", 1.05))
 	env.tonemap_white = 6.0
 	env.fog_enabled = true
 	env.fog_light_color = params.get("fog_color", Color(0.75, 0.86, 0.95))
 	env.fog_density = float(params.get("fog_density", 0.004))
 	env.fog_sky_affect = 0.2
+	if params.has("fog_height"):
+		env.fog_height = float(params["fog_height"])
+		env.fog_height_density = float(params.get("fog_height_density", 0.08))
+	var particle_quality := String(SettingsManager.get_setting("display", "particle_quality"))
+	if bool(params.get("glow", true)) and particle_quality != "low" and not GameConfig.is_headless():
+		# High HDR threshold: only emissive peaks (boost pads, pickups, aurora)
+		# bloom — cheap on Forward Mobile, never a full-screen wash.
+		env.glow_enabled = true
+		env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
+		env.glow_hdr_threshold = float(params.get("glow_threshold", 1.1))
+		env.glow_intensity = 0.45
+		env.glow_bloom = 0.0
 	world_env.environment = env
 	add_child(world_env)
 
@@ -307,11 +331,88 @@ func build_environment(params: Dictionary) -> void:
 	sun.rotation_degrees = Vector3(float(params.get("sun_angle_deg", -48.0)), float(params.get("sun_yaw_deg", -30.0)), 0.0)
 	var shadow_quality := String(SettingsManager.get_setting("display", "shadow_quality"))
 	sun.shadow_enabled = shadow_quality != "off" and not GameConfig.is_headless()
-	sun.directional_shadow_max_distance = 120.0
+	sun.directional_shadow_max_distance = float(params.get("shadow_distance", 140.0))
+	sun.shadow_bias = 0.03
+	sun.shadow_normal_bias = 1.6
+	sun.directional_shadow_fade_start = 0.85
+	match shadow_quality:
+		"low":
+			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+		"medium":
+			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+		_:
+			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+			sun.directional_shadow_blend_splits = true
 	add_child(sun)
 
 	if bool(params.get("snow", false)) and not GameConfig.is_headless():
 		_add_snowfall()
+	if bool(params.get("clouds", false)) and not GameConfig.is_headless():
+		_add_clouds(params.get("cloud_color", Color(1.0, 1.0, 1.0, 0.75)))
+	if bool(params.get("distant_bergs", false)) and not GameConfig.is_headless():
+		_add_distant_bergs(params)
+
+
+## 3-puff soft billboard cloud clusters spread high along the main line.
+func _add_clouds(color: Color) -> void:
+	var cloud_mat := StandardMaterial3D.new()
+	cloud_mat.albedo_color = color
+	cloud_mat.albedo_texture = VisualLibrary.soft_radial_texture(64, 0.85)
+	cloud_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	cloud_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	cloud_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	var count := 5
+	for i: int in count:
+		var anchor := Vector3.ZERO
+		if main_guide != null:
+			anchor = main_guide.position_at(main_guide.length * (float(i) + 0.5) / float(count))
+		var cluster := Node3D.new()
+		cluster.name = "Cloud_%d" % i
+		cluster.position = anchor + Vector3(
+			rng.randf_range(-260.0, 260.0),
+			rng.randf_range(110.0, 170.0),
+			rng.randf_range(-120.0, 120.0))
+		for j: int in 3:
+			var puff := MeshInstance3D.new()
+			var quad := QuadMesh.new()
+			var size := rng.randf_range(55.0, 110.0)
+			quad.size = Vector2(size, size * 0.55)
+			puff.mesh = quad
+			puff.material_override = cloud_mat
+			puff.position = Vector3(
+				rng.randf_range(-30.0, 30.0),
+				rng.randf_range(-8.0, 8.0),
+				rng.randf_range(-18.0, 18.0))
+			cluster.add_child(puff)
+		add_child(cluster)
+
+
+## Ring of low-poly iceberg silhouettes near the horizon for depth layering.
+func _add_distant_bergs(params: Dictionary) -> void:
+	var count := int(params.get("berg_count", 10))
+	var distance := float(params.get("berg_distance", 650.0))
+	var color: Color = params.get("berg_color", Color(0.78, 0.87, 0.96))
+	var center := Vector3.ZERO
+	var lowest := 0.0
+	if main_guide != null and main_guide.points.size() > 0:
+		var sum := Vector3.ZERO
+		lowest = INF
+		for point: Vector3 in main_guide.points:
+			sum += point
+			lowest = minf(lowest, point.y)
+		center = sum / float(main_guide.points.size())
+	var base_y := float(params.get("berg_y", lowest - 6.0))
+	var mat := VisualLibrary.rock_material(color)
+	for i: int in count:
+		var angle := TAU * float(i) / float(count) + rng.randf_range(-0.18, 0.18)
+		var berg := MeshInstance3D.new()
+		berg.mesh = VisualLibrary.berg_mesh(rng.randi())
+		berg.material_override = mat
+		var s := rng.randf_range(28.0, 70.0)
+		berg.scale = Vector3(s * rng.randf_range(0.8, 1.3), s * rng.randf_range(0.55, 0.9), s)
+		berg.position = Vector3(center.x + cos(angle) * distance, base_y, center.z + sin(angle) * distance)
+		berg.rotation.y = rng.randf() * TAU
+		add_child(berg)
 
 
 func _add_snowfall() -> void:
@@ -331,6 +432,7 @@ func _add_snowfall() -> void:
 	flake.size = Vector2(0.12, 0.12)
 	var flake_mat := StandardMaterial3D.new()
 	flake_mat.albedo_color = Color(1, 1, 1, 0.85)
+	flake_mat.albedo_texture = VisualLibrary.soft_radial_texture(32, 0.9)
 	flake_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	flake_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	flake_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
@@ -442,14 +544,23 @@ func add_item_row(offset: float, count: int = 4, guide: PathGuide = null) -> voi
 
 
 ## Big ground plane far below for visual grounding (ocean/ice sheet).
-func add_ground_plane(y: float, color: Color, size: float = 4000.0) -> void:
+## Optional material overrides the flat color — e.g.
+## VisualLibrary.water_material(...) for ocean or snow_material(...) for
+## an ice sheet (pass subdivided = true with water so waves displace).
+func add_ground_plane(y: float, color: Color, size: float = 4000.0, material: Material = null, subdivided: bool = false) -> void:
 	var plane := MeshInstance3D.new()
 	var mesh := PlaneMesh.new()
 	mesh.size = Vector2(size, size)
+	if subdivided:
+		mesh.subdivide_width = 48
+		mesh.subdivide_depth = 48
 	plane.mesh = mesh
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.roughness = 0.6
-	plane.material_override = mat
+	if material != null:
+		plane.material_override = material
+	else:
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = color
+		mat.roughness = 0.6
+		plane.material_override = mat
 	plane.position = Vector3(0, y, 0)
 	add_child(plane)

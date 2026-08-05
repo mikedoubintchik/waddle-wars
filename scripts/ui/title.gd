@@ -1,6 +1,14 @@
 extends Control
-## Title screen: animated 3D ice-floe diorama with idling penguins and
-## falling snow behind a rocking logo. Any input advances to the main menu.
+## Title screen: twilight 3D ice-floe diorama — aurora ribbons, star field,
+## soft clouds, animated ocean, distant bergs, and idling penguins behind a
+## rocking logo. Any input advances to the main menu.
+
+const STAR_COUNT: int = 140
+const SKY_TOP: Color = Color(0.1, 0.14, 0.34)
+const SKY_HORIZON: Color = Color(0.93, 0.55, 0.47)
+const GROUND_BOTTOM: Color = Color(0.07, 0.1, 0.2)
+const OCEAN_DEEP: Color = Color(0.05, 0.13, 0.3)
+const OCEAN_SHALLOW: Color = Color(0.46, 0.42, 0.66)
 
 var _elapsed: float = 0.0
 var _prompt: Label
@@ -8,6 +16,10 @@ var _logo: Label
 var _camera: Camera3D
 var _penguins: Array[PenguinVisual] = []
 var _penguin_ratios: Array[float] = []
+var _base_poses: Array[int] = []
+var _flourish_until: Array[float] = []
+var _next_flourish: Array[float] = []
+var _aurora_ribbons: Array[MeshInstance3D] = []
 
 
 func _ready() -> void:
@@ -31,30 +43,99 @@ func _build_diorama() -> void:
 	viewport.msaa_3d = Viewport.MSAA_2X
 	container.add_child(viewport)
 
+	_build_environment(viewport)
+	_build_ocean(viewport)
+	_build_floe(viewport)
+	_build_cast(viewport)
+	if not GameConfig.is_headless():
+		_build_aurora(viewport)
+		_build_stars(viewport)
+		_build_clouds(viewport)
+		_build_bergs(viewport)
+		_build_snowfall(viewport)
+
+	_camera = Camera3D.new()
+	viewport.add_child(_camera)
+	_camera.current = true
+	_camera.look_at_from_position(Vector3(0.0, 1.5, -4.6), Vector3(0.0, 0.6, 0.0), Vector3.UP)
+
+
+## Twilight sky, ACES tonemap, warm low key sun + cool fill, gated glow.
+func _build_environment(viewport: SubViewport) -> void:
 	var sky_material := ProceduralSkyMaterial.new()
-	sky_material.sky_top_color = Color(0.16, 0.28, 0.5)
-	sky_material.sky_horizon_color = Color(0.62, 0.76, 0.9)
-	sky_material.ground_bottom_color = Color(0.1, 0.16, 0.26)
-	sky_material.ground_horizon_color = Color(0.62, 0.76, 0.9)
+	sky_material.sky_top_color = SKY_TOP
+	sky_material.sky_horizon_color = SKY_HORIZON
+	sky_material.ground_bottom_color = GROUND_BOTTOM
+	sky_material.ground_horizon_color = SKY_HORIZON
+	sky_material.sun_angle_max = 24.0
+	sky_material.sun_curve = 0.09
+	sky_material.sky_energy_multiplier = 1.0
 	var sky := Sky.new()
 	sky.sky_material = sky_material
+
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 1.0
+	env.ambient_light_energy = 1.15
+	env.ambient_light_sky_contribution = 1.0
+	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	env.tonemap_exposure = 1.05
+	env.tonemap_white = 6.0
+	env.fog_enabled = true
+	env.fog_light_color = Color(0.45, 0.36, 0.52)
+	env.fog_density = 0.0022
+	env.fog_sky_affect = 0.12
+	var particle_quality := String(SettingsManager.get_setting("display", "particle_quality"))
+	if particle_quality != "low" and not GameConfig.is_headless():
+		# High HDR threshold: only emissive peaks (aurora, snow glints) bloom.
+		env.glow_enabled = true
+		env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
+		env.glow_hdr_threshold = 1.1
+		env.glow_intensity = 0.45
+		env.glow_bloom = 0.0
 	var world_env := WorldEnvironment.new()
 	world_env.environment = env
 	viewport.add_child(world_env)
 
-	var light := DirectionalLight3D.new()
-	light.rotation_degrees = Vector3(-38.0, 35.0, 0.0)
-	light.light_energy = 1.25
-	light.light_color = Color(1.0, 0.96, 0.9)
-	light.shadow_enabled = true
-	viewport.add_child(light)
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-17.0, 22.0, 0.0)
+	sun.light_energy = 1.3
+	sun.light_color = Color(1.0, 0.76, 0.52)
+	var shadow_quality := String(SettingsManager.get_setting("display", "shadow_quality"))
+	sun.shadow_enabled = shadow_quality != "off" and not GameConfig.is_headless()
+	sun.directional_shadow_max_distance = 30.0
+	sun.shadow_bias = 0.03
+	sun.shadow_normal_bias = 1.6
+	viewport.add_child(sun)
 
-	# Ice floe.
+	var fill := DirectionalLight3D.new()
+	fill.rotation_degrees = Vector3(-42.0, -155.0, 0.0)
+	fill.light_energy = 0.35
+	fill.light_color = Color(0.5, 0.66, 1.0)
+	fill.shadow_enabled = false
+	fill.sky_mode = DirectionalLight3D.SKY_MODE_LIGHT_ONLY
+	viewport.add_child(fill)
+
+
+## Large animated ocean plane; low wave_scale suits the big surface.
+func _build_ocean(viewport: SubViewport) -> void:
+	var ocean := MeshInstance3D.new()
+	var mesh := PlaneMesh.new()
+	mesh.size = Vector2(700.0, 700.0)
+	mesh.subdivide_width = 70
+	mesh.subdivide_depth = 70
+	ocean.mesh = mesh
+	ocean.material_override = VisualLibrary.water_material(OCEAN_DEEP, OCEAN_SHALLOW, 0.26, 0.06)
+	ocean.position = Vector3(0, -0.5, 0)
+	ocean.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	viewport.add_child(ocean)
+
+
+## Snow-topped floe with an ice skirt at the waterline and soft snow drifts.
+## NOTE: no ice-crystal prop here — at diorama scale its jagged cyan shards
+## read as a glitch artifact next to the penguins (screenshot QA finding).
+func _build_floe(viewport: SubViewport) -> void:
 	var floe := MeshInstance3D.new()
 	var floe_mesh := CylinderMesh.new()
 	floe_mesh.top_radius = 2.6
@@ -62,33 +143,55 @@ func _build_diorama() -> void:
 	floe_mesh.height = 0.4
 	floe_mesh.radial_segments = 28
 	floe.mesh = floe_mesh
-	floe.material_override = PenguinVisual.get_material(Color(0.94, 0.97, 1.0), 0.0, 0.85)
+	floe.material_override = VisualLibrary.snow_material(Color(0.94, 0.97, 1.0), 0.7)
 	floe.position = Vector3(0, -0.2, 0)
 	viewport.add_child(floe)
 
-	# Distant water disc.
-	var water := MeshInstance3D.new()
-	var water_mesh := CylinderMesh.new()
-	water_mesh.top_radius = 30.0
-	water_mesh.bottom_radius = 30.0
-	water_mesh.height = 0.1
-	water.mesh = water_mesh
-	water.material_override = PenguinVisual.get_material(Color(0.1, 0.28, 0.42), 0.1, 0.25)
-	water.position = Vector3(0, -0.5, 0)
-	viewport.add_child(water)
+	var skirt := MeshInstance3D.new()
+	var skirt_mesh := CylinderMesh.new()
+	skirt_mesh.top_radius = 3.05
+	skirt_mesh.bottom_radius = 3.45
+	skirt_mesh.height = 0.55
+	skirt_mesh.radial_segments = 28
+	skirt.mesh = skirt_mesh
+	skirt.material_override = VisualLibrary.ice_material(Color(0.55, 0.78, 0.97), 0.55)
+	skirt.position = Vector3(0, -0.62, 0)
+	skirt.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	viewport.add_child(skirt)
 
-	# Penguin cast.
-	var casts: Array = [
-		[Vector3(-0.9, 0.0, 0.3), 0.5, "body_classic", PenguinVisual.Pose.IDLE, 0.0],
-		[Vector3(0.2, 0.0, -0.4), -0.3, "body_snowy", PenguinVisual.Pose.RUN, 0.55],
-		[Vector3(1.1, 0.0, 0.5), 0.9, "body_midnight", PenguinVisual.Pose.IDLE, 0.0],
+	var drift_mesh := VisualLibrary.snow_drift_mesh()
+	var drift_material := VisualLibrary.rock_material(Color(1.0, 1.0, 1.0))
+	var drifts: Array = [
+		[Vector3(-1.8, 0.0, 1.2), 0.9],
+		[Vector3(1.9, 0.0, -1.1), 0.6],
+		[Vector3(-0.5, 0.0, 1.9), 0.5],
 	]
-	for entry: Array in casts:
+	for entry: Array in drifts:
+		var drift := MeshInstance3D.new()
+		drift.mesh = drift_mesh
+		drift.material_override = drift_material
+		drift.position = entry[0] as Vector3
+		var s := float(entry[1])
+		drift.scale = Vector3(s, s * 0.6, s)
+		viewport.add_child(drift)
+
+
+## Penguin cast with staggered idle flourishes (occasional celebrate flaps).
+func _build_cast(viewport: SubViewport) -> void:
+	var casts: Array = [
+		[Vector3(-0.9, 0.0, 0.3), 0.5, "body_classic", PenguinVisual.Pose.IDLE, 0.0, 1.0],
+		[Vector3(0.2, 0.0, -0.4), -0.3, "body_snowy", PenguinVisual.Pose.RUN, 0.55, 1.0],
+		[Vector3(1.1, 0.0, 0.5), 0.9, "body_midnight", PenguinVisual.Pose.IDLE, 0.0, 1.0],
+		[Vector3(0.35, 0.0, 1.05), 0.15, "body_classic", PenguinVisual.Pose.IDLE, 0.0, 0.6],
+	]
+	for i: int in casts.size():
+		var entry: Array = casts[i]
 		var body_info := CosmeticsDB.get_item(String(entry[2]))
 		var penguin := PenguinVisual.new()
 		viewport.add_child(penguin)
 		penguin.position = entry[0] as Vector3
 		penguin.rotation.y = float(entry[1])
+		penguin.scale = Vector3.ONE * float(entry[5])
 		penguin.setup({
 			"body_color": body_info.get("body_color", Color(0.13, 0.16, 0.22)),
 			"belly_color": body_info.get("belly_color", Color(0.95, 0.94, 0.9)),
@@ -97,10 +200,148 @@ func _build_diorama() -> void:
 		penguin.anim_speed = randf_range(0.85, 1.15)
 		_penguins.append(penguin)
 		_penguin_ratios.append(float(entry[4]))
+		_base_poses.append(int(entry[3]))
+		_flourish_until.append(0.0)
+		_next_flourish.append(5.0 + float(i) * 3.5 + randf_range(0.0, 2.0))
 
-	# Falling snow.
+
+## Two additive aurora ribbons arcing across the visible sky.
+## UV.x runs along the ribbon, UV.y = 0 at the top edge (shader contract).
+func _build_aurora(viewport: SubViewport) -> void:
+	var configs: Array = [
+		[200.0, 62.0, 46.0, -1.25, 0.55, 3.1],
+		[255.0, 88.0, 58.0, -0.25, 1.35, 7.7],
+	]
+	for cfg: Array in configs:
+		var radius := float(cfg[0])
+		var y_base := float(cfg[1])
+		var height := float(cfg[2])
+		var a0 := float(cfg[3])
+		var a1 := float(cfg[4])
+		var phase := float(cfg[5])
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var segments := 30
+		var prev_bottom := Vector3.ZERO
+		var prev_top := Vector3.ZERO
+		var prev_t := 0.0
+		for i: int in segments + 1:
+			var t := float(i) / float(segments)
+			var angle := lerpf(a0, a1, t)
+			var wave := sin(t * PI * 3.0 + phase) * 6.0
+			var bottom := Vector3(sin(angle) * radius, y_base + wave, cos(angle) * radius)
+			var top := bottom + Vector3.UP * (height + sin(t * PI * 5.0 + phase) * 9.0)
+			if i > 0:
+				st.set_uv(Vector2(prev_t, 1.0)); st.add_vertex(prev_bottom)
+				st.set_uv(Vector2(prev_t, 0.0)); st.add_vertex(prev_top)
+				st.set_uv(Vector2(t, 0.0)); st.add_vertex(top)
+				st.set_uv(Vector2(prev_t, 1.0)); st.add_vertex(prev_bottom)
+				st.set_uv(Vector2(t, 0.0)); st.add_vertex(top)
+				st.set_uv(Vector2(t, 1.0)); st.add_vertex(bottom)
+			prev_bottom = bottom
+			prev_top = top
+			prev_t = t
+		var ribbon := MeshInstance3D.new()
+		ribbon.mesh = st.commit()
+		ribbon.material_override = VisualLibrary.aurora_material()
+		ribbon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		viewport.add_child(ribbon)
+		_aurora_ribbons.append(ribbon)
+
+
+## Star dome: one MultiMesh of soft additive billboards, brighter overhead
+## where the twilight sky is darkest.
+func _build_stars(viewport: SubViewport) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 66601
+	var quad := QuadMesh.new()
+	quad.size = Vector2(1.0, 1.0)
+	var star_material := StandardMaterial3D.new()
+	star_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	star_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	star_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	star_material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	star_material.billboard_keep_scale = true
+	star_material.albedo_texture = VisualLibrary.soft_radial_texture(32, 0.9)
+	star_material.vertex_color_use_as_albedo = true
+	star_material.disable_receive_shadows = true
+	star_material.disable_fog = true
+	quad.material = star_material
+	var multimesh := MultiMesh.new()
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.use_colors = true
+	multimesh.mesh = quad
+	multimesh.instance_count = STAR_COUNT
+	for i: int in STAR_COUNT:
+		var azimuth := rng.randf() * TAU
+		var altitude := rng.randf_range(0.22, 1.45)
+		var dir := Vector3(cos(azimuth) * cos(altitude), sin(altitude), sin(azimuth) * cos(altitude))
+		var s := rng.randf_range(0.7, 2.2)
+		multimesh.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3(s, s, s)), dir * 300.0))
+		var height_fade := clampf((altitude - 0.15) / 1.2, 0.0, 1.0)
+		var alpha := rng.randf_range(0.35, 0.95) * (0.3 + 0.7 * height_fade)
+		multimesh.set_instance_color(i, Color(0.85 + rng.randf() * 0.15, 0.9 + rng.randf() * 0.1, 1.0, alpha))
+	var stars := MultiMeshInstance3D.new()
+	stars.multimesh = multimesh
+	stars.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	viewport.add_child(stars)
+
+
+## Soft twilight-tinted billboard puff clusters near the horizon.
+func _build_clouds(viewport: SubViewport) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 40412
+	var cloud_material := StandardMaterial3D.new()
+	cloud_material.albedo_color = Color(0.95, 0.68, 0.72, 0.4)
+	cloud_material.albedo_texture = VisualLibrary.soft_radial_texture(64, 0.85)
+	cloud_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	cloud_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	cloud_material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	for _i: int in 5:
+		var azimuth := rng.randf_range(-1.5, 1.5)
+		var dist := rng.randf_range(150.0, 260.0)
+		var cluster := Node3D.new()
+		cluster.position = Vector3(sin(azimuth) * dist, rng.randf_range(20.0, 55.0), cos(azimuth) * dist)
+		for _j: int in 3:
+			var puff := MeshInstance3D.new()
+			var quad := QuadMesh.new()
+			var size := rng.randf_range(28.0, 60.0)
+			quad.size = Vector2(size, size * 0.5)
+			puff.mesh = quad
+			puff.material_override = cloud_material
+			puff.position = Vector3(
+				rng.randf_range(-18.0, 18.0),
+				rng.randf_range(-5.0, 5.0),
+				rng.randf_range(-8.0, 8.0))
+			cluster.add_child(puff)
+		viewport.add_child(cluster)
+
+
+## Ring of low-poly iceberg silhouettes for horizon depth.
+func _build_bergs(viewport: SubViewport) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 977013
+	var berg_material := VisualLibrary.rock_material(Color(0.58, 0.64, 0.84))
+	var count := 9
+	for i: int in count:
+		var angle := TAU * float(i) / float(count) + rng.randf_range(-0.2, 0.2)
+		var berg := MeshInstance3D.new()
+		berg.mesh = VisualLibrary.berg_mesh(rng.randi())
+		berg.material_override = berg_material
+		var s := rng.randf_range(7.0, 18.0)
+		berg.scale = Vector3(s * rng.randf_range(0.9, 1.4), s * rng.randf_range(0.6, 0.95), s)
+		var dist := rng.randf_range(130.0, 260.0)
+		berg.position = Vector3(cos(angle) * dist, -1.2, sin(angle) * dist)
+		berg.rotation.y = rng.randf() * TAU
+		berg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		viewport.add_child(berg)
+
+
+## Falling snow: soft billboard flakes, amount gated by particle quality.
+func _build_snowfall(viewport: SubViewport) -> void:
 	var snow := GPUParticles3D.new()
-	snow.amount = 260
+	var quality := String(SettingsManager.get_setting("display", "particle_quality"))
+	snow.amount = 240 if quality == "high" else (130 if quality == "medium" else 60)
 	snow.lifetime = 6.0
 	snow.preprocess = 6.0
 	var snow_material := ParticleProcessMaterial.new()
@@ -114,24 +355,22 @@ func _build_diorama() -> void:
 	snow_material.turbulence_enabled = true
 	snow_material.turbulence_noise_strength = 0.4
 	snow_material.turbulence_noise_scale = 2.0
+	snow_material.scale_min = 0.6
+	snow_material.scale_max = 1.2
 	snow.process_material = snow_material
-	var flake := SphereMesh.new()
-	flake.radius = 0.02
-	flake.height = 0.04
-	flake.radial_segments = 6
-	flake.rings = 3
+	var flake := QuadMesh.new()
+	flake.size = Vector2(0.08, 0.08)
 	var flake_material := StandardMaterial3D.new()
-	flake_material.albedo_color = Color(0.98, 0.99, 1.0)
+	flake_material.albedo_color = Color(1.0, 1.0, 1.0, 0.9)
+	flake_material.albedo_texture = VisualLibrary.soft_radial_texture(32, 0.9)
 	flake_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	flake_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	flake_material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	flake.material = flake_material
 	snow.draw_pass_1 = flake
 	snow.position = Vector3(0, 4.5, 0)
+	snow.visibility_aabb = AABB(Vector3(-8.0, -16.0, -8.0), Vector3(16.0, 20.0, 16.0))
 	viewport.add_child(snow)
-
-	_camera = Camera3D.new()
-	viewport.add_child(_camera)
-	_camera.current = true
-	_camera.look_at_from_position(Vector3(0.0, 1.5, -4.6), Vector3(0.0, 0.6, 0.0), Vector3.UP)
 
 
 ## --- Foreground UI ---------------------------------------------------------
@@ -165,12 +404,18 @@ func _build_foreground() -> void:
 	_logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(_logo)
 
+	# Ice-white over dark water: bright fill + soft navy outline + drop shadow
+	# keeps the prompt readable against the ocean (contrast QA finding).
 	_prompt = Label.new()
 	_prompt.text = "Press Start"
 	_prompt.add_theme_font_size_override("font_size", 36)
-	_prompt.add_theme_color_override("font_color", UITheme.COLOR_ACCENT)
-	_prompt.add_theme_color_override("font_outline_color", Color(0.05, 0.11, 0.22))
-	_prompt.add_theme_constant_override("outline_size", 8)
+	_prompt.add_theme_color_override("font_color", Color(0.96, 0.99, 1.0))
+	_prompt.add_theme_color_override("font_outline_color", Color(0.03, 0.08, 0.18, 0.9))
+	_prompt.add_theme_constant_override("outline_size", 10)
+	_prompt.add_theme_color_override("font_shadow_color", Color(0.0, 0.02, 0.08, 0.55))
+	_prompt.add_theme_constant_override("shadow_offset_x", 0)
+	_prompt.add_theme_constant_override("shadow_offset_y", 3)
+	_prompt.add_theme_constant_override("shadow_outline_size", 6)
 	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_prompt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_prompt.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
@@ -199,7 +444,16 @@ func _build_foreground() -> void:
 func _process(delta: float) -> void:
 	_elapsed += delta
 	for i: int in _penguins.size():
-		_penguins[i].tick(delta, _penguin_ratios[i])
+		var penguin := _penguins[i]
+		penguin.tick(delta, _penguin_ratios[i])
+		if _elapsed >= _next_flourish[i]:
+			penguin.set_pose(PenguinVisual.Pose.CELEBRATE)
+			_flourish_until[i] = _elapsed + randf_range(1.5, 2.3)
+			_next_flourish[i] = _elapsed + randf_range(9.0, 16.0)
+		elif penguin.pose == PenguinVisual.Pose.CELEBRATE and _elapsed >= _flourish_until[i]:
+			penguin.set_pose(_base_poses[i] as PenguinVisual.Pose)
+	for i: int in _aurora_ribbons.size():
+		_aurora_ribbons[i].position.y = sin(_elapsed * 0.18 + float(i) * 2.1) * 3.0
 	if _camera != null:
 		_camera.position.x = sin(_elapsed * 0.22) * 0.35
 		_camera.position.y = 1.5 + sin(_elapsed * 0.31) * 0.12
@@ -210,7 +464,9 @@ func _process(delta: float) -> void:
 	if _prompt != null:
 		var reduced := bool(SettingsManager.get_setting("accessibility", "reduced_flashing"))
 		var pulse_speed := 1.2 if reduced else 3.0
-		_prompt.modulate.a = 0.55 + 0.45 * sin(_elapsed * pulse_speed)
+		# Gentle pulse with a high floor: never dips below ~0.6 alpha so the
+		# prompt stays legible over the dark water at every phase.
+		_prompt.modulate.a = 0.8 + 0.2 * sin(_elapsed * pulse_speed)
 
 
 func _unhandled_input(event: InputEvent) -> void:

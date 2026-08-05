@@ -138,7 +138,9 @@ static func _emit_floor_run(root: Node3D, left: PackedVector3Array, right: Packe
 	var mesh := st.commit()
 	var instance := MeshInstance3D.new()
 	instance.mesh = mesh
-	instance.material_override = surface_material(surface)
+	# Snow/ice floors get the shader treatment (procedural detail + sparkle /
+	# fresnel); other surfaces keep the classic flat material via fallback.
+	instance.material_override = VisualLibrary.track_surface_material(surface)
 	root.add_child(instance)
 	var body := StaticBody3D.new()
 	body.collision_layer = GameConfig.LAYER_WORLD

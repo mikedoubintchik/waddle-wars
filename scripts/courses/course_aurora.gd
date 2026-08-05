@@ -3,15 +3,23 @@ extends CourseBase
 ## AURORA ASCENT: twilight mountain under the southern lights. Switchback
 ## climb, windy ridge traverse, icicle cavern, a narrow no-wall ridge
 ## shortcut, an ice geyser field, and a huge 270-degree corkscrew descent
-## to a research-station finish. Dark blue snow, aurora ribbons in the sky,
-## warm orange station lights along the route.
+## to a research-station finish. Deep star-strewn twilight sky, animated
+## aurora curtains (shared VisualLibrary shader), dark-blue ambient snow,
+## glowing crystals along the route, warm research lamps (sparse real
+## lights), blowing-snow wisps across the windy ridge.
 
 const SNOW := SurfacesDB.Surface.PACKED_SNOW
 const ICE := SurfacesDB.Surface.ICE_SMOOTH
 const RICE := SurfacesDB.Surface.ICE_ROUGH
 
+## Hard cap on real OmniLight3Ds (mobile renderer: keep the cluster light
+## count tiny). Everything else glows via emissive materials only.
+const MAX_OMNI_LIGHTS: int = 5
+
 var _aurora_ribbons: Array[Node3D] = []
 var _aurora_time: float = 0.0
+var _omni_lights: int = 0
+var _crystal_mats: Dictionary = {}
 
 ## Cumulative true arc length per guide sample index. Godot 4.7 bakes curve
 ## samples ~1.0-2.0m apart (tessellation), not the uniform 2.0m PathGuide
@@ -153,6 +161,7 @@ func build_course() -> void:
 		wind.configure(xform.basis.x * float(spec["dir"]), float(spec["strength"]), Vector3(14.0, 8.0, 34.0))
 		wind.transform = Transform3D(xform.basis, xform.origin + xform.basis.y * 3.0)
 		add_child(wind)
+		_add_wind_wisps(xform, float(spec["dir"]))
 		# Danger side = side the wind pushes you toward; AI biases away.
 		var kind := "danger_right" if float(spec["dir"]) > 0.0 else "danger_left"
 		add_hint(arc - 35.0, kind, arc + 26.0)
@@ -223,19 +232,38 @@ func build_course() -> void:
 
 	_decorate()
 	_build_aurora()
+	_build_stars()
+	# Deep twilight: near-black zenith falling to a violet horizon band, a
+	# small cold moon disc, dark-blue ambient tinting every snow surface, thin
+	# distance haze (dense fog would eat the aurora/stars) plus ground mist
+	# pooling in the finish bowl below y=2.
 	build_environment({
-		"sky_top": Color(0.05, 0.09, 0.2),
-		"sky_horizon": Color(0.5, 0.28, 0.46),
-		"ground_color": Color(0.12, 0.15, 0.25),
-		"sun_angle_deg": -22.0,
-		"sun_energy": 0.5,
-		"sun_color": Color(0.62, 0.74, 1.0),
-		"fog_color": Color(0.1, 0.14, 0.28),
-		"fog_density": 0.006,
-		"ambient_energy": 1.2,
+		"sky_top": Color(0.03, 0.05, 0.14),
+		"sky_horizon": Color(0.4, 0.24, 0.5),
+		"ground_color": Color(0.05, 0.07, 0.16),
+		"sun_angle_deg": -18.0,
+		"sun_energy": 0.55,
+		"sun_color": Color(0.66, 0.76, 1.0),
+		"sun_angle_max": 2.5,
+		"sun_curve": 0.05,
+		"sky_energy": 0.9,
+		"exposure": 1.12,
+		"fog_color": Color(0.09, 0.12, 0.26),
+		"fog_density": 0.0015,
+		"fog_height": 2.0,
+		"fog_height_density": 0.05,
+		"glow_threshold": 1.05,
+		"shadow_distance": 120.0,
+		"ambient_energy": 1.35,
 		"snow": true,
+		"distant_bergs": true,
+		"berg_color": Color(0.34, 0.42, 0.66),
+		"berg_count": 12,
+		"berg_distance": 800.0,
+		"berg_y": -31.0,
 	})
-	add_ground_plane(-32.0, Color(0.09, 0.12, 0.2))
+	add_ground_plane(-32.0, Color(0.09, 0.12, 0.2), 4000.0,
+		VisualLibrary.snow_material(Color(0.52, 0.58, 0.85), 0.85))
 
 
 ## True arc-length offset, the space point_at/transform_at expect.
@@ -367,6 +395,9 @@ static func _sample_point(guide: PathGuide, idx: int, lateral: float) -> Vector3
 ## --- Decorations ------------------------------------------------------------
 
 func _decorate() -> void:
+	if GameConfig.is_headless():
+		return
+
 	# Course-side flags in aurora colors, alternating sides.
 	var offset := 60.0
 	var side := 1.0
@@ -378,7 +409,8 @@ func _decorate() -> void:
 		side = -side
 		offset += 120.0
 
-	# Warm research-station lights dotted along the whole route.
+	# Warm research-station lamps dotted along the whole route. Emissive
+	# meshes only — the sparse real OmniLight3Ds go to key landmarks below.
 	var light_offset := 90.0
 	var light_side := -1.0
 	while light_offset < main_guide.length - 40.0:
@@ -386,19 +418,24 @@ func _decorate() -> void:
 		_add_station_light(xform.origin + xform.basis.x * ((10.5 + rng.randf_range(0.0, 2.0)) * light_side))
 		light_side = -light_side
 		light_offset += 155.0
-	# Dense pole rows framing the finish straight.
+	# Start plateau: one lamp casting a real warm pool over the grid.
+	var start_xform := main_guide.transform_at(14.0)
+	_add_station_light(start_xform.origin + start_xform.basis.x * 10.0, true)
+	# Dense pole rows framing the finish straight; the nearest row casts
+	# real light so the finish reads warm against the twilight.
 	for i: int in 3:
 		var xform := main_guide.transform_at(finish_offset - 15.0 - float(i) * 25.0)
 		for s: float in [-1.0, 1.0]:
-			_add_station_light(xform.origin + xform.basis.x * (10.5 * s))
+			_add_station_light(xform.origin + xform.basis.x * (10.5 * s), i == 0)
 
-	# Two research huts with glowing windows.
+	# Two research huts with glowing windows (each brings one real lamp).
 	var hut_a := main_guide.transform_at(_arc_near(Vector3(60, 67, -340)))
 	_add_research_hut(hut_a.origin + hut_a.basis.x * 14.0, hut_a.origin)
 	var hut_b := main_guide.transform_at(_arc_near(Vector3(40, 33.4, -938)))
 	_add_research_hut(hut_b.origin + hut_b.basis.x * -15.0, hut_b.origin)
 
-	# Windy ridge: crystal fins flanking the track.
+	# Windy ridge: softly glowing crystal fins flanking the traverse in
+	# alternating aurora green / violet.
 	var ridge_start := _arc_near(Vector3(60, 67, -340))
 	var ridge_end := _arc_near(Vector3(56, 66.2, -466))
 	var crystal_offset := ridge_start
@@ -406,15 +443,16 @@ func _decorate() -> void:
 	while crystal_offset < ridge_end:
 		var xform := main_guide.transform_at(crystal_offset)
 		for s: float in [-1.0, 1.0]:
-			var tint := Color(0.5, 0.85, 1.0) if tint_flip else Color(0.75, 0.55, 1.0)
-			TrackBuilder.add_ice_crystal(self, xform.origin + xform.basis.x * (8.5 * s) + Vector3.DOWN * 0.6,
-				rng.randf_range(2.0, 5.0), tint)
+			var tint := Color(0.45, 1.0, 0.7) if tint_flip else Color(0.75, 0.55, 1.0)
+			_add_glow_crystal(xform.origin + xform.basis.x * (8.5 * s) + Vector3.DOWN * 0.8,
+				rng.randf_range(2.0, 4.5), tint)
 			tint_flip = not tint_flip
 		crystal_offset += 26.0
 
-	# Icicle cavern: glacier-style arches + crystals.
+	# Icicle cavern: crystalline ice arches + glow shards lining the walls.
 	var cavern_start := _arc_near(Vector3(48, 64.6, -502))
 	var cavern_end := _arc_near(Vector3(46, 58.6, -616))
+	var arch_mat := VisualLibrary.ice_material(Color(0.48, 0.62, 0.95), 0.5)
 	var cave_offset := cavern_start
 	while cave_offset < cavern_end:
 		var xform := main_guide.transform_at(cave_offset)
@@ -423,17 +461,12 @@ func _decorate() -> void:
 		torus.inner_radius = 7.5
 		torus.outer_radius = 10.0
 		arch.mesh = torus
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = Color(0.42, 0.55, 0.9, 0.9)
-		mat.roughness = 0.15
-		mat.rim_enabled = true
-		mat.rim = 0.55
-		arch.material_override = mat
+		arch.material_override = arch_mat
 		arch.transform = Transform3D(xform.basis.rotated(xform.basis.x, deg_to_rad(90)), xform.origin + Vector3.UP * 1.0)
 		add_child(arch)
 		for s: float in [-1.0, 1.0]:
-			TrackBuilder.add_ice_crystal(self, xform.origin + xform.basis.x * (8.0 * s) + Vector3.DOWN * 0.5,
-				rng.randf_range(2.5, 5.5), Color(0.6, 0.7, 1.0))
+			_add_glow_crystal(xform.origin + xform.basis.x * (8.0 * s) + Vector3.DOWN * 0.6,
+				rng.randf_range(2.2, 4.8), Color(0.55, 0.8, 1.0))
 		cave_offset += 20.0
 
 	# Spectator penguins near start and finish.
@@ -446,22 +479,40 @@ func _decorate() -> void:
 		var lateral := (11.5 + rng.randf_range(0.0, 4.0)) * (1.0 if i % 2 == 0 else -1.0)
 		TrackBuilder.add_spectator(self, near_finish.origin + near_finish.basis.x * lateral, near_finish.origin, rng)
 
-	# Distant twilight peaks: big dark low-poly cones ringing the course.
-	for i: int in 14:
-		var angle := TAU * float(i) / 14.0 + rng.randf_range(-0.15, 0.15)
-		var dist := rng.randf_range(360.0, 580.0)
-		var mountain := MeshInstance3D.new()
-		var cone := CylinderMesh.new()
-		cone.top_radius = 0.0
-		cone.bottom_radius = rng.randf_range(70.0, 140.0)
-		cone.height = rng.randf_range(140.0, 260.0)
-		cone.radial_segments = 7
-		mountain.mesh = cone
-		mountain.material_override = TrackBuilder.prop_material(Color(0.16, 0.2, 0.32), 0.95)
-		mountain.position = Vector3(20.0 + sin(angle) * dist, -30.0 + cone.height * 0.5, -520.0 + cos(angle) * dist)
-		add_child(mountain)
+	# Distant twilight peaks: jagged low-poly berg silhouettes ringing the
+	# course. Baked vertex colors give dark faceted walls + paler snow caps.
+	var peak_mat := VisualLibrary.rock_material(Color(0.3, 0.36, 0.6))
+	for i: int in 16:
+		var angle := TAU * float(i) / 16.0 + rng.randf_range(-0.15, 0.15)
+		var dist := rng.randf_range(380.0, 620.0)
+		var peak := MeshInstance3D.new()
+		peak.mesh = VisualLibrary.berg_mesh(rng.randi())
+		peak.material_override = peak_mat
+		var width := rng.randf_range(90.0, 170.0)
+		peak.scale = Vector3(width * rng.randf_range(0.9, 1.4), rng.randf_range(70.0, 130.0), width)
+		peak.position = Vector3(20.0 + sin(angle) * dist, -30.0, -520.0 + cos(angle) * dist)
+		peak.rotation.y = rng.randf() * TAU
+		peak.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(peak)
 
-	# Rocks and crystals scattered along the route ("crystals everywhere").
+	# Snowdrift mounds fill the course flanks so the slopes never read empty.
+	var drift_mesh := VisualLibrary.snow_drift_mesh()
+	var drift_mat := VisualLibrary.rock_material(Color(0.62, 0.68, 0.92))
+	for i: int in 30:
+		var drift_offset := rng.randf_range(30.0, main_guide.length - 50.0)
+		var drift_xform := main_guide.transform_at(drift_offset)
+		var drift_lateral := rng.randf_range(12.0, 28.0) * (1.0 if rng.randf() > 0.5 else -1.0)
+		var drift := MeshInstance3D.new()
+		drift.mesh = drift_mesh
+		drift.material_override = drift_mat
+		var drift_scale := rng.randf_range(1.6, 4.2)
+		drift.scale = Vector3(drift_scale * rng.randf_range(0.9, 1.5), drift_scale * rng.randf_range(0.5, 0.9), drift_scale)
+		drift.position = drift_xform.origin + drift_xform.basis.x * drift_lateral + Vector3.DOWN * 0.8
+		drift.rotation.y = rng.randf() * TAU
+		drift.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(drift)
+
+	# Rocks and glow crystals scattered along the route.
 	for i: int in 26:
 		var offset2 := rng.randf_range(40.0, main_guide.length - 60.0)
 		var xform2 := main_guide.transform_at(offset2)
@@ -469,8 +520,19 @@ func _decorate() -> void:
 		if rng.randf() > 0.55:
 			TrackBuilder.add_rock(self, xform2.origin + xform2.basis.x * lateral2 + Vector3.DOWN * 1.0, rng.randf_range(0.7, 1.8), rng)
 		else:
-			TrackBuilder.add_ice_crystal(self, xform2.origin + xform2.basis.x * lateral2 + Vector3.DOWN * 1.0,
-				rng.randf_range(2.0, 6.5), Color(0.55, 0.8, 1.0) if rng.randf() > 0.5 else Color(0.7, 0.5, 1.0))
+			_add_glow_crystal(xform2.origin + xform2.basis.x * lateral2 + Vector3.DOWN * 1.0,
+				rng.randf_range(2.0, 5.5), Color(0.55, 0.8, 1.0) if rng.randf() > 0.5 else Color(0.7, 0.5, 1.0))
+
+	# Landmark crystal monoliths: one on the outside of each hairpin apex
+	# (all three apexes bulge away from x=0 and run -Z, so the outward side
+	# is sign(apex.x) along basis.x) + a beacon rising through the middle of
+	# the corkscrew finale.
+	for apex: Vector3 in [Vector3(127, 47.6, -146), Vector3(-87, 59.2, -230), Vector3(-74, 46.6, -752)]:
+		var apex_xform := main_guide.transform_at(_arc_near(apex))
+		var out_side := 1.0 if apex.x > 0.0 else -1.0
+		_add_glow_crystal(apex_xform.origin + apex_xform.basis.x * (13.0 * out_side) + Vector3.DOWN * 2.0,
+			rng.randf_range(7.0, 10.0), Color(0.45, 1.0, 0.7))
+	_add_glow_crystal(Vector3(80.0, -18.0, -1030.0), 24.0, Color(0.5, 1.0, 0.75))
 
 
 ## Thick wind-carved ice berms lining both edges of the whole ridge
@@ -560,7 +622,10 @@ static func _berm_quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: V
 	st.add_vertex(a); st.add_vertex(d); st.add_vertex(c)
 
 
-func _add_station_light(pos: Vector3) -> void:
+## Warm station lamp: post + emissive globe (blooms past the glow threshold).
+## with_light additionally drops one of the few real OmniLight3Ds — capped at
+## MAX_OMNI_LIGHTS and skipped on low particle quality (mobile budget).
+func _add_station_light(pos: Vector3, with_light: bool = false) -> void:
 	var post := MeshInstance3D.new()
 	var post_mesh := CylinderMesh.new()
 	post_mesh.top_radius = 0.09
@@ -581,10 +646,28 @@ func _add_station_light(pos: Vector3) -> void:
 	mat.albedo_color = Color(1.0, 0.7, 0.3)
 	mat.emission_enabled = true
 	mat.emission = Color(1.0, 0.62, 0.18)
-	mat.emission_energy_multiplier = 2.2
+	mat.emission_energy_multiplier = 2.6
 	lamp.material_override = mat
 	lamp.position = pos + Vector3.UP * 3.55
 	add_child(lamp)
+	if with_light:
+		_try_add_omni(pos + Vector3.UP * 3.4)
+
+
+func _try_add_omni(pos: Vector3) -> void:
+	if _omni_lights >= MAX_OMNI_LIGHTS or GameConfig.is_headless():
+		return
+	if String(SettingsManager.get_setting("display", "particle_quality")) == "low":
+		return
+	var omni := OmniLight3D.new()
+	omni.light_color = Color(1.0, 0.62, 0.25)
+	omni.light_energy = 1.8
+	omni.omni_range = 16.0
+	omni.omni_attenuation = 1.4
+	omni.shadow_enabled = false
+	omni.position = pos
+	add_child(omni)
+	_omni_lights += 1
 
 
 func _add_research_hut(pos: Vector3, look_target: Vector3) -> void:
@@ -621,59 +704,177 @@ func _add_research_hut(pos: Vector3, look_target: Vector3) -> void:
 		window.material_override = window_mat
 		window.position = Vector3(wx, 1.5, -1.72)
 		hut.add_child(window)
-	_add_station_light(pos + Vector3(2.8, 0, 1.5))
+	_add_station_light(pos + Vector3(2.8, 0, 1.5), true)
 
 
-## --- Aurora sky ribbons -----------------------------------------------------
+## --- Aurora sky, stars, wind wisps, glow crystals ---------------------------
 
+## Serpentine curtain meshes wearing the shared animated aurora shader.
+## The shader expects UV.x along the ribbon and UV.y = 0 at the top edge;
+## each ribbon duplicates the cached material to vary intensity, band scale,
+## curtain frequency, alpha, and scroll speed.
 func _build_aurora() -> void:
 	if GameConfig.is_headless():
 		set_process(false)
 		return
 	var center := Vector3(20.0, 0.0, -520.0)
-	var configs: Array = [
-		{"radius": 340.0, "y": 170.0, "h": 55.0, "a0": -0.4, "a1": 1.5, "color": Color(0.25, 1.0, 0.55, 0.4)},
-		{"radius": 460.0, "y": 195.0, "h": 65.0, "a0": 2.4, "a1": 4.4, "color": Color(0.3, 0.9, 1.0, 0.38)},
-		{"radius": 560.0, "y": 225.0, "h": 78.0, "a0": 0.9, "a1": 3.1, "color": Color(0.66, 0.45, 1.0, 0.34)},
-		{"radius": 660.0, "y": 252.0, "h": 88.0, "a0": -1.2, "a1": 0.8, "color": Color(0.4, 1.0, 0.7, 0.3)},
+	var configs: Array[Dictionary] = [
+		{"radius": 350.0, "y": 168.0, "h": 60.0, "a0": -0.5, "a1": 1.6, "wobble": 26.0,
+			"intensity": 2.0, "bands": 3.2, "freq": 24.0, "alpha": 0.55, "scroll": 0.06},
+		{"radius": 470.0, "y": 196.0, "h": 74.0, "a0": 2.3, "a1": 4.5, "wobble": 34.0,
+			"intensity": 1.8, "bands": 2.4, "freq": 30.0, "alpha": 0.5, "scroll": 0.045},
+		{"radius": 580.0, "y": 228.0, "h": 86.0, "a0": 0.8, "a1": 3.2, "wobble": 40.0,
+			"intensity": 1.7, "bands": 2.8, "freq": 18.0, "alpha": 0.45, "scroll": 0.08},
+		{"radius": 690.0, "y": 258.0, "h": 96.0, "a0": -1.3, "a1": 0.9, "wobble": 30.0,
+			"intensity": 1.5, "bands": 3.6, "freq": 26.0, "alpha": 0.4, "scroll": 0.035},
 	]
 	for cfg: Dictionary in configs:
-		var ribbon := MeshInstance3D.new()
 		var st := SurfaceTool.new()
 		st.begin(Mesh.PRIMITIVE_TRIANGLES)
-		var segments := 26
-		var base_color: Color = cfg["color"]
-		var top_color := Color(base_color.r, base_color.g, base_color.b, 0.03)
+		var segments := 30
+		var radius := float(cfg["radius"])
 		var prev_bottom := Vector3.ZERO
 		var prev_top := Vector3.ZERO
+		var prev_t := 0.0
 		for i: int in segments + 1:
 			var t := float(i) / float(segments)
 			var angle := lerpf(float(cfg["a0"]), float(cfg["a1"]), t)
-			var wave := sin(t * PI * 3.0 + float(cfg["radius"])) * 14.0
-			var bottom := center + Vector3(cos(angle) * float(cfg["radius"]),
-				float(cfg["y"]) + wave, sin(angle) * float(cfg["radius"]))
-			var top := bottom + Vector3.UP * (float(cfg["h"]) + sin(t * PI * 5.0) * 10.0)
+			var r := radius + sin(t * PI * 2.0 + radius) * float(cfg["wobble"])
+			var wave := sin(t * PI * 3.0 + radius) * 12.0
+			var bottom := center + Vector3(cos(angle) * r, float(cfg["y"]) + wave, sin(angle) * r)
+			var top := bottom + Vector3.UP * (float(cfg["h"]) + sin(t * PI * 5.0 + radius) * 12.0)
 			if i > 0:
-				st.set_color(base_color); st.add_vertex(prev_bottom)
-				st.set_color(top_color); st.add_vertex(prev_top)
-				st.set_color(top_color); st.add_vertex(top)
-				st.set_color(base_color); st.add_vertex(prev_bottom)
-				st.set_color(top_color); st.add_vertex(top)
-				st.set_color(base_color); st.add_vertex(bottom)
+				st.set_uv(Vector2(prev_t, 1.0)); st.add_vertex(prev_bottom)
+				st.set_uv(Vector2(prev_t, 0.0)); st.add_vertex(prev_top)
+				st.set_uv(Vector2(t, 0.0)); st.add_vertex(top)
+				st.set_uv(Vector2(prev_t, 1.0)); st.add_vertex(prev_bottom)
+				st.set_uv(Vector2(t, 0.0)); st.add_vertex(top)
+				st.set_uv(Vector2(t, 1.0)); st.add_vertex(bottom)
 			prev_bottom = bottom
 			prev_top = top
+			prev_t = t
+		var ribbon := MeshInstance3D.new()
 		ribbon.mesh = st.commit()
-		var mat := StandardMaterial3D.new()
-		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-		mat.vertex_color_use_as_albedo = true
-		mat.disable_receive_shadows = true
+		var mat := VisualLibrary.aurora_material().duplicate() as ShaderMaterial
+		mat.set_shader_parameter("intensity", float(cfg["intensity"]))
+		mat.set_shader_parameter("band_scale", float(cfg["bands"]))
+		mat.set_shader_parameter("curtain_frequency", float(cfg["freq"]))
+		mat.set_shader_parameter("max_alpha", float(cfg["alpha"]))
+		mat.set_shader_parameter("scroll_speed", float(cfg["scroll"]))
 		ribbon.material_override = mat
 		ribbon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(ribbon)
 		_aurora_ribbons.append(ribbon)
+
+
+## Star dome: one MultiMesh of soft additive billboards (same recipe as the
+## title screen sky), fog-immune, brighter toward the dark zenith.
+func _build_stars() -> void:
+	if GameConfig.is_headless():
+		return
+	var center := Vector3(20.0, 20.0, -520.0)
+	var count := 320
+	var quad := QuadMesh.new()
+	quad.size = Vector2(1.0, 1.0)
+	var star_material := StandardMaterial3D.new()
+	star_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	star_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	star_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	star_material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	star_material.billboard_keep_scale = true
+	star_material.albedo_texture = VisualLibrary.soft_radial_texture(32, 0.9)
+	star_material.vertex_color_use_as_albedo = true
+	star_material.disable_receive_shadows = true
+	star_material.disable_fog = true
+	quad.material = star_material
+	var multimesh := MultiMesh.new()
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.use_colors = true
+	multimesh.mesh = quad
+	multimesh.instance_count = count
+	for i: int in count:
+		var azimuth := rng.randf() * TAU
+		var altitude := rng.randf_range(0.1, 1.5)
+		var dir := Vector3(cos(azimuth) * cos(altitude), sin(altitude), sin(azimuth) * cos(altitude))
+		var s := rng.randf_range(2.4, 7.0)
+		multimesh.set_instance_transform(i,
+			Transform3D(Basis.from_scale(Vector3(s, s, s)), center + dir * 1150.0))
+		var height_fade := clampf((altitude - 0.05) / 1.2, 0.0, 1.0)
+		var alpha := rng.randf_range(0.35, 0.95) * (0.3 + 0.7 * height_fade)
+		multimesh.set_instance_color(i, Color(0.85 + rng.randf() * 0.15, 0.9 + rng.randf() * 0.1, 1.0, alpha))
+	var stars := MultiMeshInstance3D.new()
+	stars.multimesh = multimesh
+	stars.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(stars)
+
+
+## Blowing-snow wisps streaming across a crosswind zone: soft stretched
+## billboards emitted upwind of the track, carried across it by the same
+## direction the HazardWindZone pushes. Skipped headless / on low quality.
+func _add_wind_wisps(xform: Transform3D, dir: float) -> void:
+	if GameConfig.is_headless():
+		return
+	var quality := String(SettingsManager.get_setting("display", "particle_quality"))
+	if quality == "low":
+		return
+	var wisps := GPUParticles3D.new()
+	wisps.amount = 26 if quality == "high" else 14
+	wisps.lifetime = 2.0
+	wisps.preprocess = 2.0
+	var mat := ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	mat.emission_box_extents = Vector3(2.0, 2.5, 16.0)
+	mat.direction = Vector3(dir, 0.06, 0.0)
+	mat.spread = 7.0
+	mat.initial_velocity_min = 9.0
+	mat.initial_velocity_max = 14.0
+	mat.gravity = Vector3(0.0, -1.2, 0.0)
+	mat.scale_min = 0.6
+	mat.scale_max = 1.4
+	mat.color = Color(0.82, 0.9, 1.0, 0.32)
+	wisps.process_material = mat
+	var quad := QuadMesh.new()
+	quad.size = Vector2(1.5, 0.4)
+	var draw_mat := StandardMaterial3D.new()
+	draw_mat.albedo_texture = VisualLibrary.soft_radial_texture(32, 0.6)
+	draw_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	draw_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	draw_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	draw_mat.vertex_color_use_as_albedo = true
+	draw_mat.disable_receive_shadows = true
+	quad.material = draw_mat
+	wisps.draw_pass_1 = quad
+	wisps.visibility_aabb = AABB(Vector3(-34.0, -12.0, -22.0), Vector3(68.0, 24.0, 44.0))
+	wisps.transform = Transform3D(xform.basis, xform.origin - xform.basis.x * (dir * 11.0) + xform.basis.y * 2.2)
+	add_child(wisps)
+
+
+## Faceted crystal cluster (shared VisualLibrary mesh) with a subtle emissive
+## charge so it reads at twilight without joining the OmniLight3D budget.
+func _add_glow_crystal(pos: Vector3, height: float, tint: Color) -> void:
+	var crystal := MeshInstance3D.new()
+	crystal.mesh = VisualLibrary.ice_crystal_mesh()
+	crystal.material_override = _crystal_material(tint)
+	crystal.scale = Vector3(height * 0.8, height, height * 0.8)
+	crystal.rotation.y = rng.randf() * TAU
+	crystal.position = pos
+	crystal.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(crystal)
+
+
+func _crystal_material(tint: Color) -> StandardMaterial3D:
+	var key := tint.to_html(false)
+	if _crystal_mats.has(key):
+		return _crystal_mats[key]
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = tint
+	mat.vertex_color_use_as_albedo = true
+	mat.roughness = 0.2
+	mat.emission_enabled = true
+	mat.emission = tint
+	mat.emission_energy_multiplier = 0.55
+	_crystal_mats[key] = mat
+	return mat
 
 
 var _ridge_clamp_start := 0.0

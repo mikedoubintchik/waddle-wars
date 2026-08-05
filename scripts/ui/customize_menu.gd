@@ -2,6 +2,16 @@ extends Control
 ## Cosmetic shop and locker: live 3D penguin preview on the left, category
 ## tabs and an item grid on the right. Purchases spend fish via Progression.
 
+## Same drawn fish glyph as the race HUD currency counter (race_hud.gd).
+const FISH_ICON_SVG := """<svg xmlns="http://www.w3.org/2000/svg" width="60" height="40" viewBox="0 0 60 40">
+<path d="M3 20 L19 8 L19 32 Z" fill="#6fc0ee"/>
+<ellipse cx="34" cy="21" rx="21" ry="12" fill="#8fd8f8"/>
+<path d="M26 11 Q35 3 44 11 Q35 15 26 11 Z" fill="#5fb0e2"/>
+<path d="M20 21 Q34 31 50 22 Q34 27 20 21 Z" fill="#5fb0e2" opacity="0.7"/>
+<circle cx="45" cy="17" r="3.2" fill="#0e2036"/>
+<circle cx="46.2" cy="15.8" r="1.1" fill="#ffffff"/>
+</svg>"""
+
 var _preview_pivot: Node3D
 var _penguin: PenguinVisual
 var _fish_label: Label
@@ -33,11 +43,23 @@ func _ready() -> void:
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	header.add_child(title)
+	var fish_box := HBoxContainer.new()
+	fish_box.add_theme_constant_override("separation", 8)
+	header.add_child(fish_box)
+	var fish_tex := _make_fish_texture()
+	if fish_tex != null:
+		var fish_icon := TextureRect.new()
+		fish_icon.texture = fish_tex
+		fish_icon.custom_minimum_size = Vector2(42, 28)
+		fish_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fish_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		fish_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		fish_box.add_child(fish_icon)
 	_fish_label = Label.new()
 	_fish_label.add_theme_font_size_override("font_size", 28)
 	_fish_label.add_theme_color_override("font_color", UITheme.COLOR_GOLD)
 	_fish_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	header.add_child(_fish_label)
+	fish_box.add_child(_fish_label)
 	var back_button := UITheme.make_button("Back", Vector2(160, 48), 22)
 	UITheme.hook_sounds(back_button)
 	back_button.pressed.connect(_go_back)
@@ -82,21 +104,50 @@ func _build_preview(parent: HBoxContainer) -> void:
 	viewport.msaa_3d = Viewport.MSAA_2X
 	container.add_child(viewport)
 
+	# Soft daytime gradient sky instead of a flat blue fill.
+	var sky_material := ProceduralSkyMaterial.new()
+	sky_material.sky_top_color = Color(0.34, 0.55, 0.83)
+	sky_material.sky_horizon_color = Color(0.79, 0.88, 0.96)
+	sky_material.sky_curve = 0.12
+	sky_material.ground_horizon_color = Color(0.79, 0.88, 0.96)
+	sky_material.ground_bottom_color = Color(0.5, 0.64, 0.8)
+	sky_material.sun_angle_max = 20.0
+	sky_material.sun_curve = 0.12
+	var sky := Sky.new()
+	sky.sky_material = sky_material
+
 	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.55, 0.72, 0.86)
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.75, 0.84, 0.95)
-	env.ambient_light_energy = 0.9
+	env.background_mode = Environment.BG_SKY
+	env.sky = sky
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.ambient_light_energy = 1.0
+	env.ambient_light_sky_contribution = 1.0
+	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	env.tonemap_exposure = 1.0
+	env.tonemap_white = 6.0
 	var world_env := WorldEnvironment.new()
 	world_env.environment = env
 	viewport.add_child(world_env)
 
-	var light := DirectionalLight3D.new()
-	light.rotation_degrees = Vector3(-42.0, 28.0, 0.0)
-	light.light_energy = 1.2
-	light.shadow_enabled = true
-	viewport.add_child(light)
+	# Soft warm key from camera-left. Penguin front faces -Z and the camera
+	# sits on -Z, so the key must shine toward +Z (yaw ~150) to light the face.
+	var key := DirectionalLight3D.new()
+	key.rotation_degrees = Vector3(-38.0, 152.0, 0.0)
+	key.light_energy = 1.0
+	key.light_color = Color(1.0, 0.97, 0.9)
+	var shadow_quality := String(SettingsManager.get_setting("display", "shadow_quality"))
+	key.shadow_enabled = shadow_quality != "off" and not GameConfig.is_headless()
+	key.shadow_bias = 0.03
+	key.shadow_normal_bias = 1.6
+	viewport.add_child(key)
+
+	# Cool sky fill from camera-right lifts the shadow side without blowing out.
+	var fill := DirectionalLight3D.new()
+	fill.rotation_degrees = Vector3(-20.0, -155.0, 0.0)
+	fill.light_energy = 0.35
+	fill.light_color = Color(0.62, 0.76, 1.0)
+	fill.shadow_enabled = false
+	viewport.add_child(fill)
 
 	var floe := MeshInstance3D.new()
 	var floe_mesh := CylinderMesh.new()
@@ -104,7 +155,7 @@ func _build_preview(parent: HBoxContainer) -> void:
 	floe_mesh.bottom_radius = 1.05
 	floe_mesh.height = 0.25
 	floe.mesh = floe_mesh
-	floe.material_override = PenguinVisual.get_material(Color(0.93, 0.96, 1.0), 0.0, 0.9)
+	floe.material_override = VisualLibrary.snow_material(Color(0.9, 0.94, 1.0), 0.3)
 	floe.position = Vector3(0, -0.125, 0)
 	viewport.add_child(floe)
 
@@ -116,6 +167,8 @@ func _build_preview(parent: HBoxContainer) -> void:
 	var camera := Camera3D.new()
 	viewport.add_child(camera)
 	camera.current = true
+	# Camera on -Z looks at the penguin's face (model front is -Z); the pivot
+	# starts at rotation 0 so the preview opens front-facing.
 	camera.look_at_from_position(Vector3(0.0, 1.0, -2.3), Vector3(0.0, 0.55, 0.0), Vector3.UP)
 
 
@@ -146,11 +199,15 @@ func _refresh_preview() -> void:
 
 
 var _preview_trail: GPUParticles3D = null
+var _sway_time: float = 0.0
 
 
 func _process(delta: float) -> void:
 	if _preview_pivot != null:
-		_preview_pivot.rotation.y += delta * 0.6
+		# Gentle sway instead of a full spin: starts front-facing (sin 0 = 0)
+		# and keeps the face toward the camera while showing off the sides.
+		_sway_time += delta
+		_preview_pivot.rotation.y = sin(_sway_time * 0.55) * 0.55
 	if _penguin != null:
 		_penguin.tick(delta, 0.0)
 
@@ -233,7 +290,7 @@ func _make_item_button(id: String) -> Button:
 	elif unlocked:
 		status = "Owned"
 	else:
-		status = "%d ><> fish" % int(info.get("cost", 0))
+		status = "%d fish" % int(info.get("cost", 0))
 	var text := "%s\n%s" % [String(info.get("name", id)), status]
 	var button := UITheme.make_button(text, Vector2(0, 88), 21)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -281,8 +338,15 @@ func _restore_item_focus(index: int) -> void:
 		(target as Control).grab_focus()
 
 
+static func _make_fish_texture() -> ImageTexture:
+	var img := Image.new()
+	if img.load_svg_from_string(FISH_ICON_SVG, 2.0) != OK:
+		return null
+	return ImageTexture.create_from_image(img)
+
+
 func _update_fish_label(total: int) -> void:
-	_fish_label.text = "><>  %d fish" % total
+	_fish_label.text = "%d fish" % total
 
 
 func _go_back() -> void:
