@@ -21,13 +21,17 @@ extends CanvasLayer
 ## the vertical gesture at a time (latest wins).
 
 const MOUSE_TOUCH_INDEX: int = 4096  ## Synthetic index for a real mouse press.
-const STEER_RANGE_PX: float = 150.0  ## Drag distance for full steering lock.
 const HIT_MARGIN_PX: float = 14.0    ## Invisible extra hit padding per side.
 const BUTTON_SIZE_PX: float = 120.0  ## Action button diameter (logical px).
 const PAUSE_SIZE_PX: float = 72.0    ## Pause stays small and out of the way.
-const CLASSIFY_PX: float = 24.0      ## Travel before a touch picks its axis.
-const SWIPE_MIN_PX: float = 60.0     ## Vertical travel that counts as a swipe.
-const SWIPE_WINDOW_MS: int = 250     ## Jump fling must happen in this window.
+const SWIPE_WINDOW_MS: int = 300     ## Jump fling window (from classification).
+## Gesture distances as fractions of the viewport SHORT side, so a swipe is
+## the same physical thumb travel on a 3x-DPR phone and a desktop window —
+## raw pixel constants made phones hypersensitive (24px ~= 2mm at DPR 3).
+const CLASSIFY_FRAC: float = 0.022   ## Travel before a touch picks its axis.
+const SWIPE_FRAC: float = 0.065      ## Vertical travel that counts as a swipe.
+const STEER_RANGE_FRAC: float = 0.24 ## Horizontal drag for full steering lock.
+const DOMINANCE: float = 1.35        ## Axis must beat the other by this ratio.
 const HINT_VISIBLE_SEC: float = 4.0  ## First-race gesture hint hold time.
 const HINT_FADE_SEC: float = 0.6     ## Gesture hint fade-out duration.
 
@@ -253,12 +257,19 @@ func _handle_drag(index: int, pos: Vector2) -> void:
 	var entry: Dictionary = _pending[index]
 	var origin: Vector2 = entry["origin"]
 	var delta := pos - origin
-	if delta.length() < CLASSIFY_PX:
+	var classify_px := _short_side() * CLASSIFY_FRAC
+	if delta.length() < classify_px:
 		return  # Inside the dead zone: taps and noise drive nothing.
 	# Classify once by dominant axis; the touch keeps that role for its whole
-	# lifetime, so a diagonal move only ever feeds one axis.
+	# lifetime, so a diagonal move only ever feeds one axis. Near-45-degree
+	# moves wait (up to 2x the dead zone) until one axis clearly dominates,
+	# which kills the wrong-axis mispicks diagonal noise used to cause.
+	var ax := absf(delta.x)
+	var ay := absf(delta.y)
+	if maxf(ax, ay) < minf(ax, ay) * DOMINANCE and delta.length() < classify_px * 2.0:
+		return
 	_pending.erase(index)
-	if absf(delta.x) >= absf(delta.y):
+	if ax >= ay:
 		# Horizontal-dominant: steering. First steering finger wins; a second
 		# horizontal touch while one is steering becomes inert.
 		if _steer_touch_index < 0:
@@ -267,8 +278,10 @@ func _handle_drag(index: int, pos: Vector2) -> void:
 			_apply_steer(pos)
 	else:
 		# Vertical-dominant: jump / slide gesture. Latest finger wins (ending
-		# the previous gesture releases any in-progress slide).
-		_begin_gesture(index, origin, int(entry["ms"]))
+		# the previous gesture releases any in-progress slide). The fling
+		# window starts NOW — measuring from the original press meant a
+		# rest-then-flick never registered as a jump.
+		_begin_gesture(index, origin, Time.get_ticks_msec())
 		_update_gesture(pos)
 
 
@@ -276,11 +289,12 @@ func _handle_drag(index: int, pos: Vector2) -> void:
 ## exceeds the full-lock range the origin re-anchors so reversing direction
 ## responds immediately.
 func _apply_steer(pos: Vector2) -> void:
+	var range_px := _short_side() * STEER_RANGE_FRAC
 	var dx := pos.x - _steer_origin.x
-	if absf(dx) > STEER_RANGE_PX:
-		_steer_origin.x = pos.x - signf(dx) * STEER_RANGE_PX
-		dx = signf(dx) * STEER_RANGE_PX
-	controller.touch_steer = clampf(dx / STEER_RANGE_PX, -1.0, 1.0)
+	if absf(dx) > range_px:
+		_steer_origin.x = pos.x - signf(dx) * range_px
+		dx = signf(dx) * range_px
+	controller.touch_steer = clampf(dx / range_px, -1.0, 1.0)
 
 
 ## Evaluates a vertical-gesture finger: an upward fling within the swipe
@@ -289,17 +303,28 @@ func _apply_steer(pos: Vector2) -> void:
 func _update_gesture(pos: Vector2) -> void:
 	if _gesture_fired:
 		return
+	var swipe_px := _short_side() * SWIPE_FRAC
 	var dy := pos.y - _gesture_origin.y
-	if dy <= -SWIPE_MIN_PX:
+	if dy <= -swipe_px:
 		if Time.get_ticks_msec() - _gesture_start_ms <= SWIPE_WINDOW_MS:
 			_gesture_fired = true
 			controller.touch_jump()
 		# Too slow for a jump fling: the touch stays live so dragging back
 		# down past the threshold can still start a slide.
-	elif dy >= SWIPE_MIN_PX:
+	elif dy >= swipe_px:
 		_gesture_fired = true
 		_gesture_sliding = true
 		controller.touch_slide_changed(true)
+
+
+## Short side of the visible viewport in event-space pixels — gesture
+## thresholds scale with it so thumb travel feels the same on every device.
+func _short_side() -> float:
+	var vp := get_viewport()
+	if vp == null:
+		return 1080.0
+	var s := vp.get_visible_rect().size
+	return minf(s.x, s.y)
 
 
 ## Starts tracking a vertical gesture for the given touch. If another finger

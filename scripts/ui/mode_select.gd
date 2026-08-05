@@ -192,7 +192,8 @@ func _difficulty_icon(id: String, tier: int) -> String:
 
 func _add_option(title: String, desc: String, action: Callable, icon_svg: String = "") -> void:
 	var is_compact := desc == ""
-	var button := UITheme.make_button("", Vector2(660, 64 if is_compact else 96), 24)
+	# 112 tall: room for a two-line wrapped description (see autowrap below).
+	var button := UITheme.make_button("", Vector2(660, 64 if is_compact else 112), 24)
 	UITheme.hook_sounds(button)
 	button.pressed.connect(action)
 
@@ -244,6 +245,10 @@ func _add_option(title: String, desc: String, action: Callable, icon_svg: String
 		desc_label.add_theme_font_size_override("font_size", 18)
 		desc_label.add_theme_color_override("font_color", UITheme.COLOR_TEXT_DIM)
 		desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# Wrap inside the card instead of overflowing its right edge.
+		desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		desc_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		desc_label.max_lines_visible = 2
 		text_box.add_child(desc_label)
 
 	_content.add_child(button)
