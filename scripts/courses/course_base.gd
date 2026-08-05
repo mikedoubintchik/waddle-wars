@@ -285,6 +285,12 @@ func start_grid_transform(slot: int) -> Transform3D:
 ##   auto-off when particle_quality == "low"), glow_threshold (1.1),
 ##   shadow_distance (140.0), clouds (bool) + cloud_color, distant_bergs
 ##   (bool) + berg_color/berg_count/berg_distance/berg_y.
+## Atmospheric perspective (all optional): fog_horizon_blend (0..1, default
+##   0.35 — shifts the fog hue toward sky_horizon so distance reads as
+##   atmosphere, not gray soup), fog_aerial (0..1, default 0.5 — Godot aerial
+##   perspective: far geometry blends toward the sky itself), fog_sky_affect
+##   (default 0.2), shadow_blur (softer sun shadow edge; defaults 1.0 on the
+##   "low" shadow preset, 1.75 otherwise).
 func build_environment(params: Dictionary) -> void:
 	var world_env := WorldEnvironment.new()
 	var env := Environment.new()
@@ -307,9 +313,17 @@ func build_environment(params: Dictionary) -> void:
 	env.tonemap_exposure = float(params.get("exposure", 1.05))
 	env.tonemap_white = 6.0
 	env.fog_enabled = true
-	env.fog_light_color = params.get("fog_color", Color(0.75, 0.86, 0.95))
+	# Atmospheric perspective: real distance haze drifts toward the horizon/sky
+	# color rather than a fixed gray-blue, so far track reads as atmosphere.
+	var fog_base: Color = params.get("fog_color", Color(0.75, 0.86, 0.95))
+	var horizon_col: Color = params.get("sky_horizon", Color(0.75, 0.88, 0.98))
+	env.fog_light_color = fog_base.lerp(horizon_col, clampf(float(params.get("fog_horizon_blend", 0.35)), 0.0, 1.0))
 	env.fog_density = float(params.get("fog_density", 0.004))
-	env.fog_sky_affect = 0.2
+	# Aerial perspective: distant geometry blends toward the rendered sky
+	# (free hue shift with distance). Ignored gracefully by renderers that
+	# skip it; no cost when fog is thin.
+	env.fog_aerial_perspective = clampf(float(params.get("fog_aerial", 0.5)), 0.0, 1.0)
+	env.fog_sky_affect = float(params.get("fog_sky_affect", 0.2))
 	if params.has("fog_height"):
 		env.fog_height = float(params["fog_height"])
 		env.fog_height_density = float(params.get("fog_height_density", 0.08))
@@ -335,6 +349,10 @@ func build_environment(params: Dictionary) -> void:
 	sun.shadow_bias = 0.03
 	sun.shadow_normal_bias = 1.6
 	sun.directional_shadow_fade_start = 0.85
+	# Softer shadow edge (cheap PCF widening): hard razor edges read as toy
+	# plastic; a mild penumbra sells sun through atmosphere. Kept at 1.0 on
+	# the "low" preset where the wider kernel is the wrong trade.
+	sun.shadow_blur = float(params.get("shadow_blur", 1.0 if shadow_quality == "low" else 1.75))
 	match shadow_quality:
 		"low":
 			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL

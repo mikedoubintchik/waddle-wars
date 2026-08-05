@@ -37,8 +37,17 @@ const HORIZON_BERG_TINT: Color = Color(0.62, 0.8, 0.96)
 ## Horizontal direction TO the sun is (sin, 0, cos) of this yaw; the glint
 ## corridor, hero-berg backlight placement and warm rim tints all key off it.
 const SUN_YAW_DEG: float = 40.0
+## Elevation of the sunrise sun above the horizon (magnitude of the
+## build_environment sun_angle_deg). _sun_dir_3d() combines it with the yaw
+## into the full toward-sun vector the water shader's glint uniform expects.
+const SUN_PITCH_DEG: float = 13.0
 ## Warm rim color for sun-facing ice edges (hero bergs) and the glint band.
 const SUN_WARM_RIM: Color = Color(1.0, 0.8, 0.56)
+## Track floor runs whose lowest vertex sits under this height skim the sea
+## (swim approaches, wave ramps, seal flat, finale): their ice gets a wet
+## meltwater sheen (lower roughness). The high berg-hop arc and the shortcut
+## stay dry frosted ice.
+const WET_SHEEN_Y: float = 7.0
 
 var _bobbers: Array[Dictionary] = []  # {node, base_y, phase, amp, speed}
 var _bob_time: float = 0.0
@@ -318,8 +327,15 @@ func build_course() -> void:
 	if GameConfig.is_headless():
 		add_ground_plane(OCEAN_Y, Color(0.1, 0.3, 0.45))
 	else:
-		add_ground_plane(OCEAN_Y - 1.6, Color(0.1, 0.3, 0.45), 4000.0,
-			VisualLibrary.water_material(OCEAN_DEEP, OCEAN_SHALLOW, 1.0, 0.014), true)
+		# The far sheet gets the true sunrise sun vector so its specular glint
+		# lane runs INTO the low sun, agreeing with the sun disc, the batched
+		# glint-quad corridor and the near detail sheet (cache-safe duplicate;
+		# the shared material's default sun points elsewhere).
+		var far_mat := VisualLibrary.water_material(
+			OCEAN_DEEP, OCEAN_SHALLOW, 1.0, 0.014).duplicate() as ShaderMaterial
+		far_mat.set_shader_parameter("sun_direction", _sun_dir_3d())
+		far_mat.set_shader_parameter("sun_glint_strength", 1.25)
+		add_ground_plane(OCEAN_Y - 1.6, Color(0.1, 0.3, 0.45), 4000.0, far_mat, true)
 		_add_ocean_detail()
 
 
@@ -362,8 +378,15 @@ func _process(delta: float) -> void:
 	for b: Dictionary in _bobbers:
 		var node := b["node"] as Node3D
 		node.position.y = float(b["base_y"]) + sin(_bob_time * float(b["speed"]) + float(b["phase"])) * float(b["amp"])
+	# Spinners with a "wobble" key breathe their rate sinusoidally (seabird
+	# glide variation); plain spinners (radar sweeps) turn at constant speed.
 	for s: Dictionary in _spinners:
-		(s["node"] as Node3D).rotation.y += float(s["speed"]) * delta
+		var rate := float(s["speed"])
+		var wobble := float(s.get("wobble", 0.0))
+		if wobble > 0.0:
+			rate *= 1.0 + sin(_bob_time * float(s.get("wobble_freq", 0.3))
+				+ float(s.get("wobble_phase", 0.0))) * wobble
+		(s["node"] as Node3D).rotation.y += rate * delta
 	# Buoy lamps blink like real navigation lights: hard on/off on a per-buoy
 	# period. Material writes only on state flips (cheap; 8 mats, ~1 flip/s).
 	for l: Dictionary in _buoy_lamps:
@@ -458,25 +481,57 @@ func _decorate() -> void:
 	# Drifting bergs scattered across the whole bay: faceted low-poly
 	# silhouettes riding the swell, each with a foam collar at the waterline.
 	# 8 distinct seeded meshes reused across instances (cached in VisualLibrary).
+	# Realism pass: every berg lists a few degrees off vertical (real bergs
+	# never float upright), bergs on the sun side of the course swap to a
+	# warm-rim ice variant so their edges catch the sunrise backlight, and
+	# near-track bergs gain a wave-cut waterline erosion notch plus a
+	# meltwater blue-ice vein band. The vein is a thin, yaw-offset, squashed
+	# copy of the SAME seeded silhouette: the facet mismatch lets deep-blue
+	# strata poke through as irregular horizontal streaks. (Baking veins as
+	# vertex-color bands was considered, but the ice shader ignores COLOR —
+	# the band-copy trick gets the look from cached meshes at zero bake cost.)
 	var berg_mat := VisualLibrary.ice_material(Color(0.82, 0.91, 1.0), 0.55)
+	var berg_warm_mat: ShaderMaterial = null if headless \
+		else _warm_rim_ice(Color(0.82, 0.91, 1.0), 0.55, 0.5, 2.4)
+	var drift_notch_mat := VisualLibrary.rock_material(Color(0.16, 0.3, 0.4))
+	var vein_mat := VisualLibrary.ice_material(Color(0.36, 0.66, 0.92), 0.95)
+	var sun_side_h := _sun_dir_h()
 	for i: int in 24:
 		var o5 := rng.randf_range(0.0, main_guide.length)
 		var xf5 := main_guide.transform_at(o5)
 		var lat5 := rng.randf_range(55.0, 320.0) * (1.0 if rng.randf() > 0.5 else -1.0)
 		var bpos5 := xf5.origin + xf5.basis.x * lat5
 		var berg := MeshInstance3D.new()
-		berg.mesh = VisualLibrary.berg_mesh(rng.randi_range(0, 7))
-		berg.material_override = berg_mat
+		var berg_seed := rng.randi_range(0, 7)
+		berg.mesh = VisualLibrary.berg_mesh(berg_seed)
+		var sun_facing := sun_side_h.dot(xf5.basis.x * signf(lat5)) > 0.0
+		berg.material_override = berg_warm_mat if (sun_facing and berg_warm_mat != null) else berg_mat
 		# Decorative silhouette off the racing line: under the -13 deg sun its
 		# cast shadow stretches into a huge foreground blob, so shadows are off.
 		berg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var s := rng.randf_range(4.0, 11.0)
-		berg.scale = Vector3(s * rng.randf_range(0.9, 1.4), s * rng.randf_range(0.45, 0.8), s)
+		var bsx := s * rng.randf_range(0.9, 1.4)
+		var bsy := s * rng.randf_range(0.45, 0.8)
+		berg.scale = Vector3(bsx, bsy, s)
+		var brot := Vector3(rng.randf_range(-0.07, 0.07), rng.randf() * TAU, rng.randf_range(-0.07, 0.07))
 		berg.position = Vector3(bpos5.x, OCEAN_Y - s * 0.08, bpos5.z)
-		berg.rotation.y = rng.randf() * TAU
+		berg.rotation = brot
 		add_child(berg)
 		if i % 3 == 0:
 			_bobbers.append({"node": berg, "base_y": berg.position.y, "phase": rng.randf() * TAU, "amp": 0.12, "speed": 0.5})
+		if not headless and absf(lat5) < 170.0:
+			# Near-track detail only (where it resolves at race distance).
+			_add_waterline_notch(Vector3(bpos5.x, 0.0, bpos5.z), berg_seed, brot,
+				bsx, s, drift_notch_mat, clampf(s * 0.09, 0.4, 1.1))
+			var vein := MeshInstance3D.new()
+			vein.mesh = VisualLibrary.berg_mesh(berg_seed)
+			vein.material_override = vein_mat
+			vein.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			vein.scale = Vector3(bsx * 0.86, clampf(s * 0.045, 0.2, 0.5), s * 0.86)
+			vein.position = Vector3(bpos5.x,
+				OCEAN_Y - s * 0.08 + bsy * rng.randf_range(0.55, 0.85), bpos5.z)
+			vein.rotation = brot + Vector3(0.0, 1.1, 0.0)
+			add_child(vein)
 		if not headless:
 			for k: int in 5:
 				var ang := TAU * (float(k) + rng.randf() * 0.7) / 5.0
@@ -506,14 +561,16 @@ func _decorate() -> void:
 
 	# Cinematic set dressing: sculpted hero bergs with waterline notches, a
 	# breaching-whale arc pair, circling seabird flocks, drifting near-track
-	# foam patches, and the sun-glint corridor. Visual-only, batched or
-	# few-node, all skipped headless. Hero bergs first: seabirds anchor to
-	# them and their churn collars batch into the shared foam surface.
+	# foam patches, a brash-ice raft along the track edges, and the sun-glint
+	# corridor. Visual-only, batched or few-node, all skipped headless. Hero
+	# bergs first: seabirds anchor to them and their churn collars batch into
+	# the shared foam surface.
 	if not headless:
 		_add_hero_bergs()
 		_add_breach_arcs()
 		_add_seabirds()
 		_add_drift_foam()
+		_add_brash_ice()
 		_add_sun_glint()
 
 	# Foam bands hugging the swim channel edges, then one batched commit for
@@ -531,6 +588,20 @@ func _decorate() -> void:
 ## a MeshInstance3D immediately followed by its StaticBody3D carrying the
 ## "surface" meta — walls and skirts have no such body, so they are skipped.
 func _cool_track_materials() -> void:
+	# Wet-sheen variants (cache-safe duplicates): any ice run whose lowest
+	# vertex sits under WET_SHEEN_Y skims the sea — swim approaches, wave
+	# ramps, seal flat, finale — so its surface tightens to a glassier,
+	# meltwater-slicked film (lower roughness, brighter specular). Visual
+	# only; SurfacesDB friction metadata is untouched. The high berg-hop arc
+	# and the shortcut stay dry frosted ice.
+	var wet_ice := VisualLibrary.ice_material(TRACK_ICE_TINT, 0.85).duplicate() as ShaderMaterial
+	wet_ice.set_shader_parameter("roughness_base", 0.03)
+	wet_ice.set_shader_parameter("roughness_variation", 0.08)
+	wet_ice.set_shader_parameter("specular_amount", 0.78)
+	var wet_rice := VisualLibrary.ice_material(TRACK_RICE_TINT, 0.3).duplicate() as ShaderMaterial
+	wet_rice.set_shader_parameter("roughness_base", 0.12)
+	wet_rice.set_shader_parameter("roughness_variation", 0.14)
+	wet_rice.set_shader_parameter("specular_amount", 0.7)
 	for track_name: String in ["MainTrack", "Branch_berg_chain"]:
 		var track := get_node_or_null(track_name)
 		if track == null:
@@ -542,12 +613,15 @@ func _cool_track_materials() -> void:
 			if floor_mesh == null or body == null or not body.has_meta("surface"):
 				continue
 			var surface := int(body.get_meta("surface"))
+			var wet := floor_mesh.mesh.get_aabb().position.y + floor_mesh.position.y < WET_SHEEN_Y
 			if surface == SNOW:
 				floor_mesh.material_override = VisualLibrary.snow_material(TRACK_SNOW_TINT, 0.55)
 			elif surface == ICE:
-				floor_mesh.material_override = VisualLibrary.ice_material(TRACK_ICE_TINT, 0.85)
+				floor_mesh.material_override = wet_ice if wet \
+					else VisualLibrary.ice_material(TRACK_ICE_TINT, 0.85)
 			elif surface == RICE:
-				floor_mesh.material_override = VisualLibrary.ice_material(TRACK_RICE_TINT, 0.3)
+				floor_mesh.material_override = wet_rice if wet \
+					else VisualLibrary.ice_material(TRACK_RICE_TINT, 0.3)
 
 
 ## Horizon berg clusters, placed relative to the main guide (never the course
@@ -559,25 +633,33 @@ func _add_horizon_bergs() -> void:
 	if GameConfig.is_headless():
 		return
 	var berg_mat := VisualLibrary.ice_material(HORIZON_BERG_TINT, 0.45)
+	# Clusters between the course and the sun read backlit: their silhouette
+	# edges pick up the warm sunrise rim instead of the neutral pale one.
+	var warm_mat := _warm_rim_ice(HORIZON_BERG_TINT, 0.45, 0.45, 2.4)
+	var sun_h := _sun_dir_h()
 	var low_detail := String(SettingsManager.get_setting("display", "particle_quality")) == "low"
-	var clusters: Array[Vector3] = []
+	var clusters: Array[Dictionary] = []
 	var cluster_count := 6
 	for i: int in cluster_count:
 		var xf := main_guide.transform_at(main_guide.length * (float(i) + 0.5) / float(cluster_count))
 		for side: float in [-1.0, 1.0]:
-			clusters.append(xf.origin + xf.basis.x * (rng.randf_range(420.0, 640.0) * side))
+			clusters.append({"pos": xf.origin + xf.basis.x * (rng.randf_range(420.0, 640.0) * side),
+				"warm": sun_h.dot(xf.basis.x * side) > 0.0})
 	var start_dir := (main_guide.position_at(minf(40.0, main_guide.length))
 		- main_guide.position_at(0.0)).normalized()
-	clusters.append(main_guide.position_at(0.0) - start_dir * rng.randf_range(480.0, 620.0))
+	clusters.append({"pos": main_guide.position_at(0.0) - start_dir * rng.randf_range(480.0, 620.0),
+		"warm": sun_h.dot(-start_dir) > 0.0})
 	var end_dir := (main_guide.position_at(main_guide.length)
 		- main_guide.position_at(maxf(main_guide.length - 40.0, 0.0))).normalized()
-	clusters.append(main_guide.position_at(main_guide.length) + end_dir * rng.randf_range(480.0, 620.0))
-	for center: Vector3 in clusters:
+	clusters.append({"pos": main_guide.position_at(main_guide.length) + end_dir * rng.randf_range(480.0, 620.0),
+		"warm": sun_h.dot(end_dir) > 0.0})
+	for cluster: Dictionary in clusters:
+		var center := cluster["pos"] as Vector3
 		var berg_count := rng.randi_range(1, 2) if low_detail else rng.randi_range(2, 3)
 		for k: int in berg_count:
 			var berg := MeshInstance3D.new()
 			berg.mesh = VisualLibrary.berg_mesh(rng.randi_range(0, 7))
-			berg.material_override = berg_mat
+			berg.material_override = warm_mat if bool(cluster["warm"]) else berg_mat
 			# Horizon skyline only — never let these giants cast into the scene.
 			berg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			var s := rng.randf_range(26.0, 54.0)
@@ -623,6 +705,13 @@ func _add_ocean_detail() -> void:
 	var ocean_mat := VisualLibrary.water_material(OCEAN_DEEP, OCEAN_SHALLOW, 0.55, 0.08).duplicate() as ShaderMaterial
 	ocean_mat.set_shader_parameter("crest_foam", 0.38)
 	ocean_mat.set_shader_parameter("wave_speed", 0.9)
+	# Align the shader's mirror-glint with the ACTUAL sunrise sun (the shared
+	# default points at a generic overhead sun): every wave face now sparkles
+	# along the same corridor as the sun disc and glint quads. Slightly
+	# stronger + tighter than default — low-sun glitter on open water.
+	ocean_mat.set_shader_parameter("sun_direction", _sun_dir_3d())
+	ocean_mat.set_shader_parameter("sun_glint_strength", 1.45)
+	ocean_mat.set_shader_parameter("sun_glint_power", 220.0)
 	sheet.material_override = ocean_mat
 	sheet.position = Vector3((min_x + max_x) * 0.5, OCEAN_Y, (min_z + max_z) * 0.5)
 	sheet.extra_cull_margin = 4.0  # flat PlaneMesh AABB + vertex displacement
@@ -836,10 +925,63 @@ func _add_boat(pos: Vector3, yaw: float) -> void:
 	mast_light.material_override = ml_mat
 	mast_light.position = Vector3(-3.5, 9.3, 0.0)
 	boat.add_child(mast_light)
+	# Rigging: forward stay masthead -> bow, aft stay masthead -> stern deck,
+	# and a shroud from each yard tip down to the gunwale. Thin dark cylinders
+	# — the taut line-work every real working vessel carries; at mid-distance
+	# they cross-hatch the sunrise sky and kill the toy-model bareness.
+	var rig_mat := TrackBuilder.prop_material(Color(0.16, 0.17, 0.2))
+	_add_rig_line(boat, Vector3(-3.5, 9.1, 0.0), Vector3(12.0, 2.9, 0.0), rig_mat)
+	_add_rig_line(boat, Vector3(-3.5, 9.1, 0.0), Vector3(-7.7, 3.0, 0.0), rig_mat)
+	for zside: float in [-1.0, 1.0]:
+		_add_rig_line(boat, Vector3(-3.5, 8.3, 1.3 * zside), Vector3(-3.5, 2.8, 2.45 * zside), rig_mat)
+	# Radar mast on the bridge roof: tapered post plus an open-array bar that
+	# sweeps in _process — the one slow-moving detail that sells "working ship".
+	var radar_post := MeshInstance3D.new()
+	var post_mesh := CylinderMesh.new()
+	post_mesh.top_radius = 0.06
+	post_mesh.bottom_radius = 0.09
+	post_mesh.height = 1.0
+	post_mesh.radial_segments = 6
+	post_mesh.rings = 0
+	radar_post.mesh = post_mesh
+	radar_post.material_override = TrackBuilder.prop_material(Color(0.4, 0.42, 0.46))
+	radar_post.position = Vector3(-1.9, 7.3, 0.0)
+	boat.add_child(radar_post)
+	var radar_pivot := Node3D.new()
+	radar_pivot.position = Vector3(-1.9, 7.9, 0.0)
+	boat.add_child(radar_pivot)
+	var radar_bar := MeshInstance3D.new()
+	var bar_mesh := BoxMesh.new()
+	bar_mesh.size = Vector3(1.5, 0.14, 0.22)
+	radar_bar.mesh = bar_mesh
+	radar_bar.material_override = TrackBuilder.prop_material(Color(0.85, 0.87, 0.9))
+	radar_pivot.add_child(radar_bar)
+	if not GameConfig.is_headless():
+		_spinners.append({"node": radar_pivot, "speed": 2.2})
 	boat.position = Vector3(pos.x, OCEAN_Y - 0.4, pos.z)
 	boat.rotation.y = yaw
 	add_child(boat)
 	_bobbers.append({"node": boat, "base_y": boat.position.y, "phase": rng.randf() * TAU, "amp": 0.2, "speed": 0.35})
+
+
+## One taut rigging line: a thin dark cylinder stretched between two boat-local
+## points. Quaternion(arc_from, arc_to) aligns the cylinder's Y axis with the
+## run — both endpoints stay slanted well away from straight down, so the
+## shortest-arc constructor never degenerates.
+func _add_rig_line(parent: Node3D, from: Vector3, to: Vector3, mat: Material) -> void:
+	var line := MeshInstance3D.new()
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = 0.035
+	mesh.bottom_radius = 0.035
+	mesh.height = from.distance_to(to)
+	mesh.radial_segments = 5
+	mesh.rings = 0
+	line.mesh = mesh
+	line.material_override = mat
+	line.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	line.position = (from + to) * 0.5
+	line.quaternion = Quaternion(Vector3.UP, (to - from).normalized())
+	parent.add_child(line)
 
 
 ## --- Cinematic set dressing --------------------------------------------------
@@ -851,15 +993,25 @@ static func _sun_dir_h() -> Vector3:
 	return Vector3(sin(deg_to_rad(SUN_YAW_DEG)), 0.0, cos(deg_to_rad(SUN_YAW_DEG)))
 
 
-## Azure hero-berg ice with a WARM fresnel rim: a cache-safe duplicate of the
-## shared ice material with rim tint pushed toward the sun color; the ice
-## shader's built-in rim emission then carries a slight sunrise glow on every
-## silhouette edge — backlit ice without a second light.
-func _warm_rim_ice_material() -> ShaderMaterial:
-	var mat := VisualLibrary.ice_material(HORIZON_BERG_TINT, 0.5).duplicate() as ShaderMaterial
+## Full unit vector pointing AT the sunrise sun, elevation included — exactly
+## what the water shader's sun_direction uniform reflects for its glint lane.
+## Matches the DirectionalLight (rot X = -SUN_PITCH_DEG, rot Y = SUN_YAW_DEG):
+## toward-sun = (sin yaw * cos pitch, sin pitch, cos yaw * cos pitch).
+static func _sun_dir_3d() -> Vector3:
+	var pitch := deg_to_rad(SUN_PITCH_DEG)
+	return _sun_dir_h() * cos(pitch) + Vector3.UP * sin(pitch)
+
+
+## Ice with a WARM fresnel rim: a cache-safe duplicate of the shared ice
+## material with rim tint pushed toward the sun color; the ice shader's
+## built-in rim emission then carries a slight sunrise glow on every
+## silhouette edge — backlit ice without a second light. Used by the hero
+## bergs and by every sun-facing drifting/horizon berg.
+func _warm_rim_ice(tint: Color, clarity: float, strength: float, power: float = 2.2) -> ShaderMaterial:
+	var mat := VisualLibrary.ice_material(tint, clarity).duplicate() as ShaderMaterial
 	mat.set_shader_parameter("rim_tint", SUN_WARM_RIM)
-	mat.set_shader_parameter("rim_strength", 0.62)
-	mat.set_shader_parameter("rim_power", 2.2)
+	mat.set_shader_parameter("rim_strength", strength)
+	mat.set_shader_parameter("rim_power", power)
 	return mat
 
 
@@ -871,7 +1023,7 @@ func _warm_rim_ice_material() -> ShaderMaterial:
 ## Lateral clearance: max base radius = 1.25 * (1.1 * s) ~ 1.4s, well inside
 ## every dist below, so no hero ice ever crowds the racing surface.
 func _add_hero_bergs() -> void:
-	var warm := _warm_rim_ice_material()
+	var warm := _warm_rim_ice(HORIZON_BERG_TINT, 0.5, 0.62, 2.2)
 	# Notch band multiplies the berg's baked per-face vertex colors into a
 	# dark teal: the shadowed, wave-worn undercut right at the waterline.
 	var notch_mat := VisualLibrary.rock_material(Color(0.16, 0.3, 0.4))
@@ -922,23 +1074,26 @@ func _hero_berg(center: Vector3, s: float, mesh_seed: int, mat: ShaderMaterial,
 	berg.position = Vector3(center.x, OCEAN_Y - sy * 0.04, center.z)
 	berg.rotation.y = yaw
 	add_child(berg)
-	_add_waterline_notch(center, mesh_seed, yaw, sx, sz, notch_mat)
+	_add_waterline_notch(center, mesh_seed, Vector3(0.0, yaw, 0.0), sx, sz, notch_mat)
 
 
 ## Dark waterline band: the SAME seeded silhouette, xz-inflated 5% and
-## y-squashed to a ~1.5m skin whose widest base ring sits just below the
-## waterline. A hero-scale berg barely tapers this close to its base, so the
-## inflated copy stays proud of the ice only in a thin band at the water —
-## reading as the wave-cut notch every real berg carries.
-func _add_waterline_notch(center: Vector3, mesh_seed: int, yaw: float, sx: float, sz: float,
-		notch_mat: StandardMaterial3D) -> void:
+## y-squashed to a thin skin whose widest base ring sits just below the
+## waterline. A berg barely tapers this close to its base, so the inflated
+## copy stays proud of the ice only in a thin band at the water — reading as
+## the wave-cut erosion notch every real berg carries. rot is the full
+## rotation of the berg it hugs (tilted drifting bergs pass their list so the
+## band stays flush); band_h scales the skin to the berg class (1.5m suits
+## the 30-60m heroes, drifting bergs pass ~a tenth of their size).
+func _add_waterline_notch(center: Vector3, mesh_seed: int, rot: Vector3, sx: float, sz: float,
+		notch_mat: StandardMaterial3D, band_h: float = 1.5) -> void:
 	var notch := MeshInstance3D.new()
 	notch.mesh = VisualLibrary.berg_mesh(mesh_seed)
 	notch.material_override = notch_mat
 	notch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	notch.scale = Vector3(sx * 1.05, 1.5, sz * 1.05)
+	notch.scale = Vector3(sx * 1.05, band_h, sz * 1.05)
 	notch.position = Vector3(center.x, OCEAN_Y - 0.4, center.z)
-	notch.rotation.y = yaw
+	notch.rotation = rot
 	add_child(notch)
 
 
@@ -972,7 +1127,7 @@ func _hero_arch(center: Vector3, s: float, mat: ShaderMaterial,
 		# both tops at the arch center.
 		pillar.rotate(perp, lean * side)
 		add_child(pillar)
-		_add_waterline_notch(pcx, pillar_seeds[i], yaw + side * 0.4, sx, sz, notch_mat)
+		_add_waterline_notch(pcx, pillar_seeds[i], Vector3(0.0, yaw + side * 0.4, 0.0), sx, sz, notch_mat)
 	var lintel := MeshInstance3D.new()
 	lintel.mesh = VisualLibrary.berg_mesh(7)
 	lintel.material_override = mat
@@ -1087,8 +1242,62 @@ func _add_seabirds() -> void:
 			var ang := TAU * float(b) / 5.0 + rng.randf() * 0.8
 			var rad := rng.randf_range(7.0, 15.0)
 			bird.position = Vector3(cos(ang) * rad, rng.randf_range(-3.0, 3.0), sin(ang) * rad)
+			# Per-bird wingspan variance: the flock reads as individuals, not
+			# five stamped copies.
+			bird.scale = Vector3.ONE * rng.randf_range(0.75, 1.25)
 			pivot.add_child(bird)
-		_spinners.append({"node": pivot, "speed": 0.22 if a_i % 2 == 0 else -0.17})
+		# Glide variation: circling rate breathes (gulls bank into the wind and
+		# ease out of it, never metronome circles) and the whole flock rides a
+		# slow vertical thermal bob.
+		_spinners.append({"node": pivot, "speed": 0.22 if a_i % 2 == 0 else -0.17,
+			"wobble": 0.4, "wobble_freq": rng.randf_range(0.22, 0.4),
+			"wobble_phase": rng.randf() * TAU})
+		_bobbers.append({"node": pivot, "base_y": pivot.position.y, "phase": rng.randf() * TAU,
+			"amp": rng.randf_range(1.0, 1.8), "speed": 0.16})
+
+
+## Brash ice: the small broken chunks that collect along berg edges in every
+## real polar bay. One MultiMesh of a seeded berg silhouette squashed to floe
+## scale, scattered just off both track edges at the waterline (lateral
+## 15-34m — the ocean sits 5-15m below the racing surface, so chunks hug the
+## berg skirts and swim-channel flanks, never the track). Single draw call;
+## the whole raft rides the swell via one _bobbers node write per frame.
+func _add_brash_ice() -> void:
+	var low_detail := String(SettingsManager.get_setting("display", "particle_quality")) == "low"
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = VisualLibrary.berg_mesh(3)
+	var xforms: Array[Transform3D] = []
+	var step := 58.0 if low_detail else 34.0
+	var o := 30.0
+	while o < main_guide.length - 30.0:
+		var xf := main_guide.transform_at(o)
+		for side: float in [-1.0, 1.0]:
+			for k: int in rng.randi_range(1, 3):
+				if rng.randf() < 0.3:
+					continue
+				var lat := rng.randf_range(15.0, 34.0) * side
+				var pos := xf.origin + xf.basis.x * lat \
+					+ xf.basis.z * rng.randf_range(-12.0, 12.0)
+				var b := Basis.from_euler(Vector3(rng.randf_range(-0.12, 0.12),
+					rng.randf() * TAU, rng.randf_range(-0.12, 0.12))) \
+					* Basis.from_scale(Vector3(rng.randf_range(0.5, 1.6),
+						rng.randf_range(0.22, 0.45), rng.randf_range(0.5, 1.6)))
+				xforms.append(Transform3D(b, Vector3(pos.x, OCEAN_Y + 0.25, pos.z)))
+		o += step
+	if xforms.is_empty():
+		return
+	mm.instance_count = xforms.size()
+	for i: int in xforms.size():
+		mm.set_instance_transform(i, xforms[i])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.name = "BrashIce"
+	mmi.multimesh = mm
+	mmi.material_override = VisualLibrary.ice_material(Color(0.85, 0.93, 1.0), 0.4)
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mmi)
+	_bobbers.append({"node": mmi, "base_y": 0.0, "phase": rng.randf() * TAU,
+		"amp": 0.09, "speed": 0.55})
 
 
 ## Sparse foam patches on the near-track water: small clustered quads batched
@@ -1189,8 +1398,13 @@ func _upgrade_water_surface(water_root: Node3D) -> void:
 		return
 	for child: Node in water_root.get_children():
 		if child is MeshInstance3D:
-			(child as MeshInstance3D).material_override = VisualLibrary.water_material(
-				CHANNEL_DEEP, CHANNEL_SHALLOW, 0.18, 0.35)
+			# Duplicate (cache-safe) so the swim channels share the same real
+			# sun vector as the open ocean: glints at swim height line up with
+			# the sunrise instead of the shader's generic default sun.
+			var chan_mat := VisualLibrary.water_material(
+				CHANNEL_DEEP, CHANNEL_SHALLOW, 0.18, 0.35).duplicate() as ShaderMaterial
+			chan_mat.set_shader_parameter("sun_direction", _sun_dir_3d())
+			(child as MeshInstance3D).material_override = chan_mat
 			return
 
 

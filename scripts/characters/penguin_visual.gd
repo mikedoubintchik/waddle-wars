@@ -39,6 +39,8 @@ const SPECIES: Dictionary = {
 		"patch": Color(0.98, 0.76, 0.22), "ear_patch": "emperor",
 		"chest_wash": Color(1.0, 0.88, 0.55), "chest_wash_amount": 0.20,
 		"bill_len": 1.0, "bill_hook": true,
+		"bill_color": Color(0.11, 0.11, 0.14),
+		"mandible_color": Color(0.96, 0.52, 0.32),  # orange-pink bill stripe
 		"scale": Vector3(1.04, 1.06, 1.04),
 	},
 	"king": {
@@ -206,7 +208,10 @@ static func _get_plumage_material() -> StandardMaterial3D:
 	mat.roughness = 0.62
 	mat.rim_enabled = true
 	mat.rim = 0.10
-	mat.rim_tint = 0.7
+	# Slightly whiter rim than get_body_material: reads as the cool feather
+	# sheen on backlit plumage without lifting overall value (a strong white
+	# rim washed the racers gray under the bright glacier ambient).
+	mat.rim_tint = 0.6
 	_material_cache[key] = mat
 	return mat
 
@@ -324,6 +329,19 @@ static func _plumage_at(y: float, theta_deg: float, pos: Vector3, dorsal: Color,
 	# once bright scene ambient stacked on top of it.
 	var sheen := clampf((y - 0.3) / 0.7, 0.0, 1.0) * 0.15
 	var dors := dorsal.lerp(dorsal.lightened(0.10), sheen)
+	# Structural-color hint: head/neck feathers pick up a faint cool
+	# green-blue cast where the surface grazes the light (the sides) — a
+	# cheap baked stand-in for feather iridescence. Kept subtle so the head
+	# still reads dark at race distance.
+	var irid := clampf((y - 0.70) / 0.25, 0.0, 1.0) \
+		* pow(sin(deg_to_rad(clampf(theta_deg, 0.0, 180.0))), 2.0)
+	if irid > 0.0:
+		var cool := Color(
+			clampf(dors.r * 0.92, 0.0, 1.0),
+			clampf(dors.g * 1.06 + 0.008, 0.0, 1.0),
+			clampf(dors.b * 1.22 + 0.015, 0.0, 1.0),
+			1.0)
+		dors = dors.lerp(cool, irid * 0.45)
 	# Ventral half-angle: wide across the belly, narrowing up the neck. The
 	# default closes above the chin so the head reads fully dark; chinstrap
 	# ("face_white") instead keeps a white face and cheeks with a dark cap
@@ -351,7 +369,12 @@ static func _plumage_at(y: float, theta_deg: float, pos: Vector3, dorsal: Color,
 			limit = -1.0
 	var col := dors
 	if limit > 0.0:
-		var w := 1.0 - smoothstep(limit - 6.0, limit + 6.0, theta_deg)
+		# Irregular feather edge: the boundary meanders a couple of degrees
+		# with height so it reads as overlapping feather rows, not a painted
+		# stripe, and the blend band is widened into a soft ~1-2 cm feather
+		# transition instead of a hard color seam.
+		var edge := limit + sin(y * 57.0) * 1.8 + sin(y * 23.0) * 1.2
+		var w := 1.0 - smoothstep(edge - 8.0, edge + 8.0, theta_deg)
 		# The white shades faintly cooler where it wraps toward the sides.
 		var vent := ventral.lerp(ventral.darkened(0.06), clampf(theta_deg / 90.0, 0.0, 1.0))
 		col = dors.lerp(vent, w)
@@ -631,6 +654,19 @@ func setup(config: Dictionary) -> void:
 	var eye_color := sp.get("eye_color", Color(0.10, 0.07, 0.06)) as Color
 	var eye_mat := get_material(eye_color, 0.0, 0.12)
 	var gleam_mat := get_material(Color(1.0, 1.0, 1.0), 0.0, 0.2, true)
+	# Eye sockets: flattened matte feather patches behind each eyeball so the
+	# eyes sit recessed in the head instead of reading as stickers. Dark-faced
+	# species get a near-black surround; the chinstrap's white face gets a
+	# soft gray shadow so the socket reads as depth, not a spot.
+	var socket_mesh := SphereMesh.new()
+	socket_mesh.radius = 0.047
+	socket_mesh.height = 0.094
+	socket_mesh.radial_segments = 14
+	socket_mesh.rings = 8
+	var socket_color := Color(0.05, 0.05, 0.06)
+	if bool(sp.get("face_white", false)):
+		socket_color = Color(0.76, 0.76, 0.78)
+	var socket_mat := get_material(socket_color, 0.0, 0.88)
 	# Adelie: distinctive white sclera ring around each eye.
 	var ring_mesh: TorusMesh = null
 	var ring_mat: StandardMaterial3D = null
@@ -639,15 +675,18 @@ func setup(config: Dictionary) -> void:
 		ring_mesh.inner_radius = 0.031
 		ring_mesh.outer_radius = 0.044
 		ring_mat = get_material(Color(0.96, 0.96, 0.97), 0.0, 0.6)
+	# Eyes sit ~6 mm deeper than the old sticker placement (z 0.015 -> 0.021)
+	# so the socket patch shades their rim and they read as set into the head.
 	_eye_l = Node3D.new()
-	_eye_l.position = Vector3(-0.115, 0.018, 0.015)
+	_eye_l.position = Vector3(-0.115, 0.018, 0.021)
 	_eye_l.rotation.y = deg_to_rad(32.0)
 	_face_anchor.add_child(_eye_l)
 	_eye_r = Node3D.new()
-	_eye_r.position = Vector3(0.115, 0.018, 0.015)
+	_eye_r.position = Vector3(0.115, 0.018, 0.021)
 	_eye_r.rotation.y = deg_to_rad(-32.0)
 	_face_anchor.add_child(_eye_r)
 	for eye: Node3D in [_eye_l, _eye_r]:
+		_mesh(eye, socket_mesh, socket_color, Vector3(0, 0, 0.006), Vector3.ZERO, Vector3(1.15, 1.0, 0.5), socket_mat)
 		_mesh(eye, eye_mesh, Color.BLACK, Vector3.ZERO, Vector3.ZERO, Vector3.ONE, eye_mat)
 		_mesh(eye, catchlight, Color.WHITE, Vector3(0.008, 0.010, -0.024), Vector3.ZERO, Vector3.ONE, gleam_mat)
 		if ring_mesh != null:
@@ -901,20 +940,33 @@ func tick(delta: float, speed_ratio: float) -> void:
 
 	var target_tilt := Vector3.ZERO
 	var target_y := 0.0
+	var target_x := 0.0
 	var wave := _time * (5.0 + 7.0 * speed_ratio)
 	var flipper_l_target := deg_to_rad(-16.0)
 	var flipper_r_target := deg_to_rad(16.0)
 	var flipper_swing := 0.0
 	var brow_target := BROW_REST
 	var step_lift := 0.0
+	var breath := 0.0
+	var head_pitch := 0.0
+	var head_yaw := 0.0
+	var head_roll := 0.0
+	_head_anchor.position.y = HEAD_Y
 
 	match pose:
 		Pose.RUN:
-			target_tilt.z = sin(wave) * deg_to_rad(9.0) * clampf(speed_ratio, 0.2, 1.0)
+			var sway := clampf(speed_ratio, 0.2, 1.0)
+			# Weight shift: sin(wave) > 0 lifts the LEFT foot, so the body
+			# rolls and translates onto the planted right (+X) foot — the
+			# waddle is an inverted pendulum over the stance leg — while the
+			# head counter-rolls to stay level (real penguins stabilize gaze).
+			target_tilt.z = -sin(wave) * deg_to_rad(8.0) * sway
 			target_tilt.x = deg_to_rad(-6.0) * speed_ratio  # slight forward hustle lean
 			target_y = absf(sin(wave)) * 0.05 * speed_ratio
+			target_x = sin(wave) * 0.026 * sway
 			flipper_swing = sin(wave) * deg_to_rad(22.0) * clampf(speed_ratio, 0.3, 1.0)
 			_head_anchor.position.y = HEAD_Y + sin(wave * 2.0) * 0.012
+			head_roll = -target_tilt.z * 0.55
 			brow_target = deg_to_rad(-12.0)
 			step_lift = 0.055 * clampf(speed_ratio, 0.0, 1.0)
 		Pose.IDLE:
@@ -922,17 +974,29 @@ func tick(delta: float, speed_ratio: float) -> void:
 			target_y = sin(_time * 2.2) * 0.01
 			flipper_swing = sin(_time * 1.8) * deg_to_rad(4.0)
 			brow_target = deg_to_rad(-6.0)
+			# Breathing: ~1.2% chest swell at a calm resting rate.
+			breath = sin(_time * 1.4) * 0.012
+			# Occasional glance: two incommensurate slow waves only sum past
+			# the threshold now and then, so the penguin holds a look aside
+			# every ten-odd seconds and drifts back, instead of scanning.
+			var glance := sin(_time * 0.23) + sin(_time * 0.361)
+			head_yaw = deg_to_rad(28.0) * (smoothstep(1.5, 1.85, glance) - smoothstep(1.5, 1.85, -glance))
 		Pose.SLIDE:
 			# Negative X pitch = head toward -Z (forward); positive read as
 			# lying on the back in-game.
 			target_tilt.x = deg_to_rad(-80.0)
 			# Lathe body pivots at foot level (old egg pivoted mid-body): the
 			# -0.28 drop buried the head — lift so the belly skims the snow.
-			target_y = 0.14
+			# The belly-press squash thins the prone body (local Z, see the
+			# scale block), so drop slightly with speed to keep it skimming.
+			target_y = 0.14 - 0.012 * clampf(speed_ratio, 0.0, 1.0)
 			flipper_l_target = deg_to_rad(-52.0)
 			flipper_r_target = deg_to_rad(52.0)
 			flipper_swing = sin(_time * 3.0) * deg_to_rad(3.0)
 			brow_target = deg_to_rad(-14.0)
+			# Head-up alertness: crane the head out of the prone line, more
+			# at speed, so the slide reads alive rather than ragdoll.
+			head_pitch = deg_to_rad(30.0) * clampf(speed_ratio, 0.3, 1.0)
 		Pose.AIR:
 			target_tilt.x = deg_to_rad(-12.0)
 			flipper_l_target = deg_to_rad(-70.0)
@@ -964,12 +1028,28 @@ func tick(delta: float, speed_ratio: float) -> void:
 	_current_tilt = _current_tilt.lerp(target_tilt, minf(delta * 8.0, 1.0))
 	_root.rotation = _current_tilt
 	_root.position.y = lerpf(_root.position.y, target_y, minf(delta * 8.0, 1.0))
+	_root.position.x = lerpf(_root.position.x, target_x, minf(delta * 8.0, 1.0))
+	# Squash & stretch: impact squash (trigger_squash) combines with the
+	# slide's belly press — compression along local Z, the chest-to-back axis
+	# while prone, widening the shoulders — and idle breathing swells the
+	# chest laterally by ~1%.
+	var press := 1.0
+	if pose == Pose.SLIDE:
+		press = 0.965 - 0.025 * clampf(speed_ratio, 0.0, 1.0)
+	var sxz := (1.0 + breath) / sqrt(_squash)
 	_root.scale = Vector3(
-		lerpf(_root.scale.x, 1.0 / sqrt(_squash), minf(delta * 12.0, 1.0)),
+		lerpf(_root.scale.x, sxz * (1.0 + (1.0 - press) * 0.6), minf(delta * 12.0, 1.0)),
 		lerpf(_root.scale.y, _squash, minf(delta * 12.0, 1.0)),
-		lerpf(_root.scale.z, 1.0 / sqrt(_squash), minf(delta * 12.0, 1.0))
+		lerpf(_root.scale.z, sxz * press, minf(delta * 12.0, 1.0))
 	)
 	_squash = lerpf(_squash, 1.0, minf(delta * 6.0, 1.0))
+
+	# Head secondary motion: counter-roll keeps the head level through the
+	# waddle rock, pitch cranes up during slides, yaw is the idle glance.
+	# The slow yaw lerp turns the glance into a deliberate look, not a twitch.
+	_head_anchor.rotation.x = lerpf(_head_anchor.rotation.x, head_pitch, minf(delta * 5.0, 1.0))
+	_head_anchor.rotation.y = lerpf(_head_anchor.rotation.y, head_yaw, minf(delta * 2.2, 1.0))
+	_head_anchor.rotation.z = lerpf(_head_anchor.rotation.z, head_roll, minf(delta * 8.0, 1.0))
 
 	if _flipper_l != null:
 		_flipper_l.rotation.z = lerpf(_flipper_l.rotation.z, flipper_l_target + flipper_swing, minf(delta * 10.0, 1.0))
@@ -982,12 +1062,25 @@ func tick(delta: float, speed_ratio: float) -> void:
 		_brow_r.rotation.z = -_brow_l.rotation.z
 
 	if _foot_l != null and pose == Pose.RUN:
+		var lift_l := maxf(0.0, sin(wave))
+		var lift_r := maxf(0.0, -sin(wave))
 		_foot_l.position.z = FOOT_Z + sin(wave) * 0.08 * speed_ratio
 		_foot_r.position.z = FOOT_Z - sin(wave) * 0.08 * speed_ratio
-		_foot_l.position.y = FOOT_Y + maxf(0.0, sin(wave)) * step_lift
-		_foot_r.position.y = FOOT_Y + maxf(0.0, -sin(wave)) * step_lift
+		_foot_l.position.y = FOOT_Y + lift_l * step_lift
+		_foot_r.position.y = FOOT_Y + lift_r * step_lift
+		# Ankle flex: the planted sole counter-rolls the body rock so it
+		# stays flat on the snow; the lifted foot pitches toes-down like a
+		# push-off instead of hovering level in mid-air.
+		_foot_l.rotation.z = -_current_tilt.z * (1.0 - lift_l)
+		_foot_r.rotation.z = -_current_tilt.z * (1.0 - lift_r)
+		_foot_l.rotation.x = lift_l * deg_to_rad(-14.0)
+		_foot_r.rotation.x = lift_r * deg_to_rad(-14.0)
 	elif _foot_l != null:
 		_foot_l.position.z = FOOT_Z
 		_foot_r.position.z = FOOT_Z
 		_foot_l.position.y = FOOT_Y
 		_foot_r.position.y = FOOT_Y
+		_foot_l.rotation.x = 0.0
+		_foot_r.rotation.x = 0.0
+		_foot_l.rotation.z = 0.0
+		_foot_r.rotation.z = 0.0

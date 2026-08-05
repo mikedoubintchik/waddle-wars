@@ -10,6 +10,11 @@ const DEEP := SurfacesDB.Surface.DEEP_SNOW
 const ICE := SurfacesDB.Surface.ICE_SMOOTH
 const RICE := SurfacesDB.Surface.ICE_ROUGH
 
+## Prevailing wind heading (world yaw, degrees). Wind-sculpted snow forms —
+## drift banks and sastrugi ridges — elongate along this axis; it sits ~60
+## degrees off the sun yaw (-35) so their lee faces model in shadow.
+const WIND_YAW_DEG := 24.0
+
 
 func _init() -> void:
 	course_id = "glacier"
@@ -136,17 +141,19 @@ func build_course() -> void:
 
 	_retint_track_walls()
 	_decorate()
-	# Sunny alpine postcard: rich cobalt sky deepening overhead, warm strong
-	# sun against cool sky-fill shadows, restrained ambient/exposure so snow
-	# stays textured instead of blowing out, cream clouds for depth.
+	# Sunny alpine postcard in late-morning light: rich cobalt sky deepening
+	# overhead, a warm lower sun raking long shadows off drifts, sastrugi and
+	# ridgelines (real form modeling instead of flat noon light), cool
+	# sky-fill shadows, restrained ambient/exposure so snow stays textured
+	# instead of blowing out, cream clouds for depth.
 	build_environment({
 		"sky_top": Color(0.05, 0.24, 0.7),
 		"sky_horizon": Color(0.6, 0.8, 0.98),
 		"ground_color": Color(0.42, 0.6, 0.84),
-		"sun_angle_deg": -52.0,
+		"sun_angle_deg": -38.0,
 		"sun_yaw_deg": -35.0,
 		"sun_energy": 1.85,
-		"sun_color": Color(1.0, 0.93, 0.78),
+		"sun_color": Color(1.0, 0.9, 0.72),
 		"sun_angle_max": 22.0,
 		"sun_curve": 0.12,
 		"sky_energy": 1.0,
@@ -217,11 +224,13 @@ func _decorate() -> void:
 	_decorate_cave(crystal_transforms, icicle_transforms)
 	_decorate_scatter(density, crystal_transforms)
 	_decorate_snowbanks(density)
+	_decorate_sastrugi(density)
 	_decorate_walkways()
 	_decorate_spectators(density)
 	_decorate_mountains()
 	_decorate_cliffs(density)
 	_decorate_crevasse_cracks()
+	_decorate_lake_cracks()
 	_decorate_fog(density)
 	_decorate_sun_glint()
 
@@ -251,8 +260,16 @@ func _add_multimesh(mesh: Mesh, transforms: Array[Transform3D], material: Materi
 	add_child(instance)
 
 
+## Ground crystal cluster: random yaw, a slight natural tilt off vertical
+## (frost heave, uneven bedding) and per-cluster width/height aspect jitter
+## so no two clusters share one silhouette.
 func _crystal_transform(pos: Vector3, height: float) -> Transform3D:
-	var crystal_basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(height * 0.7, height, height * 0.7))
+	var aspect := rng.randf_range(0.55, 0.85)
+	var tilt_dir := rng.randf() * TAU
+	var tilt_axis := Vector3(cos(tilt_dir), 0.0, sin(tilt_dir))
+	var crystal_basis := Basis(tilt_axis, rng.randf_range(-0.14, 0.14)) \
+		* Basis(Vector3.UP, rng.randf() * TAU) \
+		* Basis.from_scale(Vector3(height * aspect, height * rng.randf_range(0.85, 1.1), height * aspect))
 	return Transform3D(crystal_basis, pos)
 
 
@@ -481,10 +498,13 @@ func _decorate_scatter(density: float, crystal_transforms: Array[Transform3D]) -
 	_add_multimesh(cap_mesh, cap_transforms, TrackBuilder.prop_material(Color(0.96, 0.98, 1.0), 0.9), "RockCaps")
 
 
-## Snowbank drifts hugging the track edges, with occasional larger banks
-## further out for depth. Single multimesh.
+## Wind-sculpted snowbank drifts hugging the track edges: every bank is
+## elongated along the prevailing wind heading (small per-bank jitter, lower
+## profile) the way real drifts streamline, instead of round random blobs.
+## Occasional larger banks further out for depth. Single multimesh.
 func _decorate_snowbanks(density: float) -> void:
 	var transforms: Array[Transform3D] = []
+	var wind_yaw := deg_to_rad(WIND_YAW_DEG)
 	var step := 14.0 / density
 	var offset := 24.0
 	var side := 1.0
@@ -492,18 +512,73 @@ func _decorate_snowbanks(density: float) -> void:
 		var xform := main_guide.transform_at(offset)
 		var lateral := (13.5 + rng.randf_range(0.0, 5.0)) * side
 		var r := rng.randf_range(1.6, 3.6)
-		var bank_basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(
-			Vector3(r * rng.randf_range(0.85, 1.3), r * rng.randf_range(0.65, 1.0), r))
+		var bank_basis := Basis(Vector3.UP, wind_yaw + rng.randf_range(-0.25, 0.25)) \
+			* Basis.from_scale(Vector3(
+				r * rng.randf_range(1.5, 2.3), r * rng.randf_range(0.5, 0.8), r * rng.randf_range(0.7, 0.95)))
 		transforms.append(Transform3D(bank_basis, xform.origin + xform.basis.x * lateral + Vector3.DOWN * 0.4))
 		if rng.randf() > 0.6:
 			var far_r := rng.randf_range(2.5, 5.0)
-			var far_basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(far_r, far_r * 0.7, far_r))
+			var far_basis := Basis(Vector3.UP, wind_yaw + rng.randf_range(-0.35, 0.35)) \
+				* Basis.from_scale(Vector3(
+					far_r * rng.randf_range(1.4, 2.0), far_r * 0.55, far_r * rng.randf_range(0.7, 0.9)))
 			transforms.append(Transform3D(far_basis,
 				xform.origin + xform.basis.x * (lateral + rng.randf_range(6.0, 14.0) * side) + Vector3.DOWN * 1.2))
 		side = -side
 		offset += step
 	_add_multimesh(VisualLibrary.snow_drift_mesh(), transforms,
 		VisualLibrary.rock_material(Color(1.0, 1.0, 1.0)), "Snowbanks")
+
+
+## Sastrugi: strips of parallel wind-carved snow ridges beside the track, all
+## aligned to the prevailing wind so the ground between props reads
+## wind-worked. One multimesh; strip count scales with quality density.
+func _decorate_sastrugi(density: float) -> void:
+	var transforms: Array[Transform3D] = []
+	var wind_yaw := deg_to_rad(WIND_YAW_DEG)
+	var strip_count := maxi(int(10.0 * density), 4)
+	for _i: int in strip_count:
+		var strip_offset := rng.randf_range(50.0, main_guide.length - 80.0)
+		var side := 1.0 if rng.randf() > 0.5 else -1.0
+		var base_lateral := rng.randf_range(9.0, 13.5) * side
+		var ridges := rng.randi_range(4, 7)
+		for k: int in ridges:
+			var pos := main_guide.point_at(
+				strip_offset + rng.randf_range(-4.0, 4.0),
+				base_lateral + float(k) * 1.7 * side + rng.randf_range(-0.5, 0.5),
+				-0.22)
+			var ridge_basis := Basis(Vector3.UP, wind_yaw + rng.randf_range(-0.12, 0.12)) \
+				* Basis.from_scale(Vector3(
+					rng.randf_range(2.6, 5.5), rng.randf_range(0.22, 0.42), rng.randf_range(0.55, 0.95)))
+			transforms.append(Transform3D(ridge_basis, pos))
+	_add_multimesh(_sastrugi_mesh(), transforms,
+		VisualLibrary.rock_material(Color(1.0, 1.0, 1.0)), "Sastrugi")
+
+
+## Unit sastrugi ridge: a wind-carved snow blade along X with the real
+## asymmetric profile — long gentle windward slope (+Z), steep sculpted lee
+## face (-Z). Vertex colors bake warm sunlit windward vs cool shadowed lee.
+func _sastrugi_mesh() -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var crest: Array[Vector3] = [
+		Vector3(-0.5, 0.02, 0.0), Vector3(-0.16, 0.8, -0.05),
+		Vector3(0.2, 1.0, 0.04), Vector3(0.5, 0.06, 0.0),
+	]
+	var windward: Array[Vector3] = [
+		Vector3(-0.44, 0.0, 0.3), Vector3(-0.1, 0.0, 0.52),
+		Vector3(0.24, 0.0, 0.48), Vector3(0.48, 0.0, 0.22),
+	]
+	var lee: Array[Vector3] = [
+		Vector3(-0.44, 0.0, -0.16), Vector3(-0.12, 0.0, -0.3),
+		Vector3(0.22, 0.0, -0.26), Vector3(0.48, 0.0, -0.12),
+	]
+	var warm := Color(1.0, 0.99, 0.96)
+	var cool := Color(0.78, 0.85, 0.97)
+	for i: int in 3:
+		_cquad(st, windward[i], windward[i + 1], crest[i + 1], crest[i], warm)
+		_cquad(st, lee[i + 1], lee[i], crest[i], crest[i + 1], cool)
+	st.generate_normals()
+	return st.commit()
 
 
 ## Wooden staging walkways flanking the start plateau plus the research
@@ -717,6 +792,40 @@ func _crack_mesh(seed_value: int) -> ArrayMesh:
 	return st.commit()
 
 
+## Cracked-ice patches across the frozen lake sheet the course overlooks:
+## clusters of long crossing fissure lines (reusing the jagged crack strip
+## mesh at lake scale) scattered over the inner sheet and the finish vista,
+## so the distant ice reads as a real fractured frozen lake instead of a
+## flat painted plane. One multimesh, one draw call.
+func _decorate_lake_cracks() -> void:
+	var transforms: Array[Transform3D] = []
+	var center := Vector3(0.0, 0.0, -700.0)
+	for _i: int in 12:
+		var angle := rng.randf() * TAU
+		var dist := rng.randf_range(140.0, 280.0)
+		_add_lake_crack_patch(transforms, center + Vector3(sin(angle) * dist, 0.0, cos(angle) * dist))
+	for _i: int in 6:
+		_add_lake_crack_patch(transforms,
+			Vector3(rng.randf_range(-240.0, 180.0), 0.0, rng.randf_range(-1880.0, -1500.0)))
+	var lake_crack_mat := StandardMaterial3D.new()
+	lake_crack_mat.vertex_color_use_as_albedo = true
+	lake_crack_mat.albedo_color = Color(1.0, 1.0, 1.0)
+	lake_crack_mat.roughness = 0.3
+	_add_multimesh(_crack_mesh(4711), transforms, lake_crack_mat, "LakeCracks")
+
+
+## One fracture patch: 2-4 fissures sharing a dominant direction (lake ice
+## cracks propagate in families), with yaw spread and lateral jitter so they
+## cross and branch instead of lying parallel.
+func _add_lake_crack_patch(transforms: Array[Transform3D], pos: Vector3) -> void:
+	var patch_yaw := rng.randf() * TAU
+	for _k: int in rng.randi_range(2, 4):
+		var crack_basis := Basis(Vector3.UP, patch_yaw + rng.randf_range(-0.7, 0.7)) \
+			* Basis.from_scale(Vector3(rng.randf_range(7.0, 13.0), 1.0, rng.randf_range(40.0, 85.0)))
+		var jitter := Vector3(rng.randf_range(-18.0, 18.0), 0.0, rng.randf_range(-18.0, 18.0))
+		transforms.append(Transform3D(crack_basis, Vector3(pos.x, -23.5, pos.z) + jitter))
+
+
 ## Low drifting ground-fog wisps in the crevasse field, the valley floor and
 ## the finish straight: soft unshaded billboards on slow sine drift tweens.
 ## Skipped entirely on low particle quality (density 0.5).
@@ -811,12 +920,13 @@ func _place_mountain(seed_value: int, center: Vector3, dist_min: float, dist_max
 		var dist := rng.randf_range(dist_min, dist_max)
 		var pos := center + Vector3(sin(angle) * dist, 0.0, cos(angle) * dist)
 		# Never plant a peak on top of the racing line: base-ring vertices
-		# reach up to ~1.4x footprint (column scale * jitter), so demand that
-		# much horizontal clearance to the nearest main-guide point.
+		# reach up to ~1.6x footprint (column scale * 2-octave angular noise *
+		# jitter), so demand that much horizontal clearance to the nearest
+		# main-guide point.
 		var res := main_guide.nearest(pos, -1)
 		var near_pt := main_guide.position_at(float(res["offset"]))
 		var horizontal := Vector2(pos.x - near_pt.x, pos.z - near_pt.z).length()
-		if horizontal < footprint * 1.45 + 30.0:
+		if horizontal < footprint * 1.65 + 30.0:
 			continue
 		var instance := MeshInstance3D.new()
 		instance.mesh = _mountain_mesh(seed_value, haze)
@@ -831,9 +941,12 @@ func _place_mountain(seed_value: int, center: Vector3, dist_min: float, dist_max
 
 ## Unit-scale (about 1m tall) irregular ridged peak, deterministic per seed.
 ## Twelve-sided with four rings for a smooth, craggy silhouette (blockiness
-## is low segment counts). Per-face colors: dark exposed rock with vertical
-## streak variation, a subtle glacial blue ice band at the base, and a sharp
-## snowline into white caps; haze lerps toward horizon blue for the far ring.
+## is low segment counts). Ring vertices carry 2-octave angular noise plus a
+## height-scaled lean drift, so every profile is asymmetric — no perfect
+## cones. Per-face colors: dark exposed rock with vertical streak variation,
+## a glacial blue ice band and moraine debris at the base, exposed blue ice
+## on steep faces, and a dappled snowline scattering into white caps; haze
+## lerps toward horizon blue for the far ring.
 func _mountain_mesh(seed_value: int, haze: float) -> ArrayMesh:
 	var mrng := RandomNumberGenerator.new()
 	mrng.seed = seed_value
@@ -855,18 +968,32 @@ func _mountain_mesh(seed_value: int, haze: float) -> ArrayMesh:
 	var column_scale: Array[float] = []
 	var streaks: Array[float] = []
 	for i: int in sides:
-		column_scale.append(mrng.randf_range(0.78, 1.28))
+		column_scale.append(mrng.randf_range(0.8, 1.18))
 		streaks.append(mrng.randf_range(0.7, 1.2))
+	# 2-octave angular noise (frequencies 2 and 5, random phases): ridge-and-
+	# gully undulation that breaks radial symmetry without spiking the hull.
+	var phase_a := mrng.randf() * TAU
+	var phase_b := mrng.randf() * TAU
+	var amp_a := mrng.randf_range(0.1, 0.17)
+	var amp_b := mrng.randf_range(0.05, 0.09)
+	# Lean drift: ring centers migrate with altitude so the massif tilts.
+	var drift := Vector2(mrng.randf_range(-0.14, 0.14), mrng.randf_range(-0.14, 0.14))
 	var rings: Array[PackedVector3Array] = []
 	for r: int in ring_heights.size():
 		var ring: PackedVector3Array = []
 		for i: int in sides:
 			var angle := TAU * float(i) / float(sides)
-			var radius := ring_radii[r] * column_scale[i] * mrng.randf_range(0.9, 1.1)
-			var y := ring_heights[r] + (mrng.randf_range(-0.04, 0.05) if r > 0 else 0.0)
-			ring.append(Vector3(cos(angle) * radius, y, sin(angle) * radius))
+			var noise := 1.0 + amp_a * sin(angle * 2.0 + phase_a) + amp_b * sin(angle * 5.0 + phase_b)
+			var radius := ring_radii[r] * column_scale[i] * noise * mrng.randf_range(0.92, 1.08)
+			var y := ring_heights[r] + (mrng.randf_range(-0.055, 0.06) if r > 0 else 0.0)
+			ring.append(Vector3(
+				cos(angle) * radius + drift.x * ring_heights[r], y,
+				sin(angle) * radius + drift.y * ring_heights[r]))
 		rings.append(ring)
-	var apex := Vector3(mrng.randf_range(-0.06, 0.06), mrng.randf_range(0.97, 1.1), mrng.randf_range(-0.06, 0.06))
+	var apex := Vector3(
+		drift.x + mrng.randf_range(-0.08, 0.08),
+		mrng.randf_range(0.97, 1.1),
+		drift.y + mrng.randf_range(-0.08, 0.08))
 	var snowline := mrng.randf_range(0.48, 0.62)
 	# Very dark base values on purpose: ACES + strong sky ambient lift vertex
 	# colors roughly two stops, so 0.12-0.2 here reads as sunlit alpine rock
@@ -879,35 +1006,62 @@ func _mountain_mesh(seed_value: int, haze: float) -> ArrayMesh:
 			var lo1 := rings[r][j]
 			var hi0 := rings[r + 1][i]
 			var hi1 := rings[r + 1][j]
-			var col := _mountain_face_color((lo0.y + lo1.y + hi0.y + hi1.y) * 0.25, snowline, rock_base, streaks[i], haze)
+			# Steepness 0..1 from radial inset per unit rise: near-vertical
+			# columns approach 1 and shed snow into exposed glacial ice.
+			var rise := maxf((hi0.y + hi1.y - lo0.y - lo1.y) * 0.5, 0.05)
+			var inset := (Vector2(lo0.x, lo0.z).length() + Vector2(lo1.x, lo1.z).length()
+				- Vector2(hi0.x, hi0.z).length() - Vector2(hi1.x, hi1.z).length()) * 0.5
+			var steep := clampf(1.0 - (inset / rise) * 0.85, 0.0, 1.0)
+			var col := _mountain_face_color(
+				(lo0.y + lo1.y + hi0.y + hi1.y) * 0.25, snowline, rock_base, streaks[i], haze, steep, mrng)
 			_ctri(st, lo0, hi1, hi0, col)
 			_ctri(st, lo0, lo1, hi1, col)
 	var top := ring_heights.size() - 1
 	for i: int in sides:
 		var j := (i + 1) % sides
-		var col := _mountain_face_color((rings[top][i].y + rings[top][j].y + apex.y) / 3.0, snowline, rock_base, streaks[i], haze)
+		var col := _mountain_face_color(
+			(rings[top][i].y + rings[top][j].y + apex.y) / 3.0, snowline, rock_base, streaks[i], haze, 0.0, mrng)
 		_ctri(st, rings[top][i], rings[top][j], apex, col)
 	st.generate_normals()
 	return st.commit()
 
 
-func _mountain_face_color(height: float, snowline: float, rock_base: Color, streak: float, haze: float) -> Color:
+## height: face average height on the unit peak. steep 0..1: how vertical the
+## face is. mrng drives per-face dappling — deterministic per mountain seed.
+func _mountain_face_color(height: float, snowline: float, rock_base: Color, streak: float,
+		haze: float, steep: float, mrng: RandomNumberGenerator) -> Color:
 	# Blue channel decays slower than red/green so shadowed streaks cool off.
 	var rock := Color(rock_base.r * streak, rock_base.g * streak, rock_base.b * (0.6 + 0.4 * streak))
 	var snow := Color(0.95, 0.97, 1.0)
+	var band := 0.1
 	var col: Color
-	if height > snowline + 0.02:
+	if height > snowline + 0.05:
 		col = snow
-	elif height > snowline - 0.03:
-		# Sharp snowline: a crisp 5%-of-height transition band, not a smear.
-		col = rock.lerp(snow, (height - (snowline - 0.03)) / 0.05)
+	elif height > snowline - band:
+		# Dappled snowline: real transitions are patchy scatter, not a ruled
+		# line. A face's odds of holding full snow rise through the band;
+		# bare faces still pick up a thin random dusting.
+		var t := (height - (snowline - band)) / (band + 0.05)
+		if mrng.randf() < t * t:
+			col = snow
+		else:
+			col = rock.lerp(snow, 0.12 + 0.3 * t * mrng.randf())
 	else:
 		col = rock
+	# Exposed glacial blue ice where faces are too steep to hold snow cover.
+	if height < snowline + 0.06 and steep > 0.5:
+		col = col.lerp(Color(0.3, 0.55, 0.8),
+			clampf((steep - 0.5) * 1.6 * mrng.randf_range(0.35, 1.0), 0.0, 0.65))
 	# Subtle glacial blue ice band where the peak meets the snowfield. Faces
 	# carry the average height of their corners (bottom band ~0.15-0.2), so
 	# the 0.28 threshold tints the whole base ring, fading with altitude.
 	if height < 0.28:
 		col = col.lerp(Color(0.22, 0.4, 0.6), (1.0 - height / 0.28) * 0.5)
+	# Moraine debris band at the foot: grey-brown rockfall rubble shed off
+	# the faces above, strongest right at grade.
+	if height < 0.11:
+		var debris := Color(0.17, 0.145, 0.12).lerp(Color(0.26, 0.21, 0.155), mrng.randf())
+		col = col.lerp(debris, clampf((0.11 - height) / 0.11, 0.0, 1.0) * mrng.randf_range(0.5, 0.85))
 	return col.lerp(Color(0.6, 0.77, 0.96), haze)
 
 

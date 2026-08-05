@@ -20,12 +20,14 @@ uniform float scroll_speed = 0.05;
 uniform float hue_speed = 0.1;
 uniform float band_scale = 3.0;
 uniform float curtain_frequency = 26.0;
-uniform float max_alpha : hint_range(0.0, 1.0) = 0.55;
+// Subtler default coverage: real aurora reads as translucent gauze, not a
+// solid painted sheet — courses that want a hero curtain override this.
+uniform float max_alpha : hint_range(0.0, 1.0) = 0.45;
 // 0 = base look (cheapest), 1 = full micro-detail. Set by VisualLibrary from
 // the display quality preset (low=0, medium=0.5, high=1).
 uniform float detail_level : hint_range(0.0, 1.0) = 1.0;
 uniform float ray_frequency = 90.0;
-uniform float ray_strength : hint_range(0.0, 1.0) = 0.55;
+uniform float ray_strength : hint_range(0.0, 1.0) = 0.7;
 uniform float core_position : hint_range(0.0, 1.0) = 0.42;
 uniform float core_width : hint_range(0.05, 1.0) = 0.3;
 uniform float core_boost : hint_range(0.0, 2.0) = 0.8;
@@ -65,10 +67,13 @@ void fragment() {
 
 	if (detail_level > 0.001) {
 		// Vertical ray striations inside each curtain fold: fine sin comb with
-		// noise-jittered phase so rays cluster and break naturally.
+		// noise-jittered phase so rays cluster and break naturally. pow-shaped
+		// comb sharpens each ray into a distinct vertical filament (bright
+		// spine, wide dim gap) instead of a soft sine wash.
 		float rn = value_noise(vec2(ux * ray_frequency * 0.12, UV.y * 0.9 - TIME * 0.07));
 		float rs = 0.5 + 0.5 * sin(ux * ray_frequency + rn * 9.0);
-		rays = mix(1.0, 0.55 + 0.45 * rs + 0.25 * rn, ray_strength * detail_level);
+		rs = rs * rs * rs;
+		rays = mix(1.0, 0.4 + 0.75 * rs + 0.25 * rn, ray_strength * detail_level);
 		// Brighter core band partway down the curtain (gaussian falloff).
 		float dc = (UV.y - core_position) / max(core_width, 0.05);
 		core = exp(-dc * dc * 3.0) * core_boost * detail_level;
@@ -93,6 +98,9 @@ void fragment() {
 	float energy = band * curtain * rays;
 	float core_gain = 1.0 + core * 3.0;
 	ALBEDO = col * intensity * (0.3 + 1.05 * energy) * core_gain;
-	ALPHA = clamp(max_alpha * fade * (0.35 + 0.65 * band * curtain)
-			* (1.0 + core * 0.5), 0.0, 1.0);
+	// Coverage follows the ray filaments too (0.85 + 0.15 * rays): the curtain
+	// thins between rays so vertical structure survives into the silhouette,
+	// and a lower floor (0.28) keeps the sheet gauzy instead of solid.
+	ALPHA = clamp(max_alpha * fade * (0.28 + 0.65 * band * curtain)
+			* (0.85 + 0.15 * rays) * (1.0 + core * 0.5), 0.0, 1.0);
 }

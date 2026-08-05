@@ -4,12 +4,16 @@ extends CourseBase
 ## climb, windy ridge traverse, icicle cavern, a narrow no-wall ridge
 ## shortcut, an ice geyser field, and a huge 270-degree corkscrew descent
 ## to a research-station finish. Deep star-strewn twilight sky with a big
-## haloed moon, animated aurora curtains arcing low across the forward view
-## (shared VisualLibrary shader) that converge into a crown over the finish,
-## dark-blue ambient snow, pulsing glow crystals along the route, warm
+## haloed moon that carries the scene key light (snow shading, ice speculars,
+## and shadows all match the disc), animated aurora curtains arcing low across
+## the forward view (shared VisualLibrary shader) that converge into a crown
+## over the finish and reflect faintly off the smooth-ice corkscrew,
+## dark-blue ambient snow, a warm light-pollution stain on the horizon over
+## the research-camp side, star field with power-law brightness plus a few
+## large scintillating twinklers, pulsing glow crystals along the route, warm
 ## research lamps (sparse real lights), a dome-tent research outpost and
-## cable-car line seen from the climb, dramatic cliff dropoffs with
-## blowing-snow streamers along the windy ridge.
+## cable-car line seen from the climb, dramatic frost-banded cliff dropoffs
+## with exposure-driven blowing-snow streamers along the windy ridge.
 
 const SNOW := SurfacesDB.Surface.PACKED_SNOW
 const ICE := SurfacesDB.Surface.ICE_SMOOTH
@@ -19,10 +23,23 @@ const RICE := SurfacesDB.Surface.ICE_ROUGH
 ## count tiny). Everything else glows via emissive materials only.
 const MAX_OMNI_LIGHTS: int = 5
 
+## Unit direction from the course toward the moon disc. The environment key
+## light ("sun") is aimed along -MOON_DIR in build_course, so snow shading,
+## the moonlit specular smears on ice, shadow direction, and the procedural
+## sky halo all agree with the visible moon billboard.
+const MOON_DIR := Vector3(-0.34032, 0.40038, -0.85081)
+
 var _aurora_ribbons: Array[Node3D] = []
 var _aurora_time: float = 0.0
 var _omni_lights: int = 0
 var _crystal_mats: Dictionary = {}
+
+## Hero twinkler stars animated in _process (scale + alpha scintillation).
+var _twinklers: Array[MeshInstance3D] = []
+var _twinkler_mats: Array[StandardMaterial3D] = []
+var _twinkler_base: PackedFloat32Array = PackedFloat32Array()
+var _twinkler_phase: PackedFloat32Array = PackedFloat32Array()
+var _twinkler_speed: PackedFloat32Array = PackedFloat32Array()
 
 ## Cumulative true arc length per guide sample index. Godot 4.7 bakes curve
 ## samples ~1.0-2.0m apart (tessellation), not the uniform 2.0m PathGuide
@@ -242,19 +259,26 @@ func build_course() -> void:
 	_build_aurora()
 	_build_stars()
 	_build_moon()
-	# Deep twilight: near-black zenith falling to a violet horizon band, a
-	# small cold moon disc, dark-blue ambient tinting every snow surface, thin
-	# distance haze (dense fog would eat the aurora/stars) plus ground mist
-	# pooling in the finish bowl below y=2.
+	_build_horizon_glow()
+	_add_aurora_reflections(spiral_arc + 2.0, spiral_end_arc - 2.0)
+	_add_moon_glints(spiral_arc + 8.0, spiral_end_arc)
+	# Deep twilight: near-black zenith falling to a muted violet horizon band,
+	# dark-blue ambient tinting every snow surface, thin distance haze (dense
+	# fog would eat the aurora/stars) plus ground mist pooling in the finish
+	# bowl below y=2. The directional key light is aimed along -MOON_DIR so
+	# the moon visibly lights the snow: cool shading, ice speculars, and
+	# shadow direction all match the disc, and the small procedural-sky "sun"
+	# halo lands directly behind the moon billboard as its atmospheric glow.
 	build_environment({
-		"sky_top": Color(0.03, 0.05, 0.14),
-		"sky_horizon": Color(0.4, 0.24, 0.5),
+		"sky_top": Color(0.02, 0.04, 0.12),
+		"sky_horizon": Color(0.3, 0.21, 0.43),
 		"ground_color": Color(0.05, 0.07, 0.16),
-		"sun_angle_deg": -18.0,
-		"sun_energy": 0.55,
-		"sun_color": Color(0.66, 0.76, 1.0),
-		"sun_angle_max": 2.5,
-		"sun_curve": 0.05,
+		"sun_angle_deg": rad_to_deg(asin(-MOON_DIR.y)),
+		"sun_yaw_deg": rad_to_deg(atan2(MOON_DIR.x, MOON_DIR.z)),
+		"sun_energy": 0.85,  # moonlight lifted so racers read against night snow
+		"sun_color": Color(0.7, 0.78, 1.0),
+		"sun_angle_max": 5.0,
+		"sun_curve": 0.12,
 		"sky_energy": 0.9,
 		"exposure": 1.12,
 		"fog_color": Color(0.09, 0.12, 0.26),
@@ -264,7 +288,7 @@ func build_course() -> void:
 		"glow": true,
 		"glow_threshold": 1.05,
 		"shadow_distance": 120.0,
-		"ambient_energy": 1.35,
+		"ambient_energy": 1.6,
 		"snow": true,
 		"distant_bergs": true,
 		"berg_color": Color(0.34, 0.42, 0.66),
@@ -473,7 +497,15 @@ func _decorate() -> void:
 	var streamer_arc := ridge_start + 8.0
 	var streamer_side := 1.0
 	while streamer_arc < ridge_end:
-		_add_edge_streamer(main_guide.transform_at(streamer_arc), streamer_side)
+		# Wind exposure: local crests along the undulating spine shed far more
+		# spindrift than the sheltered saddles between them. Compare the deck
+		# height against the ridge line ~20m either side and scale the streamer
+		# density / speed / opacity by the result.
+		var deck_y := main_guide.transform_at(streamer_arc).origin.y
+		var flank_y := (main_guide.transform_at(streamer_arc - 20.0).origin.y
+			+ main_guide.transform_at(streamer_arc + 20.0).origin.y) * 0.5
+		var exposure := clampf(0.55 + (deck_y - flank_y) * 0.45, 0.25, 1.0)
+		_add_edge_streamer(main_guide.transform_at(streamer_arc), streamer_side, exposure)
 		streamer_side = -streamer_side
 		streamer_arc += 34.0
 
@@ -788,8 +820,15 @@ func _add_ridge_cliffs(start_arc: float, end_arc: float) -> void:
 			var b: Array[Vector3] = stations[i + 1]
 			for r_i: int in rings - 1:
 				var shade := rng.randf_range(0.8, 1.15)
-				var ct := ring_col[r_i] * shade
-				var cb := ring_col[r_i + 1] * shade
+				# Frost-banded strata: pale ice seams striping the rock face at
+				# roughly constant depth, with the phase drifting along the wall
+				# (station index) so bands dip and rise like real sediment lines
+				# picked out by wind-packed frost.
+				var frost := Color(0.78, 0.86, 1.02)
+				var f_top := pow(0.5 + 0.5 * sin(ring_drop[r_i] * 0.5 + float(i) * 0.55), 3.0) * 0.4
+				var f_bot := pow(0.5 + 0.5 * sin(ring_drop[r_i + 1] * 0.5 + float(i) * 0.55), 3.0) * 0.4
+				var ct := ring_col[r_i].lerp(frost, f_top) * shade
+				var cb := ring_col[r_i + 1].lerp(frost, f_bot) * shade
 				ct.a = 1.0
 				cb.a = 1.0
 				if s > 0.0:
@@ -808,15 +847,18 @@ func _add_ridge_cliffs(start_arc: float, end_arc: float) -> void:
 
 ## Wind-torn snow streamer blowing off a cliff lip: stretched-quad particles
 ## launched outward over the dropoff, sinking as they fade into the valley.
-## Skipped headless / on low particle quality.
-func _add_edge_streamer(xform: Transform3D, side: float) -> void:
+## exposure (0.25-1.0) scales density, launch speed, and opacity so crests
+## stream hard while sheltered saddles only dribble. Skipped headless / on
+## low particle quality.
+func _add_edge_streamer(xform: Transform3D, side: float, exposure: float = 1.0) -> void:
 	if GameConfig.is_headless():
 		return
 	var quality := String(SettingsManager.get_setting("display", "particle_quality"))
 	if quality == "low":
 		return
 	var streamer := GPUParticles3D.new()
-	streamer.amount = 16 if quality == "high" else 9
+	var base_amount := 16 if quality == "high" else 9
+	streamer.amount = maxi(4, int(roundf(float(base_amount) * exposure)))
 	streamer.lifetime = 2.6
 	streamer.preprocess = 2.6
 	var mat := ParticleProcessMaterial.new()
@@ -824,12 +866,12 @@ func _add_edge_streamer(xform: Transform3D, side: float) -> void:
 	mat.emission_box_extents = Vector3(1.2, 0.8, 7.0)
 	mat.direction = Vector3(side, 0.18, 0.0)
 	mat.spread = 9.0
-	mat.initial_velocity_min = 6.0
-	mat.initial_velocity_max = 11.0
+	mat.initial_velocity_min = lerpf(4.0, 7.5, exposure)
+	mat.initial_velocity_max = lerpf(7.5, 12.5, exposure)
 	mat.gravity = Vector3(0.0, -3.2, 0.0)
 	mat.scale_min = 0.7
 	mat.scale_max = 1.8
-	mat.color = Color(0.85, 0.92, 1.0, 0.26)
+	mat.color = Color(0.85, 0.92, 1.0, 0.16 + 0.14 * exposure)
 	streamer.process_material = mat
 	var quad := QuadMesh.new()
 	quad.size = Vector2(2.6, 0.5)
@@ -876,6 +918,11 @@ func _add_rock_mesa(top_center: Vector3, top_radius: float, base_radius: float) 
 			var j := (i + 1) % sides
 			var shade := rng.randf_range(0.75, 1.1)
 			var col := Color(wall_base.r * shade, wall_base.g * shade, wall_base.b * shade)
+			# Frost strata: horizontal pale seams by face height, phase wobbling
+			# per side so the bands read as weathered layers, not painted rings.
+			var band_y := (low[i].y + high[i].y) * 0.5
+			var f_band := pow(0.5 + 0.5 * sin(band_y * 0.5 + float(i) * 0.8), 3.0) * 0.35
+			col = col.lerp(Color(0.78, 0.86, 1.02), f_band)
 			var col_hi := col.lerp(Color(0.95, 0.97, 1.0), snow_mix)
 			_ctri(st, low[i], low[j], high[j], col, col, col_hi)
 			_ctri(st, low[i], high[j], high[i], col, col_hi, col_hi)
@@ -1244,27 +1291,73 @@ func _build_stars() -> void:
 		var azimuth := rng.randf() * TAU
 		var altitude := rng.randf_range(0.1, 1.5)
 		var dir := Vector3(cos(azimuth) * cos(altitude), sin(altitude), sin(azimuth) * cos(altitude))
-		var s := rng.randf_range(2.4, 7.0)
+		# Power-law magnitude: a dim crowd with a sparse bright minority, the
+		# way a real star field reads (uniform sizes look like printed dots).
+		var mag := pow(rng.randf(), 2.4)
+		var s := 2.0 + mag * 6.5
 		multimesh.set_instance_transform(i,
 			Transform3D(Basis.from_scale(Vector3(s, s, s)), center + dir * 1150.0))
 		var height_fade := clampf((altitude - 0.05) / 1.2, 0.0, 1.0)
-		var alpha := rng.randf_range(0.35, 0.95) * (0.3 + 0.7 * height_fade)
-		multimesh.set_instance_color(i, Color(0.85 + rng.randf() * 0.15, 0.9 + rng.randf() * 0.1, 1.0, alpha))
+		var alpha := (0.22 + 0.72 * mag) * (0.3 + 0.7 * height_fade)
+		# ~1 in 6 stars carries a warm K-class tint; the rest stay blue-white.
+		var col := Color(0.85 + rng.randf() * 0.15, 0.9 + rng.randf() * 0.1, 1.0)
+		if rng.randf() < 0.16:
+			col = Color(1.0, 0.87, 0.72)
+		multimesh.set_instance_color(i, Color(col.r, col.g, col.b, alpha))
 	var stars := MultiMeshInstance3D.new()
 	stars.multimesh = multimesh
 	stars.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(stars)
+	_build_twinklers(center)
+
+
+## A handful of hero stars, larger than the MultiMesh field, that visibly
+## scintillate (scale + alpha breathe in _process). Real skies only twinkle
+## noticeably on the brightest few stars — animating the whole dome would
+## read as shimmer noise, so exactly these eight get motion.
+func _build_twinklers(center: Vector3) -> void:
+	for i: int in 8:
+		var azimuth := rng.randf() * TAU
+		var altitude := rng.randf_range(0.25, 1.4)
+		var dir := Vector3(cos(azimuth) * cos(altitude), sin(altitude), sin(azimuth) * cos(altitude))
+		var quad := QuadMesh.new()
+		quad.size = Vector2(1.0, 1.0)
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		mat.billboard_keep_scale = true
+		mat.albedo_texture = VisualLibrary.soft_radial_texture(32, 0.95)
+		mat.albedo_color = Color(1.0, 0.88, 0.74, 0.85) if i % 3 == 0 else Color(0.92, 0.95, 1.0, 0.85)
+		mat.disable_receive_shadows = true
+		mat.disable_fog = true
+		quad.material = mat
+		var star := MeshInstance3D.new()
+		star.mesh = quad
+		var base := rng.randf_range(9.0, 14.0)
+		star.scale = Vector3.ONE * base
+		star.position = center + dir * 1140.0
+		star.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(star)
+		_twinklers.append(star)
+		_twinkler_mats.append(mat)
+		_twinkler_base.append(base)
+		_twinkler_phase.append(rng.randf() * TAU)
+		_twinkler_speed.append(rng.randf_range(1.6, 3.2))
 
 
 ## Big soft moon low in the forward-left sky: a crisp bright disc plus two
 ## nested halo billboards. Sits beyond the aurora shell, fog-immune, and
 ## deliberately just under the glow threshold so it stays serene, with the
-## additive halos carrying the atmospheric bloom feel.
+## additive halos carrying the atmospheric bloom feel. Placed along MOON_DIR:
+## the environment key light in build_course points along -MOON_DIR, so the
+## snow shading and specular response visibly come FROM this disc.
 func _build_moon() -> void:
 	if GameConfig.is_headless():
 		return
 	var center := Vector3(20.0, 20.0, -520.0)
-	var pos := center + Vector3(-0.34, 0.4, -0.85).normalized() * 1080.0
+	var pos := center + MOON_DIR * 1080.0
 	# Crisp-edged disc texture: full-bright core, quick soft falloff at the rim.
 	var moon_gradient := Gradient.new()
 	moon_gradient.set_color(0, Color(1.0, 1.0, 1.0, 1.0))
@@ -1319,6 +1412,124 @@ func _build_moon() -> void:
 	disc.position = pos
 	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(disc)
+
+
+## Horizon realism: a warm light-pollution dome low over the research-camp
+## side of the sky (the finish station and the mesa outpost both sit west /
+## down-course), plus a fainter secondary blush. Real dark-sky horizons are
+## never a uniform gradient — any inhabited direction carries a sodium-amber
+## stain — and the warm-vs-cool split also anchors which way "camp" is.
+func _build_horizon_glow() -> void:
+	if GameConfig.is_headless():
+		return
+	var center := Vector3(20.0, 0.0, -520.0)
+	var specs: Array[Dictionary] = [
+		{"dir": Vector3(-0.55, 0.0, -0.83), "size": Vector2(680.0, 230.0),
+			"color": Color(1.0, 0.6, 0.3, 0.085), "y": -4.0},
+		{"dir": Vector3(-0.95, 0.0, -0.3), "size": Vector2(430.0, 150.0),
+			"color": Color(1.0, 0.55, 0.28, 0.06), "y": -12.0},
+	]
+	for spec: Dictionary in specs:
+		var glow := MeshInstance3D.new()
+		var quad := QuadMesh.new()
+		quad.size = spec["size"] as Vector2
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		mat.albedo_texture = VisualLibrary.soft_radial_texture(64, 0.8)
+		mat.albedo_color = spec["color"] as Color
+		mat.disable_receive_shadows = true
+		mat.disable_fog = true
+		quad.material = mat
+		glow.mesh = quad
+		var pos := center + (spec["dir"] as Vector3).normalized() * 1120.0
+		pos.y = float(spec["y"])
+		glow.position = pos
+		glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(glow)
+
+
+## Faint aurora reflection hovering just over the smooth-ice corkscrew: the
+## same animated curtain shader, ground-projected as a dim strip that follows
+## the banked deck (built from transform_at stations, so it hugs the spiral).
+## Reads as sky light caught in polished ice without any reflection probe.
+## Additive + depth_draw_never + max_alpha 0.16: it can neither occlude the
+## track nor wash out the racing line.
+func _add_aurora_reflections(start_arc: float, end_arc: float) -> void:
+	if GameConfig.is_headless():
+		return
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var step := 8.0
+	var count := maxi(int((end_arc - start_arc) / step), 2)
+	var half_w := 5.5
+	var prev_l := Vector3.ZERO
+	var prev_r := Vector3.ZERO
+	var prev_t := 0.0
+	for i: int in count + 1:
+		var xform := main_guide.transform_at(start_arc + float(i) * step)
+		var l := xform.origin - xform.basis.x * half_w + xform.basis.y * 0.06
+		var r := xform.origin + xform.basis.x * half_w + xform.basis.y * 0.06
+		var t := float(i) / float(count)
+		if i > 0:
+			# UV.x runs along the strip, UV.y across it: the shader's edge fades
+			# then soften both track-side borders and both ends.
+			st.set_uv(Vector2(prev_t, 0.0)); st.add_vertex(prev_l)
+			st.set_uv(Vector2(t, 0.0)); st.add_vertex(l)
+			st.set_uv(Vector2(t, 1.0)); st.add_vertex(r)
+			st.set_uv(Vector2(prev_t, 0.0)); st.add_vertex(prev_l)
+			st.set_uv(Vector2(t, 1.0)); st.add_vertex(r)
+			st.set_uv(Vector2(prev_t, 1.0)); st.add_vertex(prev_r)
+		prev_l = l
+		prev_r = r
+		prev_t = t
+	var sheet := MeshInstance3D.new()
+	sheet.mesh = st.commit()
+	var mat := VisualLibrary.aurora_material().duplicate() as ShaderMaterial
+	mat.set_shader_parameter("intensity", 0.55)
+	mat.set_shader_parameter("band_scale", 2.2)
+	mat.set_shader_parameter("curtain_frequency", 13.0)
+	mat.set_shader_parameter("max_alpha", 0.16)
+	mat.set_shader_parameter("scroll_speed", 0.06)
+	mat.set_shader_parameter("core_boost", 0.2)
+	sheet.material_override = mat
+	sheet.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(sheet)
+
+
+## Moonlit specular streaks on the smooth-ice corkscrew: stretched additive
+## smears aligned with the moon azimuth, laid in the local deck plane so they
+## follow the banking. Static stand-ins for the anisotropic glint band a low
+## moon paints across wind-polished ice — always pointing at the disc that
+## also drives the key light.
+func _add_moon_glints(start_arc: float, end_arc: float) -> void:
+	if GameConfig.is_headless():
+		return
+	var band_yaw := atan2(MOON_DIR.x, MOON_DIR.z)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.albedo_texture = VisualLibrary.soft_radial_texture(32, 0.7)
+	mat.albedo_color = Color(0.72, 0.82, 1.0, 0.15)
+	mat.disable_receive_shadows = true
+	var arc := start_arc
+	while arc < end_arc - 4.0:
+		var xform := main_guide.transform_at(arc)
+		var deck_yaw := atan2(xform.basis.z.x, xform.basis.z.z)
+		var glint := MeshInstance3D.new()
+		var plane := PlaneMesh.new()
+		plane.size = Vector2(rng.randf_range(2.0, 3.4), rng.randf_range(9.0, 15.0))
+		glint.mesh = plane
+		glint.material_override = mat
+		glint.transform = Transform3D(
+			xform.basis.rotated(xform.basis.y.normalized(), band_yaw - deck_yaw),
+			xform.origin + xform.basis.x * rng.randf_range(-5.0, 5.0) + xform.basis.y * 0.07)
+		glint.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(glint)
+		arc += rng.randf_range(15.0, 24.0)
 
 
 ## Blowing-snow wisps streaming across a crosswind zone: soft stretched
@@ -1429,7 +1640,7 @@ func _physics_process(_delta: float) -> void:
 
 
 func _process(delta: float) -> void:
-	if _aurora_ribbons.is_empty():
+	if _aurora_ribbons.is_empty() and _twinklers.is_empty():
 		return
 	_aurora_time += delta
 	for i: int in _aurora_ribbons.size():
@@ -1437,3 +1648,11 @@ func _process(delta: float) -> void:
 		var phase := float(i) * 1.9
 		ribbon.position.y = sin(_aurora_time * 0.22 + phase) * 7.0
 		ribbon.scale.y = 1.0 + 0.1 * sin(_aurora_time * 0.15 + phase * 1.7)
+	# Hero-star scintillation: two incommensurate sine taps per star give the
+	# irregular flicker of real atmospheric twinkle (a single sine reads as a
+	# metronome). Scale + alpha only — no allocation, two uniform updates each.
+	for i: int in _twinklers.size():
+		var a := _aurora_time * _twinkler_speed[i] + _twinkler_phase[i]
+		var tw := 0.5 + 0.35 * sin(a) + 0.15 * sin(a * 2.63 + 1.7)
+		_twinklers[i].scale = Vector3.ONE * (_twinkler_base[i] * (0.75 + 0.3 * tw))
+		_twinkler_mats[i].albedo_color.a = 0.4 + 0.55 * clampf(tw, 0.0, 1.0)

@@ -1,11 +1,16 @@
 // Snow surface: procedural value-noise detail, sparse view-dependent sparkle
 // glints, soft normal perturbation. Detail additions (gated by detail_level,
-// skipped entirely at 0): broad ~2 m grain patches, sastrugi directional
-// ridging, grazing-angle glint boost, and a faint cool cavity tint.
+// skipped entirely at 0): broad ~2 m grain patches, fine micro-roughness
+// variation, sastrugi directional ridging, grazing-angle glint boost, and a
+// faint cool cavity tint. Physical plausibility: a wrapped-diffuse subsurface
+// approximation adds a warm light bleed when the sun grazes the surface, and
+// shadowed tones cool slightly toward sky-bounce blue.
 // All micro-detail fades out with view distance (clean smooth snow beyond
 // ~60 m, sparkle beyond ~20 m) so mid/far ground never reads as static or
 // confetti at race-camera distance. Mobile-cheap: no textures, no loops;
-// 2 noise octaves base plus 3 extra noise samples inside the detail branch.
+// 2 noise octaves base plus 4 extra noise samples inside the detail branch.
+// WebGL2/gl_compatibility-safe: basic spatial features only, no screen or
+// depth reads.
 shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
 
@@ -35,6 +40,14 @@ uniform float detail_fade_start = 25.0;
 uniform float detail_fade_end = 60.0;
 uniform float sparkle_fade_start = 12.0;
 uniform float sparkle_fade_end = 20.0;
+// Direction TOWARD the sun (world space); pairs with the course sun light.
+// Drives the wrapped-diffuse subsurface bleed only — safe to leave default.
+uniform vec3 sun_direction = vec3(-0.35, 0.72, -0.55);
+// Warm scatter color of light that has traveled through the snow crust.
+uniform vec4 sss_tint : source_color = vec4(1.0, 0.86, 0.68, 1.0);
+uniform float sss_strength : hint_range(0.0, 1.0) = 0.3;
+// Cool sky-bounce shift applied to the shadowed end of the albedo ramp.
+uniform float shadow_cool : hint_range(0.0, 1.0) = 0.35;
 
 varying vec3 world_pos;
 varying float view_dist;
@@ -92,6 +105,12 @@ void fragment() {
 		n = mix(n_base, n_base * 0.9 + grain * 0.1, dl);
 		roughness = clamp(roughness_value + (grain - 0.5) * 0.1 * dl, 0.05, 1.0);
 
+		// Finer micro-roughness octave (~0.3 m): breaks the specular response
+		// into subtle crystalline patchiness so highlights stop reading as a
+		// uniform plastic sheen.
+		float micro = value_noise(world_pos.xz * grain_scale * 6.0 + vec2(7.3, 91.4));
+		roughness = clamp(roughness + (micro - 0.5) * 0.12 * dl, 0.05, 1.0);
+
 		// Sastrugi: low-frequency noise stretched along the wind direction;
 		// its cross-wind gradient tilts the normal into directional ridging.
 		vec2 wdir = normalize(sastrugi_dir);
@@ -103,7 +122,10 @@ void fragment() {
 	}
 
 	float blend = clamp(0.5 + (n - 0.5) * detail_strength * 1.6, 0.0, 1.0);
-	vec3 albedo = mix(shadow_tint.rgb, tint.rgb, blend);
+	// Sky-bounce: shadowed snow is lit mostly by blue sky, so the dark end of
+	// the ramp cools slightly (drop red/green, hold blue) — never a hue swap.
+	vec3 shadow_col = shadow_tint.rgb * mix(vec3(1.0), vec3(0.88, 0.95, 1.02), shadow_cool);
+	vec3 albedo = mix(shadow_col, tint.rgb, blend);
 
 	if (dl > 0.001) {
 		// Faint cool skylight tint in grain troughs. Wide smoothstep and low
@@ -132,5 +154,18 @@ void fragment() {
 	float glint = pow(clamp(dot(view_dir, facet), 0.0, 1.0), 48.0);
 	float grazing = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
 	float glint_gain = 1.0 + grazing * 1.2 * detail_level;
-	EMISSION = vec3(1.0, 1.0, 0.98) * glint * step(0.93, pick) * sparkle_strength * glint_gain * sparkle_fade;
+	vec3 glint_emission = vec3(1.0, 1.0, 0.98) * glint * step(0.93, pick) * sparkle_strength * glint_gain * sparkle_fade;
+
+	// Wrapped-diffuse subsurface approximation: when the sun grazes the surface
+	// and the camera looks back toward the light, a fraction of it has scattered
+	// through the top crust and re-emerges warm. Quadratic graze term keeps the
+	// bleed confined to low-sun geometry (drift flanks, ridge shoulders).
+	vec3 sun = normalize(sun_direction);
+	vec3 n_world = normalize((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	float sun_graze = 1.0 - clamp(dot(n_world, sun), 0.0, 1.0);
+	float toward_sun = clamp(dot(view_dir, -sun) * 0.5 + 0.5, 0.0, 1.0);
+	float sss = sun_graze * sun_graze * toward_sun * sss_strength;
+	vec3 sss_emission = albedo * sss_tint.rgb * sss * 0.35;
+
+	EMISSION = glint_emission + sss_emission;
 }

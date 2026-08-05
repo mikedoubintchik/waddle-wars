@@ -1,29 +1,49 @@
 class_name TouchControls
 extends CanvasLayer
 ## On-screen multitouch controls for phones and tablets (native + mobile web).
-## Left half of the screen is a relative-drag steering zone; jump / slide /
-## shove / item sit in an arc around the bottom-right corner and a small pause
-## button sits top-right.
+## The whole screen is one unified gesture surface — no left/right split. Each
+## touch is classified once by its dominant axis after it has travelled
+## CLASSIFY_PX: horizontal-dominant touches drive relative-drag steering
+## (re-anchoring on direction reversal), vertical-dominant touches are swipe
+## gestures — an upward fling (SWIPE_MIN_PX within SWIPE_WINDOW_MS) jumps, a
+## downward drag (SWIPE_MIN_PX, any speed) holds slide until the finger lifts.
+## Before classification a touch drives nothing, so taps and noise are ignored,
+## and a diagonal move only ever feeds its dominant axis. Shove / item buttons
+## sit in the bottom-right corner (they win over gestures when a touch starts
+## inside them) and a small pause button sits top-right.
 ##
 ## All pointer input is routed centrally through InputEventScreenTouch /
 ## InputEventScreenDrag indices: Godot Buttons only react to mouse events, and
 ## on touchscreens only touch index 0 is mouse-emulated, so plain Buttons made
 ## the old implementation effectively single-touch. Tracking indices here lets
-## the player steer with one finger while pressing buttons with others.
+## the player steer with one finger while swiping or pressing buttons with
+## others. One finger owns steering at a time (first wins) and one finger owns
+## the vertical gesture at a time (latest wins).
 
 const MOUSE_TOUCH_INDEX: int = 4096  ## Synthetic index for a real mouse press.
 const STEER_RANGE_PX: float = 150.0  ## Drag distance for full steering lock.
 const HIT_MARGIN_PX: float = 14.0    ## Invisible extra hit padding per side.
 const BUTTON_SIZE_PX: float = 120.0  ## Action button diameter (logical px).
-const JUMP_SIZE_PX: float = 150.0    ## Jump is the primary action: bigger.
 const PAUSE_SIZE_PX: float = 72.0    ## Pause stays small and out of the way.
+const CLASSIFY_PX: float = 24.0      ## Travel before a touch picks its axis.
+const SWIPE_MIN_PX: float = 60.0     ## Vertical travel that counts as a swipe.
+const SWIPE_WINDOW_MS: int = 250     ## Jump fling must happen in this window.
+const HINT_VISIBLE_SEC: float = 4.0  ## First-race gesture hint hold time.
+const HINT_FADE_SEC: float = 0.6     ## Gesture hint fade-out duration.
 
 var controller: PlayerController = null
 
 var _root: Control = null
-var _steer_zone: Control = null
+## Unclassified touches awaiting axis classification.
+## Keyed by touch index; values: {origin: Vector2, ms: int press time}.
+var _pending: Dictionary = {}
 var _steer_touch_index: int = -1
 var _steer_origin: Vector2 = Vector2.ZERO
+var _gesture_touch_index: int = -1
+var _gesture_origin: Vector2 = Vector2.ZERO
+var _gesture_start_ms: int = 0
+var _gesture_fired: bool = false    ## Jump fired or slide engaged.
+var _gesture_sliding: bool = false  ## Swipe-down slide currently held.
 ## Entries: {panel: Panel, on_press: Callable, on_hold: Callable, pressed_by: int}.
 var _buttons: Array[Dictionary] = []
 var _ui_scale: float = 1.0
@@ -37,6 +57,7 @@ func _ready() -> void:
 func setup(p_controller: PlayerController) -> void:
 	controller = p_controller
 	_build()
+	_maybe_show_gesture_hint()
 	if not SettingsManager.setting_changed.is_connected(_on_setting_changed):
 		SettingsManager.setting_changed.connect(_on_setting_changed)
 
@@ -49,7 +70,6 @@ func _build() -> void:
 	if _root != null:
 		_root.queue_free()
 		_root = null
-		_steer_zone = null
 	_ui_scale = clampf(float(SettingsManager.get_setting("gameplay", "touch_scale")), 0.5, 2.0)
 	_opacity = clampf(float(SettingsManager.get_setting("gameplay", "touch_opacity")), 0.1, 1.0)
 
@@ -58,38 +78,16 @@ func _build() -> void:
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_root)
 
-	# Steering zone: left half of the screen, relative horizontal drag.
-	_steer_zone = Control.new()
-	_steer_zone.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_steer_zone.anchor_right = 0.5
-	_steer_zone.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(_steer_zone)
-	var hint := Label.new()
-	hint.text = "◄ drag to steer ►"
-	hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	hint.anchor_top = 0.85
-	hint.anchor_bottom = 0.85
-	hint.anchor_left = 0.5
-	hint.anchor_right = 0.5
-	hint.offset_left = -140
-	hint.offset_right = 140
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.modulate.a = _opacity * 0.6
-	hint.add_theme_font_size_override("font_size", 26)
-	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_steer_zone.add_child(hint)
-
-	# Action buttons: arc around the bottom-right corner. Offsets are button
-	# centres relative to that corner; every pairwise gap stays >= 16 logical
-	# px at scale 1 and every button is well above the 64 px minimum.
+	# Action buttons: bottom-right corner, side by side. Offsets are button
+	# centres relative to that corner; the pairwise gap stays >= 16 logical px
+	# at scale 1 and every button is well above the 64 px minimum. Jump, slide
+	# and steering are full-screen gestures, so only shove and item remain.
+	# Buttons win over gestures for touches that start inside their (padded)
+	# rects.
 	var s := _ui_scale
-	_add_button("JUMP", Vector2(-110, -110) * s, JUMP_SIZE_PX * s, false,
-		func() -> void: controller.touch_jump(), Callable())
-	_add_button("SLIDE", Vector2(-300, -80) * s, BUTTON_SIZE_PX * s, false,
-		Callable(), func(held: bool) -> void: controller.touch_slide_changed(held))
-	_add_button("SHOVE", Vector2(-260, -260) * s, BUTTON_SIZE_PX * s, false,
+	_add_button("SHOVE", Vector2(-220, -80) * s, BUTTON_SIZE_PX * s, false,
 		func() -> void: controller.touch_shove(), Callable())
-	_add_button("ITEM", Vector2(-80, -300) * s, BUTTON_SIZE_PX * s, false,
+	_add_button("ITEM", Vector2(-80, -80) * s, BUTTON_SIZE_PX * s, false,
 		func() -> void: controller.touch_item(), Callable())
 
 	# Pause: small, top-right, clear of the action cluster.
@@ -134,6 +132,51 @@ func _add_button(text: String, center: Vector2, size: float, top_anchor: bool,
 	})
 
 
+## One-time translucent overlay teaching the touch gestures. Shown on the
+## first race only; persisted via the gameplay "touch_hints_seen" flag
+## (get_setting returns null while the flag has never been written, which
+## reads as "not seen"). Fades out after HINT_VISIBLE_SEC.
+func _maybe_show_gesture_hint() -> void:
+	if GameConfig.is_headless():
+		return
+	if SettingsManager.get_setting("gameplay", "touch_hints_seen") == true:
+		return
+	SettingsManager.set_setting("gameplay", "touch_hints_seen", true)
+
+	var overlay := Control.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.modulate.a = 0.9
+	add_child(overlay)  # Direct child of the layer: survives settings rebuilds.
+
+	var panel := Panel.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.08, 0.14, 0.8)
+	style.set_corner_radius_all(18)
+	panel.add_theme_stylebox_override("panel", style)
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.offset_left = -280
+	panel.offset_right = 280
+	panel.offset_top = -110
+	panel.offset_bottom = 110
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(panel)
+
+	var label := Label.new()
+	label.text = "▲  swipe up — jump\n▼  swipe down + hold — slide\n◄ ►  drag sideways — steer"
+	label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 30)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(label)
+
+	var tween := overlay.create_tween()
+	tween.tween_interval(HINT_VISIBLE_SEC)
+	tween.tween_property(overlay, "modulate:a", 0.0, HINT_FADE_SEC)
+	tween.tween_callback(overlay.queue_free)
+
+
 func _press_pause() -> void:
 	var event := InputEventAction.new()
 	event.action = "pause"
@@ -167,12 +210,15 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion:
 		var motion := event as InputEventMouseMotion
 		if motion.device != InputEvent.DEVICE_ID_EMULATION \
-				and _steer_touch_index == MOUSE_TOUCH_INDEX:
+				and (_steer_touch_index == MOUSE_TOUCH_INDEX
+					or _gesture_touch_index == MOUSE_TOUCH_INDEX
+					or _pending.has(MOUSE_TOUCH_INDEX)):
 			_handle_drag(MOUSE_TOUCH_INDEX, motion.position)
 
 
 func _handle_point(index: int, pos: Vector2, pressed: bool) -> void:
 	if pressed:
+		# Buttons win over gestures when the touch starts inside them.
 		for button: Dictionary in _buttons:
 			if int(button["pressed_by"]) >= 0:
 				continue
@@ -180,27 +226,98 @@ func _handle_point(index: int, pos: Vector2, pressed: bool) -> void:
 			if rect.has_point(pos):
 				_set_button_pressed(button, index)
 				return
-		if _steer_touch_index < 0 and _steer_zone.get_global_rect().has_point(pos):
-			_steer_touch_index = index
-			_steer_origin = pos
+		# Everything else starts an unclassified touch anywhere on screen; it
+		# drives nothing until it travels CLASSIFY_PX and picks an axis.
+		_pending[index] = {"origin": pos, "ms": Time.get_ticks_msec()}
 	else:
+		_pending.erase(index)
 		if index == _steer_touch_index:
 			_steer_touch_index = -1
 			controller.touch_steer = 0.0
+		if index == _gesture_touch_index:
+			_end_gesture()
 		for button: Dictionary in _buttons:
 			if int(button["pressed_by"]) == index:
 				_set_button_released(button)
 
 
 func _handle_drag(index: int, pos: Vector2) -> void:
-	if index != _steer_touch_index:
+	if index == _steer_touch_index:
+		_apply_steer(pos)
 		return
+	if index == _gesture_touch_index:
+		_update_gesture(pos)
+		return
+	if not _pending.has(index):
+		return
+	var entry: Dictionary = _pending[index]
+	var origin: Vector2 = entry["origin"]
+	var delta := pos - origin
+	if delta.length() < CLASSIFY_PX:
+		return  # Inside the dead zone: taps and noise drive nothing.
+	# Classify once by dominant axis; the touch keeps that role for its whole
+	# lifetime, so a diagonal move only ever feeds one axis.
+	_pending.erase(index)
+	if absf(delta.x) >= absf(delta.y):
+		# Horizontal-dominant: steering. First steering finger wins; a second
+		# horizontal touch while one is steering becomes inert.
+		if _steer_touch_index < 0:
+			_steer_touch_index = index
+			_steer_origin = origin
+			_apply_steer(pos)
+	else:
+		# Vertical-dominant: jump / slide gesture. Latest finger wins (ending
+		# the previous gesture releases any in-progress slide).
+		_begin_gesture(index, origin, int(entry["ms"]))
+		_update_gesture(pos)
+
+
+## Relative-drag steering through the existing steer pipeline. Once the drag
+## exceeds the full-lock range the origin re-anchors so reversing direction
+## responds immediately.
+func _apply_steer(pos: Vector2) -> void:
 	var dx := pos.x - _steer_origin.x
 	if absf(dx) > STEER_RANGE_PX:
-		# Re-anchor so reversing direction responds immediately.
 		_steer_origin.x = pos.x - signf(dx) * STEER_RANGE_PX
 		dx = signf(dx) * STEER_RANGE_PX
 	controller.touch_steer = clampf(dx / STEER_RANGE_PX, -1.0, 1.0)
+
+
+## Evaluates a vertical-gesture finger: an upward fling within the swipe
+## window jumps once; a downward drag of the same distance (any speed) starts
+## a slide that _end_gesture releases when the finger lifts.
+func _update_gesture(pos: Vector2) -> void:
+	if _gesture_fired:
+		return
+	var dy := pos.y - _gesture_origin.y
+	if dy <= -SWIPE_MIN_PX:
+		if Time.get_ticks_msec() - _gesture_start_ms <= SWIPE_WINDOW_MS:
+			_gesture_fired = true
+			controller.touch_jump()
+		# Too slow for a jump fling: the touch stays live so dragging back
+		# down past the threshold can still start a slide.
+	elif dy >= SWIPE_MIN_PX:
+		_gesture_fired = true
+		_gesture_sliding = true
+		controller.touch_slide_changed(true)
+
+
+## Starts tracking a vertical gesture for the given touch. If another finger
+## already owns the gesture, the latest finger wins: the old gesture ends
+## first (which releases an in-progress slide).
+func _begin_gesture(index: int, origin: Vector2, start_ms: int) -> void:
+	_end_gesture()
+	_gesture_touch_index = index
+	_gesture_origin = origin
+	_gesture_start_ms = start_ms
+
+
+func _end_gesture() -> void:
+	if _gesture_sliding and controller != null:
+		controller.touch_slide_changed(false)
+	_gesture_touch_index = -1
+	_gesture_fired = false
+	_gesture_sliding = false
 
 
 func _set_button_pressed(button: Dictionary, index: int) -> void:
@@ -222,13 +339,16 @@ func _set_button_released(button: Dictionary) -> void:
 		on_hold.call(false)
 
 
-## Clears held state (steering + hold buttons). Called when the tree pauses or
-## the app loses focus, because release events delivered while this node is
-## paused would otherwise be missed and leave inputs stuck.
+## Clears held state (steering + swipe slide + hold buttons + unclassified
+## touches). Called when the tree pauses or the app loses focus, because
+## release events delivered while this node is paused would otherwise be
+## missed and leave inputs stuck.
 func _release_all() -> void:
+	_pending.clear()
 	_steer_touch_index = -1
 	if controller != null:
 		controller.touch_steer = 0.0
+	_end_gesture()
 	for button: Dictionary in _buttons:
 		if int(button["pressed_by"]) >= 0:
 			_set_button_released(button)

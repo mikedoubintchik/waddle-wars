@@ -1,10 +1,13 @@
 // Ice surface: fresnel rim brightening, view-angle interior darkening (fake
 // depth), noise-driven roughness variation, blue-green tint controls.
 // High-detail additions (gated by detail_level, skipped entirely at 0):
-// internal depth veins (two view-parallaxed noise layers), sparse sharp crack
-// lines, and a stronger spectral fresnel rim (blue -> cyan at grazing).
-// Mobile-cheap: opaque, no textures, 1 noise octave base + 4 extra samples
-// inside the uniform detail branch.
+// internal depth veins (two view-parallaxed noise layers), a deep strongly
+// parallaxed absorption layer that pulls the interior toward a colder tint
+// (pseudo-refraction depth), sparse sharp crack lines, sparse sharp specular
+// glint facets, and a stronger spectral fresnel rim (blue -> cyan at grazing).
+// Mobile-cheap: opaque, no textures, 1 noise octave base + 6 extra samples
+// inside the uniform detail branch. WebGL2/gl_compatibility-safe: basic
+// spatial features only, no screen or depth reads.
 shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
 
@@ -26,6 +29,15 @@ uniform float vein_strength : hint_range(0.0, 1.0) = 0.55;
 uniform vec4 vein_tint : source_color = vec4(0.75, 0.92, 1.0, 1.0);
 uniform float crack_scale = 0.45;
 uniform float crack_strength : hint_range(0.0, 1.0) = 0.6;
+// Pseudo-refraction depth layer: how far the deep layer parallax-shifts with
+// the view (bigger = reads deeper) and the cold color it absorbs toward.
+uniform float depth_parallax = 2.6;
+uniform vec4 depth_tint : source_color = vec4(0.04, 0.19, 0.4, 1.0);
+uniform float depth_strength : hint_range(0.0, 1.0) = 0.4;
+// Sparse mirror-facet glints: sharp micro-highlights that fire as the camera
+// sweeps past, like real polished ice.
+uniform float glint_strength : hint_range(0.0, 2.0) = 0.6;
+uniform float glint_density = 2.2;
 
 varying vec3 world_pos;
 
@@ -61,6 +73,7 @@ void fragment() {
 	vec3 rim_col = rim_tint.rgb;
 	float rim_amt = rim_strength;
 	float crack = 0.0;
+	vec3 glint_emission = vec3(0.0);
 
 	if (detail_level > 0.001) {
 		// Internal depth veins: two noise layers pushed opposite amounts along
@@ -74,6 +87,13 @@ void fragment() {
 		body = mix(body, vein_tint.rgb * mix(0.55, 0.85, facing),
 				veins * vein_strength * clarity * detail_level * 0.6);
 
+		// Deep absorption layer: low-frequency noise pushed far along the view
+		// vector. The strong differential parallax against the vein layers
+		// reads as thickness, and its cold tint sells light dying with depth.
+		float v3 = value_noise(base_uv * 0.55 - view_world.xz * depth_parallax + vec2(27.3, 9.1));
+		body = mix(body, depth_tint.rgb,
+				smoothstep(0.3, 0.85, v3) * depth_strength * clarity * detail_level);
+
 		// Sparse sharp crack lines: thin band around the noise midline, masked
 		// by a low-frequency threshold so most of the surface stays clean.
 		float cn = value_noise(world_pos.xz * crack_scale + 41.7);
@@ -85,10 +105,23 @@ void fragment() {
 		// Spectral rim: blue base shifting toward cyan at grazing angles.
 		rim_col = mix(rim_tint.rgb, vec3(0.55, 1.0, 1.0), clamp(fresnel * detail_level * 0.7, 0.0, 1.0));
 		rim_amt = rim_strength * (1.0 + 0.4 * detail_level);
+
+		// Sparse sharp glint facets: per-cell random mirror direction, tight
+		// pow-96 lobe so highlights snap on/off as the camera moves — polished
+		// ice glitter rather than a broad plastic sheen. Only ~10% of cells
+		// host a facet; the rest of the surface stays calm.
+		vec2 cell = floor(world_pos.xz * glint_density);
+		vec3 facet = normalize(vec3(
+			hash21(cell) - 0.5,
+			hash21(cell + 3.0) * 0.5 + 0.6,
+			hash21(cell + 7.0) - 0.5));
+		float g = pow(clamp(dot(view_world, facet), 0.0, 1.0), 96.0);
+		glint_emission = vec3(0.9, 0.97, 1.0) * g * step(0.9, hash21(cell + 17.0))
+				* glint_strength * detail_level;
 	}
 
 	ALBEDO = mix(body, rim_col, clamp(fresnel * rim_amt, 0.0, 1.0));
-	EMISSION = rim_col * fresnel * rim_amt * 0.25;
+	EMISSION = rim_col * fresnel * rim_amt * 0.25 + glint_emission;
 
 	ROUGHNESS = clamp(roughness_base + (n - 0.5) * roughness_variation + crack * 0.3, 0.02, 1.0);
 	SPECULAR = specular_amount;
