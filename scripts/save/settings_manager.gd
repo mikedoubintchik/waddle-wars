@@ -237,7 +237,22 @@ func _apply_one(section: String, key: String, value: Variant) -> void:
 					if InputMap.has_action(action):
 						InputMap.action_set_deadzone(action, clampf(float(value), 0.05, 0.6))
 		"accessibility":
-			pass  # Read live by camera / HUD / VFX systems.
+			if key == "ui_scale":
+				_apply_ui_scale(float(value))
+			# Other keys read live by camera / HUD / VFX systems.
+
+
+## Touchscreens get an automatic boost on top of the user's UI-scale setting:
+## the 1920x1080 canvas shrunk onto a phone leaves menus physically tiny.
+const TOUCH_UI_BOOST: float = 1.35
+
+func _apply_ui_scale(user_scale: float) -> void:
+	if GameConfig.is_headless():
+		return
+	var boost := TOUCH_UI_BOOST if GameConfig.has_touchscreen() or is_mobile_web() else 1.0
+	var window := get_window()
+	if window != null:
+		window.content_scale_factor = clampf(user_scale, 0.8, 1.6) * boost
 
 
 func _apply_display(key: String, value: Variant) -> void:
