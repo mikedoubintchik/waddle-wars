@@ -151,6 +151,7 @@ func ui_hover() -> void:
 
 
 func ui_click() -> void:
+	ensure_unmuted()
 	play_sfx("sfx_ui_select", 1.0, -4.0)
 
 
@@ -172,8 +173,22 @@ func set_muted(muted: bool) -> void:
 func _notification(what: int) -> void:
 	if GameConfig.is_headless():
 		return
+	# Browsers duck background tabs themselves, and on mobile web FOCUS_IN
+	# often never re-fires after load — focus-muting there leaves the game
+	# permanently silent. Web builds skip it entirely.
+	if OS.has_feature("web"):
+		return
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		if bool(SettingsManager.get_setting("audio", "mute_unfocused")):
 			AudioServer.set_bus_mute(0, true)
 	elif what == NOTIFICATION_APPLICATION_FOCUS_IN:
 		AudioServer.set_bus_mute(0, _muted or bool(SettingsManager.get_setting("audio", "muted")))
+
+
+## Re-assert the user's mute setting; safe to call from any input handler.
+## On web this also doubles as an in-gesture audio poke so the browser's
+## suspended AudioContext resumes with sound actually audible.
+func ensure_unmuted() -> void:
+	if GameConfig.is_headless():
+		return
+	AudioServer.set_bus_mute(0, _muted or bool(SettingsManager.get_setting("audio", "muted")))
