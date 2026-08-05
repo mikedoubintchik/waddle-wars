@@ -3,9 +3,17 @@ extends Node3D
 ## Third-person chase camera: smoothed follow, predictive look, speed FOV,
 ## slide/water framing, finish orbit, trauma-based shake with accessibility
 ## scaling.
+##
+## The follow yaw is slerped toward the racer's movement heading with its own
+## (slow) responsiveness instead of hard-locking to the racer's basis. That
+## rotational lag is what makes steering read as "the penguin turns on
+## screen" rather than "the whole map rotates around the penguin".
 
 const BASE_FOV: float = 68.0
 const MAX_FOV_BONUS: float = 18.0
+const YAW_FOLLOW_RATE: float = 3.0  # 1/s slerp responsiveness toward heading
+const YAW_CATCHUP_START: float = 1.2  # rad of error where fast catch-up kicks in
+const YAW_CATCHUP_GAIN: float = 4.0  # extra rate per rad beyond the start (respawns)
 
 var target: Racer = null
 var camera: Camera3D
@@ -13,6 +21,7 @@ var _shake_trauma: float = 0.0
 var _shake_time: float = 0.0
 var _smoothed_pos: Vector3
 var _smoothed_look: Vector3
+var _follow_yaw: float = 0.0
 var _finish_orbit_angle: float = 0.0
 var _mode_finish: bool = false
 var _fov_extra: float = 0.0
@@ -55,7 +64,6 @@ func _physics_process(delta: float) -> void:
 	if target == null or not is_instance_valid(target):
 		return
 	var speed_ratio := clampf(target.current_speed / Racer.BASE_SPEED, 0.0, 2.0)
-	var forward := -target.global_transform.basis.z
 
 	var desired_pos: Vector3
 	var look_point: Vector3
@@ -69,6 +77,19 @@ func _physics_process(delta: float) -> void:
 		)
 		look_point = target.global_position + Vector3.UP * 0.8
 	else:
+		# Chase the racer's actual movement heading with rotational lag, so a
+		# steering penguin visibly yaws/banks on screen before the camera
+		# swings around behind it.
+		var heading_yaw := _heading_yaw()
+		if not _initialized:
+			_follow_yaw = heading_yaw
+		else:
+			var yaw_error := absf(wrapf(heading_yaw - _follow_yaw, -PI, PI))
+			var yaw_rate := YAW_FOLLOW_RATE
+			if yaw_error > YAW_CATCHUP_START:  # respawn / hard snap: recover fast
+				yaw_rate += (yaw_error - YAW_CATCHUP_START) * YAW_CATCHUP_GAIN
+			_follow_yaw = lerp_angle(_follow_yaw, heading_yaw, 1.0 - exp(-delta * yaw_rate))
+		var follow_dir := Vector3(-sin(_follow_yaw), 0.0, -cos(_follow_yaw))
 		var height := 2.5
 		var distance := 5.0
 		if target.state == Racer.State.SLIDING:
@@ -80,14 +101,14 @@ func _physics_process(delta: float) -> void:
 		elif target.state == Racer.State.AIRBORNE:
 			height = 2.9
 		distance += speed_ratio * 0.7
-		desired_pos = target.global_position - forward * distance + Vector3.UP * height
-		look_point = target.global_position + forward * (3.2 + speed_ratio * 3.2) + Vector3.UP * 0.9
+		desired_pos = target.global_position - follow_dir * distance + Vector3.UP * height
+		look_point = target.global_position + follow_dir * (3.2 + speed_ratio * 3.2) + Vector3.UP * 0.9
 
 	if not _initialized:
 		_smoothed_pos = desired_pos
 		_smoothed_look = look_point
 		_initialized = true
-	var pos_rate := 1.0 - exp(-delta * 7.0)
+	var pos_rate := 1.0 - exp(-delta * 8.0)
 	var look_rate := 1.0 - exp(-delta * 10.0)
 	_smoothed_pos = _smoothed_pos.lerp(desired_pos, pos_rate)
 	_smoothed_look = _smoothed_look.lerp(look_point, look_rate)
@@ -122,3 +143,11 @@ func _physics_process(delta: float) -> void:
 		camera.h_offset = 0.0
 		camera.v_offset = 0.0
 		camera.rotation.z = 0.0
+
+
+## Yaw of the direction the racer is actually travelling; falls back to the
+## body facing when nearly stationary (velocity yaw is meaningless at rest).
+func _heading_yaw() -> float:
+	if target.current_speed > 2.0:
+		return target.get_heading_yaw()
+	return target.rotation.y

@@ -19,6 +19,16 @@ var _heading: float = 0.0  # yaw; 0 = -Z
 var _pts: Array = []
 var _post_build: Array[Callable] = []
 
+## Rolling-terrain state: a slow sine swell (~±4.5m over ~570m wavelength)
+## layered onto every segment's height so the expedition undulates instead of
+## descending on a ruler. Driven purely by accumulated distance — fully
+## deterministic per seed, and no extra rng draws (segment rolls stay
+## byte-identical for a given run_seed).
+const ROLL_AMPLITUDE: float = 4.5
+const ROLL_FREQUENCY: float = 0.011  # rad per meter of course distance
+var _roll_distance: float = 0.0
+var _roll_prev: float = 0.0
+
 
 func _init() -> void:
 	course_id = "endless"
@@ -37,6 +47,14 @@ func _advance(forward: float, lateral: float, drop: float, extra: Dictionary = {
 	var dist := Vector2(forward, lateral).length()
 	_cursor += Vector3(-sin(_heading), 0.0, -cos(_heading)) * dist
 	_cursor.y -= drop
+	# Mild rolling swell on top of the segment's own drop. Applied as the
+	# delta of an absolute sine so the roll never accumulates: worst-case
+	# extra grade is ~ROLL_AMPLITUDE*ROLL_FREQUENCY (~2.8 degrees) on top of
+	# the steepest segment (downhill, ~6.7 degrees) — well under the AI cap.
+	_roll_distance += dist
+	var roll := sin(_roll_distance * ROLL_FREQUENCY) * ROLL_AMPLITUDE
+	_cursor.y += roll - _roll_prev
+	_roll_prev = roll
 	_pts.append(p2(_cursor, extra))
 
 
@@ -72,6 +90,8 @@ func build_course() -> void:
 			add_fish_line(offset, rng.randi_range(5, 9), 5.0, rng.randf_range(-4.0, 4.0))
 		if fmod(offset, 400.0) < 160.0:
 			add_item_row(offset + 60.0)
+		elif fmod(offset, 400.0) > 240.0:
+			add_snowball_row(offset + 30.0)  # no rng draws: seed determinism kept
 		offset += 170.0
 
 	_decorate()

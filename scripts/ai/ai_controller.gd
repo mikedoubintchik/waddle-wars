@@ -4,6 +4,10 @@ extends RacerController
 ## takes shortcuts, jumps/slides from course hints, uses items, shoves,
 ## and recovers when stuck. Difficulty scales reaction, precision, mistakes.
 
+const THROW_RANGE: float = 25.0
+const THROW_CONE_DOT: float = 0.94  # ~20 degree cone ahead
+const PICKUP_SCAN_AHEAD: float = 30.0
+
 var racer: Racer = null
 var course: CourseBase = null
 var personality: Dictionary = {}
@@ -23,6 +27,7 @@ var _stuck_check_timer: float = 3.0
 var _stuck_last_position: Vector3 = Vector3(9999, 9999, 9999)
 var _slide_zone_until: float = -1.0
 var _shove_eval_timer: float = 0.0
+var _throw_eval_timer: float = 0.0
 
 
 func configure(p_racer: Racer, p_course: CourseBase, p_personality: Dictionary, p_difficulty: Dictionary, seed_value: int) -> void:
@@ -44,6 +49,7 @@ func tick(delta: float) -> void:
 	_lateral_timer -= delta
 	_mistake_timer -= delta
 	_shove_eval_timer -= delta
+	_throw_eval_timer -= delta
 	_item_hold_timer -= delta
 	_stuck_check_timer -= delta
 
@@ -64,6 +70,7 @@ func tick(delta: float) -> void:
 func _update_target() -> void:
 	var progress := racer.progress
 	_consider_branches(progress)
+	_consider_snowball_pickups()
 	var lookahead := 8.0 + racer.current_speed * 0.55
 	if _chosen_branch >= 0:
 		var branch: Dictionary = course.branches[_chosen_branch]
@@ -185,6 +192,67 @@ func _update_actions() -> void:
 		if _should_use_item():
 			item_pressed = true
 		_item_hold_timer = rng.randf_range(0.4, 1.4)
+
+	# Collected snowballs: throw at a rival in a tight cone ahead. Only when
+	# bare-handed — a held item keeps priority on the item key (see Racer).
+	if racer.held_item == "" and racer.snowball_ammo > 0 \
+			and _throw_eval_timer <= 0.0 and _item_hold_timer <= 0.0:
+		_throw_eval_timer = 0.6
+		if _find_throw_target() != null and rng.randf() < _throw_chance():
+			item_pressed = true
+			_item_hold_timer = rng.randf_range(0.8, 2.2)
+
+
+## Nearest unfinished rival inside the throw cone, or null.
+func _find_throw_target() -> Racer:
+	var forward := -racer.global_transform.basis.z
+	var best: Racer = null
+	var best_dist := THROW_RANGE
+	for node: Node in racer.get_tree().get_nodes_in_group(GameConfig.GROUP_RACERS):
+		var other := node as Racer
+		if other == null or other == racer or other.state == Racer.State.FINISHED:
+			continue
+		var to_other := other.global_position - racer.global_position
+		var dist := to_other.length()
+		if dist > best_dist or dist < 2.0:
+			continue
+		if forward.dot(to_other / dist) < THROW_CONE_DOT:
+			continue
+		best = other
+		best_dist = dist
+	return best
+
+
+func _throw_chance() -> float:
+	var aggression := float(personality.get("aggression", 0.5)) * float(difficulty.get("item_aggression", 0.6))
+	return clampf(aggression * (0.5 + float(personality.get("item_focus", 0.5)) * 0.7), 0.05, 0.9)
+
+
+## Mild attraction toward on-track snowball pickups: nudge the lateral
+## offset toward the nearest available pickup a bit ahead — never a hard
+## turn, so the racing line and hint avoidance stay in charge.
+func _consider_snowball_pickups() -> void:
+	if racer.snowball_ammo >= Racer.MAX_SNOWBALL_AMMO:
+		return
+	var forward := -racer.global_transform.basis.z
+	var right := racer.global_transform.basis.x
+	var best_delta := 0.0
+	var best_ahead := PICKUP_SCAN_AHEAD
+	for node: Node in racer.get_tree().get_nodes_in_group(SnowballPickup.GROUP_NAME):
+		var pickup := node as SnowballPickup
+		if pickup == null or not pickup.is_available():
+			continue
+		var to_pickup := pickup.global_position - racer.global_position
+		var ahead := forward.dot(to_pickup)
+		if ahead < 4.0 or ahead > best_ahead:
+			continue
+		var lateral_delta := right.dot(to_pickup)
+		if absf(lateral_delta) > 6.0:
+			continue
+		best_ahead = ahead
+		best_delta = lateral_delta
+	if best_delta != 0.0:
+		_lateral_offset = clampf(_lateral_offset + clampf(best_delta, -2.5, 2.5), -5.0, 5.0)
 
 
 func _should_use_item() -> bool:

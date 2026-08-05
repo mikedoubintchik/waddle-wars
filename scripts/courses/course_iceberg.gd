@@ -73,30 +73,35 @@ static func p(x: float, y: float, z: float, extra: Dictionary = {}) -> Dictionar
 
 func build_course() -> void:
 	var pts: Array = [
-		# 1. Start berg: long flat straight for the grid and spectators.
+		# 1. Start berg: long straight for the grid, dipping off the plateau.
 		p(0, 12, 35, {"width": 18.0}),
 		p(0, 12, -30, {"width": 18.0}),
-		p(2, 11.5, -100, {"width": 20.0}),
-		# 2. Berg-hop: wide right-swinging arc of connected bergs, widths
-		# breathing 22 -> 14 -> 20 -> 12 so each berg reads distinct.
+		p(2, 10.5, -100, {"width": 20.0}),
+		# 2. Berg-hop: wide right-swinging arc of connected bergs riding a
+		# gentle ocean swell — each berg crests +2-3m then dips, so the arc
+		# rolls like the sea it floats on. Widths breathe 22 -> 14 -> 20 -> 12.
 		# wall_l stays ON at -240/-540: the branch corridor is well clear of the
 		# main edge by those spots, and the wall catches racers whose guide yaw
 		# (sampled far ahead by PathGuide's index-space offsets) cuts the arc.
-		p(14, 11, -170, {"width": 22.0, "wall_l": false}),
-		p(34, 10.5, -240, {"width": 16.0}),
-		p(52, 10, -310, {"width": 16.0}),
-		p(56, 9.5, -380, {"width": 20.0}),
-		p(44, 9, -440, {"width": 13.0}),
-		p(24, 8.5, -490, {"width": 18.0, "wall_l": false}),
-		p(6, 8, -540, {"width": 18.0}),
-		p(0, 8, -590, {"width": 16.0}),
+		p(14, 13, -170, {"width": 22.0, "wall_l": false}),
+		p(34, 9.5, -240, {"width": 16.0}),
+		p(52, 12.5, -310, {"width": 16.0}),
+		p(56, 9, -380, {"width": 20.0}),
+		# Width 16 (was 13): the 20->13 pinch mid-arc dumped outer-line AI off
+		# the right edge into water (sim DNF loop). Crest softened 11.5->10.5.
+		p(44, 10.5, -440, {"width": 16.0}),
+		p(24, 8, -490, {"width": 18.0, "wall_l": false}),
+		p(6, 10, -540, {"width": 18.0}),
+		p(0, 8.8, -590, {"width": 16.0}),
 		# 3. Moving-platform crossing: floorless span bridged by sliding slabs.
-		p(0, 8, -620, {"width": 14.0}),
+		# The swell rise at -590 doubles as the launch hump into the jump.
+		p(0, 8.4, -620, {"width": 14.0}),
 		p(0, 8, -640, {"width": 12.0, "gap": true}),
 		p(0, 8, -672, {"width": 14.0}),
-		# 4. Approach and the big swim channel (80m of open water).
+		# 4. Approach and the big swim channel (80m of open water): one last
+		# wave rise at -770, then down to the ice edge at water level.
 		p(-6, 7.5, -720, {"width": 16.0}),
-		p(-10, 7, -770, {"width": 16.0}),
+		p(-10, 7.8, -770, {"width": 16.0}),
 		p(-10, 6.3, -810, {"width": 14.0}),
 		p(-8, 6.0, -848, {"width": 14.0, "gap": true}),  # ice edge, 1m over water
 		p(-4, 5.0, -878, {"width": 14.0, "gap": true}),  # guide at water surface
@@ -104,31 +109,34 @@ func build_course() -> void:
 		p(2, 5.0, -925, {"width": 14.0, "gap": true}),
 		p(3, 4.2, -932, {"width": 18.0, "surface": ICE, "wall_l": false, "wall_r": false}),  # submerged exit ramp
 		p(4, 6.2, -965, {"width": 18.0, "surface": ICE}),
-		# 5. Wave ramps: three rolling hills on smooth ice.
-		p(2, 6.5, -1000, {"width": 16.0, "surface": ICE}),
-		p(0, 8.6, -1028, {"width": 16.0, "surface": ICE}),
-		p(-2, 6.4, -1042, {"width": 16.0, "surface": ICE}),
-		p(-4, 8.6, -1070, {"width": 16.0, "surface": ICE}),
-		p(-6, 6.4, -1084, {"width": 16.0, "surface": ICE}),
-		p(-8, 8.6, -1112, {"width": 16.0, "surface": ICE}),
+		# 5. Wave ramps: three rolling hills on smooth ice, amplified so each
+		# crest launches (+3m rise, short 11-12 degree back faces).
+		p(2, 6.2, -1000, {"width": 16.0, "surface": ICE}),
+		p(0, 9.2, -1028, {"width": 16.0, "surface": ICE}),
+		p(-2, 6.2, -1042, {"width": 16.0, "surface": ICE}),
+		p(-4, 9.2, -1070, {"width": 16.0, "surface": ICE}),
+		p(-6, 6.2, -1084, {"width": 16.0, "surface": ICE}),
+		p(-8, 9.2, -1112, {"width": 16.0, "surface": ICE}),
 		p(-8, 6.2, -1126, {"width": 16.0, "surface": RICE}),
-		# 6. Tilting-slab causeway: floorless span bridged by rocking slabs.
-		p(-8, 6.0, -1160, {"width": 14.0}),
+		# 6. Tilting-slab causeway: floorless span bridged by rocking slabs,
+		# with a small wave rise before the jump edge.
+		p(-8, 6.6, -1160, {"width": 14.0}),
 		p(-8, 6.0, -1185, {"width": 12.0, "gap": true}),
 		p(-8, 6.0, -1220, {"width": 14.0}),
-		# 7. Seal flat: wide smooth ice with sliding seals.
-		p(-6, 5.8, -1250, {"width": 20.0, "surface": ICE}),
-		p(-2, 5.6, -1290, {"width": 20.0, "surface": ICE}),
+		# 7. Seal flat: wide smooth ice with sliding seals, settling swell.
+		p(-6, 6.0, -1250, {"width": 20.0, "surface": ICE}),
+		p(-2, 5.7, -1290, {"width": 20.0, "surface": ICE}),
 		p(0, 5.5, -1330, {"width": 20.0, "surface": ICE}),
 		p(2, 5.4, -1360, {"width": 20.0, "surface": ICE}),
-		# 8. Finale: short second swim, then the finish straight.
-		p(2, 5.2, -1390, {"width": 16.0}),
+		# 8. Finale: a last swell hump into the short second swim, then the
+		# finish straight.
+		p(2, 5.8, -1390, {"width": 16.0}),
 		p(2, 5.0, -1410, {"width": 13.0, "wall_l": false, "wall_r": false, "gap": true}),
 		p(2, 4.0, -1424, {"width": 13.0, "gap": true}),
 		p(2, 4.0, -1442, {"width": 13.0, "gap": true}),
 		p(2, 3.2, -1456, {"width": 18.0, "surface": ICE, "wall_l": false, "wall_r": false}),  # submerged exit ramp
 		p(2, 5.0, -1490, {"width": 18.0, "surface": ICE}),
-		p(0, 5.0, -1530, {"width": 18.0}),
+		p(0, 5.4, -1530, {"width": 18.0}),
 		p(0, 5.0, -1660, {"width": 18.0}),
 	]
 	setup_main(pts)
@@ -139,12 +147,12 @@ func build_course() -> void:
 	# Risky berg-chain shortcut: cuts the wide berg-hop arc on the inside.
 	# Narrow smooth ice, no walls — fall off and you swim with the fishes.
 	var branch_pts: Array = [
-		p(16, 10.45, -190, {"width": 10.0, "surface": ICE, "wall_l": false, "wall_r": false}),
-		p(10, 10.0, -250, {"width": 7.0, "surface": ICE, "wall_l": false, "wall_r": false}),
-		p(6, 9.5, -320, {"width": 7.0, "surface": ICE, "wall_l": false, "wall_r": false}),
-		p(8, 9.2, -390, {"width": 7.0, "surface": ICE, "wall_l": false, "wall_r": false}),
-		p(12, 8.9, -450, {"width": 8.0, "surface": ICE, "wall_l": false, "wall_r": false}),
-		p(18, 8.85, -505, {"width": 10.0, "surface": ICE, "wall_l": false, "wall_r": false}),
+		p(16, 12.0, -190, {"width": 10.0, "surface": ICE, "wall_l": false, "wall_r": false}),
+		p(10, 10.2, -250, {"width": 7.0, "surface": ICE, "wall_l": false, "wall_r": false}),
+		p(6, 11.2, -320, {"width": 7.0, "surface": ICE, "wall_l": false, "wall_r": false}),
+		p(8, 9.4, -390, {"width": 7.0, "surface": ICE, "wall_l": false, "wall_r": false}),
+		p(12, 10.4, -450, {"width": 8.0, "surface": ICE, "wall_l": false, "wall_r": false}),
+		p(18, 8.6, -505, {"width": 10.0, "surface": ICE, "wall_l": false, "wall_r": false}),
 	]
 	var shortcut := add_branch(branch_pts, 0.6, "berg_chain")
 
@@ -195,7 +203,10 @@ func build_course() -> void:
 	var plat_phases: Array[float] = [0.0, 2.1, 4.2]
 	for i: int in 3:
 		var plat := HazardPlatform.new()
-		plat.configure(Vector3(12.0, 0.8, 10.5), Vector3.RIGHT, 3.0, plat_periods[i], 0.0, plat_phases[i])
+		# First slab is static so the crossing is always survivable regardless
+		# of arrival timing; the moving pair behind it stays the skill element.
+		var sweep := 0.0 if i == 0 else 2.2
+		plat.configure(Vector3(13.0, 0.8, 11.5), Vector3.RIGHT, sweep, plat_periods[i], 0.0, plat_phases[i])
 		plat.position = Vector3(0.0, 7.6, -643.0 - 10.0 * float(i))
 		add_child(plat)
 	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(0, 8, -640)) - 16.0)
@@ -211,8 +222,8 @@ func build_course() -> void:
 
 	# --- Sliding seals (section 7) ------------------------------------------
 	var seal_data: Array = [
-		{"pos": Vector3(-4, 5.7, -1270), "sweep": 8.0, "speed": 3.6, "hint": "danger_left"},
-		{"pos": Vector3(-1.5, 5.6, -1296), "sweep": 9.0, "speed": 4.4, "hint": "danger_right"},
+		{"pos": Vector3(-4, 5.9, -1270), "sweep": 8.0, "speed": 3.6, "hint": "danger_left"},
+		{"pos": Vector3(-1.5, 5.7, -1296), "sweep": 9.0, "speed": 4.4, "hint": "danger_right"},
 		{"pos": Vector3(0, 5.5, -1322), "sweep": 7.0, "speed": 5.0, "hint": "danger_left"},
 	]
 	for data: Dictionary in seal_data:
@@ -224,15 +235,15 @@ func build_course() -> void:
 		add_hint(seal_hint_offset - 35.0, String(data["hint"]), seal_hint_offset + 8.0)
 
 	# --- Wave ramp crest hops + slide fun -----------------------------------
-	for crest: Vector3 in [Vector3(0, 8.6, -1028), Vector3(-4, 8.6, -1070), Vector3(-8, 8.6, -1112)]:
+	for crest: Vector3 in [Vector3(0, 9.2, -1028), Vector3(-4, 9.2, -1070), Vector3(-8, 9.2, -1112)]:
 		add_hint(_offset_near(crest) - 2.0, "jump")
 
 	# Keep AI biased to the inside-right through the berg arc: the left edge
 	# borders the shortcut void and the far-ahead guide yaw tempts a left cut.
-	add_hint(_offset_near(Vector3(34, 10.5, -240)) - 20.0, "danger_left",
-		_offset_near(Vector3(52, 10, -310)) + 10.0)
-	add_hint(_offset_near(Vector3(56, 9.5, -380)), "danger_left",
-		_offset_near(Vector3(24, 8.5, -490)))
+	add_hint(_offset_near(Vector3(34, 9.5, -240)) - 20.0, "danger_left",
+		_offset_near(Vector3(52, 12.5, -310)) + 10.0)
+	add_hint(_offset_near(Vector3(56, 9, -380)), "danger_left",
+		_offset_near(Vector3(24, 8, -490)))
 
 	# Shortcut is flat smooth ice: sliding it hard is the whole point. Branch
 	# hints are matched against MAPPED main-line progress, so use entry..exit.
@@ -246,21 +257,24 @@ func build_course() -> void:
 
 	# --- Pickups (placement APIs consume arclength offsets) -----------------
 	add_item_row(115.0)
-	add_item_row(_arc_near(Vector3(0, 8, -600)))
-	add_item_row(_arc_near(Vector3(2, 6.5, -1000)) + 6.0)
-	add_item_row(_arc_near(Vector3(-6, 5.8, -1250)))
-	add_item_row(_arc_near(Vector3(0, 5.0, -1530)))
+	add_item_row(_arc_near(Vector3(0, 8.6, -600)))
+	add_item_row(_arc_near(Vector3(2, 6.2, -1000)) + 6.0)
+	add_item_row(_arc_near(Vector3(-6, 6.0, -1250)))
+	add_item_row(_arc_near(Vector3(0, 5.4, -1530)))
+	add_snowball_row(150.0)
+	add_snowball_row(_arc_near(Vector3(0, 8.6, -600)) - 25.0)
+	add_snowball_row(_arc_near(Vector3(-6, 6.0, -1250)) - 30.0)
 
 	add_fish_line(70.0, 8, 5.0, 0.0)
-	add_fish_line(_arc_near(Vector3(14, 11, -170)), 8, 5.0, -3.0)
+	add_fish_line(_arc_near(Vector3(14, 13, -170)), 8, 5.0, -3.0)
 	add_fish_line(25.0, 10, 6.0, 0.0, 0.0, shortcut)  # shortcut reward
-	add_fish_line(_arc_near(Vector3(52, 10, -310)), 8, 5.0, 3.0)
+	add_fish_line(_arc_near(Vector3(52, 12.5, -310)), 8, 5.0, 3.0)
 	add_fish_line(_arc_near(Vector3(0, 8, -655)), 6, 5.0, 0.0)  # across the platforms
 	add_fish_line(_arc_near(Vector3(0, 5, -900)) - 25.0, 10, 6.0, 0.0)  # in the swim channel
-	add_fish_line(_arc_near(Vector3(0, 8.6, -1028)) - 12.0, 8, 4.0, 0.0, 1.5)  # crest arc
+	add_fish_line(_arc_near(Vector3(0, 9.2, -1028)) - 12.0, 8, 4.0, 0.0, 1.5)  # crest arc
 	add_fish_line(_arc_near(Vector3(0, 5.5, -1330)) - 30.0, 10, 5.5, -4.0)
 	add_fish_line(_arc_near(Vector3(2, 4.0, -1435)) - 10.0, 6, 5.0, 0.0)  # finale swim
-	add_fish_line(_arc_near(Vector3(0, 5, -1560)) - 20.0, 8, 5.0, 0.0)
+	add_fish_line(_arc_near(Vector3(0, 5.2, -1560)) - 20.0, 8, 5.0, 0.0)
 
 	_decorate()
 	# Sunrise over open water: big low sun disc, peach-to-indigo gradient,

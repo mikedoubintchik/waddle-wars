@@ -49,79 +49,81 @@ func build_course() -> void:
 		p(0, 40, 35, {"width": 18.0}),
 		p(0, 40, -25, {"width": 18.0}),
 		p(0, 40, -62, {"width": 18.0}),
-		# 2) Zigzag switchback climb (+27m over ~560m, three gentle hairpins).
-		p(16, 41, -94, {"width": 16.0}),
-		p(48, 43, -108, {"width": 16.0}),
-		p(84, 45, -114, {"width": 16.0}),
-		p(112, 46.2, -122, {"width": 16.0}),
-		p(127, 47.6, -146, {"width": 16.0}),  # hairpin 1 apex
-		p(112, 49, -170, {"width": 16.0}),
-		p(64, 51.4, -180, {"width": 16.0}),
-		p(12, 54, -188, {"width": 16.0}),
-		p(-38, 56.4, -196, {"width": 16.0}),
-		p(-70, 57.8, -206, {"width": 16.0}),
-		p(-87, 59.2, -230, {"width": 16.0}),  # hairpin 2 apex
-		p(-70, 60.6, -254, {"width": 16.0}),
-		p(-28, 62.6, -264, {"width": 16.0}),
-		p(14, 64.6, -272, {"width": 16.0}),
-		p(42, 65.6, -282, {"width": 16.0}),   # hairpin 3 (turn back to -Z)
-		p(58, 66.4, -306, {"width": 15.0}),
-		# 3) Windy ridge traverse: narrow, low walls ON, crosswinds.
-		p(60, 67, -340, {"width": 12.0}),
-		p(55, 67, -386, {"width": 12.0}),
-		p(61, 66.6, -430, {"width": 12.0}),
-		p(56, 66.2, -466, {"width": 12.0}),
+		# 2) Zigzag switchback climb (+40m over ~560m, three gentle hairpins).
+		p(16, 41.5, -94, {"width": 16.0}),
+		p(48, 44.5, -108, {"width": 16.0}),
+		p(84, 47.6, -114, {"width": 16.0}),
+		p(112, 49.4, -122, {"width": 16.0}),
+		p(127, 51.5, -146, {"width": 16.0}),  # hairpin 1 apex
+		p(112, 53.6, -170, {"width": 16.0}),
+		p(64, 57.3, -180, {"width": 16.0}),
+		p(12, 61.2, -188, {"width": 16.0}),
+		p(-38, 64.8, -196, {"width": 16.0}),
+		p(-70, 67.0, -206, {"width": 16.0}),
+		p(-87, 69.1, -230, {"width": 16.0}),  # hairpin 2 apex
+		p(-70, 71.2, -254, {"width": 16.0}),
+		p(-28, 74.2, -264, {"width": 16.0}),
+		p(14, 77.3, -272, {"width": 16.0}),
+		p(42, 78.8, -282, {"width": 16.0}),   # hairpin 3 (turn back to -Z)
+		p(58, 80.0, -306, {"width": 15.0}),
+		# 3) Windy ridge traverse: narrow, low walls ON, crosswinds, and a
+		# rolling undulation (+/-1-2m) so the spine reads wind-carved.
+		p(60, 80.6, -340, {"width": 12.0}),
+		p(55, 78.8, -386, {"width": 12.0}),
+		p(61, 81.0, -430, {"width": 12.0}),
+		p(56, 79.2, -466, {"width": 12.0}),
 		# 4) Icicle cavern: rough ice, gentle downhill.
-		p(48, 64.6, -502, {"width": 13.0, "surface": RICE}),
-		p(42, 62.6, -540, {"width": 13.0, "surface": RICE}),
-		p(50, 60.6, -578, {"width": 13.0, "surface": RICE}),
-		p(46, 58.6, -616, {"width": 13.0, "surface": RICE, "wall_r": false}),
+		p(48, 76.8, -502, {"width": 13.0, "surface": RICE}),
+		p(42, 74.0, -540, {"width": 13.0, "surface": RICE}),
+		p(50, 71.2, -578, {"width": 13.0, "surface": RICE}),
+		p(46, 68.4, -616, {"width": 13.0, "surface": RICE, "wall_r": false}),
 		# 5) Safe switchback descent (shortcut branch cuts this loop).
-		p(28, 56.8, -648, {"width": 16.0, "wall_r": false}),
-		p(-6, 54.4, -670, {"width": 16.0, "wall_r": false}),
-		p(-38, 51.8, -690, {"width": 16.0}),
-		p(-58, 49.8, -708, {"width": 15.0}),
-		p(-70, 48.2, -728, {"width": 15.0}),
-		p(-74, 46.6, -752, {"width": 15.0}),  # descent hairpin apex
-		p(-62, 45.0, -774, {"width": 15.0}),
-		p(-34, 43.0, -792, {"width": 15.0}),
-		p(4, 40.8, -808, {"width": 16.0}),
-		p(30, 39.0, -822, {"width": 16.0}),
-		p(44, 37.8, -840, {"width": 16.0, "wall_r": false}),
-		p(50, 36.8, -864, {"width": 18.0, "wall_r": false}),
-		p(46, 36.0, -888, {"width": 20.0, "wall_r": false}),
-		# 6) Ice geyser field: wide, gentle downhill, playful launches.
-		p(40, 33.4, -938, {"width": 20.0}),
-		p(34, 31.0, -986, {"width": 20.0}),
-		p(34, 29.2, -1014, {"width": 20.0}),
-		# 7) Corkscrew finale: 270-degree descending spiral, r=45, drops ~34m.
-		p(35, 28.1, -1030, {"width": 18.0, "surface": ICE}),
-		p(48.2, 22.4, -1061.8, {"width": 17.0, "surface": ICE}),
-		p(80, 16.7, -1075, {"width": 17.0, "surface": ICE}),
-		p(111.8, 11.0, -1061.8, {"width": 17.0, "surface": ICE}),
-		p(125, 5.3, -1030, {"width": 17.0, "surface": ICE}),
-		p(111.8, -0.4, -998.2, {"width": 17.0, "surface": ICE}),
-		p(80, -6.1, -985, {"width": 18.0, "surface": ICE}),
-		# 8) Finish straight (passes ~37m under the geyser field).
-		p(46, -7.1, -990, {"width": 18.0}),
-		p(8, -7.7, -994, {"width": 18.0}),
-		p(-34, -8, -997, {"width": 18.0}),
-		p(-72, -8, -999, {"width": 18.0}),
+		p(28, 66.8, -648, {"width": 16.0, "wall_r": false}),
+		p(-6, 64.4, -670, {"width": 16.0, "wall_r": false}),
+		p(-38, 61.8, -690, {"width": 16.0}),
+		p(-58, 59.8, -708, {"width": 15.0}),
+		p(-70, 58.2, -728, {"width": 15.0}),
+		p(-74, 56.6, -752, {"width": 15.0}),  # descent hairpin apex
+		p(-62, 55.0, -774, {"width": 15.0}),
+		p(-34, 53.0, -792, {"width": 15.0}),
+		p(4, 50.8, -808, {"width": 16.0}),
+		p(30, 49.0, -822, {"width": 16.0}),
+		p(44, 47.8, -840, {"width": 16.0, "wall_r": false}),
+		p(50, 46.8, -864, {"width": 18.0, "wall_r": false}),
+		p(46, 46.0, -888, {"width": 20.0, "wall_r": false}),
+		# 6) Ice geyser field: wide downhill, playful launches.
+		p(40, 42.0, -938, {"width": 20.0}),
+		p(34, 38.4, -986, {"width": 20.0}),
+		p(34, 36.2, -1014, {"width": 20.0}),
+		# 7) Corkscrew finale: 270-degree descending spiral, r=45, drops ~42m
+		# at a sustained ~11.5 degrees — most of the climb's gained height.
+		p(35, 35.0, -1030, {"width": 18.0, "surface": ICE}),
+		p(48.2, 28.0, -1061.8, {"width": 17.0, "surface": ICE}),
+		p(80, 21.0, -1075, {"width": 17.0, "surface": ICE}),
+		p(111.8, 14.0, -1061.8, {"width": 17.0, "surface": ICE}),
+		p(125, 7.0, -1030, {"width": 17.0, "surface": ICE}),
+		p(111.8, 0.0, -998.2, {"width": 17.0, "surface": ICE}),
+		p(80, -7.0, -985, {"width": 18.0, "surface": ICE}),
+		# 8) Finish straight (passes ~45m under the geyser field).
+		p(46, -8.0, -990, {"width": 18.0}),
+		p(8, -8.6, -994, {"width": 18.0}),
+		p(-34, -9, -997, {"width": 18.0}),
+		p(-72, -9, -999, {"width": 18.0}),
 	]
 	setup_main(pts)
 
 	# 5) Narrow ridge shortcut: width 7, NO walls, skips the switchback
 	# descent along an exposed spine right of the safe route (~110m saved).
 	var branch_pts: Array = [
-		p(38, 57.4, -630, {"width": 9.0, "surface": RICE, "wall_l": false, "wall_r": false}),
-		p(46, 55.2, -664, {"width": 7.0, "surface": RICE, "wall_l": false, "wall_r": false}),
-		p(52, 52.6, -700, {"width": 7.0, "surface": RICE, "wall_l": false, "wall_r": false}),
-		p(56, 49.8, -736, {"width": 7.0, "surface": RICE, "wall_l": false, "wall_r": false}),
-		p(52, 46.8, -772, {"width": 7.0, "surface": RICE, "wall_l": false, "wall_r": false}),
-		p(56, 43.6, -806, {"width": 7.0, "surface": RICE, "wall_l": false, "wall_r": false}),
-		p(58, 40.4, -838, {"width": 8.0, "surface": RICE, "wall_l": false, "wall_r": false}),
-		p(56, 37.6, -858, {"width": 9.0, "surface": RICE, "wall_l": false, "wall_r": false}),
-		p(48, 36.4, -880, {"width": 9.0, "surface": RICE, "wall_l": false, "wall_r": false}),
+		p(38, 67.4, -630, {"width": 9.0, "surface": RICE, "wall_l": false, "wall_r": false}),
+		p(46, 65.2, -664, {"width": 7.0, "surface": RICE, "wall_l": false, "wall_r": false}),
+		p(52, 62.6, -700, {"width": 7.0, "surface": RICE, "wall_l": false, "wall_r": false}),
+		p(56, 59.8, -736, {"width": 7.0, "surface": RICE, "wall_l": false, "wall_r": false}),
+		p(52, 56.8, -772, {"width": 7.0, "surface": RICE, "wall_l": false, "wall_r": false}),
+		p(56, 53.6, -806, {"width": 7.0, "surface": RICE, "wall_l": false, "wall_r": false}),
+		p(58, 50.4, -838, {"width": 8.0, "surface": RICE, "wall_l": false, "wall_r": false}),
+		p(56, 47.6, -858, {"width": 9.0, "surface": RICE, "wall_l": false, "wall_r": false}),
+		p(48, 46.4, -880, {"width": 9.0, "surface": RICE, "wall_l": false, "wall_r": false}),
 	]
 	var shortcut := add_branch(branch_pts, 0.7, "ridge_shortcut")
 
@@ -135,18 +137,18 @@ func build_course() -> void:
 	branch_info["exit"] = _main_cum[clampi(int(float(branch_info["exit"]) / PathGuide.SAMPLE_SPACING), 0, _main_cum.size() - 1)]
 
 	# --- Geometry-derived offsets (true arc space) --------------------------
-	var ridge_arc := _arc_near(Vector3(60, 67, -340))
-	var ridge_mid_arc := _arc_near(Vector3(55, 67, -386))
-	var ridge_late_arc := _arc_near(Vector3(61, 66.6, -430))
-	var ridge_end_arc := _arc_near(Vector3(56, 66.2, -466))
-	var cavern_arc := _arc_near(Vector3(48, 64.6, -502))
-	var cavern_end_arc := _arc_near(Vector3(46, 58.6, -616))
-	var merge_arc := _arc_near(Vector3(46, 36.0, -888))
-	var geyser_arc := _arc_near(Vector3(40, 33.4, -938))
-	var spiral_arc := _arc_near(Vector3(35, 28.1, -1030))
-	var spiral_mid_arc := _arc_near(Vector3(80, 16.7, -1075))
-	var spiral_late_arc := _arc_near(Vector3(125, 5.3, -1030))
-	var spiral_end_arc := _arc_near(Vector3(80, -6.1, -985))
+	var ridge_arc := _arc_near(Vector3(60, 80.6, -340))
+	var ridge_mid_arc := _arc_near(Vector3(55, 78.8, -386))
+	var ridge_late_arc := _arc_near(Vector3(61, 81.0, -430))
+	var ridge_end_arc := _arc_near(Vector3(56, 79.2, -466))
+	var cavern_arc := _arc_near(Vector3(48, 76.8, -502))
+	var cavern_end_arc := _arc_near(Vector3(46, 68.4, -616))
+	var merge_arc := _arc_near(Vector3(46, 46.0, -888))
+	var geyser_arc := _arc_near(Vector3(40, 42.0, -938))
+	var spiral_arc := _arc_near(Vector3(35, 35.0, -1030))
+	var spiral_mid_arc := _arc_near(Vector3(80, 21.0, -1075))
+	var spiral_late_arc := _arc_near(Vector3(125, 7.0, -1030))
+	var spiral_end_arc := _arc_near(Vector3(80, -7.0, -985))
 
 	# --- Windy ridge: three alternating crosswind zones --------------------
 	# Wind moves racers positionally (it bypasses velocity), so each zone is
@@ -217,21 +219,24 @@ func build_course() -> void:
 	# --- Pickups (arc offsets: placement space) ----------------------------
 	add_item_row(120.0)
 	add_item_row(ridge_arc + 10.0)
-	add_item_row(_arc_near(Vector3(-6, 54.4, -670)))
+	add_item_row(_arc_near(Vector3(-6, 64.4, -670)))
 	add_item_row(merge_arc + 6.0)
-	add_item_row(_arc_near(Vector3(34, 29.2, -1014)))
+	add_item_row(_arc_near(Vector3(34, 36.2, -1014)))
+	add_snowball_row(160.0)
+	add_snowball_row(ridge_arc + 45.0)
+	add_snowball_row(_arc_near(Vector3(34, 36.2, -1014)) + 30.0)
 
 	add_fish_line(55.0, 8, 5.0, 0.0)
-	add_fish_line(_arc_near(Vector3(48, 43, -108)), 8, 5.0, -3.0)
-	add_fish_line(_arc_near(Vector3(12, 54, -188)) - 15.0, 10, 5.0, 0.0)
-	add_fish_line(_arc_near(Vector3(-28, 62.6, -264)), 8, 5.0, 3.0)
+	add_fish_line(_arc_near(Vector3(48, 44.5, -108)), 8, 5.0, -3.0)
+	add_fish_line(_arc_near(Vector3(12, 61.2, -188)) - 15.0, 10, 5.0, 0.0)
+	add_fish_line(_arc_near(Vector3(-28, 74.2, -264)), 8, 5.0, 3.0)
 	add_fish_line(ridge_mid_arc, 8, 5.5, 0.0)
-	add_fish_line(_arc_near(Vector3(42, 62.6, -540)), 10, 4.5, 0.0)
-	add_fish_line(_arc_near(Vector3(-62, 45.0, -774)), 10, 5.0, -4.0)
+	add_fish_line(_arc_near(Vector3(42, 74.0, -540)), 10, 4.5, 0.0)
+	add_fish_line(_arc_near(Vector3(-62, 55.0, -774)), 10, 5.0, -4.0)
 	add_fish_line(30.0, 10, 6.0, 0.0, 0.0, shortcut)  # reward the ridge
-	add_fish_line(_arc_near(Vector3(40, 33.4, -938)), 10, 5.0, 5.0)
+	add_fish_line(_arc_near(Vector3(40, 42.0, -938)), 10, 5.0, 5.0)
 	add_fish_line(spiral_arc + 35.0, 12, 6.0, 0.0)
-	add_fish_line(_arc_near(Vector3(80, -6.1, -985)) + 12.0, 8, 5.0, 0.0)
+	add_fish_line(_arc_near(Vector3(80, -7.0, -985)) + 12.0, 8, 5.0, 0.0)
 
 	_decorate()
 	_build_aurora()
@@ -434,22 +439,22 @@ func _decorate() -> void:
 			_add_station_light(xform.origin + xform.basis.x * (10.5 * s), i == 0)
 
 	# Two research huts with glowing windows (each brings one real lamp).
-	var hut_a := main_guide.transform_at(_arc_near(Vector3(60, 67, -340)))
+	var hut_a := main_guide.transform_at(_arc_near(Vector3(60, 80.6, -340)))
 	_add_research_hut(hut_a.origin + hut_a.basis.x * 14.0, hut_a.origin)
-	var hut_b := main_guide.transform_at(_arc_near(Vector3(40, 33.4, -938)))
+	var hut_b := main_guide.transform_at(_arc_near(Vector3(40, 42.0, -938)))
 	_add_research_hut(hut_b.origin + hut_b.basis.x * -15.0, hut_b.origin)
 
 	# Research outpost on a mesa below hairpin 2: warm-lit dome tents and
 	# antenna masts the racers look down on through the whole zigzag climb.
-	_add_research_station(Vector3(-150.0, 44.0, -252.0), Vector3(-87.0, 59.2, -230.0))
+	_add_research_station(Vector3(-150.0, 44.0, -252.0), Vector3(-87.0, 69.1, -230.0))
 	# Cable-car line strung between two rock spurs east of the climb — its
 	# sagging silhouette and lit gondolas cross the sky above the switchbacks.
-	_add_cable_car_line(Vector3(168.0, 66.0, -152.0), Vector3(96.0, 82.0, -348.0))
+	_add_cable_car_line(Vector3(168.0, 74.0, -152.0), Vector3(96.0, 98.0, -348.0))
 
 	# Windy ridge: softly glowing crystal fins flanking the traverse in
 	# alternating aurora green / violet.
-	var ridge_start := _arc_near(Vector3(60, 67, -340))
-	var ridge_end := _arc_near(Vector3(56, 66.2, -466))
+	var ridge_start := _arc_near(Vector3(60, 80.6, -340))
+	var ridge_end := _arc_near(Vector3(56, 79.2, -466))
 	var crystal_offset := ridge_start
 	var tint_flip := false
 	while crystal_offset < ridge_end:
@@ -463,7 +468,7 @@ func _decorate() -> void:
 
 	# Dramatic cliff dropoffs falling away from both ridge edges, plus
 	# wind-torn snow streamers blowing off the lips into the valley below.
-	var cliff_end := _arc_near(Vector3(48, 64.6, -502)) + 8.0
+	var cliff_end := _arc_near(Vector3(48, 76.8, -502)) + 8.0
 	_add_ridge_cliffs(ridge_start - 14.0, cliff_end)
 	var streamer_arc := ridge_start + 8.0
 	var streamer_side := 1.0
@@ -473,8 +478,8 @@ func _decorate() -> void:
 		streamer_arc += 34.0
 
 	# Icicle cavern: crystalline ice arches + glow shards lining the walls.
-	var cavern_start := _arc_near(Vector3(48, 64.6, -502))
-	var cavern_end := _arc_near(Vector3(46, 58.6, -616))
+	var cavern_start := _arc_near(Vector3(48, 76.8, -502))
+	var cavern_end := _arc_near(Vector3(46, 68.4, -616))
 	var arch_mat := VisualLibrary.ice_material(Color(0.48, 0.62, 0.95), 0.5)
 	var cave_offset := cavern_start
 	while cave_offset < cavern_end:
@@ -550,12 +555,12 @@ func _decorate() -> void:
 	# (all three apexes bulge away from x=0 and run -Z, so the outward side
 	# is sign(apex.x) along basis.x) + a beacon rising through the middle of
 	# the corkscrew finale.
-	for apex: Vector3 in [Vector3(127, 47.6, -146), Vector3(-87, 59.2, -230), Vector3(-74, 46.6, -752)]:
+	for apex: Vector3 in [Vector3(127, 51.5, -146), Vector3(-87, 69.1, -230), Vector3(-74, 56.6, -752)]:
 		var apex_xform := main_guide.transform_at(_arc_near(apex))
 		var out_side := 1.0 if apex.x > 0.0 else -1.0
 		_add_glow_crystal(apex_xform.origin + apex_xform.basis.x * (13.0 * out_side) + Vector3.DOWN * 2.0,
 			rng.randf_range(7.0, 10.0), Color(0.45, 1.0, 0.7))
-	_add_glow_crystal(Vector3(80.0, -18.0, -1030.0), 24.0, Color(0.5, 1.0, 0.75))
+	_add_glow_crystal(Vector3(80.0, -18.0, -1030.0), 30.0, Color(0.5, 1.0, 0.75))
 
 
 ## Thick wind-carved ice berms lining both edges of the whole ridge
@@ -1409,7 +1414,7 @@ func _physics_process(_delta: float) -> void:
 		if r == null or r.state == Racer.State.FINISHED:
 			continue
 		var p := r.global_position
-		if p.z > -290.0 or p.z < -530.0 or p.y < 55.0:
+		if p.z > -290.0 or p.z < -530.0 or p.y < 70.0:
 			continue
 		var hint := int(r.guide_cache.get("main_idx", -1))
 		var res := main_guide.nearest(p, hint)

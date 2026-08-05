@@ -1,8 +1,9 @@
 class_name CourseGlacier
 extends CourseBase
-## GLACIER GAUNTLET: bright daytime glacier. Wide beginner slope, ice cave
-## slalom, low slide tunnel, cracking-ice shortcut, rolling snowball slope,
-## deep-snow climb, and a huge final downhill slide.
+## GLACIER GAUNTLET: bright daytime glacier. Rolling opening hills, a genuine
+## climb into the ice cave slalom, low slide tunnel, cracking-ice shortcut,
+## rolling snowball slope, deep-snow climb, and a huge sustained final
+## downhill slide (crest 44m -> finish 0.5m at -9..-12 degrees).
 
 const SNOW := SurfacesDB.Surface.PACKED_SNOW
 const DEEP := SurfacesDB.Surface.DEEP_SNOW
@@ -25,79 +26,79 @@ func build_course() -> void:
 		# Start plateau and pre-start straight.
 		p(0, 60, 35, {"width": 18.0}),
 		p(0, 60, -20, {"width": 18.0}),
-		# Wide beginner slope, gentle right drift.
-		p(4, 56, -90, {"width": 22.0}),
-		p(14, 49, -170, {"width": 22.0}),
-		p(24, 42, -240, {"width": 20.0}),
-		# S-curves on packed snow.
-		p(6, 38, -310, {"width": 16.0}),
-		p(-14, 34, -370, {"width": 16.0}),
-		p(-6, 32, -420, {"width": 14.0}),
-		# Ice cave slalom (rough ice, narrower).
-		p(8, 30, -460, {"width": 12.0, "surface": RICE}),
-		p(-8, 28, -500, {"width": 12.0, "surface": RICE}),
-		p(8, 27, -535, {"width": 12.0, "surface": RICE}),
-		p(0, 26, -565, {"width": 12.0, "surface": RICE}),
+		# Rolling opening hills: two dips with a roll crest between them.
+		p(4, 54, -90, {"width": 22.0}),
+		p(14, 46, -170, {"width": 22.0}),
+		p(24, 48.5, -240, {"width": 20.0}),
+		# S-curve valley on packed snow, then the climb toward the cave begins.
+		p(6, 42.5, -310, {"width": 16.0}),
+		p(-14, 40, -370, {"width": 16.0}),
+		p(-6, 44, -420, {"width": 14.0}),
+		# Ice cave slalom (rough ice, narrower): a genuine climb to a crest.
+		p(8, 49, -460, {"width": 12.0, "surface": RICE}),
+		p(-8, 52, -500, {"width": 12.0, "surface": RICE}),
+		p(8, 53.5, -535, {"width": 12.0, "surface": RICE}),
+		p(0, 52.5, -565, {"width": 12.0, "surface": RICE}),
 		# Low tunnel: smooth ice, slide required under bars.
-		p(0, 25, -600, {"width": 11.0, "surface": ICE}),
-		p(0, 24, -640, {"width": 11.0, "surface": ICE, "wall_l": false}),
+		p(0, 51, -600, {"width": 11.0, "surface": ICE}),
+		p(0, 49.5, -640, {"width": 11.0, "surface": ICE, "wall_l": false}),
 		# Safe loop right (the long way around the crevasse field).
-		p(22, 23, -690, {"width": 14.0, "wall_l": false}),
-		p(38, 21, -740, {"width": 14.0}),
-		p(34, 19, -800, {"width": 14.0, "wall_l": false}),
-		p(12, 17, -840, {"width": 16.0, "wall_l": false}),
+		p(22, 48, -690, {"width": 14.0, "wall_l": false}),
+		p(38, 46, -740, {"width": 14.0}),
+		p(34, 44, -800, {"width": 14.0, "wall_l": false}),
+		p(12, 42.5, -840, {"width": 16.0, "wall_l": false}),
 		# Rejoin; rolling snowball slope (wide, descending).
-		p(0, 15, -880, {"width": 20.0, "wall_l": false}),
-		p(-8, 12, -950, {"width": 20.0}),
-		p(-4, 9, -1020, {"width": 20.0}),
+		p(0, 41.5, -880, {"width": 20.0, "wall_l": false}),
+		p(-8, 36.5, -950, {"width": 20.0}),
+		p(-4, 32, -1020, {"width": 20.0}),
 		# Deep snow climb.
-		p(4, 10, -1070, {"width": 14.0, "surface": DEEP}),
-		p(8, 14, -1120, {"width": 14.0, "surface": DEEP}),
-		# Crest, then the big final downhill slide.
-		p(4, 15, -1150, {"width": 18.0}),
-		p(-10, 8, -1220, {"width": 18.0, "surface": ICE}),
-		p(-16, 3, -1290, {"width": 18.0, "surface": ICE}),
-		p(-8, 0.5, -1360, {"width": 18.0, "surface": ICE}),
+		p(4, 35, -1070, {"width": 14.0, "surface": DEEP}),
+		p(8, 41, -1120, {"width": 14.0, "surface": DEEP}),
+		# Crest, then the big final downhill slide: 43.5m sustained drop.
+		p(4, 44, -1150, {"width": 18.0}),
+		p(-10, 33, -1220, {"width": 18.0, "surface": ICE}),
+		p(-16, 18, -1290, {"width": 18.0, "surface": ICE}),
+		p(-8, 4, -1360, {"width": 18.0, "surface": ICE}),
 		# Finish straight.
-		p(0, 0, -1420, {"width": 18.0}),
+		p(0, 0.5, -1420, {"width": 18.0}),
 		p(0, 0, -1470, {"width": 18.0}),
 	]
 	setup_main(pts)
 
 	# Cracking-ice shortcut: cuts the safe loop, narrow smooth ice.
 	var branch_pts: Array = [
-		p(0, 23.3, -652, {"width": 10.0, "surface": ICE, "wall_l": false, "wall_r": false}),
-		p(-4, 22, -700, {"width": 8.0, "surface": ICE, "wall_l": false, "wall_r": false}),
+		p(0, 49.1, -652, {"width": 10.0, "surface": ICE, "wall_l": false, "wall_r": false}),
+		p(-4, 47.8, -700, {"width": 8.0, "surface": ICE, "wall_l": false, "wall_r": false}),
 		# The crevasse: no floor, only cracking ice tiles bridge it.
-		p(-4, 21, -724, {"width": 8.0, "gap": true, "wall_l": false, "wall_r": false}),
-		p(-4, 19.5, -790, {"width": 8.0, "surface": ICE, "wall_l": false, "wall_r": false}),
-		p(0, 15.5, -872, {"width": 10.0, "surface": ICE, "wall_l": false, "wall_r": false}),
+		p(-4, 47, -724, {"width": 8.0, "gap": true, "wall_l": false, "wall_r": false}),
+		p(-4, 45, -790, {"width": 8.0, "surface": ICE, "wall_l": false, "wall_r": false}),
+		p(0, 41.8, -872, {"width": 10.0, "surface": ICE, "wall_l": false, "wall_r": false}),
 	]
 	var shortcut := add_branch(branch_pts, 0.65, "cracking_ice")
 
 	finalize()
 
 	# --- Track furniture ----------------------------------------------------
-	var tunnel_offset := _offset_near(Vector3(0, 24.5, -620))
+	var tunnel_offset := _offset_near(Vector3(0, 50.3, -620))
 
 	# --- Hints for AI (offsets computed from geometry, not guessed) ---------
 	add_hint(tunnel_offset - 40.0, "slide", tunnel_offset + 40.0)  # low tunnel
-	var snowball_slope := _offset_near(Vector3(-8, 12, -950))
+	var snowball_slope := _offset_near(Vector3(-8, 36.5, -950))
 	add_hint(snowball_slope - 20.0, "slide", snowball_slope + 110.0)
-	var final_downhill := _offset_near(Vector3(-10, 8, -1220))
+	var final_downhill := _offset_near(Vector3(-10, 33, -1220))
 	add_hint(final_downhill - 10.0, "slide", final_downhill + 190.0)
 	add_hint(10.0, "slide", 120.0, 0)  # shortcut: slide the cracking ice fast
 	TrackBuilder.add_overhead_bar(self, main_guide, tunnel_offset - 12.0)
 	TrackBuilder.add_overhead_bar(self, main_guide, tunnel_offset + 10.0)
 
-	var downhill_offset := _offset_near(Vector3(-10, 8, -1220))
+	var downhill_offset := _offset_near(Vector3(-10, 33, -1220))
 	TrackBuilder.add_boost_pad(self, main_guide, downhill_offset + 20.0, -3.0)
 	TrackBuilder.add_boost_pad(self, main_guide, downhill_offset + 60.0, 3.0)
 
 	# Rolling snowballs on the wide descending slope: two lanes, offset
 	# timing, plus AI danger hints steering bots toward the safe side.
-	var snowball_slope_start := _offset_near(Vector3(0, 15, -880))
-	var snowball_slope_end := _offset_near(Vector3(-4, 9, -1020))
+	var snowball_slope_start := _offset_near(Vector3(0, 41.5, -880))
+	var snowball_slope_end := _offset_near(Vector3(-4, 32, -1020))
 	var ball_a := HazardSnowball.new()
 	ball_a.configure(main_guide, snowball_slope_start, snowball_slope_end, -4.5, 15.0)
 	add_child(ball_a)
@@ -108,8 +109,8 @@ func build_course() -> void:
 	add_hint(snowball_slope_start + 40.0, "danger_right", snowball_slope_end)
 
 	# Cracking ice tiles bridge the shortcut's crevasse: speed is safety.
-	var gap_start := float(shortcut.nearest(Vector3(-4, 21, -724), -1)["offset"]) - 6.0
-	var gap_end := float(shortcut.nearest(Vector3(-4, 19.5, -790), -1)["offset"]) + 6.0
+	var gap_start := float(shortcut.nearest(Vector3(-4, 47, -724), -1)["offset"]) - 6.0
+	var gap_end := float(shortcut.nearest(Vector3(-4, 45, -790), -1)["offset"]) + 6.0
 	var tile_offset := gap_start
 	while tile_offset < gap_end:
 		var tile := HazardCrackingIce.new()
@@ -119,16 +120,19 @@ func build_course() -> void:
 
 	# Item rows and fish.
 	add_item_row(120.0)
-	add_item_row(_offset_near(Vector3(-6, 32, -420)) - 10.0)
-	add_item_row(_offset_near(Vector3(12, 17, -840)))
-	add_item_row(_offset_near(Vector3(4, 15, -1150)))
+	add_item_row(_offset_near(Vector3(-6, 44, -420)) - 10.0)
+	add_item_row(_offset_near(Vector3(12, 42.5, -840)))
+	add_item_row(_offset_near(Vector3(4, 44, -1150)))
+	add_snowball_row(160.0)
+	add_snowball_row(_offset_near(Vector3(-6, 44, -420)) + 25.0)
+	add_snowball_row(_offset_near(Vector3(4, 44, -1150)) - 35.0)
 	add_fish_line(70.0, 6, 5.0, 0.0)
 	add_fish_line(200.0, 8, 5.0, -4.0)
 	add_fish_line(340.0, 8, 5.0, 4.0)
-	add_fish_line(_offset_near(Vector3(8, 30, -460)), 10, 4.5, 0.0)
+	add_fish_line(_offset_near(Vector3(8, 49, -460)), 10, 4.5, 0.0)
 	add_fish_line(20.0, 8, 6.0, 0.0, 0.0, shortcut)  # reward the shortcut
-	add_fish_line(_offset_near(Vector3(-8, 12, -950)), 10, 5.0, -5.0)
-	add_fish_line(_offset_near(Vector3(-16, 3, -1290)), 12, 5.5, 0.0)
+	add_fish_line(_offset_near(Vector3(-8, 36.5, -950)), 10, 5.0, -5.0)
+	add_fish_line(_offset_near(Vector3(-16, 18, -1290)), 12, 5.5, 0.0)
 
 	_retint_track_walls()
 	_decorate()
@@ -323,8 +327,8 @@ func _decorate_flags() -> void:
 ## towering crystal monoliths (3-8m — landmark scale, not garden gnomes), and
 ## icicle clusters hanging under the arch crown and the low slide bars.
 func _decorate_cave(crystal_transforms: Array[Transform3D], icicle_transforms: Array[Transform3D]) -> void:
-	var cave_start := _offset_near(Vector3(8, 30, -460))
-	var cave_end := _offset_near(Vector3(0, 26, -565))
+	var cave_start := _offset_near(Vector3(8, 49, -460))
+	var cave_end := _offset_near(Vector3(0, 52.5, -565))
 
 	# Monumental gateway spanning the track where the slalom begins.
 	var gate_xform := main_guide.transform_at(cave_start - 6.0)
@@ -372,7 +376,7 @@ func _decorate_cave(crystal_transforms: Array[Transform3D], icicle_transforms: A
 				xform.origin + xform.basis.x * (8.5 * side_sign) + Vector3.DOWN * 0.5,
 				rng.randf_range(3.5, 8.0)))
 		cave_offset += 22.0
-	var tunnel_offset := _offset_near(Vector3(0, 24.5, -620))
+	var tunnel_offset := _offset_near(Vector3(0, 50.3, -620))
 	for bar_offset: float in [tunnel_offset - 15.0, tunnel_offset + 13.0]:
 		var xform2 := main_guide.transform_at(bar_offset)
 		for side_sign: float in [-1.0, 1.0]:
@@ -515,7 +519,7 @@ func _decorate_walkways() -> void:
 			if int(offset) % 12 < 6:
 				post_transforms.append(Transform3D(xform.basis, xform.origin + xform.basis.x * (11.0 * side) + Vector3.DOWN * 0.2))
 		offset += 6.0
-	var walkway_start := _offset_near(Vector3(22, 23, -690))
+	var walkway_start := _offset_near(Vector3(22, 48, -690))
 	var walkway_offset := walkway_start
 	while walkway_offset < walkway_start + 120.0:
 		var xform2 := main_guide.transform_at(walkway_offset)
@@ -548,7 +552,7 @@ func _decorate_spectators(density: float) -> void:
 		var near_finish := main_guide.transform_at(finish_offset - rng.randf_range(5.0, 70.0))
 		var lateral := (11.5 + rng.randf_range(0.0, 6.5)) * (1.0 if i % 2 == 0 else -1.0)
 		TrackBuilder.add_spectator(self, near_finish.origin + near_finish.basis.x * lateral, near_finish.origin, rng)
-	var overlook := _offset_near(Vector3(38, 21, -740))
+	var overlook := _offset_near(Vector3(38, 46, -740))
 	var overlook_count := maxi(int(7.0 * density), 3)
 	for _i: int in overlook_count:
 		var xform := main_guide.transform_at(overlook + rng.randf_range(-25.0, 25.0))
@@ -565,12 +569,12 @@ func _decorate_spectators(density: float) -> void:
 func _decorate_cliffs(density: float) -> void:
 	var buckets: Array = [[], [], []]
 	var step := 16.0 / maxf(density, 0.5)
-	var cave_start := _offset_near(Vector3(8, 30, -460))
+	var cave_start := _offset_near(Vector3(8, 49, -460))
 	_add_cliff_run(buckets, cave_start - 130.0, cave_start - 12.0, -1.0, 17.0, step)
 	_add_cliff_run(buckets, cave_start - 100.0, cave_start - 24.0, 1.0, 20.0, step)
-	var climb := _offset_near(Vector3(8, 14, -1120))
+	var climb := _offset_near(Vector3(8, 41, -1120))
 	_add_cliff_run(buckets, climb - 55.0, climb + 30.0, 1.0, 15.0, step)
-	var downhill := _offset_near(Vector3(-16, 3, -1290))
+	var downhill := _offset_near(Vector3(-16, 18, -1290))
 	_add_cliff_run(buckets, downhill - 80.0, downhill + 55.0, -1.0, 19.0, step)
 	_add_cliff_run(buckets, downhill - 40.0, downhill + 90.0, 1.0, 16.0, step)
 	var cliff_mat := VisualLibrary.rock_material(Color(1.0, 1.0, 1.0)).duplicate() as StandardMaterial3D
@@ -655,8 +659,8 @@ func _decorate_crevasse_cracks() -> void:
 	for i: int in 4:
 		transforms.append(_crack_transform(main_guide, entry - 34.0 + float(i) * 9.0, rng.randf_range(-3.0, 3.0)))
 	# Branch ice before and after the crevasse gap.
-	var gap_start := float(shortcut_guide.nearest(Vector3(-4, 21, -724), -1)["offset"]) - 10.0
-	var gap_end := float(shortcut_guide.nearest(Vector3(-4, 19.5, -790), -1)["offset"]) + 10.0
+	var gap_start := float(shortcut_guide.nearest(Vector3(-4, 47, -724), -1)["offset"]) - 10.0
+	var gap_end := float(shortcut_guide.nearest(Vector3(-4, 45, -790), -1)["offset"]) + 10.0
 	var offset := 10.0
 	while offset < gap_start - 4.0:
 		transforms.append(_crack_transform(shortcut_guide, offset, rng.randf_range(-2.2, 2.2)))
@@ -726,8 +730,8 @@ func _decorate_fog(density: float) -> void:
 	fog_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	fog_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	var regions: Array[Vector2] = [
-		Vector2(_offset_near(Vector3(22, 23, -690)), _offset_near(Vector3(12, 17, -840))),
-		Vector2(_offset_near(Vector3(-8, 12, -950)), _offset_near(Vector3(-4, 9, -1020))),
+		Vector2(_offset_near(Vector3(22, 48, -690)), _offset_near(Vector3(12, 42.5, -840))),
+		Vector2(_offset_near(Vector3(-8, 36.5, -950)), _offset_near(Vector3(-4, 32, -1020))),
 		Vector2(finish_offset - 90.0, finish_offset - 5.0),
 	]
 	var per_region := maxi(int(4.0 * density), 2)

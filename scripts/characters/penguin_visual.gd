@@ -4,9 +4,16 @@ extends Node3D
 ## code-driven animation (waddle, slide, swim, stun, celebrate).
 ## The body is a smooth 48-segment lathe (surface of revolution) with the
 ## species plumage — dark dorsal, white ventral with a curved side boundary,
-## emperor-style ear patches — baked into per-vertex colors, so every variant
-## shares one cheap StandardMaterial3D. Meshes are built once per palette and
-## cached statically; nothing allocates per frame.
+## per-species markings (ear patches, gentoo headphone band, chinstrap white
+## face) — baked into per-vertex colors, so every variant shares one cheap
+## StandardMaterial3D. Small accessories (eye rings, chin strap, crests) are
+## a handful of primitive meshes. Meshes are built once per species+palette
+## and cached statically; nothing allocates per frame.
+##
+## SPECIES holds the eight real-penguin body variants. setup() resolves the
+## species from an explicit config "species" id, else from the canonical
+## dorsal color (so legacy callers that only forward body_color/belly_color
+## still render full species markings), else falls back to Emperor.
 
 enum Pose { RUN, SLIDE, AIR, SWIM, STUN, IDLE, CELEBRATE, DEFEAT }
 
@@ -17,12 +24,97 @@ const HEAD_Y: float = 0.85        # head-sphere center height (anchor rest)
 const FOOT_Y: float = 0.018       # foot rest height
 const FOOT_Z: float = -0.05       # foot rest forward offset
 
+## The eight playable/AI penguin species. Colors are authored for the
+## _tune_dorsal/_saturate pipeline (dark dorsal literals get lifted by scene
+## light). "dorsal" values double as the species' canonical lookup key, so
+## every entry must keep a unique dorsal color. Optional keys per entry:
+##   patch/ear_patch ("emperor"/"king"), chest_wash + chest_wash_amount,
+##   eye_ring (bool), headphone (bool), face_white (bool), chinstrap (bool),
+##   crest ("rockhopper"/"macaroni") + crest_color, eye_color, foot_color,
+##   bill_len/bill_girth/bill_hook/bill_color/mandible_color, scale (Vector3).
+const SPECIES: Dictionary = {
+	"emperor": {
+		"name": "Emperor",
+		"dorsal": Color(0.13, 0.16, 0.22), "ventral": Color(0.95, 0.94, 0.9),
+		"patch": Color(0.98, 0.76, 0.22), "ear_patch": "emperor",
+		"chest_wash": Color(1.0, 0.88, 0.55), "chest_wash_amount": 0.20,
+		"bill_len": 1.0, "bill_hook": true,
+		"scale": Vector3(1.04, 1.06, 1.04),
+	},
+	"king": {
+		"name": "King",
+		"dorsal": Color(0.16, 0.18, 0.21), "ventral": Color(0.97, 0.95, 0.90),
+		"patch": Color(1.0, 0.50, 0.06), "ear_patch": "king",
+		"chest_wash": Color(1.0, 0.62, 0.12), "chest_wash_amount": 0.40,
+		"bill_len": 1.0, "bill_hook": true,
+		"mandible_color": Color(0.96, 0.55, 0.16),
+		"scale": Vector3(0.94, 1.02, 0.94),
+	},
+	"adelie": {
+		"name": "Adelie",
+		"dorsal": Color(0.06, 0.06, 0.07), "ventral": Color(0.97, 0.97, 0.96),
+		"eye_ring": true,
+		"bill_len": 0.62, "bill_girth": 1.12,
+		"bill_color": Color(0.13, 0.11, 0.12), "mandible_color": Color(0.16, 0.13, 0.14),
+		"foot_color": Color(0.93, 0.74, 0.70),
+		"scale": Vector3(0.94, 0.92, 0.94),
+	},
+	"gentoo": {
+		"name": "Gentoo",
+		"dorsal": Color(0.10, 0.11, 0.13), "ventral": Color(0.96, 0.96, 0.95),
+		"headphone": true,
+		"bill_len": 0.85,
+		"bill_color": Color(0.95, 0.44, 0.10), "mandible_color": Color(0.85, 0.36, 0.10),
+		"foot_color": Color(1.0, 0.58, 0.12),
+		"scale": Vector3(0.99, 1.0, 0.99),
+	},
+	"chinstrap": {
+		"name": "Chinstrap",
+		"dorsal": Color(0.12, 0.13, 0.15), "ventral": Color(0.97, 0.96, 0.94),
+		"face_white": true, "chinstrap": true,
+		"bill_len": 0.78,
+		"bill_color": Color(0.10, 0.10, 0.12), "mandible_color": Color(0.13, 0.12, 0.14),
+		"foot_color": Color(0.93, 0.63, 0.52),
+		"scale": Vector3(0.95, 0.94, 0.95),
+	},
+	"rockhopper": {
+		"name": "Rockhopper",
+		"dorsal": Color(0.16, 0.14, 0.13), "ventral": Color(0.98, 0.95, 0.86),
+		"crest": "rockhopper", "crest_color": Color(0.98, 0.82, 0.2),
+		"eye_color": Color(0.50, 0.15, 0.10),
+		"bill_len": 0.80, "bill_girth": 1.1,
+		"bill_color": Color(0.72, 0.35, 0.18), "mandible_color": Color(0.62, 0.28, 0.15),
+		"foot_color": Color(0.95, 0.62, 0.55),
+		"scale": Vector3(0.90, 0.85, 0.90),
+	},
+	"macaroni": {
+		"name": "Macaroni",
+		"dorsal": Color(0.13, 0.11, 0.10), "ventral": Color(0.97, 0.94, 0.88),
+		"crest": "macaroni", "crest_color": Color(0.99, 0.66, 0.10),
+		"eye_color": Color(0.55, 0.17, 0.10),
+		"bill_len": 0.92, "bill_girth": 1.15,
+		"bill_color": Color(0.78, 0.40, 0.18), "mandible_color": Color(0.66, 0.30, 0.15),
+		"foot_color": Color(0.95, 0.60, 0.50),
+		"scale": Vector3(0.98, 0.95, 0.98),
+	},
+	"little_blue": {
+		"name": "Little Blue",
+		"dorsal": Color(0.45, 0.53, 0.62), "ventral": Color(0.96, 0.97, 0.97),
+		"bill_len": 0.72,
+		"bill_color": Color(0.28, 0.33, 0.40), "mandible_color": Color(0.45, 0.50, 0.56),
+		"foot_color": Color(0.90, 0.80, 0.72),
+		"scale": Vector3(0.76, 0.73, 0.76),
+	},
+}
+
 static var _material_cache: Dictionary = {}
 static var _mesh_cache: Dictionary = {}
+static var _species_by_dorsal: Dictionary = {}  # canonical dorsal html -> id
 
 var pose: Pose = Pose.IDLE
 var anim_speed: float = 1.0
 
+var _scale_root: Node3D  # static per-species proportions wrapper
 var _root: Node3D  # animated body root (bobs / tilts)
 var _body: MeshInstance3D
 var _flipper_l: Node3D
@@ -44,6 +136,26 @@ var _pose_blend: float = 0.0
 var _current_tilt: Vector3 = Vector3.ZERO
 var _squash: float = 1.0
 var _squash_target: float = 1.0
+
+
+## Resolves which species a setup() config describes. Priority: explicit
+## "species" id -> canonical dorsal-color match (legacy callers only forward
+## body_color/belly_color, and the cosmetics/personalities DBs use the
+## canonical palettes) -> legacy crest configs read as Rockhopper -> Emperor.
+## Unknown/custom palettes keep their colors but get Emperor markings, which
+## matches the pre-species rendering for old saves.
+static func resolve_species_id(config: Dictionary) -> String:
+	var explicit := String(config.get("species", ""))
+	if SPECIES.has(explicit):
+		return explicit
+	if _species_by_dorsal.is_empty():
+		for sid: String in SPECIES.keys():
+			_species_by_dorsal[(SPECIES[sid]["dorsal"] as Color).to_html(false)] = sid
+	var dorsal := config.get("body_color", SPECIES["emperor"]["dorsal"]) as Color
+	var matched := String(_species_by_dorsal.get(dorsal.to_html(false), ""))
+	if matched != "":
+		return matched
+	return "rockhopper" if config.has("crest_color") else "emperor"
 
 
 static func get_material(color: Color, metallic: float = 0.0, roughness: float = 0.75, emissive: bool = false) -> StandardMaterial3D:
@@ -204,53 +316,95 @@ static func _grain(col: Color, pos: Vector3) -> Color:
 
 
 ## Plumage color at a lathe vertex. theta_deg: 0 at the front (-Z), 180 back.
-static func _plumage_at(y: float, theta_deg: float, pos: Vector3, dorsal: Color, ventral: Color, patch: Color, has_patch: bool) -> Color:
+## sp is a SPECIES entry: it selects the ventral boundary curve and which
+## vertex-color markings (ear patch, chest wash, headphone band) are baked.
+static func _plumage_at(y: float, theta_deg: float, pos: Vector3, dorsal: Color, ventral: Color, patch: Color, sp: Dictionary) -> Color:
 	# Dorsal sheen: back feathers read slightly lighter toward the shoulders.
 	# Deliberately faint — the stronger lift was washing the dark base gray
 	# once bright scene ambient stacked on top of it.
 	var sheen := clampf((y - 0.3) / 0.7, 0.0, 1.0) * 0.15
 	var dors := dorsal.lerp(dorsal.lightened(0.10), sheen)
-	# Ventral half-angle: wide across the belly, narrowing up the neck, closed
-	# above the chin so the head reads fully dark.
+	# Ventral half-angle: wide across the belly, narrowing up the neck. The
+	# default closes above the chin so the head reads fully dark; chinstrap
+	# ("face_white") instead keeps a white face and cheeks with a dark cap
+	# and nape, which is where its strap accessory reads against white.
 	var limit: float
-	if y < 0.50:
-		limit = 76.0
-	elif y < 0.72:
-		limit = lerpf(76.0, 48.0, (y - 0.50) / 0.22)
-	elif y < 0.815:
-		limit = lerpf(48.0, 12.0, (y - 0.72) / 0.095)
+	if bool(sp.get("face_white", false)):
+		if y < 0.50:
+			limit = 76.0
+		elif y < 0.68:
+			limit = lerpf(76.0, 94.0, (y - 0.50) / 0.18)
+		elif y < 0.90:
+			limit = lerpf(94.0, 118.0, (y - 0.68) / 0.22)
+		elif y < 0.955:
+			limit = lerpf(118.0, 8.0, (y - 0.90) / 0.055)
+		else:
+			limit = -1.0
 	else:
-		limit = -1.0
+		if y < 0.50:
+			limit = 76.0
+		elif y < 0.72:
+			limit = lerpf(76.0, 48.0, (y - 0.50) / 0.22)
+		elif y < 0.815:
+			limit = lerpf(48.0, 12.0, (y - 0.72) / 0.095)
+		else:
+			limit = -1.0
 	var col := dors
 	if limit > 0.0:
 		var w := 1.0 - smoothstep(limit - 6.0, limit + 6.0, theta_deg)
 		# The white shades faintly cooler where it wraps toward the sides.
 		var vent := ventral.lerp(ventral.darkened(0.06), clampf(theta_deg / 90.0, 0.0, 1.0))
 		col = dors.lerp(vent, w)
-		if has_patch:
-			# Warm wash on the upper chest, emperor-style.
+		var wash_amount := float(sp.get("chest_wash_amount", 0.0))
+		if wash_amount > 0.0:
+			# Warm wash on the upper chest (emperor subtle, king vivid).
 			var chest := clampf((y - 0.58) / 0.22, 0.0, 1.0) * w
-			col = col.lerp(Color(1.0, 0.88, 0.55), chest * 0.20)
-	if has_patch:
-		# Ear patch behind the eye, with a soft lobe trailing down the neck.
-		var du := (theta_deg - 102.0) / 26.0
-		var dv := (y - 0.83) / 0.075
-		var pm := 1.0 - smoothstep(0.35, 1.0, sqrt(du * du + dv * dv))
-		var du2 := (theta_deg - 70.0) / 30.0
-		var dv2 := (y - 0.755) / 0.06
-		pm = maxf(pm, (1.0 - smoothstep(0.2, 1.0, sqrt(du2 * du2 + dv2 * dv2))) * 0.55)
-		if pm > 0.0:
-			col = col.lerp(patch, pm * 0.9)
+			col = col.lerp(sp.get("chest_wash", Color(1.0, 0.88, 0.55)) as Color, chest * wash_amount)
+	match String(sp.get("ear_patch", "")):
+		"emperor":
+			# Broad ear patch behind the eye with a soft lobe down the neck.
+			var du := (theta_deg - 102.0) / 26.0
+			var dv := (y - 0.83) / 0.075
+			var pm := 1.0 - smoothstep(0.35, 1.0, sqrt(du * du + dv * dv))
+			var du2 := (theta_deg - 70.0) / 30.0
+			var dv2 := (y - 0.755) / 0.06
+			pm = maxf(pm, (1.0 - smoothstep(0.2, 1.0, sqrt(du2 * du2 + dv2 * dv2))) * 0.55)
+			if pm > 0.0:
+				col = col.lerp(patch, pm * 0.9)
+		"king":
+			# Slimmer teardrop: tight ellipse behind the eye tapering forward
+			# and down toward the throat, more saturated than emperor.
+			var du := (theta_deg - 100.0) / 18.0
+			var dv := (y - 0.85) / 0.055
+			var pm := 1.0 - smoothstep(0.30, 1.0, sqrt(du * du + dv * dv))
+			var du2 := (theta_deg - 80.0) / 13.0
+			var dv2 := (y - 0.78) / 0.05
+			pm = maxf(pm, (1.0 - smoothstep(0.15, 1.0, sqrt(du2 * du2 + dv2 * dv2))) * 0.85)
+			if pm > 0.0:
+				col = col.lerp(patch, pm * 0.95)
+	if bool(sp.get("headphone", false)):
+		# Gentoo: white band from above each eye bridging over the crown.
+		# The theta window widens with height so the two side patches merge
+		# across the top while the forehead and nape stay dark.
+		var k := smoothstep(0.895, 0.960, y)
+		var lo := lerpf(56.0, 28.0, k)
+		var hi := lerpf(114.0, 152.0, k)
+		var wy := smoothstep(0.845, 0.882, y) * (1.0 - smoothstep(0.958, 0.992, y))
+		var wt := smoothstep(lo - 8.0, lo + 6.0, theta_deg) * (1.0 - smoothstep(hi - 6.0, hi + 8.0, theta_deg))
+		var band := wy * wt
+		if band > 0.0:
+			col = col.lerp(ventral, band)
 	return _grain(col, pos)
 
 
 ## Body + head as one continuous 48-segment lathe: rounded head, slight neck
 ## taper, plump teardrop torso widest below middle. The head rings shift
-## forward slightly for posture. Cached per palette.
-static func _build_body_mesh(dorsal: Color, ventral: Color, patch: Color, has_patch: bool) -> ArrayMesh:
-	var key := "pbody_%s_%s_%s_%s" % [dorsal.to_html(false), ventral.to_html(false), patch.to_html(false), has_patch]
+## forward slightly for posture. Cached per species + palette.
+static func _build_body_mesh(species_id: String, dorsal: Color, ventral: Color, patch: Color) -> ArrayMesh:
+	var key := "pbody_%s_%s_%s_%s" % [species_id, dorsal.to_html(false), ventral.to_html(false), patch.to_html(false)]
 	if _mesh_cache.has(key):
 		return _mesh_cache[key]
+	var sp: Dictionary = SPECIES[species_id]
 	var ctrl: Array[Vector2] = [
 		Vector2(0.000, 0.030),
 		Vector2(0.015, 0.120),
@@ -286,7 +440,7 @@ static func _build_body_mesh(dorsal: Color, ventral: Color, patch: Color, has_pa
 			var pos := Vector3(sin(ang) * r, y, cz - cos(ang) * r)
 			ring.append(pos)
 			var theta := absf(rad_to_deg(wrapf(ang, -PI, PI)))
-			col.append(_plumage_at(y, theta, pos, dorsal, ventral, patch, has_patch))
+			col.append(_plumage_at(y, theta, pos, dorsal, ventral, patch, sp))
 		rings.append(ring)
 		colors.append(col)
 	var mesh := _grid_mesh(rings, colors)
@@ -343,13 +497,13 @@ static func _build_flipper_mesh(dorsal: Color, ventral: Color) -> ArrayMesh:
 ## Webbed foot: a closed low tube from a heel point to a scalloped front edge
 ## with three toe ridges on top and darkened webbing between them. Shared by
 ## both feet (mirrored placement handled by yaw only; the mesh is symmetric).
-static func _build_foot_mesh() -> ArrayMesh:
-	var key := "pfoot"
+## base tints per species (gentoo bright orange, little blue pale flesh).
+static func _build_foot_mesh(base: Color) -> ArrayMesh:
+	var key := "pfoot_" + base.to_html(false)
 	if _mesh_cache.has(key):
 		return _mesh_cache[key]
 	var cols_across := 9
 	var rows := 8
-	var base := Color(0.93, 0.52, 0.33)
 	var sole := base.darkened(0.32)
 	var rings: Array[PackedVector3Array] = []
 	var colors: Array[PackedColorArray] = []
@@ -412,25 +566,37 @@ static func _build_foot_mesh() -> ArrayMesh:
 
 ## --- Assembly ----------------------------------------------------------------
 
-## config keys: body_color, belly_color, accent_color (optional),
-## crest_color (optional), patch_color (optional), hat, scarf, goggles
-## (cosmetic ids or "").
+## config keys: species (optional SPECIES id), body_color, belly_color,
+## accent_color (optional), crest_color (optional override), patch_color
+## (optional override), hat, scarf, goggles (cosmetic ids or "").
+## Backward compatible: configs without a species id resolve via the
+## canonical dorsal color, and unknown/legacy palettes fall back to Emperor
+## markings while keeping their authored colors.
 func setup(config: Dictionary) -> void:
 	for child in get_children():
 		child.queue_free()
+	var species_id := resolve_species_id(config)
+	var sp: Dictionary = SPECIES[species_id]
 	# Dorsal goes through _tune_dorsal (dark, saturated base that scene light
 	# lifts to tone); belly stays crisp bright white via _saturate.
-	var body_color := _tune_dorsal(config.get("body_color", Color(0.13, 0.16, 0.22)) as Color)
-	var belly_color := _saturate(config.get("belly_color", Color(0.95, 0.94, 0.9)) as Color)
-	var patch_color := _saturate(config.get("patch_color", Color(0.98, 0.76, 0.22)) as Color)
-	var has_patch := not config.has("crest_color")  # rockhopper gets a crest instead
+	var body_color := _tune_dorsal(config.get("body_color", sp["dorsal"]) as Color)
+	var belly_color := _saturate(config.get("belly_color", sp["ventral"]) as Color)
+	var patch_color := _saturate(config.get("patch_color", sp.get("patch", Color(0.98, 0.76, 0.22))) as Color)
 	var plumage := _get_plumage_material()
 
+	# Species proportions live on a wrapper node: tick() animates _root's
+	# position/rotation/scale (squash), so the static species scale must sit
+	# above it. All anchors are under _root, so cosmetics (hats, scarves,
+	# goggles) scale consistently with the body — Little Blue's small head
+	# gets a matching small beanie.
+	_scale_root = Node3D.new()
+	_scale_root.scale = sp.get("scale", Vector3.ONE) as Vector3
+	add_child(_scale_root)
 	_root = Node3D.new()
-	add_child(_root)
+	_scale_root.add_child(_root)
 
 	# Body + head: one continuous smooth lathe with baked plumage.
-	_body = _mesh(_root, _build_body_mesh(body_color, belly_color, patch_color, has_patch), body_color, Vector3.ZERO, Vector3.ZERO, Vector3.ONE, plumage)
+	_body = _mesh(_root, _build_body_mesh(species_id, body_color, belly_color, patch_color), body_color, Vector3.ZERO, Vector3.ZERO, Vector3.ONE, plumage)
 
 	# Tail: dark wedge tucked against the lower back, tip swept up.
 	var tail_mesh := SphereMesh.new()
@@ -461,8 +627,18 @@ func setup(config: Dictionary) -> void:
 	catchlight.height = 0.017
 	catchlight.radial_segments = 8
 	catchlight.rings = 4
-	var eye_mat := get_material(Color(0.10, 0.07, 0.06), 0.0, 0.12)
+	# Iris color is per species (rockhopper/macaroni have red-brown eyes).
+	var eye_color := sp.get("eye_color", Color(0.10, 0.07, 0.06)) as Color
+	var eye_mat := get_material(eye_color, 0.0, 0.12)
 	var gleam_mat := get_material(Color(1.0, 1.0, 1.0), 0.0, 0.2, true)
+	# Adelie: distinctive white sclera ring around each eye.
+	var ring_mesh: TorusMesh = null
+	var ring_mat: StandardMaterial3D = null
+	if bool(sp.get("eye_ring", false)):
+		ring_mesh = TorusMesh.new()
+		ring_mesh.inner_radius = 0.031
+		ring_mesh.outer_radius = 0.044
+		ring_mat = get_material(Color(0.96, 0.96, 0.97), 0.0, 0.6)
 	_eye_l = Node3D.new()
 	_eye_l.position = Vector3(-0.115, 0.018, 0.015)
 	_eye_l.rotation.y = deg_to_rad(32.0)
@@ -474,6 +650,10 @@ func setup(config: Dictionary) -> void:
 	for eye: Node3D in [_eye_l, _eye_r]:
 		_mesh(eye, eye_mesh, Color.BLACK, Vector3.ZERO, Vector3.ZERO, Vector3.ONE, eye_mat)
 		_mesh(eye, catchlight, Color.WHITE, Vector3(0.008, 0.010, -0.024), Vector3.ZERO, Vector3.ONE, gleam_mat)
+		if ring_mesh != null:
+			# Torus axis is +Y; pitch it 90 deg so the ring faces along the
+			# eye's outward -Z and hugs the head surface around the eyeball.
+			_mesh(eye, ring_mesh, Color.WHITE, Vector3(0, 0, -0.008), Vector3(deg_to_rad(90), 0, 0), Vector3.ONE, ring_mat)
 
 	# Brow ridges: slim feather ridges, slightly lighter than the crown so the
 	# expression reads on a dark head; tilted for emotion in tick().
@@ -487,53 +667,81 @@ func setup(config: Dictionary) -> void:
 	_brow_l = _mesh(_face_anchor, brow_mesh, brow_color, Vector3(-0.112, 0.058, 0.020), Vector3(0, 0, BROW_REST), Vector3(1.3, 0.30, 0.55), brow_mat)
 	_brow_r = _mesh(_face_anchor, brow_mesh, brow_color, Vector3(0.112, 0.058, 0.020), Vector3(0, 0, -BROW_REST), Vector3(1.3, 0.30, 0.55), brow_mat)
 
-	# Bill: elongated two-tone bill — long dark upper bill pitched slightly
-	# down with a small hooked tip, orange-pink lower mandible beneath.
-	var bill_dark := Color(0.14, 0.13, 0.16)
-	var bill_pink := Color(0.93, 0.45, 0.38)
+	# Bill: two-tone tapered bill pitched slightly down. Length, girth and
+	# colors are per species: emperor/king keep the long hooked bill with a
+	# colored lower mandible; adelie is stubby and all-dark; gentoo is bright
+	# orange; little blue is small and blue-gray. The base stays buried in
+	# the face while the tip position follows the length.
+	var bill_len := float(sp.get("bill_len", 1.0))
+	var bill_girth := float(sp.get("bill_girth", 1.0))
+	var bill_dark := sp.get("bill_color", Color(0.14, 0.13, 0.16)) as Color
+	var bill_pink := sp.get("mandible_color", Color(0.93, 0.45, 0.38)) as Color
 	var bill_mat := get_material(bill_dark, 0.0, 0.35)
 	var mandible_mat := get_material(bill_pink, 0.0, 0.4)
 	var bill_mesh := CylinderMesh.new()
 	bill_mesh.top_radius = 0.008
-	bill_mesh.bottom_radius = 0.050
-	bill_mesh.height = 0.20
+	bill_mesh.bottom_radius = 0.050 * bill_girth
+	bill_mesh.height = 0.20 * bill_len
 	bill_mesh.radial_segments = 24
-	_beak = _mesh(_face_anchor, bill_mesh, bill_dark, Vector3(0, -0.005, -0.058), Vector3(deg_to_rad(-95), 0, 0), Vector3(1.1, 1.0, 0.62), bill_mat)
-	var hook_mesh := CylinderMesh.new()
-	hook_mesh.top_radius = 0.002
-	hook_mesh.bottom_radius = 0.018
-	hook_mesh.height = 0.05
-	hook_mesh.radial_segments = 12
-	_mesh(_face_anchor, hook_mesh, bill_dark, Vector3(0, -0.022, -0.148), Vector3(deg_to_rad(-118), 0, 0), Vector3(0.85, 1.0, 0.7), bill_mat)
+	_beak = _mesh(_face_anchor, bill_mesh, bill_dark, Vector3(0, -0.005, -0.058 + 0.10 * (1.0 - bill_len)), Vector3(deg_to_rad(-95), 0, 0), Vector3(1.1, 1.0, 0.62), bill_mat)
+	if bool(sp.get("bill_hook", false)):
+		var hook_mesh := CylinderMesh.new()
+		hook_mesh.top_radius = 0.002
+		hook_mesh.bottom_radius = 0.018
+		hook_mesh.height = 0.05
+		hook_mesh.radial_segments = 12
+		_mesh(_face_anchor, hook_mesh, bill_dark, Vector3(0, -0.022, -0.148 + 0.20 * (1.0 - bill_len)), Vector3(deg_to_rad(-118), 0, 0), Vector3(0.85, 1.0, 0.7), bill_mat)
 	var mandible_mesh := CylinderMesh.new()
 	mandible_mesh.top_radius = 0.006
-	mandible_mesh.bottom_radius = 0.040
-	mandible_mesh.height = 0.15
+	mandible_mesh.bottom_radius = 0.040 * bill_girth
+	mandible_mesh.height = 0.15 * bill_len
 	mandible_mesh.radial_segments = 20
-	_beak_lower = _mesh(_face_anchor, mandible_mesh, bill_pink, Vector3(0, -0.035, -0.045), Vector3(deg_to_rad(-100), 0, 0), Vector3(0.9, 1.0, 0.5), mandible_mat)
+	_beak_lower = _mesh(_face_anchor, mandible_mesh, bill_pink, Vector3(0, -0.035, -0.045 + 0.075 * (1.0 - bill_len)), Vector3(deg_to_rad(-100), 0, 0), Vector3(0.9, 1.0, 0.5), mandible_mat)
+
+	# Chinstrap: thin black band tilted so its front arc dips under the chin
+	# across the white throat and cheeks. The rear arc crosses the nape where
+	# the plumage is already dark, so only the namesake strap reads.
+	if bool(sp.get("chinstrap", false)):
+		var strap_mesh := TorusMesh.new()
+		strap_mesh.inner_radius = 0.217
+		strap_mesh.outer_radius = 0.233
+		var strap_mat := get_material(Color(0.06, 0.06, 0.08), 0.0, 0.62)
+		_mesh(_head_anchor, strap_mesh, Color.BLACK, Vector3(0, -0.012, 0), Vector3(deg_to_rad(-20.0), 0, 0), Vector3.ONE, strap_mat)
 
 	# Flippers: flat tapered blades hugging the body, dark out / white in.
 	_flipper_l = _make_flipper(body_color, belly_color, -1.0)
 	_flipper_r = _make_flipper(body_color, belly_color, 1.0)
 
-	# Feet: webbed pink-orange wedges with three toe ridges, toed out.
-	var foot_mesh := _build_foot_mesh()
+	# Feet: webbed wedges with three toe ridges, toed out; tint per species.
+	var foot_mesh := _build_foot_mesh(sp.get("foot_color", Color(0.93, 0.52, 0.33)) as Color)
 	_foot_l = _mesh(_root, foot_mesh, Color.WHITE, Vector3(-0.125, FOOT_Y, FOOT_Z), Vector3(0, deg_to_rad(10), 0), Vector3.ONE, plumage)
 	_foot_r = _mesh(_root, foot_mesh, Color.WHITE, Vector3(0.125, FOOT_Y, FOOT_Z), Vector3(0, deg_to_rad(-10), 0), Vector3.ONE, plumage)
 
-	# Rockhopper: spiky yellow crest feather fans above each brow.
-	if config.has("crest_color"):
-		var crest_color := _saturate(config["crest_color"] as Color)
+	# Crested species: quill fans built from tapered cylinders.
+	var crest_style := String(sp.get("crest", ""))
+	if crest_style != "":
+		var crest_color := _saturate(config.get("crest_color", sp.get("crest_color", Color(0.98, 0.82, 0.2))) as Color)
 		var crest_mat := get_body_material(crest_color, 0.6, 0.10)
 		var quill := CylinderMesh.new()
 		quill.top_radius = 0.0
 		quill.bottom_radius = 0.016
 		quill.height = 0.18
 		quill.radial_segments = 8
-		for side: float in [-1.0, 1.0]:
-			_mesh(_head_anchor, quill, crest_color, Vector3(0.105 * side, 0.095, -0.045), Vector3(deg_to_rad(-14), 0, deg_to_rad(46.0 * side)), Vector3(1.0, 1.0, 1.0), crest_mat)
-			_mesh(_head_anchor, quill, crest_color, Vector3(0.115 * side, 0.085, -0.02), Vector3(deg_to_rad(2), 0, deg_to_rad(58.0 * side)), Vector3(0.9, 0.85, 0.9), crest_mat)
-			_mesh(_head_anchor, quill, crest_color, Vector3(0.095 * side, 0.105, -0.062), Vector3(deg_to_rad(-30), 0, deg_to_rad(34.0 * side)), Vector3(0.8, 0.8, 0.8), crest_mat)
+		match crest_style:
+			"rockhopper":
+				# Spiky yellow fans flaring up-and-out above each brow.
+				for side: float in [-1.0, 1.0]:
+					_mesh(_head_anchor, quill, crest_color, Vector3(0.105 * side, 0.095, -0.045), Vector3(deg_to_rad(-14), 0, deg_to_rad(46.0 * side)), Vector3(1.0, 1.0, 1.0), crest_mat)
+					_mesh(_head_anchor, quill, crest_color, Vector3(0.115 * side, 0.085, -0.02), Vector3(deg_to_rad(2), 0, deg_to_rad(58.0 * side)), Vector3(0.9, 0.85, 0.9), crest_mat)
+					_mesh(_head_anchor, quill, crest_color, Vector3(0.095 * side, 0.105, -0.062), Vector3(deg_to_rad(-30), 0, deg_to_rad(34.0 * side)), Vector3(0.8, 0.8, 0.8), crest_mat)
+			"macaroni":
+				# Orange-gold quills meeting at the center forehead and
+				# drooping outward past horizontal over each eye.
+				for side: float in [-1.0, 1.0]:
+					_mesh(_head_anchor, quill, crest_color, Vector3(0.020 * side, 0.115, -0.130), Vector3(deg_to_rad(-30), 0, deg_to_rad(50.0 * side)), Vector3(0.8, 0.85, 0.8), crest_mat)
+					_mesh(_head_anchor, quill, crest_color, Vector3(0.032 * side, 0.105, -0.112), Vector3(deg_to_rad(-20), 0, deg_to_rad(70.0 * side)), Vector3(0.9, 1.1, 0.9), crest_mat)
+					_mesh(_head_anchor, quill, crest_color, Vector3(0.055 * side, 0.095, -0.092), Vector3(deg_to_rad(-8), 0, deg_to_rad(84.0 * side)), Vector3(1.0, 1.15, 1.0), crest_mat)
+					_mesh(_head_anchor, quill, crest_color, Vector3(0.080 * side, 0.085, -0.070), Vector3(deg_to_rad(4), 0, deg_to_rad(96.0 * side)), Vector3(0.95, 1.0, 0.95), crest_mat)
 
 	_hat_anchor = Node3D.new()
 	_hat_anchor.position = Vector3(0, 0.13, -0.005)

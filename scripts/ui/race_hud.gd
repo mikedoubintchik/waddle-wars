@@ -34,6 +34,9 @@ var _item_label: Label
 var _item_icon: ColorRect
 var _item_style: StyleBoxFlat
 var _item_pulse: Tween = null
+var _ammo_pips: Array[Panel] = []
+var _ammo_style_full: StyleBoxFlat
+var _ammo_style_empty: StyleBoxFlat
 var _speed_bar: ProgressBar
 var _progress_bar: ProgressBar
 var _center_label: Label
@@ -51,6 +54,7 @@ func setup(p_manager: RaceManager, p_player: Racer) -> void:
 	player.fish_collected.connect(_on_fish)
 	player.item_received.connect(_on_item_received)
 	player.item_used.connect(_on_item_used)
+	player.snowball_ammo_changed.connect(_on_snowball_ammo)
 	player.checkpoint_reached.connect(_on_checkpoint)
 	# Accessibility: visual captions for important audio events.
 	player.stunned_changed.connect(func(_racer: Racer, is_stunned: bool) -> void:
@@ -211,6 +215,28 @@ func _build() -> void:
 	_item_label.add_theme_font_size_override("font_size", int(17 * hud_scale))
 	_item_label.add_theme_color_override("font_color", Color(0.85, 0.93, 1.0))
 	item_box.add_child(_item_label)
+	# Snowball ammo pips: collected throwable snowballs, up to 3.
+	var ammo_box := HBoxContainer.new()
+	ammo_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	ammo_box.add_theme_constant_override("separation", 6)
+	item_box.add_child(ammo_box)
+	var pip_size := 13.0 * hud_scale
+	_ammo_style_full = StyleBoxFlat.new()
+	_ammo_style_full.bg_color = Color(0.96, 0.98, 1.0)
+	_ammo_style_full.set_corner_radius_all(int(pip_size * 0.5))
+	_ammo_style_full.set_border_width_all(1)
+	_ammo_style_full.border_color = Color(ACCENT_ICE, 0.9)
+	_ammo_style_empty = StyleBoxFlat.new()
+	_ammo_style_empty.bg_color = Color(ITEM_ICON_EMPTY, 0.55)
+	_ammo_style_empty.set_corner_radius_all(int(pip_size * 0.5))
+	_ammo_style_empty.set_border_width_all(1)
+	_ammo_style_empty.border_color = Color(ACCENT_ICE, 0.3)
+	for i: int in Racer.MAX_SNOWBALL_AMMO:
+		var pip := Panel.new()
+		pip.custom_minimum_size = Vector2(pip_size, pip_size)
+		pip.add_theme_stylebox_override("panel", _ammo_style_empty)
+		ammo_box.add_child(pip)
+		_ammo_pips.append(pip)
 	_root.add_child(_item_panel)
 
 	# Fish counter card (bottom left) with generated fish icon.
@@ -440,6 +466,16 @@ func _on_item_used(_racer: Racer, _item_id: String) -> void:
 	_item_label.text = "No Item"
 	_item_icon.color = ITEM_ICON_EMPTY
 	_stop_item_pulse()
+
+
+func _on_snowball_ammo(_racer: Racer, ammo: int) -> void:
+	for i: int in _ammo_pips.size():
+		_ammo_pips[i].add_theme_stylebox_override("panel",
+			_ammo_style_full if i < ammo else _ammo_style_empty)
+	_item_panel.pivot_offset = _item_panel.size * 0.5
+	_item_panel.scale = Vector2.ONE * 1.08
+	var tween := create_tween()
+	tween.tween_property(_item_panel, "scale", Vector2.ONE, 0.15)
 
 
 ## Slow warm glow pulse on the item frame while an item is held. With

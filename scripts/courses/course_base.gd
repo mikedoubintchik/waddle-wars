@@ -543,6 +543,19 @@ func add_item_row(offset: float, count: int = 4, guide: PathGuide = null) -> voi
 		add_child(box)
 
 
+## Lateral row of collectible throwable snowballs (see SnowballPickup).
+func add_snowball_row(offset: float, count: int = 3, guide: PathGuide = null) -> void:
+	var g := guide if guide != null else main_guide
+	if g == null or offset >= g.length:
+		return
+	var span := 7.0
+	for i: int in count:
+		var lateral := 0.0 if count <= 1 else -span * 0.5 + span * float(i) / float(count - 1)
+		var ball := SnowballPickup.new()
+		ball.position = g.point_at(offset, lateral, 0.55)
+		add_child(ball)
+
+
 ## Big ground plane far below for visual grounding (ocean/ice sheet).
 ## Optional material overrides the flat color — e.g.
 ## VisualLibrary.water_material(...) for ocean or snow_material(...) for

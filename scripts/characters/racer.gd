@@ -12,6 +12,7 @@ signal race_finished(racer: Racer)
 signal fish_collected(racer: Racer, value: int)
 signal item_received(racer: Racer, item_id: String)
 signal item_used(racer: Racer, item_id: String)
+signal snowball_ammo_changed(racer: Racer, ammo: int)
 signal shove_landed(attacker: Racer, victim: Racer)
 signal respawned(racer: Racer)
 signal stunned_changed(racer: Racer, is_stunned: bool)
@@ -24,11 +25,14 @@ const SLOPE_SLIDE_ACCEL: float = 15.0
 const COYOTE_TIME: float = 0.14
 const JUMP_BUFFER: float = 0.16
 const MAX_STEER_DEG: float = 55.0
+const BANK_MAX_DEG: float = 15.0  # visual roll into turns
+const BANK_YAW_RATE_SCALE: float = 0.32  # rad of roll per rad/s of yaw rate
 const SHOVE_COOLDOWN: float = 1.6
 const SHOVE_RANGE: float = 2.4
 const STUN_TIME: float = 1.1
 const STUMBLE_TIME: float = 0.55
 const RECOVER_TIME: float = 0.9
+const MAX_SNOWBALL_AMMO: int = 3
 
 var racer_key: String = "player"
 var display_name: String = "You"
@@ -51,10 +55,13 @@ var last_checkpoint_transform: Transform3D
 var finish_time: float = -1.0
 var fish_count: int = 0
 var held_item: String = ""
+var snowball_ammo: int = 0  # collected throwable snowballs (0..MAX_SNOWBALL_AMMO)
 var current_surface: SurfacesDB.Surface = SurfacesDB.Surface.PACKED_SNOW
 
 var _facing_yaw: float = 0.0
 var _velocity_yaw: float = 0.0
+var _prev_facing_yaw: float = 0.0
+var _visual_bank: float = 0.0
 var _steer_offset: float = 0.0
 var _guide_yaw: float = 0.0
 var _coyote_timer: float = 0.0
@@ -117,6 +124,7 @@ func setup(key: String, name_text: String, player: bool, visual_config: Dictiona
 			add_child(trail)
 	_facing_yaw = rotation.y
 	_velocity_yaw = rotation.y
+	_prev_facing_yaw = rotation.y
 	last_checkpoint_transform = global_transform
 
 
@@ -198,8 +206,13 @@ func _physics_process(delta: float) -> void:
 		_:
 			_tick_ground_air(delta)
 
-	if controller.item_pressed and state != State.FINISHED and held_item != "":
-		use_held_item()
+	if controller.item_pressed and state != State.FINISHED:
+		# Item key priority: a held item always fires first; bare-handed it
+		# throws a collected snowball instead (no extra binding needed).
+		if held_item != "":
+			use_held_item()
+		elif snowball_ammo > 0:
+			throw_snowball()
 	move_and_slide()
 	_check_kill_plane()
 	_update_visual(delta)
@@ -299,8 +312,17 @@ func _tick_ground_air(delta: float) -> void:
 		var floor_normal := get_floor_normal() if on_floor else Vector3.UP
 		var forward := _yaw_to_dir(_velocity_yaw)
 		var downhill := Vector3.DOWN - floor_normal * Vector3.DOWN.dot(floor_normal)
-		var slope_push := downhill.dot(forward) * SLOPE_SLIDE_ACCEL
+		var downhill_dot := downhill.dot(forward)
+		var slope_push := downhill_dot * SLOPE_SLIDE_ACCEL
 		current_speed += (slope_push + float(surface["slide_bonus"])) * delta
+		# Slick surfaces sustain a belly slide well above waddle pace on flat
+		# or descending ground (penguins are fast on ice). Never applied while
+		# ascending, so the uphill stall stand-up below still bleeds speed
+		# under its 5.0 threshold (QA finding).
+		var slide_target := BASE_SPEED * float(surface["slide_target"]) * speed_scale * boost_mult
+		var slide_ramp := float(surface["slide_ramp"])
+		if slide_ramp > 0.0 and on_floor and downhill_dot >= -0.02 and current_speed < slide_target:
+			current_speed = move_toward(current_speed, slide_target, slide_ramp * delta)
 		current_speed = clampf(current_speed, 0.0, SLIDE_MAX_SPEED * boost_mult)
 		# Sliding uphill or into deep snow bleeds speed fast; standing back up
 		# is handled once speed drops below waddle pace.
@@ -464,9 +486,26 @@ func _land_feedback() -> void:
 		course.spawn_land_puff(global_position)
 
 
+## Heading the body is actually moving along (used by the chase camera so it
+## can lag behind turns instead of hard-locking to the facing).
+func get_heading_yaw() -> float:
+	return _velocity_yaw
+
+
 func _update_visual(delta: float) -> void:
 	if visual == null:
 		return
+	# Bank into turns: steering visibly rolls the penguin on screen instead of
+	# reading as the whole world rotating around a fixed sprite.
+	if delta > 0.0001:
+		var yaw_rate := wrapf(_facing_yaw - _prev_facing_yaw, -PI, PI) / delta
+		var bank_target := 0.0
+		if state == State.WADDLING or state == State.BOOSTED or state == State.SLIDING or state == State.AIRBORNE:
+			var bank_max := deg_to_rad(BANK_MAX_DEG)
+			bank_target = clampf(yaw_rate * BANK_YAW_RATE_SCALE, -bank_max, bank_max)
+		_visual_bank = lerpf(_visual_bank, bank_target, minf(delta * 7.0, 1.0))
+		visual.rotation.z = _visual_bank
+	_prev_facing_yaw = _facing_yaw
 	var ratio := current_speed / BASE_SPEED
 	visual.anim_speed = ratio
 	match state:
@@ -622,6 +661,28 @@ func use_held_item() -> String:
 	held_item = ""
 	item_used.emit(self, id)
 	return id
+
+
+## Grants throwable snowball ammo. Returns false when already full, so
+## pickups can stay on the track for whoever still has room.
+func add_snowball_ammo(amount: int = 1) -> bool:
+	if snowball_ammo >= MAX_SNOWBALL_AMMO or state == State.FINISHED:
+		return false
+	snowball_ammo = mini(snowball_ammo + amount, MAX_SNOWBALL_AMMO)
+	snowball_ammo_changed.emit(self, snowball_ammo)
+	return true
+
+
+## Throws one collected snowball. Routed through item_used so the existing
+## PowerupSystem snowball projectile and its forgiving forward-targeting
+## fire exactly like the power-up version (same on-hit tumble).
+func throw_snowball() -> bool:
+	if snowball_ammo <= 0 or state == State.FINISHED:
+		return false
+	snowball_ammo -= 1
+	snowball_ammo_changed.emit(self, snowball_ammo)
+	item_used.emit(self, "snowball")
+	return true
 
 
 ## --- Water ------------------------------------------------------------------
