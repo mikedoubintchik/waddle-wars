@@ -251,8 +251,14 @@ func _apply_ui_scale(user_scale: float) -> void:
 		return
 	var boost := TOUCH_UI_BOOST if GameConfig.has_touchscreen() or is_mobile_web() else 1.0
 	var window := get_window()
-	if window != null:
-		window.content_scale_factor = clampf(user_scale, 0.8, 1.6) * boost
+	if window == null:
+		return
+	# With canvas_items stretch, Godot recomputes content_scale_factor on
+	# every resize — writing it is a no-op. Shrinking the design size is the
+	# reliable lever: smaller content_scale_size => larger on-screen UI.
+	var scale := clampf(user_scale, 0.8, 1.6) * boost
+	window.content_scale_size = Vector2i(
+		roundi(1920.0 / scale), roundi(1080.0 / scale))
 
 
 func _apply_display(key: String, value: Variant) -> void:
