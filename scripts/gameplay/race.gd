@@ -86,9 +86,8 @@ func _ready() -> void:
 		# Player.setup is deferred by RaceManager, so controller is still null here;
 		# defer the wire-up so it runs after the controller exists.
 		_setup_touch_deferred.call_deferred(touch)
-	if GameConfig.has_touchscreen() and not GameConfig.is_headless():
-		# Portrait "rotate your device" prompt; self-hides in landscape.
-		add_child(RotateOverlay.new())
+	# Portrait play is supported (camera opens FOV + pulls back), so no
+	# rotate-your-device gate here anymore.
 
 	var music := String(CoursesDB.get_item(course_id).get("music", "music_race"))
 	AudioManager.play_music(music)

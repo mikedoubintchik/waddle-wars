@@ -101,6 +101,13 @@ func _physics_process(delta: float) -> void:
 		elif target.state == Racer.State.AIRBORNE:
 			height = 2.9
 		distance += speed_ratio * 0.7
+		# Portrait (phone held upright): the horizontal view is narrow, so sit
+		# higher and further back — the taller frame shows the track ahead
+		# instead of mostly sky and snow. Vertical FOV also opens up below.
+		var vp_size := get_viewport().get_visible_rect().size
+		if vp_size.x < vp_size.y:
+			height += 1.4
+			distance += 2.2
 		desired_pos = target.global_position - follow_dir * distance + Vector3.UP * height
 		look_point = target.global_position + follow_dir * (3.2 + speed_ratio * 3.2) + Vector3.UP * 0.9
 
@@ -126,9 +133,13 @@ func _physics_process(delta: float) -> void:
 	if _smoothed_pos.distance_squared_to(_smoothed_look) > 0.01:
 		look_at(_smoothed_look, Vector3.UP)
 
-	# FOV.
+	# FOV. Godot's fov is vertical: in portrait the horizontal view collapses,
+	# so widen the vertical FOV to compensate and keep the course readable.
 	_fov_extra = move_toward(_fov_extra, 0.0, delta * 10.0)
 	var target_fov := BASE_FOV + clampf(speed_ratio - 0.9, 0.0, 1.1) * MAX_FOV_BONUS + _fov_extra
+	var vp := get_viewport().get_visible_rect().size
+	if vp.x < vp.y:
+		target_fov += 10.0
 	camera.fov = lerpf(camera.fov, target_fov, minf(delta * 5.0, 1.0))
 
 	# Shake.
