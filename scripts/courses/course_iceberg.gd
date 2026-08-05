@@ -83,8 +83,10 @@ static func p(x: float, y: float, z: float, extra: Dictionary = {}) -> Dictionar
 func build_course() -> void:
 	var pts: Array = [
 		# 1. Start berg: long straight for the grid, dipping off the plateau.
+		# The dip span is a smooth-ice patch: an early slide reward on a
+		# straight descent, well before the berg arc asks for steering.
 		p(0, 12, 35, {"width": 18.0}),
-		p(0, 12, -30, {"width": 18.0}),
+		p(0, 12, -30, {"width": 18.0, "surface": ICE}),
 		p(2, 10.5, -100, {"width": 20.0}),
 		# 2. Berg-hop: wide right-swinging arc of connected bergs riding a
 		# gentle ocean swell — each berg crests +2-3m then dips, so the arc
@@ -110,7 +112,9 @@ func build_course() -> void:
 		# 4. Approach and the big swim channel (80m of open water): one last
 		# wave rise at -770, then down to the ice edge at water level.
 		p(-6, 7.5, -720, {"width": 16.0}),
-		p(-10, 7.8, -770, {"width": 16.0}),
+		# Iced downhill straight into the swim channel: slide in at speed
+		# (full-width water below the edge — no steering precision needed).
+		p(-10, 7.8, -770, {"width": 16.0, "surface": ICE}),
 		p(-10, 6.3, -810, {"width": 14.0}),
 		p(-8, 6.0, -848, {"width": 14.0, "gap": true}),  # ice edge, 1m over water
 		p(-4, 5.0, -878, {"width": 14.0, "gap": true}),  # guide at water surface
@@ -263,6 +267,20 @@ func build_course() -> void:
 	# Boost pads after both swim exits to relaunch momentum.
 	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(4, 6.2, -965)) + 6.0)
 	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(2, 5.0, -1490)) + 6.0)
+
+	# More acceleration pads: the start-dip exit into the berg arc, the outer
+	# berg-arc corner exit (offset onto the safe right side the danger hints
+	# steer toward), a berg-chain shortcut survivor reward, and the swell hump
+	# after the seal flat. All clear of the platform crossing, the causeway,
+	# and the seal weave itself.
+	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(2, 10.5, -100)) + 4.0)
+	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(56, 9, -380)) + 4.0, 3.0)
+	TrackBuilder.add_boost_pad(self, shortcut, shortcut.length - 20.0)
+	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(2, 5.4, -1360)) + 2.0)
+	# Slide hints for the new smooth-ice patches (hint offsets are index
+	# space): the start dip and the downhill run into the big swim channel.
+	add_hint(_offset_near(Vector3(0, 12, -30)) + 4.0, "slide", _offset_near(Vector3(2, 10.5, -100)))
+	add_hint(_offset_near(Vector3(-10, 7.8, -770)) - 5.0, "slide", _offset_near(Vector3(-10, 6.3, -810)))
 
 	# --- Pickups (placement APIs consume arclength offsets) -----------------
 	add_item_row(115.0)

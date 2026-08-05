@@ -31,8 +31,10 @@ func build_course() -> void:
 		# Start plateau and pre-start straight.
 		p(0, 60, 35, {"width": 18.0}),
 		p(0, 60, -20, {"width": 18.0}),
-		# Rolling opening hills: two dips with a roll crest between them.
-		p(4, 54, -90, {"width": 22.0}),
+		# Rolling opening hills: two dips with a roll crest between them. The
+		# first dip is a smooth-ice patch: an early slide reward on a straight
+		# descent, well clear of any hazard.
+		p(4, 54, -90, {"width": 22.0, "surface": ICE}),
 		p(14, 46, -170, {"width": 22.0}),
 		p(24, 48.5, -240, {"width": 20.0}),
 		# S-curve valley on packed snow, then the climb toward the cave begins.
@@ -59,13 +61,14 @@ func build_course() -> void:
 		# Deep snow climb.
 		p(4, 35, -1070, {"width": 14.0, "surface": DEEP}),
 		p(8, 41, -1120, {"width": 14.0, "surface": DEEP}),
-		# Crest, then the big final downhill slide: 43.5m sustained drop.
-		p(4, 44, -1150, {"width": 18.0}),
+		# Crest, then the big final downhill slide: 43.5m sustained drop. The
+		# crest span is smooth ice too, so the slide starts at the top.
+		p(4, 44, -1150, {"width": 18.0, "surface": ICE}),
 		p(-10, 33, -1220, {"width": 18.0, "surface": ICE}),
 		p(-16, 18, -1290, {"width": 18.0, "surface": ICE}),
 		p(-8, 4, -1360, {"width": 18.0, "surface": ICE}),
-		# Finish straight.
-		p(0, 0.5, -1420, {"width": 18.0}),
+		# Finish straight: iced so the downhill slide carries to the line.
+		p(0, 0.5, -1420, {"width": 18.0, "surface": ICE}),
 		p(0, 0, -1470, {"width": 18.0}),
 	]
 	setup_main(pts)
@@ -100,6 +103,21 @@ func build_course() -> void:
 	TrackBuilder.add_boost_pad(self, main_guide, downhill_offset + 20.0, -3.0)
 	TrackBuilder.add_boost_pad(self, main_guide, downhill_offset + 60.0, 3.0)
 
+	# More acceleration pads: the opening-dip exit (launch through the roll
+	# crest) and both uphill starts (cave climb, deep-snow climb) so held
+	# momentum is the reward for a clean line. All on straight track, clear
+	# of the snowball lanes and the crevasse field.
+	var open_dip := _offset_near(Vector3(4, 54, -90))
+	var dip_exit := _offset_near(Vector3(14, 46, -170))
+	TrackBuilder.add_boost_pad(self, main_guide, dip_exit + 5.0)
+	TrackBuilder.add_boost_pad(self, main_guide, _offset_near(Vector3(-6, 44, -420)) + 8.0)
+	TrackBuilder.add_boost_pad(self, main_guide, _offset_near(Vector3(4, 35, -1070)) - 6.0)
+	# Slide hints for the new smooth-ice patches (surfaces set in the point
+	# list): opening dip, crest-to-downhill bridge, finish straight.
+	add_hint(open_dip - 5.0, "slide", dip_exit + 5.0)
+	add_hint(_offset_near(Vector3(4, 44, -1150)) + 5.0, "slide", final_downhill - 10.0)
+	add_hint(_offset_near(Vector3(0, 0.5, -1420)) - 5.0, "slide", finish_offset)
+
 	# Rolling snowballs on the wide descending slope: two lanes, offset
 	# timing, plus AI danger hints steering bots toward the safe side.
 	var snowball_slope_start := _offset_near(Vector3(0, 41.5, -880))
@@ -122,6 +140,8 @@ func build_course() -> void:
 		add_child(tile)
 		tile.global_position = shortcut.point_at(tile_offset, 0.0, -0.25)
 		tile_offset += 5.8
+	# Shortcut-survivor reward: a boost pad on solid ice past the crevasse.
+	TrackBuilder.add_boost_pad(self, shortcut, gap_end + 12.0)
 
 	# Item rows and fish.
 	add_item_row(120.0)

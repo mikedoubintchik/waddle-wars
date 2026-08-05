@@ -1,6 +1,6 @@
 extends Control
-## Main menu: themed button stack with staggered entrance animation, a live
-## penguin diorama panel, and a fish/level chip.
+## Main menu: icon-glyph button stack with the unified staggered fade+rise
+## entrance, animated title underline, and a fish/level chip.
 
 ## Same drawn fish glyph as the race HUD and customize menu currency counters
 ## (race_hud.gd / customize_menu.gd) so the icon is consistent across screens.
@@ -28,7 +28,7 @@ func _ready() -> void:
 	add_child(center)
 	var vbox := VBoxContainer.new()
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", 14)
+	vbox.add_theme_constant_override("separation", UITheme.spacing(14))
 	center.add_child(vbox)
 
 	var title := UITheme.heading(GameConfig.GAME_NAME, 84)
@@ -45,37 +45,40 @@ func _ready() -> void:
 	tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(tagline)
 	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 22)
+	gap.custom_minimum_size = Vector2(0, UITheme.SPACE_M)
 	vbox.add_child(gap)
 
-	_add_button(vbox, "Play", func() -> void:
+	_add_button(vbox, "Play", UITheme.ICON_PLAY, func() -> void:
 		SceneRouter.go_to(Game.SCENE_MODE_SELECT))
-	_add_button(vbox, "Waddle School", func() -> void:
+	_add_button(vbox, "Waddle School", UITheme.ICON_SCHOOL, func() -> void:
 		Game.start_tutorial())
-	_add_button(vbox, "Customize", func() -> void:
+	_add_button(vbox, "Customize", UITheme.ICON_PALETTE, func() -> void:
 		SceneRouter.go_to(Game.SCENE_CUSTOMIZE))
-	_add_button(vbox, "Achievements", func() -> void:
+	_add_button(vbox, "Achievements", UITheme.ICON_TROPHY, func() -> void:
 		SceneRouter.go_to(Game.SCENE_ACHIEVEMENTS))
-	_add_button(vbox, "Settings", func() -> void:
+	_add_button(vbox, "Settings", UITheme.ICON_GEAR, func() -> void:
 		SceneRouter.go_to(Game.SCENE_SETTINGS))
-	_add_button(vbox, "Credits", func() -> void:
+	_add_button(vbox, "Credits", UITheme.ICON_FILM, func() -> void:
 		SceneRouter.go_to(Game.SCENE_CREDITS))
 	if not GameConfig.is_mobile():
-		_add_button(vbox, "Quit", func() -> void:
+		_add_button(vbox, "Quit", UITheme.ICON_DOOR, func() -> void:
 			get_tree().quit())
 
 	_build_status_chip()
 	UITheme.attach_swipe_back(self, func() -> void:
 		SceneRouter.go_to(Game.SCENE_TITLE))
-	_play_entrance()
+	var entrance_items: Array[Control] = [title, tagline]
+	for button: Button in _buttons:
+		entrance_items.append(button)
+	UITheme.play_entrance(self, entrance_items)
 
 	if not _buttons.is_empty():
 		_buttons[0].grab_focus()
 	AudioManager.play_music("music_title")
 
 
-func _add_button(parent: Control, text: String, on_pressed: Callable) -> void:
-	var button := UITheme.make_button(text, Vector2(520, 72), 32)
+func _add_button(parent: Control, text: String, icon_svg: String, on_pressed: Callable) -> void:
+	var button := UITheme.make_menu_button(text, icon_svg, Vector2(520, 72), 32)
 	UITheme.hook_sounds(button)
 	button.pressed.connect(on_pressed)
 	parent.add_child(button)
@@ -139,27 +142,6 @@ static func _make_fish_texture() -> ImageTexture:
 	if img.load_svg_from_string(FISH_ICON_SVG, 2.0) != OK:
 		return null
 	return ImageTexture.create_from_image(img)
-
-
-func _play_entrance() -> void:
-	for button: Button in _buttons:
-		button.modulate.a = 0.0
-	# Wait one frame so containers finish layout before capturing positions.
-	await get_tree().process_frame
-	if not is_inside_tree():
-		return
-	for i: int in _buttons.size():
-		var button := _buttons[i]
-		var target_x := button.position.x
-		var delay := 0.05 + 0.06 * float(i)
-		button.position.x = target_x - 40.0
-		var fade := create_tween()
-		fade.tween_interval(delay)
-		fade.tween_property(button, "modulate:a", 1.0, 0.25)
-		var slide := create_tween()
-		slide.tween_interval(delay)
-		slide.tween_property(button, "position:x", target_x, 0.25) \
-			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
 func _unhandled_input(event: InputEvent) -> void:

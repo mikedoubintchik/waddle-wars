@@ -27,14 +27,14 @@ func _ready() -> void:
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", UITheme.SCREEN_MARGIN)
-	margin.add_theme_constant_override("margin_right", UITheme.SCREEN_MARGIN)
+	margin.add_theme_constant_override("margin_left", UITheme.screen_margin())
+	margin.add_theme_constant_override("margin_right", UITheme.screen_margin())
 	margin.add_theme_constant_override("margin_top", 28)
 	margin.add_theme_constant_override("margin_bottom", 28)
 	add_child(margin)
 
 	var layout := VBoxContainer.new()
-	layout.add_theme_constant_override("separation", 12)
+	layout.add_theme_constant_override("separation", UITheme.SPACE_S)
 	margin.add_child(layout)
 
 	var header := HBoxContainer.new()
@@ -64,12 +64,15 @@ func _ready() -> void:
 	list.add_theme_constant_override("separation", UITheme.spacing(10))
 	scroll.add_child(list)
 
+	var entrance_items: Array[Control] = [header]
+
 	var header_row := _make_row(list)
 	var header_panel := header_row.get_parent() as PanelContainer
 	var header_style := UITheme.make_panel_style(Color(0.055, 0.098, 0.172, 0.9), Color(UITheme.COLOR_ACCENT, 0.4))
 	header_style.content_margin_top = 10.0
 	header_style.content_margin_bottom = 10.0
 	header_panel.add_theme_stylebox_override("panel", header_style)
+	entrance_items.append(header_panel)
 	for header_text: String in ["Action", "Keyboard", "Gamepad"]:
 		var cell := _cell_label(header_text, UITheme.COLOR_ACCENT, 24)
 		cell.add_theme_font_override("font", UITheme.display_font())
@@ -80,6 +83,7 @@ func _ready() -> void:
 		row.add_child(_cell_label(String(ACTION_NAMES.get(action, action)), UITheme.COLOR_TEXT, 21))
 		row.add_child(_make_binding_button(action, "key"))
 		row.add_child(_make_binding_button(action, "joy"))
+		entrance_items.append(row.get_parent() as PanelContainer)
 
 	var touch_panel := PanelContainer.new()
 	touch_panel.add_theme_stylebox_override("panel", UITheme.make_panel_style())
@@ -99,6 +103,9 @@ func _ready() -> void:
 		"Pause: pause icon, top corner",
 	]:
 		touch_box.add_child(UITheme.sub_label(hint, 19))
+
+	entrance_items.append(touch_panel)
+	UITheme.play_entrance(self, entrance_items)
 
 	_build_capture_overlay()
 	UITheme.attach_swipe_back(self, _go_back)

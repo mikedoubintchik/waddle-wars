@@ -83,7 +83,7 @@ func _ready() -> void:
 	add_child(center)
 	_content = VBoxContainer.new()
 	_content.alignment = BoxContainer.ALIGNMENT_CENTER
-	_content.add_theme_constant_override("separation", UITheme.spacing(14))
+	_content.add_theme_constant_override("separation", UITheme.spacing(UITheme.SPACE_S))
 	center.add_child(_content)
 	_show_mode_step()
 	UITheme.attach_swipe_back(self, _go_back_step)
@@ -260,16 +260,12 @@ func _focus_first() -> void:
 		_buttons[0].grab_focus()
 
 
-## Staggered fade+slide entrance whenever a step's cards are rebuilt.
+## Unified staggered fade+rise entrance whenever a step's cards are rebuilt.
 func _play_entrance() -> void:
-	if GameConfig.is_headless():
-		return
-	for i: int in _buttons.size():
-		var button := _buttons[i]
-		button.modulate.a = 0.0
-		var tween := create_tween()
-		tween.tween_interval(0.04 + 0.05 * float(i))
-		tween.tween_property(button, "modulate:a", 1.0, 0.22)
+	var items: Array[Control] = []
+	for button: Button in _buttons:
+		items.append(button)
+	UITheme.play_entrance(self, items)
 
 
 ## One step back through the flow; from the first step, back to the main

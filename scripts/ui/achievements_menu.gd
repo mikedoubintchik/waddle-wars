@@ -20,14 +20,14 @@ func _ready() -> void:
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", UITheme.SCREEN_MARGIN)
-	margin.add_theme_constant_override("margin_right", UITheme.SCREEN_MARGIN)
+	margin.add_theme_constant_override("margin_left", UITheme.screen_margin())
+	margin.add_theme_constant_override("margin_right", UITheme.screen_margin())
 	margin.add_theme_constant_override("margin_top", 28)
 	margin.add_theme_constant_override("margin_bottom", 28)
 	add_child(margin)
 
 	var layout := VBoxContainer.new()
-	layout.add_theme_constant_override("separation", 12)
+	layout.add_theme_constant_override("separation", UITheme.SPACE_S)
 	margin.add_child(layout)
 
 	var header := HBoxContainer.new()
@@ -48,7 +48,8 @@ func _ready() -> void:
 	back_button.pressed.connect(_go_back)
 	header.add_child(back_button)
 
-	layout.add_child(_build_player_panel())
+	var player_panel := _build_player_panel()
+	layout.add_child(player_panel)
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -58,11 +59,15 @@ func _ready() -> void:
 
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", UITheme.spacing(8))
+	list.add_theme_constant_override("separation", UITheme.spacing(10))
 	scroll.add_child(list)
 
+	var entrance_items: Array[Control] = [header, player_panel]
 	for id: String in AchievementsDB.ORDER:
-		list.add_child(_build_achievement_row(id))
+		var row := _build_achievement_row(id)
+		list.add_child(row)
+		entrance_items.append(row)
+	UITheme.play_entrance(self, entrance_items)
 
 	UITheme.attach_swipe_back(self, _go_back)
 	back_button.grab_focus()

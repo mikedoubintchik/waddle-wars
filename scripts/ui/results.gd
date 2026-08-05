@@ -5,6 +5,13 @@ extends Control
 const MEDAL_COLORS: Array[String] = ["#f5c542", "#c9d2dc", "#cd8f5a"]
 const MEDAL_RIMS: Array[String] = ["#c98f1b", "#8d99a6", "#96683f"]
 
+## Row text tints for podium places: gold / silver / bronze.
+const PODIUM_TINTS: Array[Color] = [
+	Color(0.961, 0.773, 0.259),
+	Color(0.788, 0.824, 0.863),
+	Color(0.804, 0.561, 0.353),
+]
+
 var _buttons: Array[Button] = []
 
 
@@ -20,7 +27,7 @@ func _ready() -> void:
 	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.add_child(center)
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 14)
+	vbox.add_theme_constant_override("separation", UITheme.spacing(UITheme.SPACE_S))
 	center.add_child(vbox)
 
 	match Game.mode:
@@ -38,6 +45,11 @@ func _ready() -> void:
 
 	_build_rewards(vbox)
 	_build_buttons(vbox)
+	var entrance_items: Array[Control] = []
+	for child in vbox.get_children():
+		if child is Control:
+			entrance_items.append(child as Control)
+	UITheme.play_entrance(self, entrance_items)
 	AudioManager.play_music("music_title")
 	if not _buttons.is_empty():
 		_buttons[0].grab_focus()
@@ -86,14 +98,16 @@ static func _medal_svg(place: int) -> String:
 </svg>""" % [fill, rim, rim, pips]
 
 
-## Position cell: medal icon for top three, plain number otherwise.
-static func _position_cell(place_number: int) -> Control:
+## Position cell: medal icon for top three, plain number otherwise. `big`
+## enlarges podium medals for the main standings table so top finishes pop.
+static func _position_cell(place_number: int, big: bool = false) -> Control:
 	if place_number >= 1 and place_number <= 3:
-		var texture := UITheme.make_icon(_medal_svg(place_number - 1), 1.0)
+		var medal_scale := 1.3 if big else 1.0
+		var texture := UITheme.make_icon(_medal_svg(place_number - 1), medal_scale)
 		if texture != null:
 			var icon := TextureRect.new()
 			icon.texture = texture
-			icon.custom_minimum_size = Vector2(36, 48)
+			icon.custom_minimum_size = Vector2(36.0 * medal_scale, 48.0 * medal_scale)
 			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			return icon
@@ -102,6 +116,16 @@ static func _position_cell(place_number: int) -> Control:
 	label.add_theme_font_size_override("font_size", 24)
 	label.add_theme_color_override("font_color", Color(0.9, 0.94, 1.0))
 	return label
+
+
+## Row text color: player row reads highlighted gold, podium rows carry their
+## medal tint, everyone else stays neutral ice-white.
+static func _row_color(is_player: bool, place_number: int) -> Color:
+	if is_player:
+		return Color(1.0, 0.9, 0.4)
+	if place_number >= 1 and place_number <= PODIUM_TINTS.size():
+		return PODIUM_TINTS[place_number - 1]
+	return Color(0.9, 0.94, 1.0)
 
 
 func _title(parent: Control, text: String, size: int = 56, color: Color = Color(0.95, 0.97, 1.0)) -> void:
@@ -145,8 +169,10 @@ func _build_race_results(parent: Control) -> void:
 		grid.add_child(head_label)
 	for row: Dictionary in Game.last_race_results:
 		var is_player := bool(row.get("is_player", false))
-		var color := Color(1.0, 0.9, 0.4) if is_player else Color(0.9, 0.94, 1.0)
-		grid.add_child(_position_cell(int(row.get("position", 0))))
+		var place := int(row.get("position", 0))
+		var podium := place >= 1 and place <= 3
+		var color := _row_color(is_player, place)
+		grid.add_child(_position_cell(place, true))
 		var cells := [
 			String(row.get("name", "?")),
 			"DNF" if bool(row.get("dnf", false)) else RaceHUD.format_time(float(row.get("time", 0.0))),
@@ -155,7 +181,9 @@ func _build_race_results(parent: Control) -> void:
 		for cell: String in cells:
 			var cell_label := Label.new()
 			cell_label.text = cell
-			cell_label.add_theme_font_size_override("font_size", 24)
+			cell_label.add_theme_font_size_override("font_size", 26 if podium else 24)
+			if podium or is_player:
+				cell_label.add_theme_font_override("font", UITheme.bold_font())
 			cell_label.add_theme_color_override("font_color", color)
 			cell_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			grid.add_child(cell_label)
@@ -172,12 +200,14 @@ func _build_gp_standings(parent: Control) -> void:
 	for i: int in standings.size():
 		var row: Dictionary = standings[i]
 		var is_player := String(row.get("key", "")) == "player"
-		var color := Color(1.0, 0.9, 0.4) if is_player else Color(0.9, 0.94, 1.0)
+		var color := _row_color(is_player, i + 1)
 		grid.add_child(_position_cell(i + 1))
 		for cell: String in [String(row["name"]), "%d pts" % int(row["points"])]:
 			var label := Label.new()
 			label.text = cell
 			label.add_theme_font_size_override("font_size", 24)
+			if is_player or i < 3:
+				label.add_theme_font_override("font", UITheme.bold_font())
 			label.add_theme_color_override("font_color", color)
 			label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			grid.add_child(label)

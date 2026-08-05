@@ -1,8 +1,36 @@
 extends Control
 ## Settings screen covering the full SettingsManager schema, organized into
-## Display / Audio / Gameplay / Accessibility sections in a scrollable list.
+## Display / Audio / Gameplay / Accessibility section cards with icon headers
+## in a scrollable list.
+
+## Drawn 64x64 section glyphs, same style family as the UITheme menu icons.
+const ICON_DISPLAY: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<rect x="8" y="10" width="48" height="32" rx="4" fill="#274866" stroke="#7fd0f7" stroke-width="2.5"/>
+<rect x="26" y="46" width="12" height="4" fill="#7fd0f7"/>
+<rect x="18" y="52" width="28" height="4" rx="2" fill="#7fd0f7"/>
+</svg>"""
+
+const ICON_AUDIO: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<path d="M10 24 H20 L34 12 V52 L20 40 H10 Z" fill="#7fd0f7" stroke="#3d6d94" stroke-width="2" stroke-linejoin="round"/>
+<path d="M42 22 Q48 32 42 42" stroke="#7fd0f7" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+<path d="M48 16 Q58 32 48 48" stroke="#7fd0f7" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+</svg>"""
+
+const ICON_GAMEPLAY: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<path d="M16 20 H48 C58 20 62 44 54 46 C48 47 44 38 40 38 H24 C20 38 16 47 10 46 C2 44 6 20 16 20 Z" fill="#5a7ba6" stroke="#3d5578" stroke-width="2"/>
+<path d="M20 25 V35 M15 30 H25" stroke="#e8f4ff" stroke-width="3.5" stroke-linecap="round"/>
+<circle cx="44" cy="26" r="3" fill="#f5c542"/>
+<circle cx="50" cy="32" r="3" fill="#ff6b57"/>
+</svg>"""
+
+const ICON_ACCESSIBILITY: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<circle cx="32" cy="11" r="6" fill="#7fe08f"/>
+<path d="M10 24 Q32 32 54 24" stroke="#7fe08f" stroke-width="5" fill="none" stroke-linecap="round"/>
+<path d="M32 28 V42 M32 42 L21 58 M32 42 L43 58" stroke="#7fe08f" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>"""
 
 var _sections: VBoxContainer
+var _entrance_items: Array[Control] = []
 
 
 func _ready() -> void:
@@ -11,14 +39,14 @@ func _ready() -> void:
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", UITheme.SCREEN_MARGIN)
-	margin.add_theme_constant_override("margin_right", UITheme.SCREEN_MARGIN)
+	margin.add_theme_constant_override("margin_left", UITheme.screen_margin())
+	margin.add_theme_constant_override("margin_right", UITheme.screen_margin())
 	margin.add_theme_constant_override("margin_top", 28)
 	margin.add_theme_constant_override("margin_bottom", 28)
 	add_child(margin)
 
 	var layout := VBoxContainer.new()
-	layout.add_theme_constant_override("separation", 14)
+	layout.add_theme_constant_override("separation", UITheme.SPACE_S)
 	margin.add_child(layout)
 
 	var header := HBoxContainer.new()
@@ -46,13 +74,15 @@ func _ready() -> void:
 
 	_sections = VBoxContainer.new()
 	_sections.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_sections.add_theme_constant_override("separation", 18)
+	_sections.add_theme_constant_override("separation", UITheme.SPACE_M)
 	scroll.add_child(_sections)
 
+	_entrance_items.append(header)
 	_build_display_section()
 	_build_audio_section()
 	_build_gameplay_section()
 	_build_accessibility_section()
+	UITheme.play_entrance(self, _entrance_items)
 
 	controls_button.grab_focus()
 	SettingsManager.setting_changed.connect(_on_setting_changed)
@@ -78,7 +108,7 @@ func _unhandled_input(event: InputEvent) -> void:
 ## --- Section builders -----------------------------------------------------
 
 func _build_display_section() -> void:
-	var body := _section("Display")
+	var body := _section("Display", ICON_DISPLAY)
 	_add_option_row(body, "display", "window_mode", "Window Mode", [
 		["windowed", "Windowed"], ["fullscreen", "Fullscreen"], ["borderless", "Borderless"],
 	])
@@ -105,7 +135,7 @@ func _build_display_section() -> void:
 
 
 func _build_audio_section() -> void:
-	var body := _section("Audio")
+	var body := _section("Audio", ICON_AUDIO)
 	_add_slider_row(body, "audio", "master_volume", "Master Volume", 0.0, 1.0, 0.05, true)
 	_add_slider_row(body, "audio", "music_volume", "Music Volume", 0.0, 1.0, 0.05, true)
 	_add_slider_row(body, "audio", "sfx_volume", "SFX Volume", 0.0, 1.0, 0.05, true)
@@ -114,7 +144,7 @@ func _build_audio_section() -> void:
 
 
 func _build_gameplay_section() -> void:
-	var body := _section("Gameplay")
+	var body := _section("Gameplay", ICON_GAMEPLAY)
 	_add_slider_row(body, "gameplay", "steer_sensitivity", "Steer Sensitivity", 0.5, 1.5, 0.05, false)
 	_add_toggle_row(body, "gameplay", "vibration", "Vibration")
 	_add_toggle_row(body, "gameplay", "slide_toggle_mode", "Slide: Toggle Mode")
@@ -128,7 +158,7 @@ func _build_gameplay_section() -> void:
 
 
 func _build_accessibility_section() -> void:
-	var body := _section("Accessibility")
+	var body := _section("Accessibility", ICON_ACCESSIBILITY)
 	_add_option_row(body, "accessibility", "camera_shake", "Camera Shake", [
 		["full", "Full"], ["reduced", "Reduced"], ["off", "Off"],
 	])
@@ -143,7 +173,7 @@ func _build_accessibility_section() -> void:
 
 ## --- Row helpers ----------------------------------------------------------
 
-func _section(section_title: String) -> VBoxContainer:
+func _section(section_title: String, icon_svg: String = "") -> VBoxContainer:
 	var panel := PanelContainer.new()
 	var style := UITheme.make_panel_style()
 	style.content_margin_left = 26.0
@@ -153,20 +183,36 @@ func _section(section_title: String) -> VBoxContainer:
 	panel.add_theme_stylebox_override("panel", style)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_sections.add_child(panel)
+	_entrance_items.append(panel)
 	var body := VBoxContainer.new()
-	body.add_theme_constant_override("separation", UITheme.spacing(10))
+	body.add_theme_constant_override("separation", UITheme.spacing(12))
 	panel.add_child(body)
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 12)
+	body.add_child(header)
+	if icon_svg != "":
+		var texture := UITheme.make_icon(icon_svg, 1.0)
+		if texture != null:
+			var icon := TextureRect.new()
+			icon.texture = texture
+			icon.custom_minimum_size = Vector2(30, 30)
+			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			header.add_child(icon)
 	var label := Label.new()
 	label.text = section_title
 	label.add_theme_font_override("font", UITheme.display_font())
 	label.add_theme_font_size_override("font_size", 28)
 	label.add_theme_color_override("font_color", UITheme.COLOR_ACCENT)
-	body.add_child(label)
+	header.add_child(label)
 	var rule := ColorRect.new()
 	rule.color = Color(UITheme.COLOR_ACCENT, 0.28)
 	rule.custom_minimum_size = Vector2(0, 2)
 	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.add_child(rule)
+	UITheme.animate_rule(rule)
 	return body
 
 
@@ -228,8 +274,9 @@ func _add_slider_row(parent: VBoxContainer, section: String, key: String, label_
 	var row := _row(parent, label_text)
 	var value_label := Label.new()
 	value_label.add_theme_font_size_override("font_size", 19)
-	value_label.add_theme_color_override("font_color", UITheme.COLOR_TEXT_DIM)
-	value_label.custom_minimum_size = Vector2(64, 0)
+	value_label.add_theme_font_override("font", UITheme.bold_font())
+	value_label.add_theme_color_override("font_color", UITheme.COLOR_ACCENT)
+	value_label.custom_minimum_size = Vector2(72, 0)
 	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	var slider := HSlider.new()

@@ -2,8 +2,45 @@ extends Control
 ## Title screen: twilight 3D ice-floe diorama — aurora ribbons, star field,
 ## soft clouds, animated ocean, distant bergs, and idling penguins behind a
 ## rocking logo. Any input advances to the main menu.
+##
+## The wordmark is an original SVG logotype generated at runtime (same
+## Image.load_svg_from_string technique as the fish icon in main_menu.gd):
+## chunky rounded stroke letterforms, ice gradient fill, navy outline, snow
+## caps, soft offset shadow. Rendered at 3x so it stays crisp on hi-dpi.
 
 const STAR_COUNT: int = 140
+
+## --- Logo letterform table -------------------------------------------------
+## Each glyph is a stroke skeleton on a 100-unit-tall grid (y 10 = top of the
+## stroke centerline, y 90 = baseline). Round caps/joins fatten the strokes
+## into chunky rounded letterforms; "snow" entries are cap blobs [cx, cy, rx,
+## ry] placed on letter tops. Only letters used by GAME_NAME need to exist —
+## _build_logo_svg() returns "" (Label fallback) for unknown characters.
+const LOGO_LETTERS: Dictionary = {
+	"W": {"w": 96.0, "paths": ["M8 10 L30 90 L48 42 L66 90 L88 10"],
+			"snow": [[8.0, -1.0, 12.0, 6.0], [88.0, -1.0, 12.0, 6.0]]},
+	"A": {"w": 76.0, "paths": ["M8 90 L38 10 L68 90", "M22 62 L54 62"],
+			"snow": [[38.0, -1.0, 13.0, 6.5]]},
+	"D": {"w": 74.0, "paths": ["M10 90 L10 10 Q64 12 64 50 Q64 88 10 90 Z"],
+			"snow": [[30.0, 0.0, 14.0, 6.0]]},
+	"L": {"w": 58.0, "paths": ["M10 10 L10 90 L52 90"],
+			"snow": [[10.0, -1.0, 11.0, 6.0]]},
+	"E": {"w": 60.0, "paths": ["M52 10 L12 10 L12 90 L52 90", "M12 50 L44 50"],
+			"snow": [[30.0, -2.0, 16.0, 6.0]]},
+	"R": {"w": 70.0, "paths": ["M12 90 L12 10 Q60 10 60 32 Q60 54 12 54", "M34 54 L60 90"],
+			"snow": [[28.0, -1.0, 14.0, 6.0]]},
+	"S": {"w": 64.0, "paths": ["M54 20 C44 8 16 6 12 26 C9 44 52 48 54 68 C56 90 22 96 10 78"],
+			"snow": [[33.0, -2.0, 12.0, 5.5]]},
+}
+const LOGO_LETTER_GAP: float = 14.0
+const LOGO_LINE_H: float = 110.0
+const LOGO_LINE_GAP: float = 16.0
+const LOGO_MARGIN_X: float = 22.0
+const LOGO_MARGIN_Y: float = 24.0
+const LOGO_RENDER_SCALE: float = 3.0
+## Per-letter playful jitter, cycled by letter index.
+const LOGO_ROT: Array[float] = [-2.2, 1.8, -1.5, 2.0, -1.8, 1.6]
+const LOGO_DY: Array[float] = [3.0, -2.0, 2.0, -3.0, 2.0, -2.0]
 const SKY_TOP: Color = Color(0.1, 0.14, 0.34)
 const SKY_HORIZON: Color = Color(0.93, 0.55, 0.47)
 const GROUND_BOTTOM: Color = Color(0.07, 0.1, 0.2)
@@ -13,7 +50,10 @@ const OCEAN_SHALLOW: Color = Color(0.46, 0.42, 0.66)
 var _elapsed: float = 0.0
 var _started: bool = false
 var _prompt: Button
-var _logo: Label
+var _prompt_glow: Panel
+var _logo: Control
+var _logo_rect: TextureRect
+var _logo_aspect: float = 0.5
 var _camera: Camera3D
 var _penguins: Array[PenguinVisual] = []
 var _penguin_ratios: Array[float] = []
@@ -396,31 +436,39 @@ func _build_foreground() -> void:
 	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	center.add_child(vbox)
 
-	_logo = Label.new()
-	_logo.text = GameConfig.GAME_NAME.to_upper()
-	_logo.add_theme_font_size_override("font_size", 110)
-	_logo.add_theme_color_override("font_color", Color(0.97, 0.99, 1.0))
-	_logo.add_theme_color_override("font_outline_color", Color(0.05, 0.11, 0.22))
-	_logo.add_theme_constant_override("outline_size", 16)
-	_logo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_logo = _build_logo()
+	if _logo == null:
+		# Fallback: bold outlined Label so the title never disappears even if
+		# the SVG module rejects the generated wordmark.
+		var label := Label.new()
+		label.text = GameConfig.GAME_NAME.to_upper()
+		label.add_theme_font_size_override("font_size", 110)
+		label.add_theme_color_override("font_color", Color(0.97, 0.99, 1.0))
+		label.add_theme_color_override("font_outline_color", Color(0.05, 0.11, 0.22))
+		label.add_theme_constant_override("outline_size", 16)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_logo = label
 	_logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(_logo)
 
 	# Real button beats a "press start" prompt on touch devices; the full-rect
 	# TapCatcher below it still lets a tap anywhere begin the game.
-	_prompt = UITheme.make_button("Begin", Vector2(260, 64), 30)
+	_prompt = UITheme.make_button("Begin", Vector2(340, 92), 42)
 	_prompt.focus_mode = Control.FOCUS_ALL
 	_prompt.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_prompt.anchor_left = 0.5
 	_prompt.anchor_right = 0.5
-	_prompt.anchor_top = 0.84
-	_prompt.anchor_bottom = 0.84
-	_prompt.offset_left = -130.0
-	_prompt.offset_right = 130.0
-	_prompt.offset_top = 0.0
-	_prompt.offset_bottom = 64.0
+	# Pinned a fixed margin above the bottom edge (not a proportional anchor)
+	# so the taller 92px button never clips off-screen on landscape phones.
+	_prompt.anchor_top = 1.0
+	_prompt.anchor_bottom = 1.0
+	_prompt.offset_left = -170.0
+	_prompt.offset_right = 170.0
+	_prompt.offset_top = -132.0
+	_prompt.offset_bottom = -40.0
 	_prompt.pressed.connect(_start_game)
 	overlay.add_child(_prompt)
+	_prompt_glow = _build_prompt_glow(_prompt)
 	_prompt.grab_focus.call_deferred()
 
 	var version := Label.new()
@@ -435,6 +483,158 @@ func _build_foreground() -> void:
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	version.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(version)
+
+
+## --- Logo ------------------------------------------------------------------
+
+## Rasterize the generated SVG wordmark into a TextureRect. Returns null on
+## any failure so the caller can fall back to a plain Label.
+func _build_logo() -> Control:
+	var svg := _build_logo_svg()
+	if svg.is_empty():
+		return null
+	var img := Image.new()
+	if img.load_svg_from_string(svg, LOGO_RENDER_SCALE) != OK:
+		return null
+	var texture := ImageTexture.create_from_image(img)
+	if texture == null:
+		return null
+	_logo_rect = TextureRect.new()
+	_logo_rect.texture = texture
+	_logo_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_logo_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_update_logo_size()
+	get_viewport().size_changed.connect(_update_logo_size)
+	return _logo_rect
+
+
+## Display size tracks the viewport so the wordmark fills a portrait phone
+## width yet never dwarfs the diorama on wide desktop windows. Height is also
+## capped to the upper-third logo band so landscape phones keep the penguin
+## diorama and Begin button clear of the wordmark.
+func _update_logo_size() -> void:
+	if _logo_rect == null:
+		return
+	var vp := get_viewport_rect().size
+	var width := clampf(vp.x * 0.86, 280.0, 620.0)
+	var height_cap := vp.y * 0.40
+	if width * _logo_aspect > height_cap:
+		width = height_cap / _logo_aspect
+	_logo_rect.custom_minimum_size = Vector2(width, width * _logo_aspect)
+
+
+## Compose the full wordmark SVG: one line per word of GAME_NAME, four draw
+## layers (offset shadow, navy outline, ice-gradient fill, snow caps).
+## Returns "" if any character is missing from LOGO_LETTERS.
+func _build_logo_svg() -> String:
+	var words: PackedStringArray = GameConfig.GAME_NAME.to_upper().split(" ", false)
+	if words.is_empty():
+		return ""
+	var line_widths: Array[float] = []
+	var max_width := 0.0
+	for word: String in words:
+		var w := 0.0
+		for ci: int in word.length():
+			if not LOGO_LETTERS.has(word[ci]):
+				return ""
+			w += float((LOGO_LETTERS[word[ci]] as Dictionary)["w"])
+		w += LOGO_LETTER_GAP * float(word.length() - 1)
+		line_widths.append(w)
+		max_width = maxf(max_width, w)
+
+	# Flat per-letter layout: [glyph: Dictionary, tx: float, ty: float, rot: float]
+	var layout: Array[Array] = []
+	var glyph_index := 0
+	for li: int in words.size():
+		var x := LOGO_MARGIN_X + (max_width - line_widths[li]) * 0.5
+		var y := LOGO_MARGIN_Y + 4.0 + float(li) * (LOGO_LINE_H + LOGO_LINE_GAP)
+		for ci: int in words[li].length():
+			var glyph := LOGO_LETTERS[words[li][ci]] as Dictionary
+			layout.append([
+				glyph, x,
+				y + LOGO_DY[glyph_index % LOGO_DY.size()],
+				LOGO_ROT[glyph_index % LOGO_ROT.size()],
+			])
+			x += float(glyph["w"]) + LOGO_LETTER_GAP
+			glyph_index += 1
+
+	var canvas_w := max_width + LOGO_MARGIN_X * 2.0
+	var canvas_h := LOGO_MARGIN_Y * 2.0 + float(words.size()) * LOGO_LINE_H \
+			+ float(words.size() - 1) * LOGO_LINE_GAP
+	_logo_aspect = canvas_h / canvas_w
+
+	var parts: PackedStringArray = []
+	parts.append(
+		'<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">'
+		% [int(canvas_w), int(canvas_h), int(canvas_w), int(canvas_h)])
+	parts.append(
+		'<defs><linearGradient id="ice" gradientUnits="userSpaceOnUse" x1="0" y1="-4" x2="0" y2="104">'
+		+ '<stop offset="0" stop-color="#ffffff"/><stop offset="0.42" stop-color="#d9edff"/>'
+		+ '<stop offset="1" stop-color="#7cc4ff"/></linearGradient></defs>')
+	_append_stroke_layer(parts, layout, "#06132b", 30.0, 0.38, 9.0)  # drop shadow
+	_append_stroke_layer(parts, layout, "#0e2244", 28.0, 1.0, 0.0)  # navy outline
+	_append_stroke_layer(parts, layout, "url(#ice)", 16.0, 1.0, 0.0)  # gradient fill
+	for entry: Array in layout:  # snow caps: shaded underside + lumpy white top
+		var glyph := entry[0] as Dictionary
+		var tf := _letter_transform(entry, 0.0)
+		for blob: Array in glyph["snow"] as Array:
+			var cx := float(blob[0])
+			var cy := float(blob[1])
+			var rx := float(blob[2])
+			var ry := float(blob[3])
+			parts.append('<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#a8cdec" transform="%s"/>'
+					% [cx, cy + 1.5, rx, ry, tf])
+			parts.append('<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#ffffff" transform="%s"/>'
+					% [cx, cy - 1.5, rx, ry, tf])
+			parts.append('<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#ffffff" transform="%s"/>'
+					% [cx + rx * 0.6, cy - 1.0, rx * 0.5, ry * 0.9, tf])
+	parts.append('</svg>')
+	return "".join(parts)
+
+
+func _letter_transform(entry: Array, extra_dy: float) -> String:
+	var glyph := entry[0] as Dictionary
+	return "translate(%.1f %.1f) rotate(%.1f %.1f 50)" % [
+		float(entry[1]), float(entry[2]) + extra_dy,
+		float(entry[3]), float(glyph["w"]) * 0.5,
+	]
+
+
+func _append_stroke_layer(parts: PackedStringArray, layout: Array[Array],
+		stroke: String, width: float, opacity: float, dy: float) -> void:
+	for entry: Array in layout:
+		var glyph := entry[0] as Dictionary
+		var tf := _letter_transform(entry, dy)
+		for d: String in glyph["paths"] as Array:
+			parts.append(
+				('<path d="%s" transform="%s" fill="none" stroke="%s" stroke-opacity="%.2f"'
+				+ ' stroke-width="%.1f" stroke-linecap="round" stroke-linejoin="round"/>')
+				% [d, tf, stroke, opacity, width])
+
+
+## Rounded glow ring parented to the button (show_behind_parent) so it tracks
+## position, focus scale, and press dips automatically; _process pulses its
+## modulate alpha.
+func _build_prompt_glow(button: Button) -> Panel:
+	var glow := Panel.new()
+	glow.name = "BeginGlow"
+	glow.show_behind_parent = true
+	glow.set_anchors_preset(Control.PRESET_FULL_RECT)
+	glow.offset_left = -7.0
+	glow.offset_top = -7.0
+	glow.offset_right = 7.0
+	glow.offset_bottom = 7.0
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var box := StyleBoxFlat.new()
+	box.draw_center = false
+	box.border_color = Color(UITheme.COLOR_ACCENT, 0.85)
+	box.set_border_width_all(3)
+	box.set_corner_radius_all(18)
+	box.shadow_color = Color(UITheme.COLOR_ACCENT, 0.45)
+	box.shadow_size = 14
+	glow.add_theme_stylebox_override("panel", box)
+	button.add_child(glow)
+	return glow
 
 
 func _process(delta: float) -> void:
@@ -457,12 +657,13 @@ func _process(delta: float) -> void:
 	if _logo != null:
 		_logo.pivot_offset = _logo.size * 0.5
 		_logo.rotation = sin(_elapsed * 0.9) * 0.022
-	if _prompt != null:
+	if _prompt_glow != null:
 		var reduced := bool(SettingsManager.get_setting("accessibility", "reduced_flashing"))
-		var pulse_speed := 1.2 if reduced else 3.0
-		# Gentle pulse with a high floor: never dips below ~0.6 alpha so the
-		# prompt stays legible over the dark water at every phase.
-		_prompt.modulate.a = 0.8 + 0.2 * sin(_elapsed * pulse_speed)
+		var pulse_speed := 1.1 if reduced else 2.6
+		var amp := 0.12 if reduced else 0.28
+		# Pulse only the glow ring; the button itself stays fully opaque so
+		# the label is legible over the dark water at every phase.
+		_prompt_glow.modulate.a = 0.55 + amp * sin(_elapsed * pulse_speed)
 
 
 ## Topmost full-rect invisible control: guarantees taps reach the start

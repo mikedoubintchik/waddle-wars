@@ -63,7 +63,7 @@ func _open() -> void:
 	box.add_theme_stylebox_override("panel", style)
 	center.add_child(box)
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 12)
+	vbox.add_theme_constant_override("separation", UITheme.spacing(12))
 	box.add_child(vbox)
 
 	var title := UITheme.heading("Paused", 44)
@@ -103,6 +103,10 @@ func _open() -> void:
 		Game.quit_race_to_menu())
 	# Edge swipe resumes, mirroring the Resume button for touch players.
 	UITheme.attach_swipe_back(_panel, _close)
+	# Unified fade+rise entrance; the PauseMenu layer processes while the
+	# tree is paused, so the tween runs normally.
+	var entrance_items: Array[Control] = [box]
+	UITheme.play_entrance(_panel, entrance_items, 16.0)
 	if not _buttons.is_empty():
 		_buttons[0].grab_focus()
 

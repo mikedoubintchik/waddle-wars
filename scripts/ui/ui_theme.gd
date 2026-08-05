@@ -18,6 +18,13 @@ const COLOR_SHADOW: Color = Color(0.0, 0.0, 0.0, 0.35)
 ## Standard side margin for full-screen menu layouts.
 const SCREEN_MARGIN: int = 48
 
+## Spacing rhythm used across every menu: small (within a group), medium
+## (between groups), large (between major regions). Prefer these three steps
+## over ad-hoc values so screens share one vertical rhythm.
+const SPACE_S: int = 16
+const SPACE_M: int = 24
+const SPACE_L: int = 40
+
 ## Minimum comfortable touch target height (logical px) and list spacing on
 ## touch devices. Applied centrally so every menu inherits them.
 const TOUCH_MIN_HEIGHT: int = 48
@@ -46,6 +53,58 @@ void fragment() {
 }
 """
 
+## Drawn menu icon glyphs (64x64 SVG, same hand-drawn style as the fish icon
+## in main_menu/race_hud). Used by make_menu_button for the primary menus.
+const ICON_PLAY: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<path d="M18 10 L54 32 L18 54 Z" fill="#7fe08f" stroke="#3f8f55" stroke-width="3" stroke-linejoin="round"/>
+<path d="M24 18 L24 46" stroke="#b8f0c4" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
+</svg>"""
+
+const ICON_SCHOOL: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<path d="M32 10 L60 23 L32 36 L4 23 Z" fill="#6fa8d8" stroke="#3d6d94" stroke-width="2" stroke-linejoin="round"/>
+<path d="M16 30 V44 Q32 52 48 44 V30" fill="#4d7fae" stroke="#3d6d94" stroke-width="2"/>
+<path d="M56 25 V42" stroke="#f5c542" stroke-width="3" stroke-linecap="round"/>
+<circle cx="56" cy="45" r="3" fill="#f5c542"/>
+</svg>"""
+
+const ICON_PALETTE: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<path d="M32 6 C17 6 5 17 5 31 C5 45 16 57 30 58 C36 58 38 52 34 48 C30 44 33 39 39 39 L46 39 C53 39 59 33 59 25 C59 13 47 6 32 6 Z" fill="#e8ddc8" stroke="#a08e6e" stroke-width="2"/>
+<circle cx="20" cy="22" r="4" fill="#ff6b57"/>
+<circle cx="34" cy="16" r="4" fill="#f5c542"/>
+<circle cx="46" cy="22" r="4" fill="#7fe08f"/>
+<circle cx="16" cy="36" r="4" fill="#6fa8d8"/>
+</svg>"""
+
+const ICON_TROPHY: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<path d="M17 12 C7 12 7 28 19 29" stroke="#f5c542" stroke-width="4" fill="none"/>
+<path d="M47 12 C57 12 57 28 45 29" stroke="#f5c542" stroke-width="4" fill="none"/>
+<path d="M18 8 H46 V22 C46 34 40 40 32 40 C24 40 18 34 18 22 Z" fill="#f5c542" stroke="#c98f1b" stroke-width="2"/>
+<rect x="28" y="40" width="8" height="8" fill="#e0b030"/>
+<rect x="20" y="48" width="24" height="7" rx="2" fill="#c98f1b"/>
+<path d="M24 14 L27 22 L24 30" stroke="#fff2c0" stroke-width="3" fill="none" opacity="0.8"/>
+</svg>"""
+
+const ICON_GEAR: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<g stroke="#9fc4e0" stroke-width="7" stroke-linecap="round" fill="none">
+<path d="M32 8 V16 M32 48 V56 M8 32 H16 M48 32 H56 M15 15 L21 21 M43 43 L49 49 M49 15 L43 21 M21 43 L15 49"/>
+<circle cx="32" cy="32" r="14"/>
+</g>
+<circle cx="32" cy="32" r="5" fill="#22303f"/>
+</svg>"""
+
+const ICON_FILM: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<rect x="8" y="14" width="48" height="40" rx="4" fill="#5a7ba6" stroke="#3d5578" stroke-width="2"/>
+<path d="M8 26 H56" stroke="#3d5578" stroke-width="2.5"/>
+<path d="M12 14 L20 26 M24 14 L32 26 M36 14 L44 26 M48 14 L56 26" stroke="#d7e6f5" stroke-width="3"/>
+<path d="M16 38 L28 34 M16 46 L34 44" stroke="#9fc4e0" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+</svg>"""
+
+const ICON_DOOR: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<path d="M10 8 H38 V56 H10 Z" fill="#7a5c40" stroke="#54402c" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="31" cy="33" r="2.6" fill="#f5c542"/>
+<path d="M42 32 H58 M51 24 L59 32 L51 40" stroke="#9fc4e0" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>"""
+
 static var _display_font: FontVariation = null
 static var _button_font: FontVariation = null
 
@@ -62,6 +121,13 @@ static func is_touch() -> bool:
 ## TOUCH_SPACING on touch devices so rows never crowd fingertips.
 static func spacing(base: int) -> int:
 	return maxi(base, TOUCH_SPACING) if is_touch() else base
+
+
+## Side margin for full-screen menu layouts: SCREEN_MARGIN on desktop, the
+## large rhythm step on phones so content keeps generous but usable margins
+## inside a 390pt-wide portrait viewport.
+static func screen_margin() -> int:
+	return SPACE_L if is_touch() else SCREEN_MARGIN
 
 
 ## Emboldened, letter-spaced variation of the default font for large headers.
@@ -97,11 +163,15 @@ static func make_button(text: String, size: Vector2 = Vector2(320, 52), font_siz
 	button.add_theme_color_override("font_pressed_color", COLOR_GOLD)
 	button.add_theme_color_override("font_disabled_color", COLOR_DISABLED)
 
-	var normal := _button_box(Color(0.106, 0.176, 0.290, 0.97), Color(COLOR_ACCENT, 0.22), 1)
-	var hover := _button_box(Color(0.145, 0.235, 0.376), Color(COLOR_ACCENT, 0.9), 2)
-	hover.shadow_size = 9
+	# Frosted-glass state family: translucent fill lets the animated backdrop
+	# glow through; an icy rim plus inner top-highlight / bottom-shade strips
+	# (added below) give each button glassy depth. Hover lifts (brighter rim,
+	# larger shadow, 1.02 scale); pressed compresses (0.98 scale, tight shadow).
+	var normal := _button_box(Color(0.141, 0.227, 0.365, 0.58), Color(0.78, 0.90, 1.0, 0.22), 1)
+	var hover := _button_box(Color(0.196, 0.310, 0.478, 0.76), Color(COLOR_ACCENT, 0.95), 2)
+	hover.shadow_size = 10
 	hover.shadow_offset = Vector2(0.0, 5.0)
-	var pressed := _button_box(Color(0.066, 0.114, 0.196), Color(COLOR_GOLD, 0.9), 2)
+	var pressed := _button_box(Color(0.055, 0.098, 0.176, 0.85), Color(COLOR_GOLD, 0.9), 2)
 	pressed.shadow_size = 2
 	pressed.shadow_offset = Vector2(0.0, 1.0)
 	pressed.content_margin_top = 12.0
@@ -112,7 +182,7 @@ static func make_button(text: String, size: Vector2 = Vector2(320, 52), font_siz
 	focus.set_border_width_all(2)
 	focus.set_corner_radius_all(13)
 	focus.set_expand_margin_all(3.0)
-	var disabled := _button_box(Color(0.082, 0.114, 0.165, 0.8), Color(0.16, 0.21, 0.28, 0.6), 1)
+	var disabled := _button_box(Color(0.082, 0.114, 0.165, 0.55), Color(0.16, 0.21, 0.28, 0.5), 1)
 	disabled.shadow_size = 0
 
 	button.add_theme_stylebox_override("normal", normal)
@@ -120,8 +190,58 @@ static func make_button(text: String, size: Vector2 = Vector2(320, 52), font_siz
 	button.add_theme_stylebox_override("pressed", pressed)
 	button.add_theme_stylebox_override("focus", focus)
 	button.add_theme_stylebox_override("disabled", disabled)
+	_attach_glass_edges(button)
 	attach_hover_scale(button, 1.02)
 	return button
+
+
+## Standard stacked-menu button with a leading drawn-icon glyph (see the
+## ICON_* consts). Falls back to the plain themed button when the SVG module
+## is unavailable, so headless runs and sims are unaffected.
+static func make_menu_button(text: String, icon_svg: String, size: Vector2 = Vector2(520, 72), font_size: int = 32) -> Button:
+	var button := make_button(text, size, font_size)
+	if icon_svg != "":
+		var texture := make_icon(icon_svg, 1.0)
+		if texture != null:
+			button.icon = texture
+			button.expand_icon = true
+			button.add_theme_constant_override("icon_max_width", 34)
+			button.add_theme_constant_override("h_separation", 14)
+	return button
+
+
+## Inner 1px top highlight + darker bottom shade strips: the two-tone edge
+## treatment StyleBoxFlat cannot express (single border color). Strips are
+## anchored to the button rect, inset past the corner radius, and inert.
+static func _attach_glass_edges(button: Button) -> void:
+	var sheen := ColorRect.new()
+	sheen.name = "GlassSheen"
+	sheen.color = Color(1.0, 1.0, 1.0, 0.10)
+	sheen.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sheen.focus_mode = Control.FOCUS_NONE
+	sheen.anchor_left = 0.0
+	sheen.anchor_right = 1.0
+	sheen.anchor_top = 0.0
+	sheen.anchor_bottom = 0.0
+	sheen.offset_left = 13.0
+	sheen.offset_right = -13.0
+	sheen.offset_top = 1.0
+	sheen.offset_bottom = 2.5
+	button.add_child(sheen)
+	var shade := ColorRect.new()
+	shade.name = "GlassShade"
+	shade.color = Color(0.0, 0.0, 0.0, 0.16)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shade.focus_mode = Control.FOCUS_NONE
+	shade.anchor_left = 0.0
+	shade.anchor_right = 1.0
+	shade.anchor_top = 1.0
+	shade.anchor_bottom = 1.0
+	shade.offset_left = 13.0
+	shade.offset_right = -13.0
+	shade.offset_top = -2.5
+	shade.offset_bottom = -1.0
+	button.add_child(shade)
 
 
 static func _button_box(bg: Color, border: Color, border_width: int) -> StyleBoxFlat:
@@ -135,7 +255,7 @@ static func _button_box(bg: Color, border: Color, border_width: int) -> StyleBox
 	box.content_margin_top = 10.0
 	box.content_margin_bottom = 10.0
 	box.shadow_color = COLOR_SHADOW
-	box.shadow_size = 6
+	box.shadow_size = 5
 	box.shadow_offset = Vector2(0.0, 3.0)
 	return box
 
@@ -214,6 +334,7 @@ static func sub_label(text: String, size: int = 20) -> Label:
 
 
 ## Thin horizontal accent rule used under headers and between sections.
+## Grows from its center on screen entry (headless-safe no-op).
 static func accent_rule(width: float = 220.0, color: Color = COLOR_ACCENT) -> Control:
 	var holder := CenterContainer.new()
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -222,7 +343,64 @@ static func accent_rule(width: float = 220.0, color: Color = COLOR_ACCENT) -> Co
 	rule.custom_minimum_size = Vector2(width, 3.0)
 	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(rule)
+	animate_rule(rule)
 	return holder
+
+
+## Grow-from-zero entrance for a rule/underline Control. Scale-only, so it
+## never triggers container relayout; pivot centers when the rule has a fixed
+## authored width and stays left-anchored for stretch-to-fill rules.
+static func animate_rule(rule: Control) -> void:
+	if GameConfig.is_headless():
+		return
+	var start := func() -> void:
+		rule.pivot_offset = Vector2(rule.custom_minimum_size.x * 0.5, rule.custom_minimum_size.y * 0.5)
+		rule.scale.x = 0.0
+		var tween := rule.create_tween()
+		tween.tween_interval(0.12)
+		tween.tween_property(rule, "scale:x", 1.0, 0.5) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	rule.ready.connect(start, CONNECT_ONE_SHOT)
+
+
+## Unified screen-entry transition: staggered fade + rise for a screen's main
+## blocks (title, cards, buttons). Call from _ready after building children;
+## no await needed by callers. Headless runs skip it entirely so sims and the
+## unit suite see final layout immediately. Items freed mid-flight are skipped.
+static func play_entrance(root: Control, items: Array[Control], rise: float = 20.0) -> void:
+	if GameConfig.is_headless():
+		return
+	for item: Control in items:
+		item.modulate.a = 0.0
+	var tree := root.get_tree()
+	if tree == null:
+		for item: Control in items:
+			item.modulate.a = 1.0
+		return
+	# Two frames before capturing target positions: queue_freed siblings leave
+	# the tree and containers finish sorting (mode_select rebuilds steps).
+	var second_frame := func() -> void:
+		_start_entrance(root, items, rise)
+	var first_frame := func() -> void:
+		tree.process_frame.connect(second_frame, CONNECT_ONE_SHOT)
+	tree.process_frame.connect(first_frame, CONNECT_ONE_SHOT)
+
+
+static func _start_entrance(root: Control, items: Array[Control], rise: float) -> void:
+	if not is_instance_valid(root) or not root.is_inside_tree():
+		return
+	for i: int in items.size():
+		var item := items[i]
+		if not is_instance_valid(item) or not item.is_inside_tree():
+			continue
+		var target_y := item.position.y
+		item.position.y = target_y + rise
+		var delay := minf(0.04 + 0.055 * float(i), 0.5)
+		var tween := item.create_tween()
+		tween.set_parallel(true)
+		tween.tween_property(item, "modulate:a", 1.0, 0.24).set_delay(delay)
+		tween.tween_property(item, "position:y", target_y, 0.32) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT).set_delay(delay)
 
 
 ## Rasterizes an inline SVG string into a texture. Returns null when the
@@ -291,9 +469,9 @@ static func style_option_button(picker: OptionButton) -> void:
 	picker.add_theme_color_override("font_color", COLOR_TEXT)
 	picker.add_theme_color_override("font_hover_color", Color.WHITE)
 	picker.add_theme_color_override("font_focus_color", Color.WHITE)
-	var normal := _button_box(Color(0.106, 0.176, 0.290, 0.97), Color(COLOR_ACCENT, 0.22), 1)
+	var normal := _button_box(Color(0.141, 0.227, 0.365, 0.62), Color(0.78, 0.90, 1.0, 0.22), 1)
 	normal.shadow_size = 3
-	var hover := _button_box(Color(0.145, 0.235, 0.376), Color(COLOR_ACCENT, 0.9), 2)
+	var hover := _button_box(Color(0.196, 0.310, 0.478, 0.78), Color(COLOR_ACCENT, 0.95), 2)
 	hover.shadow_size = 4
 	var focus := StyleBoxFlat.new()
 	focus.draw_center = false

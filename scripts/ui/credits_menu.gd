@@ -80,6 +80,16 @@ func _ready() -> void:
 	var button_center := CenterContainer.new()
 	button_center.add_child(back_button)
 	_content.add_child(button_center)
+
+	# Unified fade+rise entrance over the credit rows. The gentle floating
+	# animation in _process moves _content itself, so animating its children
+	# here never fights it.
+	var entrance_items: Array[Control] = []
+	for child in _content.get_children():
+		if child is Control:
+			entrance_items.append(child as Control)
+	UITheme.play_entrance(self, entrance_items, 14.0)
+
 	UITheme.attach_swipe_back(self, _go_back)
 	back_button.grab_focus()
 

@@ -114,21 +114,47 @@ func build_course() -> void:
 func _build_segment(kind: String, intensity: float) -> void:
 	match kind:
 		"straight":
-			_advance(rng.randf_range(90, 130), rng.randf_range(-15, 15), rng.randf_range(2, 5), {"width": 18.0})
+			# Front half packed snow, back half a smooth-ice patch: recurring
+			# slide rewards on straights. rng draw order/count unchanged so
+			# segment rolls stay byte-identical for a given run_seed. A point's
+			# dict governs the span it STARTS (build_ribbon span [i, i+1) uses
+			# points[i]), so ICE rides the mid point, not the end point.
+			var fwd := rng.randf_range(90, 130)
+			var lat := rng.randf_range(-15, 15)
+			var drop := rng.randf_range(2, 5)
+			_advance(fwd * 0.55, lat, drop * 0.55, {"width": 18.0, "surface": ICE})
+			_advance(fwd * 0.45, 0, drop * 0.45, {"width": 18.0})
+			var ice_start: Vector3 = _pts[_pts.size() - 2]["pos"]
+			_post_build.append(func() -> void:
+				var o := float(main_guide.nearest(ice_start, -1)["offset"])
+				add_hint(o - 5.0, "slide", o + fwd * 0.45))
 		"scurve":
 			var side := 1.0 if rng.randf() > 0.5 else -1.0
 			_advance(70, 35 * side, 3, {"width": 16.0})
 			_advance(70, -35 * side, 3, {"width": 16.0})
+			# Corner-exit acceleration pad: reward a clean line out of the S.
+			var exit_pos := _cursor
+			_post_build.append(func() -> void:
+				var o := float(main_guide.nearest(exit_pos, -1)["offset"])
+				TrackBuilder.add_boost_pad(self, main_guide, o - 6.0))
 		"downhill":
 			_advance(60, rng.randf_range(-10, 10), 4, {"width": 18.0, "surface": ICE})
 			var start := _cursor
 			_advance(120, rng.randf_range(-20, 20), 14, {"width": 18.0, "surface": ICE})
 			_post_build.append(func() -> void:
 				var o := float(main_guide.nearest(start, -1)["offset"])
-				add_hint(o - 20.0, "slide", o + 160.0))
+				add_hint(o - 20.0, "slide", o + 160.0)
+				# Pad at the drop-in launches the slide.
+				TrackBuilder.add_boost_pad(self, main_guide, o + 6.0))
 		"climb":
+			# Acceleration pad at the uphill start helps carry speed into the
+			# deep-snow grind.
+			var base := _cursor
 			_advance(90, rng.randf_range(-10, 10), -5, {"width": 14.0, "surface": DEEP})
 			_advance(50, 0, 1, {"width": 16.0})
+			_post_build.append(func() -> void:
+				var o := float(main_guide.nearest(base, -1)["offset"])
+				TrackBuilder.add_boost_pad(self, main_guide, o + 8.0))
 		"slalom":
 			var side := 1.0 if rng.randf() > 0.5 else -1.0
 			for i: int in 3:

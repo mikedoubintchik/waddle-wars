@@ -136,6 +136,9 @@ var _face_anchor: Node3D
 var _time: float = 0.0
 var _pose_blend: float = 0.0
 var _current_tilt: Vector3 = Vector3.ZERO
+var _base_pos: Vector2 = Vector2.ZERO   # smoothed _root x/y before waddle offsets
+var _head_rot: Vector3 = Vector3.ZERO   # smoothed head rotation before waddle counter-terms
+var _waddle: float = 0.0                # RUN-gait weight; eases the waddle in/out on pose changes
 var _squash: float = 1.0
 var _squash_target: float = 1.0
 
@@ -617,6 +620,12 @@ func setup(config: Dictionary) -> void:
 	add_child(_scale_root)
 	_root = Node3D.new()
 	_scale_root.add_child(_root)
+	# Fresh nodes start at identity; reset the smoothed-animation state that
+	# fed the old nodes so a re-setup (customize preview) doesn't inherit a
+	# stale offset.
+	_base_pos = Vector2.ZERO
+	_head_rot = Vector3.ZERO
+	_waddle = 0.0
 
 	# Body + head: one continuous smooth lathe with baked plumage.
 	_body = _mesh(_root, _build_body_mesh(species_id, body_color, belly_color, patch_color), body_color, Vector3.ZERO, Vector3.ZERO, Vector3.ONE, plumage)
@@ -955,20 +964,19 @@ func tick(delta: float, speed_ratio: float) -> void:
 
 	match pose:
 		Pose.RUN:
-			var sway := clampf(speed_ratio, 0.2, 1.0)
-			# Weight shift: sin(wave) > 0 lifts the LEFT foot, so the body
-			# rolls and translates onto the planted right (+X) foot — the
-			# waddle is an inverted pendulum over the stance leg — while the
-			# head counter-rolls to stay level (real penguins stabilize gaze).
-			target_tilt.z = -sin(wave) * deg_to_rad(8.0) * sway
+			# The waddle rock itself (body roll, hip sway, midstance rise,
+			# head counter-rotation) lives in the _waddle block after this
+			# match: applied directly instead of through the pose lerps so
+			# the ~19 rad/s gait keeps full amplitude, and eased by _waddle
+			# so it fades out smoothly on pose changes.
 			target_tilt.x = deg_to_rad(-6.0) * speed_ratio  # slight forward hustle lean
-			target_y = absf(sin(wave)) * 0.05 * speed_ratio
-			target_x = sin(wave) * 0.026 * sway
-			flipper_swing = sin(wave) * deg_to_rad(22.0) * clampf(speed_ratio, 0.3, 1.0)
+			# Flippers counter-swing against the stance side, trailing the
+			# body rock by ~0.6 rad so they read as loose mass flung by the
+			# waddle rather than metronome levers.
+			flipper_swing = sin(wave - 0.6) * deg_to_rad(26.0) * clampf(speed_ratio, 0.3, 1.0)
 			_head_anchor.position.y = HEAD_Y + sin(wave * 2.0) * 0.012
-			head_roll = -target_tilt.z * 0.55
 			brow_target = deg_to_rad(-12.0)
-			step_lift = 0.055 * clampf(speed_ratio, 0.0, 1.0)
+			step_lift = 0.07 * clampf(speed_ratio, 0.0, 1.0)
 		Pose.IDLE:
 			target_tilt.z = sin(_time * 1.6) * deg_to_rad(2.0)
 			target_y = sin(_time * 2.2) * 0.01
@@ -1025,10 +1033,39 @@ func tick(delta: float, speed_ratio: float) -> void:
 			_head_anchor.position.y = HEAD_Y - 0.05
 			brow_target = deg_to_rad(18.0)
 
+	# Waddle core: sin(wave) > 0 lifts the LEFT foot, so the body rolls and
+	# the hips translate onto the planted right (+X) foot — an inverted
+	# pendulum vaulting over the stance leg, rising slightly at each
+	# midstance. These high-frequency terms bypass the smoothing lerps
+	# (which crush ~19 rad/s oscillation to a fraction of its amplitude)
+	# and are scaled by _waddle so the gait still eases in on RUN entry and
+	# decays over ~0.3 s on exit instead of snapping.
+	_waddle = lerpf(_waddle, 1.0 if pose == Pose.RUN else 0.0, minf(delta * 6.0, 1.0))
+	var rock_roll := 0.0
+	var sway_x := 0.0
+	var bob_y := 0.0
+	var head_yaw_osc := 0.0
+	var head_roll_osc := 0.0
+	if _waddle > 0.001:
+		var sway := clampf(speed_ratio, 0.2, 1.0) * _waddle
+		var rock := sin(wave)
+		rock_roll = -rock * deg_to_rad(17.5) * sway  # ~2.2x the old 8 deg rock
+		sway_x = rock * 0.048 * sway                 # hips shift over the stance foot
+		bob_y = rock * rock * 0.055 * speed_ratio * _waddle  # rise at midstance
+		# Gaze stabilization: the head counter-rolls most of the body rock
+		# away at the neck and counter-yaws slightly, so the face holds
+		# near-steady while the body metronomes under it — real penguins
+		# stabilize their gaze exactly this way.
+		head_roll_osc = -rock_roll * 0.75
+		head_yaw_osc = rock * deg_to_rad(6.0) * sway
+
 	_current_tilt = _current_tilt.lerp(target_tilt, minf(delta * 8.0, 1.0))
 	_root.rotation = _current_tilt
-	_root.position.y = lerpf(_root.position.y, target_y, minf(delta * 8.0, 1.0))
-	_root.position.x = lerpf(_root.position.x, target_x, minf(delta * 8.0, 1.0))
+	_root.rotation.z += rock_roll
+	_base_pos.y = lerpf(_base_pos.y, target_y, minf(delta * 8.0, 1.0))
+	_base_pos.x = lerpf(_base_pos.x, target_x, minf(delta * 8.0, 1.0))
+	_root.position.y = _base_pos.y + bob_y
+	_root.position.x = _base_pos.x + sway_x
 	# Squash & stretch: impact squash (trigger_squash) combines with the
 	# slide's belly press — compression along local Z, the chest-to-back axis
 	# while prone, widening the shoulders — and idle breathing swells the
@@ -1044,12 +1081,17 @@ func tick(delta: float, speed_ratio: float) -> void:
 	)
 	_squash = lerpf(_squash, 1.0, minf(delta * 6.0, 1.0))
 
-	# Head secondary motion: counter-roll keeps the head level through the
-	# waddle rock, pitch cranes up during slides, yaw is the idle glance.
-	# The slow yaw lerp turns the glance into a deliberate look, not a twitch.
-	_head_anchor.rotation.x = lerpf(_head_anchor.rotation.x, head_pitch, minf(delta * 5.0, 1.0))
-	_head_anchor.rotation.y = lerpf(_head_anchor.rotation.y, head_yaw, minf(delta * 2.2, 1.0))
-	_head_anchor.rotation.z = lerpf(_head_anchor.rotation.z, head_roll, minf(delta * 8.0, 1.0))
+	# Head secondary motion: pitch cranes up during slides, yaw is the idle
+	# glance (the slow yaw lerp turns it into a deliberate look, not a
+	# twitch). The smoothed base lives in _head_rot; the waddle's
+	# counter-rotation terms are added on top unsmoothed so they track the
+	# body rock exactly and the head reads stable through the waddle.
+	_head_rot.x = lerpf(_head_rot.x, head_pitch, minf(delta * 5.0, 1.0))
+	_head_rot.y = lerpf(_head_rot.y, head_yaw, minf(delta * 2.2, 1.0))
+	_head_rot.z = lerpf(_head_rot.z, head_roll, minf(delta * 8.0, 1.0))
+	_head_anchor.rotation.x = _head_rot.x
+	_head_anchor.rotation.y = _head_rot.y + head_yaw_osc
+	_head_anchor.rotation.z = _head_rot.z + head_roll_osc
 
 	if _flipper_l != null:
 		_flipper_l.rotation.z = lerpf(_flipper_l.rotation.z, flipper_l_target + flipper_swing, minf(delta * 10.0, 1.0))
@@ -1062,19 +1104,24 @@ func tick(delta: float, speed_ratio: float) -> void:
 		_brow_r.rotation.z = -_brow_l.rotation.z
 
 	if _foot_l != null and pose == Pose.RUN:
-		var lift_l := maxf(0.0, sin(wave))
-		var lift_r := maxf(0.0, -sin(wave))
-		_foot_l.position.z = FOOT_Z + sin(wave) * 0.08 * speed_ratio
-		_foot_r.position.z = FOOT_Z - sin(wave) * 0.08 * speed_ratio
+		# Alternating step cycle: each foot lifts through a half-sine hop
+		# during its swing half-cycle (sin > 0 is the left swing) and sits
+		# planted for the other half, scaled by _waddle so steps grow in
+		# with the rock on RUN entry.
+		var lift_l := maxf(0.0, sin(wave)) * _waddle
+		var lift_r := maxf(0.0, -sin(wave)) * _waddle
+		_foot_l.position.z = FOOT_Z + sin(wave) * 0.08 * speed_ratio * _waddle
+		_foot_r.position.z = FOOT_Z - sin(wave) * 0.08 * speed_ratio * _waddle
 		_foot_l.position.y = FOOT_Y + lift_l * step_lift
 		_foot_r.position.y = FOOT_Y + lift_r * step_lift
-		# Ankle flex: the planted sole counter-rolls the body rock so it
-		# stays flat on the snow; the lifted foot pitches toes-down like a
-		# push-off instead of hovering level in mid-air.
-		_foot_l.rotation.z = -_current_tilt.z * (1.0 - lift_l)
-		_foot_r.rotation.z = -_current_tilt.z * (1.0 - lift_r)
-		_foot_l.rotation.x = lift_l * deg_to_rad(-14.0)
-		_foot_r.rotation.x = lift_r * deg_to_rad(-14.0)
+		# Ankle flex: the planted sole counter-rolls the FULL applied body
+		# roll (smoothed tilt + waddle rock) so it stays flat on the snow;
+		# the swing foot pitches toes-down through its hop like a push-off
+		# instead of hovering level in mid-air.
+		_foot_l.rotation.z = -_root.rotation.z * (1.0 - lift_l)
+		_foot_r.rotation.z = -_root.rotation.z * (1.0 - lift_r)
+		_foot_l.rotation.x = lift_l * deg_to_rad(-18.0)
+		_foot_r.rotation.x = lift_r * deg_to_rad(-18.0)
 	elif _foot_l != null:
 		_foot_l.position.z = FOOT_Z
 		_foot_r.position.z = FOOT_Z

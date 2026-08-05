@@ -62,9 +62,10 @@ static func p(x: float, y: float, z: float, extra: Dictionary = {}) -> Dictionar
 
 func build_course() -> void:
 	var pts: Array = [
-		# 1) Start ridge plateau.
+		# 1) Start ridge plateau. The middle span is a smooth-ice patch: an
+		# early flat slide reward on the dead-straight opening.
 		p(0, 40, 35, {"width": 18.0}),
-		p(0, 40, -25, {"width": 18.0}),
+		p(0, 40, -25, {"width": 18.0, "surface": ICE}),
 		p(0, 40, -62, {"width": 18.0}),
 		# 2) Zigzag switchback climb (+40m over ~560m, three gentle hairpins).
 		p(16, 41.5, -94, {"width": 16.0}),
@@ -103,15 +104,18 @@ func build_course() -> void:
 		p(-74, 56.6, -752, {"width": 15.0}),  # descent hairpin apex
 		p(-62, 55.0, -774, {"width": 15.0}),
 		p(-34, 53.0, -792, {"width": 15.0}),
-		p(4, 50.8, -808, {"width": 16.0}),
-		p(30, 49.0, -822, {"width": 16.0}),
+		# Descent tail: smooth-ice patch on the near-straight run-out (ends
+		# ~60m before the geyser field, so steering room is back first).
+		p(4, 50.8, -808, {"width": 16.0, "surface": ICE}),
+		p(30, 49.0, -822, {"width": 16.0, "surface": ICE}),
 		p(44, 47.8, -840, {"width": 16.0, "wall_r": false}),
 		p(50, 46.8, -864, {"width": 18.0, "wall_r": false}),
 		p(46, 46.0, -888, {"width": 20.0, "wall_r": false}),
 		# 6) Ice geyser field: wide downhill, playful launches.
 		p(40, 42.0, -938, {"width": 20.0}),
 		p(34, 38.4, -986, {"width": 20.0}),
-		p(34, 36.2, -1014, {"width": 20.0}),
+		# Corkscrew approach iced so the finale slide starts past the geysers.
+		p(34, 36.2, -1014, {"width": 20.0, "surface": ICE}),
 		# 7) Corkscrew finale: 270-degree descending spiral, r=45, drops ~42m
 		# at a sustained ~11.5 degrees — most of the climb's gained height.
 		p(35, 35.0, -1030, {"width": 18.0, "surface": ICE}),
@@ -226,6 +230,20 @@ func build_course() -> void:
 	add_hint(spiral_late_arc, "slide", spiral_end_arc)
 	TrackBuilder.add_boost_pad(self, main_guide, spiral_arc + 45.0, -2.5)
 	TrackBuilder.add_boost_pad(self, main_guide, spiral_arc + 125.0, 2.5)
+
+	# More acceleration pads: every switchback hairpin exit (the climb's
+	# corner-exit rewards), the safe-descent hairpin exit, and a ridge
+	# shortcut survivor reward near its merge. All clear of the wind zones,
+	# icicle cavern, and geyser field.
+	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(112, 53.6, -170)) + 4.0)
+	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(-70, 71.2, -254)) + 4.0)
+	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(58, 80.0, -306)) + 4.0)
+	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(-62, 55.0, -774)) + 4.0, 2.5)
+	TrackBuilder.add_boost_pad(self, shortcut, shortcut.length - 20.0)
+	# Slide hint for the new descent-tail ice patch (start plateau ice is
+	# left unhinted — racers are still building speed off the grid; the
+	# corkscrew-approach ice sits inside the geyser->spiral slide hint).
+	add_hint(_arc_near(Vector3(4, 50.8, -808)) - 8.0, "slide", _arc_near(Vector3(44, 47.8, -840)))
 
 	# Shortcut: slide its steep tail. Branch hint offsets are main-line
 	# equivalents: lerp(entry, exit) by branch arc fraction (see get_guide).
