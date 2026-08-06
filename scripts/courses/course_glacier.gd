@@ -1270,7 +1270,12 @@ func _decorate_mountains() -> void:
 
 func _place_mountain(seed_value: int, center: Vector3, dist_min: float, dist_max: float, h_min: float, h_max: float, haze: float) -> void:
 	var height := rng.randf_range(h_min, h_max)
-	var footprint := height * rng.randf_range(0.55, 0.85)
+	# Footprint as a fraction of height. Below ~0.9 the hull reads as a spire:
+	# the old 0.55-0.85 band produced the row of identical sharp cones that made
+	# the skyline look like placeholder geometry. Real massifs are wider than
+	# they are tall, and the wide spread here (some squat, some steep) is what
+	# stops neighbouring peaks reading as copies of one mesh.
+	var footprint := height * rng.randf_range(0.95, 1.7)
 	for _attempt: int in 10:
 		var angle := rng.randf() * TAU
 		var dist := rng.randf_range(dist_min, dist_max)
@@ -1310,7 +1315,9 @@ func _mountain_mesh(seed_value: int, haze: float) -> ArrayMesh:
 	mrng.seed = seed_value
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var sides := 12
+	# Varying the column count changes the silhouette's whole rhythm, so peaks
+	# differ in outline and not just in noise.
+	var sides := mrng.randi_range(9, 14)
 	var ring_heights: Array[float] = [
 		0.0,
 		mrng.randf_range(0.3, 0.4),

@@ -731,7 +731,10 @@ func _add_horizon_bergs() -> void:
 		var berg_count := rng.randi_range(1, 2) if low_detail else rng.randi_range(2, 3)
 		for k: int in berg_count:
 			var berg := MeshInstance3D.new()
-			berg.mesh = VisualLibrary.berg_mesh(rng.randi_range(0, 7))
+			# Eight shapes across two dozen instances read as one berg stamped
+			# repeatedly along the horizon. Sixteen is still few enough to batch
+			# but enough that neighbours stop rhyming.
+			berg.mesh = VisualLibrary.berg_mesh(rng.randi_range(0, 15))
 			berg.material_override = warm_mat if bool(cluster["warm"]) else berg_mat
 			# Horizon skyline only — never let these giants cast into the scene.
 			berg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -750,7 +753,7 @@ func _add_horizon_bergs() -> void:
 		var xf := main_guide.transform_at(main_guide.length * (float(i) + 0.5) / float(far_count))
 		var side := 1.0 if i % 2 == 0 else -1.0
 		var mega := MeshInstance3D.new()
-		mega.mesh = VisualLibrary.berg_mesh(rng.randi_range(0, 7))
+		mega.mesh = VisualLibrary.berg_mesh(rng.randi_range(16, 27))
 		mega.material_override = far_mat
 		mega.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var ms := rng.randf_range(60.0, 105.0)
