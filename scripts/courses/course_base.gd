@@ -495,8 +495,7 @@ func start_grid_transform(slot: int) -> Transform3D:
 ##   sky_contribution (ambient from sky, 1.0), fog_height + fog_height_density
 ##   (height fog, off unless fog_height given), glow (bool, default true;
 ##   auto-off when particle_quality == "low"), glow_threshold (1.1),
-##   shadow_distance (140.0), clouds (bool) + cloud_color, distant_bergs
-##   (bool) + berg_color/berg_count/berg_distance/berg_y.
+##   shadow_distance (140.0), clouds (bool) + cloud_color.
 ## Atmospheric perspective (all optional): fog_horizon_blend (0..1, default
 ##   0.35 — shifts the fog hue toward sky_horizon so distance reads as
 ##   atmosphere, not gray soup), fog_aerial (0..1, default 0.5 — Godot aerial
@@ -504,8 +503,19 @@ func start_grid_transform(slot: int) -> Transform3D:
 ##   (default 0.2), shadow_blur (softer sun shadow edge; defaults 1.0 on the
 ##   "low" shadow preset, 1.75 otherwise).
 ## Grade + glow (all optional): glow_intensity (default 0.5), contrast
-##   (default 1.07) and saturation (default 1.06) — a mild global grade that
+##   (default 1.09) and saturation (default 1.1) — a mild global grade that
 ##   sells crisp polar air; ignored by renderers without adjustment support.
+## Sky cover (optional): sky_cover_strength (0 disables; defaults 0.34 when
+##   clouds is on, 0.14 otherwise) paints a procedural cloud panorama into the
+##   sky material itself — no draw calls, no overdraw. cloud_cover (0..1, 0.34)
+##   sets how much of the dome the cumulus deck fills, cloud_streaks (0..1,
+##   0.5) how strong the high cirrus above it reads.
+## Skyline (optional): skyline (bool, default true) stamps three depth bands of
+##   baked silhouettes along the racing line — see _build_far_field.
+##   skyline_color (ice albedo) and skyline_density (form count, 1.0) tune it;
+##   the legacy berg_color and berg_y params still feed it, and the old
+##   distant_bergs / berg_count / berg_distance ring params are accepted and
+##   ignored — the banded skyline replaced that ring on every course.
 ## Light rig (optional): fill_energy (default 0.18, 0 disables) + fill_color —
 ##   a cool unshadowed sky-fill directional from the anti-sun direction, so
 ##   shadow sides read as blue sky bounce instead of flat ambient (specular
@@ -527,6 +537,25 @@ func build_environment(params: Dictionary) -> void:
 	sky_mat.sun_angle_max = float(params.get("sun_angle_max", 15.0))
 	sky_mat.sun_curve = float(params.get("sun_curve", 0.08))
 	sky_mat.sky_energy_multiplier = float(params.get("sky_energy", 1.0))
+	# Cloud deck baked into the sky itself: a two-stop gradient with three
+	# billboard blobs in front of it is the flattest thing in the frame, and a
+	# panorama costs no draw call, no overdraw and no transparency sorting.
+	# Courses with clouds on get a full deck; the rest get a faint high veil so
+	# even a clear sky has structure. Additive by contract (the sky shader adds
+	# cover.rgb * modulate * cover.a), so the tint doubles as the cloud color.
+	var cover_strength := float(params.get("sky_cover_strength",
+		0.34 if bool(params.get("clouds", false)) else 0.14))
+	if cover_strength > 0.0 and not GameConfig.is_headless():
+		var cover := _sky_cover_texture(
+			hash(course_id) & 0xffff,
+			clampf(float(params.get("cloud_cover", 0.34)), 0.0, 1.0),
+			clampf(float(params.get("cloud_streaks", 0.5)), 0.0, 1.0))
+		if cover != null:
+			var cover_tint: Color = params.get("cloud_color",
+				(params.get("sky_horizon", Color(0.75, 0.88, 0.98)) as Color).lerp(Color.WHITE, 0.55))
+			sky_mat.sky_cover = cover
+			sky_mat.sky_cover_modulate = Color(
+				cover_tint.r, cover_tint.g, cover_tint.b, cover_strength * cover_tint.a)
 	sky.sky_material = sky_mat
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
@@ -570,8 +599,8 @@ func build_environment(params: Dictionary) -> void:
 	# older gl_compatibility web builds).
 	if not GameConfig.is_headless():
 		env.adjustment_enabled = true
-		env.adjustment_contrast = float(params.get("contrast", 1.05))
-		env.adjustment_saturation = float(params.get("saturation", 1.06))
+		env.adjustment_contrast = float(params.get("contrast", 1.09))
+		env.adjustment_saturation = float(params.get("saturation", 1.1))
 	if bool(params.get("glow", true)) and SettingsManager.glow_allowed():
 		# High HDR threshold: only emissive peaks (boost pads, pickups, aurora)
 		# bloom — cheap on Forward Mobile, never a full-screen wash.
@@ -644,79 +673,650 @@ func build_environment(params: Dictionary) -> void:
 		_add_snowfall()
 	if bool(params.get("clouds", false)) and not GameConfig.is_headless():
 		_add_clouds(params.get("cloud_color", Color(1.0, 1.0, 1.0, 0.75)))
-	if bool(params.get("distant_bergs", false)) and not GameConfig.is_headless():
-		_add_distant_bergs(params)
+	# The skyline runs one frame late on purpose: several courses lay their
+	# ocean / ice sheet down AFTER build_environment (iceberg does), and every
+	# silhouette seats itself on that surface. Deferring means the far field
+	# reads the real ground on every course instead of the "lowest track point
+	# - 24" fallback, which on iceberg would have sunk the whole skyline 18m
+	# under the sea.
+	if not GameConfig.is_headless():
+		_build_far_field.call_deferred(params)
 
 
-## 3-puff soft billboard cloud clusters spread high along the main line.
-## One cached keep-scale billboard material + one shared unit quad for every
-## puff (previously: a unique material per course build and a unique QuadMesh
-## per puff); per-puff size lives in the node scale instead.
+## Cumulus clusters: a wide flat base of big soft puffs with a smaller domed
+## crown above it, instead of three equal blobs in a row. Every puff of a layer
+## rides ONE MultiMesh, so the whole sky costs two draw calls (it used to cost
+## fifteen MeshInstance3Ds for a fifth of the puffs) and two cached materials.
+## The fine structure of the sky is the panorama in the sky material; these are
+## the near, parallaxing clouds in front of it.
 func _add_clouds(color: Color) -> void:
-	var cloud_mat := VisualLibrary.billboard_puff_material(color, 64, 0.85, true)
 	var puff_mesh := QuadMesh.new()
-	puff_mesh.size = Vector2(1.0, 0.55)
-	var count := 5
-	for i: int in count:
+	puff_mesh.size = Vector2(1.0, 0.62)
+	# Base puffs read cooler and heavier than the sunlit crown: a cumulus with
+	# a uniformly bright underside is the classic cartoon-blob tell.
+	var shade := Color(color.r * 0.82, color.g * 0.86, color.b * 0.96, color.a * 0.92)
+	var crown_mat := VisualLibrary.billboard_puff_material(color, 64, 0.85, true)
+	var base_mat := VisualLibrary.billboard_puff_material(shade, 64, 0.8, true)
+	var crown: Array[Transform3D] = []
+	var base: Array[Transform3D] = []
+	var clusters := 7
+	for i: int in clusters:
 		var anchor := Vector3.ZERO
 		if main_guide != null:
-			anchor = main_guide.position_at(main_guide.length * (float(i) + 0.5) / float(count))
-		var cluster := Node3D.new()
-		cluster.name = "Cloud_%d" % i
-		cluster.position = anchor + Vector3(
-			rng.randf_range(-260.0, 260.0),
-			rng.randf_range(110.0, 170.0),
-			rng.randf_range(-120.0, 120.0))
-		for j: int in 3:
-			var puff := MeshInstance3D.new()
-			var size := rng.randf_range(55.0, 110.0)
-			puff.mesh = puff_mesh
-			puff.scale = Vector3(size, size, 1.0)
-			puff.material_override = cloud_mat
-			# Translucent quads still cast shadows by default — with a low sun
-			# they paint huge blue blobs across the track.
-			puff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			puff.position = Vector3(
-				rng.randf_range(-30.0, 30.0),
-				rng.randf_range(-8.0, 8.0),
-				rng.randf_range(-18.0, 18.0))
-			# Generous range so only genuinely distant clouds fade on medium/low.
-			VisualLibrary.apply_dressing_range(puff, 900.0)
-			cluster.add_child(puff)
-		add_child(cluster)
+			anchor = main_guide.position_at(main_guide.length * (float(i) + 0.5) / float(clusters))
+		var spread := rng.randf_range(85.0, 165.0)
+		var center := anchor + Vector3(
+			rng.randf_range(-340.0, 340.0),
+			rng.randf_range(115.0, 225.0),
+			rng.randf_range(-260.0, 260.0))
+		# Flat base line, domed crown: puff centres are laid out on an ellipse
+		# for the base and a tighter, higher ellipse for the crown, with size
+		# falling off from the middle of the cluster outward.
+		var stretch := rng.randf_range(1.0, 1.8)
+		for j: int in 4:
+			var t := (float(j) / 3.0 - 0.5) * 2.0
+			var size := spread * (1.0 - absf(t) * 0.35) * rng.randf_range(0.85, 1.15)
+			base.append(Transform3D(
+				Basis.IDENTITY.scaled(Vector3(size, size, 1.0)),
+				center + Vector3(t * spread * stretch * 0.55,
+					rng.randf_range(-4.0, 4.0),
+					rng.randf_range(-spread * 0.3, spread * 0.3))))
+		for j: int in 5:
+			var t := (float(j) / 4.0 - 0.5) * 2.0
+			var size := spread * (0.72 - absf(t) * 0.3) * rng.randf_range(0.85, 1.2)
+			crown.append(Transform3D(
+				Basis.IDENTITY.scaled(Vector3(size, size, 1.0)),
+				center + Vector3(t * spread * stretch * 0.4,
+					spread * rng.randf_range(0.22, 0.5) * (1.0 - absf(t) * 0.5),
+					rng.randf_range(-spread * 0.25, spread * 0.25))))
+	_add_puff_layer("CloudBase", puff_mesh, base_mat, base)
+	_add_puff_layer("CloudCrown", puff_mesh, crown_mat, crown)
 
 
-## Ring of low-poly iceberg silhouettes near the horizon for depth layering.
-## The ring stands ON the ice sheet: the old default (lowest track point - 6)
-## was a guess that left bergs hanging metres above the plane on any course
-## whose track bottoms out well above its ocean level. berg_y still overrides.
-func _add_distant_bergs(params: Dictionary) -> void:
-	var count := int(params.get("berg_count", 10))
-	var distance := float(params.get("berg_distance", 650.0))
-	var color: Color = params.get("berg_color", Color(0.78, 0.87, 0.96))
-	var center := Vector3.ZERO
-	if main_guide != null and main_guide.points.size() > 0:
-		var sum := Vector3.ZERO
-		for point: Vector3 in main_guide.points:
-			sum += point
-		center = sum / float(main_guide.points.size())
-	var base_y := float(params.get("berg_y", ground_plane_y()))
-	var mat := VisualLibrary.rock_material(color)
-	for i: int in count:
-		var angle := TAU * float(i) / float(count) + rng.randf_range(-0.18, 0.18)
-		var berg := MeshInstance3D.new()
-		berg.mesh = VisualLibrary.berg_mesh(rng.randi())
-		berg.material_override = mat
-		var s := rng.randf_range(28.0, 70.0)
-		berg.scale = Vector3(s * rng.randf_range(0.8, 1.3), s * rng.randf_range(0.55, 0.9), s)
-		# berg_mesh starts at local y = 0, so the scaled Y is the berg height:
-		# sink a slice of it so the waterline reads planted, not balanced.
-		berg.position = Vector3(center.x + cos(angle) * distance,
-			base_y - ground_embed(berg.scale.y, 0.06), center.z + sin(angle) * distance)
-		berg.rotation.y = rng.randf() * TAU
-		# Horizon dressing: only the far side of the berg ring fades on low.
-		VisualLibrary.apply_dressing_range(berg, 1200.0)
-		add_child(berg)
+func _add_puff_layer(node_name: String, mesh: Mesh, material: Material,
+		transforms: Array[Transform3D]) -> void:
+	if transforms.is_empty():
+		return
+	var multi := MultiMesh.new()
+	multi.transform_format = MultiMesh.TRANSFORM_3D
+	multi.mesh = mesh
+	multi.instance_count = transforms.size()
+	for i: int in transforms.size():
+		multi.set_instance_transform(i, transforms[i])
+	var node := MultiMeshInstance3D.new()
+	node.name = node_name
+	node.multimesh = multi
+	node.material_override = material
+	# Translucent quads still cast shadows by default — with a low sun they
+	# paint huge blue blobs across the track.
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(node)
+
+
+## --- Skyline ----------------------------------------------------------------
+## Three depth bands of silhouettes stamped along the racing line, so every
+## stretch of track has a near ice field, a middle band and a far massif wall
+## around it — the empty plate between the racer and the horizon was the single
+## biggest "flat backdrop" tell.
+##
+## Everything in a band is baked into a handful of world-space ArrayMeshes that
+## all share ONE cached material (VisualLibrary.rock_material(white), the same
+## instance the course mountains already use), so a whole course skyline is
+## about a dozen draw calls, ~6k triangles and no new shader program — cheaper
+## than the twelve separate berg MeshInstance3Ds it replaced. Silhouette
+## variety comes from four generators (massif, tabular berg, pressure ridge,
+## snow dome) with per-form profile exponents, column noise, lean, aspect ratio
+## and snowline, so no two forms share a shape — which a ring of scaled copies
+## of one berg mesh could never do.
+##
+## Aerial perspective is baked into the vertex colours: each face is tinted by
+## how it faces the sun (warm lit / cool shadowed, which also restores the form
+## a flat white cutout loses), then lerped toward the sky horizon colour by its
+## band's haze. Because forms are placed relative to the guide, a form's band
+## distance IS roughly its distance from the camera, so the haze stays honest
+## wherever the racer is on the course.
+
+## Environment dressing RNG, kept separate from the course `rng` so retuning
+## the skyline never re-rolls a course's own authored dressing.
+var _env_rng := RandomNumberGenerator.new()
+
+## Longest a pressure ridge runs, as a multiple of its footprint. Shared by the
+## generator and the placement clearance test, which has to know how far a form
+## reaches before it decides whether it clears the racing line.
+const _RIDGE_SPAN: float = 5.2
+
+
+func _build_far_field(params: Dictionary) -> void:
+	if GameConfig.is_headless() or main_guide == null or not is_inside_tree():
+		return
+	if not bool(params.get("skyline", true)):
+		return
+	_env_rng.seed = hash(course_id) * 2654435761 + 12345
+	var horizon: Color = params.get("sky_horizon", Color(0.75, 0.88, 0.98))
+	# Ice albedo, not screen colour. A hot polar key light (glacier runs 1.85)
+	# plus ACES lifts these roughly two stops, so anything authored near white
+	# clips to a paper cutout — which is exactly how the old berg ring read.
+	var base: Color = params.get("skyline_color",
+		params.get("berg_color", Color(0.6, 0.71, 0.86).lerp(horizon, 0.12)))
+	var sun_yaw := deg_to_rad(float(params.get("sun_yaw_deg", -30.0)))
+	var look := {
+		# Horizontal direction the sun is in (the light's -Z, flattened).
+		"to_sun": Vector3(sin(sun_yaw), 0.0, cos(sun_yaw)),
+		# Both tints stay close to white on purpose: the engine already lights
+		# these with the real sun colour, and tinting a second time turned
+		# sunrise ice into sand dunes.
+		"warm": (params.get("sun_color", Color(1.0, 0.965, 0.91)) as Color).lerp(Color.WHITE, 0.68),
+		"cool": ((params.get("sky_top", Color(0.25, 0.55, 0.85)) as Color)
+			.lerp(horizon, 0.5)).lerp(Color.WHITE, 0.55),
+		# Haze target is an albedo too: the horizon tint at the value distant
+		# geometry has to land on once the light hits it.
+		"horizon": horizon.lerp(Color.WHITE, 0.45) * 0.62,
+		"snow": base.lerp(Color.WHITE, 0.7) * 0.5,
+		"rock": base * 0.15,
+		"ice": base * 0.42,
+		"haze": 0.0,
+	}
+	var plane_y := float(params.get("berg_y", ground_plane_y()))
+	var density := float(params.get("skyline_density", 1.0))
+	match String(SettingsManager.get_setting("display", "quality_preset")):
+		"low":
+			density *= 0.5
+		"medium":
+			density *= 0.78
+	# near / far = lateral distance from the racing line. Heights are tuned so
+	# each band subtends a similar slice of sky from the track: the near band
+	# is a low broken foreground, the far band a horizon wall.
+	# h_min/h_max are metres of rise ABOVE THE RACING LINE, not absolute height.
+	var bands: Array[Dictionary] = [
+		{"name": "SkylineNear", "near": 150.0, "far": 340.0, "step": 155.0, "per": 2,
+			"h_min": 4.0, "h_max": 22.0, "foot": 1.15, "haze": 0.06,
+			"mix": ["ridge", "ridge", "dome", "peak", "ridge"], "cull": 620.0},
+		{"name": "SkylineMid", "near": 360.0, "far": 530.0, "step": 250.0, "per": 2,
+			"h_min": 24.0, "h_max": 78.0, "foot": 1.0, "haze": 0.2,
+			"mix": ["peak", "tabular", "tabular", "ridge", "dome"], "cull": 0.0},
+		{"name": "SkylineFar", "near": 545.0, "far": 700.0, "step": 330.0, "per": 1,
+			"h_min": 100.0, "h_max": 235.0, "foot": 0.85, "haze": 0.46,
+			"mix": ["peak", "peak", "peak", "tabular", "dome"], "cull": 0.0},
+	]
+	for band: Dictionary in bands:
+		_build_skyline_band(band, look, plane_y, density)
+
+
+func _build_skyline_band(band: Dictionary, look: Dictionary, plane_y: float, density: float) -> void:
+	var step := maxf(float(band["step"]) / maxf(density, 0.2), 60.0)
+	var near_lat := float(band["near"])
+	var far_lat := float(band["far"])
+	var mix: Array = band["mix"]
+	# Stations run past both ends of the line so the view down-track at the
+	# start and past the finish is never a bare horizon.
+	var start := -step * 2.0
+	var end := main_guide.length + step * 2.0
+	var station := 0
+	var chunk_size := 3  # stations per baked mesh: enough for frustum culling
+	var chunks: Dictionary = {}
+	var offset := start
+	while offset <= end:
+		var xform := _extended_frame(offset)
+		for side: float in [-1.0, 1.0]:
+			for k: int in int(band["per"]):
+				if _env_rng.randf() > 0.82:
+					continue  # gaps: an unbroken picket fence reads as wallpaper
+				var lateral := _env_rng.randf_range(near_lat, far_lat)
+				var along := _env_rng.randf_range(-step * 0.45, step * 0.45)
+				var pos := xform.origin + xform.basis.x * (lateral * side) - xform.basis.z * along
+				pos.y = ground_height_at(Vector3(pos.x, plane_y + 500.0, pos.z), 0.0, 560.0)
+				var kind := String(mix[_env_rng.randi() % mix.size()])
+				# Heights are authored as RISE ABOVE THE DECK, then grown by
+				# however far the surrounding ground sits below the racing line.
+				# Courses run their track anywhere from 6m to 40m over their ice
+				# sheet, and a fixed height leaves the whole band hidden behind
+				# the track shoulder on the tall ones — which is exactly how the
+				# dead plate between racer and horizon opened up.
+				var height := _env_rng.randf_range(float(band["h_min"]), float(band["h_max"])) \
+					+ clampf(xform.origin.y - pos.y, 0.0, 45.0)
+				# Aspect ratio is what tells a horn from a tabular berth: one
+				# shared width-to-height ratio for every form in a band is the
+				# repeated-mesh look with extra steps.
+				var shape := 1.0
+				match kind:
+					"tabular":
+						shape = _env_rng.randf_range(0.8, 1.7)
+					"dome":
+						shape = _env_rng.randf_range(0.9, 1.6)
+					"ridge":
+						shape = _env_rng.randf_range(0.32, 0.62)
+					_:
+						# Massifs are broader than they are tall. A footprint
+						# under about 0.8x the height gives the spike silhouette
+						# that reads as placeholder cone geometry.
+						shape = _env_rng.randf_range(0.9, 1.7)
+				var footprint := height * shape * float(band["foot"])
+				var reach := footprint * (0.5 * _RIDGE_SPAN if kind == "ridge" else 1.0)
+				if not _skyline_clear(pos, reach * 1.25 + 30.0):
+					continue
+				pos.y -= ground_embed(height, 0.03)
+				var form: Dictionary = look.duplicate()
+				# Per-form value jitter: two neighbours cut from the same tone
+				# read as two copies of one prop however different their shape.
+				var jitter := _env_rng.randf_range(0.86, 1.14)
+				form["ice"] = (look["ice"] as Color) * jitter
+				form["snow"] = (look["snow"] as Color) * lerpf(1.0, jitter, 0.6)
+				form["rock"] = (look["rock"] as Color) * jitter
+				# Depth inside the band: the far edge of a band is a good 40%
+				# further away than its near edge, and must read that way.
+				form["haze"] = clampf(float(band["haze"])
+					+ (lateral - near_lat) / maxf(far_lat - near_lat, 1.0) * 0.13, 0.0, 0.92)
+				var key := station / chunk_size
+				if not chunks.has(key):
+					var fresh := SurfaceTool.new()
+					fresh.begin(Mesh.PRIMITIVE_TRIANGLES)
+					chunks[key] = fresh
+				_bake_form(chunks[key], kind, pos, footprint, height, form, 0)
+		station += 1
+		offset += step
+	var material := VisualLibrary.rock_material(Color(1.0, 1.0, 1.0))
+	for key: Variant in chunks:
+		var st: SurfaceTool = chunks[key]
+		st.generate_normals()
+		var instance := MeshInstance3D.new()
+		instance.name = "%s_%d" % [band["name"], int(key)]
+		instance.mesh = st.commit()
+		instance.material_override = material
+		# Backdrop only: never let a 200m massif throw a shadow map's worth of
+		# resolution away, and never let it shadow the racing line.
+		instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		if float(band["cull"]) > 0.0:
+			VisualLibrary.apply_dressing_range(instance, float(band["cull"]))
+		add_child(instance)
+
+
+## Guide frame extended past both ends of the line: offsets outside [0, length]
+## keep the end frame and slide along its tangent, so skyline stations can run
+## beyond the start and the finish.
+func _extended_frame(offset: float) -> Transform3D:
+	var clamped := clampf(offset, 0.0, main_guide.length)
+	var xform := main_guide.transform_at(clamped)
+	var over := offset - clamped
+	if absf(over) > 0.01:
+		xform.origin -= xform.basis.z * over
+	return xform
+
+
+## True when nothing of the racing line — main or branch — comes within
+## `clearance` of `pos` horizontally. Skyline forms are backdrop: one landing on
+## a switchback below or a shortcut beside the camera destroys the depth read.
+func _skyline_clear(pos: Vector3, clearance: float) -> bool:
+	var flat := Vector3(pos.x, 0.0, pos.z)
+	if _flat_distance_to(main_guide, flat) < clearance:
+		return false
+	for branch: Dictionary in branches:
+		if _flat_distance_to(branch["guide"] as PathGuide, flat) < clearance:
+			return false
+	return true
+
+
+func _flat_distance_to(guide: PathGuide, flat_pos: Vector3) -> float:
+	var best := INF
+	for point: Vector3 in guide.points:
+		var dx := point.x - flat_pos.x
+		var dz := point.z - flat_pos.z
+		best = minf(best, dx * dx + dz * dz)
+	return sqrt(best)
+
+
+## --- Skyline form generators -------------------------------------------------
+## Every generator writes world-space triangles with baked per-face colour into
+## a shared SurfaceTool. `depth` guards the one-level recursion the compound
+## forms use (a shoulder peak, a stacked berg tier).
+
+func _bake_form(st: SurfaceTool, kind: String, pos: Vector3, footprint: float,
+		height: float, look: Dictionary, depth: int) -> void:
+	match kind:
+		"tabular":
+			_bake_tabular(st, pos, footprint, height, look, depth)
+		"ridge":
+			_bake_ridge(st, pos, footprint, height, look)
+		"dome":
+			_bake_dome(st, pos, footprint, height, look)
+		_:
+			_bake_peak(st, pos, footprint, height, look, depth)
+
+
+## Craggy massif. Four rings under an apex; a per-form profile exponent decides
+## whether it is a broad-shouldered block or a sharp horn, angular noise plus
+## per-column spurs run ridges down the flanks, and the ring centres drift with
+## altitude so nothing is a symmetric cone. Rock below a per-form snowline,
+## dappled through the transition band, white above.
+func _bake_peak(st: SurfaceTool, pos: Vector3, footprint: float, height: float,
+		look: Dictionary, depth: int) -> void:
+	var sides := _env_rng.randi_range(9, 13)
+	# Biased concave: a profile of 1.0 is a straight-sided cone, and a field of
+	# those is the low-poly-placeholder look. Under 1.0 the flanks flare into
+	# shoulders, over it they blunt into mesas — both beat a ruled triangle.
+	var profile := _env_rng.randf_range(0.45, 1.35)
+	if _env_rng.randf() < 0.6:
+		profile = _env_rng.randf_range(0.45, 0.85)
+	var ring_t: Array[float] = [0.0, 0.3, 0.58, 0.81]
+	var lean := Vector2(_env_rng.randf_range(-0.32, 0.32), _env_rng.randf_range(-0.32, 0.32))
+	var phase_a := _env_rng.randf() * TAU
+	var phase_b := _env_rng.randf() * TAU
+	var amp_a := _env_rng.randf_range(0.09, 0.2)
+	var amp_b := _env_rng.randf_range(0.04, 0.1)
+	var spurs: Array[float] = []
+	var streaks: Array[float] = []
+	for i: int in sides:
+		spurs.append(_env_rng.randf_range(0.6, 1.42))
+		streaks.append(_env_rng.randf_range(0.72, 1.18))
+	var rings: Array[PackedVector3Array] = []
+	for r: int in ring_t.size():
+		var t := ring_t[r]
+		var ring := PackedVector3Array()
+		for i: int in sides:
+			var angle := TAU * float(i) / float(sides)
+			var noise := 1.0 + amp_a * sin(angle * 2.0 + phase_a) + amp_b * sin(angle * 5.0 + phase_b)
+			# Spurs are strongest at the base and dissolve toward the summit.
+			var spur := 1.0 + (spurs[i] - 1.0) * (1.0 - t * 0.55)
+			var radius := footprint * pow(1.0 - t, profile) * noise * spur * _env_rng.randf_range(0.93, 1.07)
+			var y := t * height + (_env_rng.randf_range(-0.025, 0.03) * height if r > 0 else 0.0)
+			ring.append(pos + Vector3(
+				cos(angle) * radius + lean.x * t * footprint, y,
+				sin(angle) * radius + lean.y * t * footprint))
+		rings.append(ring)
+	var apex := pos + Vector3(
+		lean.x * footprint + _env_rng.randf_range(-0.08, 0.08) * footprint,
+		height * _env_rng.randf_range(0.96, 1.08),
+		lean.y * footprint + _env_rng.randf_range(-0.08, 0.08) * footprint)
+	var snowline := _env_rng.randf_range(0.4, 0.78) * height
+	for r: int in ring_t.size() - 1:
+		for i: int in sides:
+			var j := (i + 1) % sides
+			var lo0 := rings[r][i]
+			var lo1 := rings[r][j]
+			var hi0 := rings[r + 1][i]
+			var hi1 := rings[r + 1][j]
+			var mid_y := (lo0.y + lo1.y + hi0.y + hi1.y) * 0.25 - pos.y
+			_face(st, lo0, hi1, hi0, _peak_color(look, lo0, hi1, hi0, pos, mid_y, snowline, streaks[i]))
+			_face(st, lo0, lo1, hi1, _peak_color(look, lo0, lo1, hi1, pos, mid_y, snowline, streaks[i]))
+	var top := ring_t.size() - 1
+	for i: int in sides:
+		var j := (i + 1) % sides
+		var mid_y := (rings[top][i].y + rings[top][j].y + apex.y) / 3.0 - pos.y
+		_face(st, rings[top][i], rings[top][j], apex,
+			_peak_color(look, rings[top][i], rings[top][j], apex, pos, mid_y, snowline, streaks[i]))
+	# Compound massifs: a lower shoulder off one flank. Real ranges are ridges
+	# with several summits, and a field of single horns reads generated.
+	if depth == 0 and _env_rng.randf() < 0.68:
+		var angle := _env_rng.randf() * TAU
+		var away := footprint * _env_rng.randf_range(0.6, 1.1)
+		_bake_peak(st, pos + Vector3(cos(angle) * away, 0.0, sin(angle) * away),
+			footprint * _env_rng.randf_range(0.42, 0.78),
+			height * _env_rng.randf_range(0.35, 0.82), look, depth + 1)
+
+
+func _peak_color(look: Dictionary, a: Vector3, b: Vector3, c: Vector3, pos: Vector3,
+		mid_y: float, snowline: float, streak: float) -> Color:
+	var tone: Color
+	var band := maxf(snowline * 0.22, 2.0)
+	if mid_y > snowline + band:
+		tone = look["snow"]
+	elif mid_y > snowline - band:
+		# Dappled transition: real snowlines are patchy scatter, not a ruled
+		# line, and the odds of holding snow climb through the band.
+		var odds := (mid_y - (snowline - band)) / (band * 2.0)
+		tone = look["snow"] if _env_rng.randf() < odds else (look["rock"] as Color).lerp(look["snow"], 0.45)
+	else:
+		var rock: Color = look["rock"]
+		# Vertical streaking: blue decays slower than red/green so gullies cool.
+		tone = Color(rock.r * streak, rock.g * streak, rock.b * (0.62 + 0.38 * streak))
+	return _shade(look, _flat_normal(a, b, c), tone, 1.0)
+
+
+## Tabular berg / ice cliff: an irregular polygonal slab with fluted vertical
+## walls, a darker waterline foot and a slightly tilted snow table. Roughly
+## half of them carry a second, smaller tier — the calved, stepped profile that
+## makes a berg read as ice rather than as a cone.
+func _bake_tabular(st: SurfaceTool, pos: Vector3, footprint: float, height: float,
+		look: Dictionary, depth: int) -> void:
+	var sides := _env_rng.randi_range(6, 9)
+	var tilt_phase := _env_rng.randf() * TAU
+	var tilt := _env_rng.randf_range(0.03, 0.13)
+	var radii: Array[float] = []
+	var flutes: Array[float] = []
+	for i: int in sides:
+		radii.append(footprint * _env_rng.randf_range(0.68, 1.25))
+		flutes.append(_env_rng.randf_range(0.72, 1.12))
+	var foot := height * _env_rng.randf_range(0.05, 0.11)
+	var base_pts: Array[Vector3] = []
+	var foot_pts: Array[Vector3] = []
+	var top_pts: Array[Vector3] = []
+	for i: int in sides:
+		var angle := TAU * float(i) / float(sides) + _env_rng.randf_range(-0.12, 0.12)
+		var dir := Vector3(cos(angle), 0.0, sin(angle))
+		var top_y := height * (1.0 + tilt * cos(angle - tilt_phase))
+		base_pts.append(pos + dir * radii[i])
+		foot_pts.append(pos + dir * radii[i] * 1.03 + Vector3.UP * foot)
+		# Walls lean in slightly toward the table: dead-vertical prisms read as
+		# untextured boxes.
+		top_pts.append(pos + dir * radii[i] * _env_rng.randf_range(0.82, 0.95) + Vector3.UP * top_y)
+	var wall: Color = (look["ice"] as Color)
+	var wet := Color(wall.r * 0.62, wall.g * 0.74, wall.b * 0.88)
+	for i: int in sides:
+		var j := (i + 1) % sides
+		var normal := _flat_normal(base_pts[i], base_pts[j], top_pts[j])
+		_quad(st, base_pts[i], base_pts[j], foot_pts[j], foot_pts[i], _shade(look, normal, wet, 0.9))
+		_quad(st, foot_pts[i], foot_pts[j], top_pts[j], top_pts[i],
+			_shade(look, normal, wall, flutes[i]))
+	# Table: fan from the centroid, bright wind-packed snow.
+	var centre := Vector3.ZERO
+	for point: Vector3 in top_pts:
+		centre += point
+	centre /= float(sides)
+	var table := _shade(look, Vector3.UP, look["snow"], 1.0)
+	for i: int in sides:
+		_face(st, top_pts[i], top_pts[(i + 1) % sides], centre, table)
+	if depth == 0 and _env_rng.randf() < 0.5:
+		var angle := _env_rng.randf() * TAU
+		var away := footprint * _env_rng.randf_range(0.1, 0.4)
+		_bake_tabular(st, pos + Vector3(cos(angle) * away, 0.0, sin(angle) * away),
+			footprint * _env_rng.randf_range(0.4, 0.65),
+			height * _env_rng.randf_range(1.25, 1.8), look, depth + 1)
+
+
+## Pressure ridge: a long jagged wall of upthrust ice. The near band leans on
+## these — they fill the dead plate between the track and the horizon without
+## walling the view off, which a field of peaks would.
+func _bake_ridge(st: SurfaceTool, pos: Vector3, footprint: float, height: float,
+		look: Dictionary) -> void:
+	var length := footprint * _env_rng.randf_range(_RIDGE_SPAN * 0.6, _RIDGE_SPAN)
+	var angle := _env_rng.randf() * TAU
+	var dir := Vector3(cos(angle), 0.0, sin(angle))
+	var perp := Vector3(-dir.z, 0.0, dir.x)
+	var segments := _env_rng.randi_range(5, 9)
+	var thick := footprint * _env_rng.randf_range(0.3, 0.55)
+	var crest: Array[Vector3] = []
+	var left: Array[Vector3] = []
+	var right: Array[Vector3] = []
+	for i: int in segments + 1:
+		var t := float(i) / float(segments)
+		var along := (t - 0.5) * length
+		# Taper toward the ends plus per-tooth jitter: a sawtooth crest, not a
+		# smooth extrusion.
+		var taper := sin(t * PI)
+		var crest_y := height * (0.35 + 0.65 * taper) * _env_rng.randf_range(0.55, 1.15)
+		var wander := perp * _env_rng.randf_range(-thick, thick) * 1.4
+		var spine := pos + dir * along + wander
+		crest.append(spine + Vector3.UP * crest_y)
+		var half := thick * _env_rng.randf_range(0.7, 1.35)
+		left.append(spine - perp * half)
+		right.append(spine + perp * half)
+	var snow: Color = look["snow"]
+	var ice: Color = look["ice"]
+	for i: int in segments:
+		var j := i + 1
+		var left_n := _flat_normal(left[i], crest[i], crest[j])
+		var right_n := _flat_normal(right[j], crest[j], crest[i])
+		_quad(st, left[i], left[j], crest[j], crest[i],
+			_shade(look, left_n, ice.lerp(snow, _env_rng.randf_range(0.2, 0.8)), 1.0))
+		_quad(st, crest[i], crest[j], right[j], right[i],
+			_shade(look, right_n, ice.lerp(snow, _env_rng.randf_range(0.2, 0.8)), 1.0))
+
+
+## Wind-scoured snow dome / hummock. Rounded, all snow, no rock: the quiet form
+## that keeps a band of peaks and slabs from reading as a single generator.
+func _bake_dome(st: SurfaceTool, pos: Vector3, footprint: float, height: float,
+		look: Dictionary) -> void:
+	var sides := _env_rng.randi_range(7, 10)
+	var rings := 3
+	var squash := _env_rng.randf_range(0.75, 1.35)
+	var lean := Vector2(_env_rng.randf_range(-0.14, 0.14), _env_rng.randf_range(-0.14, 0.14))
+	var wobble: Array[float] = []
+	for i: int in sides:
+		wobble.append(_env_rng.randf_range(0.8, 1.22))
+	var loops: Array[PackedVector3Array] = []
+	for r: int in rings:
+		var t := float(r) / float(rings)
+		var loop := PackedVector3Array()
+		for i: int in sides:
+			var angle := TAU * float(i) / float(sides)
+			var radius := footprint * cos(t * PI * 0.5) * wobble[i] * _env_rng.randf_range(0.94, 1.06)
+			loop.append(pos + Vector3(
+				cos(angle) * radius + lean.x * t * footprint,
+				sin(t * PI * 0.5) * height * squash,
+				sin(angle) * radius * squash + lean.y * t * footprint))
+		loops.append(loop)
+	var cap := pos + Vector3(lean.x * footprint, height * squash * _env_rng.randf_range(0.95, 1.05),
+		lean.y * footprint)
+	var snow: Color = look["snow"]
+	for r: int in rings - 1:
+		for i: int in sides:
+			var j := (i + 1) % sides
+			var normal := _flat_normal(loops[r][i], loops[r][j], loops[r + 1][j])
+			var tone := snow.lerp(look["ice"], _env_rng.randf_range(0.0, 0.28))
+			_quad(st, loops[r][i], loops[r][j], loops[r + 1][j], loops[r + 1][i],
+				_shade(look, normal, tone, 1.0))
+	for i: int in sides:
+		var j := (i + 1) % sides
+		_face(st, loops[rings - 1][i], loops[rings - 1][j], cap,
+			_shade(look, _flat_normal(loops[rings - 1][i], loops[rings - 1][j], cap), snow, 1.0))
+
+
+## --- Skyline shading ---------------------------------------------------------
+
+## Baked aerial perspective + sun modelling for one face. Lit faces run warm and
+## bright, averted faces cool and dark (real lighting still runs on top, and
+## distant white geometry needs the help — a hazed massif barely registers a
+## normal), then the whole thing recedes toward the sky horizon by band haze.
+func _shade(look: Dictionary, normal: Vector3, tone: Color, gain: float) -> Color:
+	var flat := Vector3(normal.x, 0.0, normal.z)
+	var facing := 0.5
+	if flat.length_squared() > 0.0001:
+		facing = 0.5 + 0.5 * clampf(flat.normalized().dot(look["to_sun"]), -1.0, 1.0)
+	# Up-facing snow always reads lit regardless of which way the slope points.
+	facing = clampf(lerpf(facing, 1.0, clampf(normal.y, 0.0, 1.0) * 0.4), 0.0, 1.0)
+	var tint: Color = (look["cool"] as Color).lerp(look["warm"], facing)
+	var lum := lerpf(0.42, 1.06, facing) * gain
+	var col := Color(tone.r * tint.r * lum, tone.g * tint.g * lum, tone.b * tint.b * lum)
+	return col.lerp(look["horizon"], float(look["haze"]))
+
+
+static func _flat_normal(a: Vector3, b: Vector3, c: Vector3) -> Vector3:
+	var normal := (b - a).cross(c - a)
+	if normal.length_squared() < 0.000001:
+		return Vector3.UP
+	return normal.normalized()
+
+
+static func _face(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, color: Color) -> void:
+	st.set_color(color)
+	st.add_vertex(a)
+	st.set_color(color)
+	st.add_vertex(b)
+	st.set_color(color)
+	st.add_vertex(c)
+
+
+## Quad as two triangles; corners in order around the face.
+static func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, color: Color) -> void:
+	_face(st, a, b, c, color)
+	_face(st, a, c, d, color)
+
+
+## --- Procedural sky panorama --------------------------------------------------
+
+static var _sky_cover_cache: Dictionary = {}
+
+
+## Equirectangular cloud panorama for ProceduralSkyMaterial.sky_cover. Two
+## perspective-projected decks — a cumulus field and thin cirrus above it — are
+## sampled on flat sky planes, so shapes compress and crowd toward the horizon
+## the way a real cloud deck does instead of floating as evenly spaced blobs.
+## Alpha carries coverage; the sky shader adds rgb * modulate * alpha over the
+## gradient, which is why the deck is white here and tinted by the caller.
+## Generated once per (seed, look) and shared by every build in the session:
+## 320x160, only the sky hemisphere filled, so about 25k pixels of work.
+static func _sky_cover_texture(seed_value: int, coverage: float, streaks: float) -> ImageTexture:
+	var key := "%d_%.2f_%.2f" % [seed_value, coverage, streaks]
+	if _sky_cover_cache.has(key):
+		return _sky_cover_cache[key]
+	var width := 320
+	var height := 160
+	var deck := FastNoiseLite.new()
+	deck.seed = seed_value
+	deck.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	deck.frequency = 0.26
+	deck.fractal_type = FastNoiseLite.FRACTAL_FBM
+	deck.fractal_octaves = 4
+	deck.fractal_gain = 0.52
+	deck.fractal_lacunarity = 2.2
+	var veil := FastNoiseLite.new()
+	veil.seed = seed_value + 977
+	veil.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	veil.frequency = 0.3
+	veil.fractal_type = FastNoiseLite.FRACTAL_FBM
+	veil.fractal_octaves = 3
+	var data := PackedByteArray()
+	data.resize(width * height * 4)
+	data.fill(0)
+	# Coverage threshold: lower threshold = more sky filled.
+	var lo := lerpf(0.62, 0.24, coverage)
+	var hi := lo + 0.26
+	for y: int in height:
+		var elevation := (0.5 - (float(y) + 0.5) / float(height)) * PI
+		if elevation <= 0.015:
+			continue  # below the horizon the sky material draws its ground half
+		# Distance along a flat cloud plane one unit up: the whole reason the
+		# deck gains perspective instead of tiling evenly across the dome.
+		var distance := clampf(1.0 / tan(elevation), 0.0, 34.0)
+		# Dissolve into horizon haze well before the deck compresses into mush,
+		# and keep the zenith (where an equirect panorama pinches to a point)
+		# clear rather than smeared into one blob overhead.
+		var fade := (1.0 - smoothstep(15.0, 31.0, distance)) * smoothstep(0.8, 2.3, distance)
+		if fade <= 0.002:
+			continue
+		for x: int in width:
+			var theta := (float(x) + 0.5) / float(width) * TAU
+			var px := cos(theta) * distance
+			var pz := sin(theta) * distance
+			var n := deck.get_noise_2d(px, pz) * 0.5 + 0.5
+			var cumulus := smoothstep(lo, hi, n)
+			# Cirrus rides a higher plane (halved distance) and is stretched
+			# along one axis into wind-drawn streaks.
+			var s := veil.get_noise_2d(px * 0.28, pz * 1.7) * 0.5 + 0.5
+			var cirrus := smoothstep(0.58, 0.86, s) * streaks
+			var alpha := clampf(cumulus + cirrus * (1.0 - cumulus) * 0.55, 0.0, 1.0) * fade
+			if alpha <= 0.004:
+				continue
+			# Thin edges lose a little punch and cool off; cores stay white.
+			var body := 0.72 + 0.28 * cumulus
+			var index := (y * width + x) * 4
+			data[index] = int(255.0 * body)
+			data[index + 1] = int(255.0 * (body * 0.995))
+			data[index + 2] = int(255.0 * minf(body * 1.02, 1.0))
+			data[index + 3] = int(255.0 * alpha)
+	var image := Image.create_from_data(width, height, false, Image.FORMAT_RGBA8, data)
+	var texture := ImageTexture.create_from_image(image)
+	_sky_cover_cache[key] = texture
+	return texture
 
 
 func _add_snowfall() -> void:
