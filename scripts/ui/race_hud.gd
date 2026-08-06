@@ -238,6 +238,7 @@ static func build_controls_strip(hud_scale: float, max_per_row: int = 0) -> Cont
 			[["Hold ↓"], "Slide"],
 			[["SHOVE"], "Bump rivals"],
 			[["ITEM"], "Use pickup"],
+			[["BACK v"], "Throw behind"],
 		]
 	else:
 		hints = [
@@ -246,6 +247,7 @@ static func build_controls_strip(hud_scale: float, max_per_row: int = 0) -> Cont
 			[["slide"], "Slide"],
 			[["shove"], "Shove"],
 			[["use_item"], "Item"],
+			[["aim_back", "use_item"], "Throw behind"],
 		]
 	var column: VBoxContainer = null
 	if max_per_row > 0:

@@ -37,6 +37,7 @@ func _ready() -> void:
 	await _test_racer_instantiation()
 	_test_path_guide()
 	await _test_powerup_activation()
+	await _test_backward_snowball()
 	await _test_menu_scenes()
 	await _test_touch_controls()
 	print("[unit] DONE: %d passed, %d failed, %d skipped" % [_passes, _failures, _skips])
@@ -354,6 +355,65 @@ func _test_powerup_activation() -> void:
 	_check("powerup_effects_tick", is_instance_valid(racer) and is_instance_valid(powerups))
 	arena.queue_free()
 	await get_tree().process_frame
+
+
+## --- 11b. Over-the-shoulder snowball ---------------------------------------
+
+## A back-throw must leave in the opposite direction and pick the rival behind,
+## never the one in front — the whole point is answering a tail.
+func _test_backward_snowball() -> void:
+	var arena := Node3D.new()
+	add_child(arena)
+	var powerups := PowerupSystem.new()
+	arena.add_child(powerups)
+
+	var controller := RacerController.new()
+	var thrower := Racer.new()
+	arena.add_child(thrower)
+	thrower.setup("bt_thrower", "BT", false, {}, controller, null)
+	# Racers face -Z, so -Z is ahead and +Z is behind.
+	var ahead := Racer.new()
+	arena.add_child(ahead)
+	ahead.setup("bt_ahead", "AH", false, {}, RacerController.new(), null)
+	var behind := Racer.new()
+	arena.add_child(behind)
+	behind.setup("bt_behind", "BH", false, {}, RacerController.new(), null)
+	await get_tree().physics_frame
+	thrower.global_position = Vector3.ZERO
+	ahead.global_position = Vector3(0.0, 0.0, -14.0)
+	behind.global_position = Vector3(0.0, 0.0, 14.0)
+	await get_tree().physics_frame
+
+	controller.aim_back = false
+	powerups.activate(thrower, "snowball")
+	var forward_ball := _latest_snowball(arena)
+	_check("snowball_forward_targets_ahead",
+		forward_ball != null and forward_ball.target == ahead,
+		"target=%s" % (forward_ball.target.racer_key if forward_ball != null and forward_ball.target != null else "<none>"))
+	_check("snowball_forward_leaves_forward",
+		forward_ball != null and forward_ball.global_position.z < 0.0,
+		"z=%f" % (forward_ball.global_position.z if forward_ball != null else 0.0))
+
+	controller.aim_back = true
+	powerups.activate(thrower, "snowball")
+	var back_ball := _latest_snowball(arena)
+	_check("snowball_back_targets_behind",
+		back_ball != null and back_ball.target == behind,
+		"target=%s" % (back_ball.target.racer_key if back_ball != null and back_ball.target != null else "<none>"))
+	_check("snowball_back_leaves_backward",
+		back_ball != null and back_ball.global_position.z > 0.0,
+		"z=%f" % (back_ball.global_position.z if back_ball != null else 0.0))
+
+	arena.queue_free()
+	await get_tree().process_frame
+
+
+func _latest_snowball(arena: Node) -> Snowball:
+	var found: Snowball = null
+	for child: Node in arena.get_children():
+		if child is Snowball:
+			found = child as Snowball
+	return found
 
 
 ## --- 12. Menu scenes load --------------------------------------------------

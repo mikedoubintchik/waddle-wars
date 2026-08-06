@@ -9,6 +9,7 @@ const ACTION_NAMES: Dictionary = {
 	"slide": "Slide",
 	"shove": "Flipper Shove",
 	"use_item": "Use Item",
+	"aim_back": "Aim Behind (hold)",
 	"pause": "Pause",
 }
 

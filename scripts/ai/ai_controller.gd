@@ -204,7 +204,10 @@ func _update_actions() -> void:
 					shove_pressed = true
 					break
 
-	# Items.
+	# Items. aim_back is a held state, not an edge, so it is cleared every tick
+	# before anything can set it — otherwise a held item fired on a later tick
+	# would inherit the aim from the last snowball evaluation.
+	aim_back = false
 	if racer.held_item != "" and _item_hold_timer <= 0.0:
 		if _should_use_item():
 			item_pressed = true
@@ -215,14 +218,20 @@ func _update_actions() -> void:
 	if racer.held_item == "" and racer.snowball_ammo > 0 \
 			and _throw_eval_timer <= 0.0 and _item_hold_timer <= 0.0:
 		_throw_eval_timer = 0.6
-		if _find_throw_target() != null and rng.randf() < _throw_chance():
+		# Someone ahead is the better prize, so a rival in front always wins the
+		# shot; the over-the-shoulder throw is what a leader does about a tail.
+		var throw_target := _find_throw_target()
+		if throw_target == null:
+			throw_target = _find_throw_target(true)
+			aim_back = throw_target != null
+		if throw_target != null and rng.randf() < _throw_chance():
 			item_pressed = true
 			_item_hold_timer = rng.randf_range(0.8, 2.2)
 
 
 ## Nearest unfinished rival inside the throw cone, or null.
-func _find_throw_target() -> Racer:
-	var forward := -racer.global_transform.basis.z
+func _find_throw_target(back: bool = false) -> Racer:
+	var aim := racer.global_transform.basis.z if back else -racer.global_transform.basis.z
 	var best: Racer = null
 	var best_dist := THROW_RANGE
 	for node: Node in racer.get_tree().get_nodes_in_group(GameConfig.GROUP_RACERS):
@@ -233,7 +242,7 @@ func _find_throw_target() -> Racer:
 		var dist := to_other.length()
 		if dist > best_dist or dist < 2.0:
 			continue
-		if forward.dot(to_other / dist) < THROW_CONE_DOT:
+		if aim.dot(to_other / dist) < THROW_CONE_DOT:
 			continue
 		best = other
 		best_dist = dist

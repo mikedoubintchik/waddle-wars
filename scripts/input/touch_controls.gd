@@ -93,6 +93,12 @@ func _build() -> void:
 		func() -> void: controller.touch_shove(), Callable())
 	_add_button("ITEM", Vector2(-80, -80) * s, BUTTON_SIZE_PX * s, false,
 		func() -> void: controller.touch_item(), Callable())
+	# Touch has no modifier to hold, so the over-the-shoulder throw gets its own
+	# button. Smaller and set above ITEM: it is the rarer of the two and the
+	# corner is already crowded, but it stays clear of ITEM's padded rect.
+	_add_button("BACK v", Vector2(-80, -80 - BUTTON_SIZE_PX * 0.82) * s,
+		BUTTON_SIZE_PX * 0.62 * s, false,
+		func() -> void: controller.touch_item_back(), Callable())
 
 	# Pause: small, top-right, kept left of the RaceHUD item panel (which spans
 	# offsets -170..-24 from the right edge and does not scale with touch

@@ -31,10 +31,14 @@ func activate(racer: Racer, item_id: String) -> void:
 			_drop_blizzard(racer)
 
 
+## Throws forward, or behind when the racer is aiming back — the classic kart
+## answer to being tailed. Targeting is the same generous cone either way, just
+## pointed the other direction.
 func _fire_snowball(racer: Racer) -> void:
+	var back := racer.controller != null and racer.controller.aim_back
+	var aim := racer.global_transform.basis.z if back else -racer.global_transform.basis.z
 	var target: Racer = null
 	var best_score := INF
-	var forward := -racer.global_transform.basis.z
 	for node: Node in get_tree().get_nodes_in_group(GameConfig.GROUP_RACERS):
 		var other := node as Racer
 		if other == null or other == racer or other.state == Racer.State.FINISHED:
@@ -43,8 +47,7 @@ func _fire_snowball(racer: Racer) -> void:
 		var dist := to_other.length()
 		if dist > 55.0:
 			continue
-		# Prefer racers ahead in a generous cone.
-		var dot := forward.dot(to_other.normalized())
+		var dot := aim.dot(to_other.normalized())
 		if dot < 0.2:
 			continue
 		var score := dist * (2.0 - dot)
@@ -53,7 +56,7 @@ func _fire_snowball(racer: Racer) -> void:
 			target = other
 	var ball := Snowball.new()
 	get_parent().add_child(ball)
-	ball.launch(racer, target)
+	ball.launch(racer, target, back)
 	AudioManager.play_sfx_3d("sfx_throw", racer.global_position)
 
 

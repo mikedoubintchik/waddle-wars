@@ -1,6 +1,7 @@
 class_name Snowball
 extends Area3D
-## Thrown snowball with forgiving homing toward a target racer ahead.
+## Thrown snowball with forgiving homing toward a target racer ahead — or
+## behind, when thrown over the shoulder.
 ## Can miss, hit course geometry, or be blocked by a shield.
 ##
 ## Visuals only (the collision sphere is untouched): the ball reuses the
@@ -58,12 +59,14 @@ var _puff_idx: int = 0
 var _emit_accum: float = 0.0
 
 
-func launch(p_thrower: Racer, p_target: Racer) -> void:
+## `back` throws over the thrower's shoulder instead of ahead. The spawn offset
+## follows the aim so the ball never starts inside its own thrower.
+func launch(p_thrower: Racer, p_target: Racer, back: bool = false) -> void:
 	thrower = p_thrower
 	target = p_target
-	var forward := -p_thrower.global_transform.basis.z
-	global_position = p_thrower.global_position + Vector3.UP * 1.2 + forward * 1.0
-	_velocity = forward * SPEED + Vector3.UP * 2.0
+	var aim := p_thrower.global_transform.basis.z if back else -p_thrower.global_transform.basis.z
+	global_position = p_thrower.global_position + Vector3.UP * 1.2 + aim * 1.0
+	_velocity = aim * SPEED + Vector3.UP * 2.0
 
 
 func _ready() -> void:

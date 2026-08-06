@@ -8,6 +8,8 @@ var _touch_jump: bool = false
 var _touch_slide: bool = false
 var _touch_shove: bool = false
 var _touch_item: bool = false
+var _touch_item_back: bool = false
+var _touch_aim_back: bool = false
 var _slide_toggled: bool = false
 var _smoothed_steer: float = 0.0
 var input_enabled: bool = true
@@ -46,9 +48,14 @@ func tick(delta: float) -> void:
 	if Input.is_action_just_pressed("shove") or _touch_shove:
 		shove_pressed = true
 		_touch_shove = false
+	aim_back = Input.is_action_pressed("aim_back") or _touch_aim_back
 	if Input.is_action_just_pressed("use_item") or _touch_item:
 		item_pressed = true
 		_touch_item = false
+	if _touch_item_back:
+		item_pressed = true
+		aim_back = true
+		_touch_item_back = false
 
 
 func touch_jump() -> void:
@@ -65,3 +72,9 @@ func touch_shove() -> void:
 
 func touch_item() -> void:
 	_touch_item = true
+
+
+## Touch has no modifier key to hold, so the back-throw is its own button and
+## fires the item in one action rather than arming a mode.
+func touch_item_back() -> void:
+	_touch_item_back = true
