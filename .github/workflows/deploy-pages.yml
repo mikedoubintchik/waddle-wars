@@ -9,9 +9,10 @@ name: Deploy web build to Pages
 # force-pushes build/web to the gh-pages branch); this workflow just takes
 # whatever that branch holds and publishes it.
 
+# Dispatch-only: Actions reads workflow files from the branch being pushed,
+# and gh-pages holds nothing but the exported build, so a push trigger there
+# would never find this file. tools/deploy_web.sh fires it after each push.
 on:
-  push:
-    branches: [gh-pages]
   workflow_dispatch:
 
 permissions:
