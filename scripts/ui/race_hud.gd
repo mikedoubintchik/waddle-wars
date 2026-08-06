@@ -37,6 +37,11 @@ var _item_pulse: Tween = null
 var _ammo_pips: Array[Panel] = []
 var _ammo_style_full: StyleBoxFlat
 var _ammo_style_empty: StyleBoxFlat
+var _use_hint: HBoxContainer = null
+var _use_key_label: Label = null
+var _use_verb_label: Label = null
+var _held_item: bool = false
+var _ammo_count: int = 0
 var _speed_bar: ProgressBar
 var _progress_bar: ProgressBar
 var _center_label: Label
@@ -143,6 +148,32 @@ static func _make_fish_texture() -> ImageTexture:
 	return ImageTexture.create_from_image(img)
 
 
+## Small keyboard-keycap chip (light face, heavier bottom border) used for
+## desktop input hints. Returns the panel; its Label child holds the text.
+static func _make_keycap(text: String, font_size: int) -> PanelContainer:
+	var cap := PanelContainer.new()
+	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.9, 0.95, 1.0)
+	style.set_corner_radius_all(5)
+	style.set_border_width_all(1)
+	style.border_width_bottom = 3
+	style.border_color = Color(0.45, 0.6, 0.78)
+	style.content_margin_left = 7.0
+	style.content_margin_right = 7.0
+	style.content_margin_top = 1.0
+	style.content_margin_bottom = 2.0
+	cap.add_theme_stylebox_override("panel", style)
+	var label := Label.new()
+	label.text = text
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", OUTLINE_NAVY)
+	cap.add_child(label)
+	return cap
+
+
 func _build() -> void:
 	_root = Control.new()
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -237,6 +268,26 @@ func _build() -> void:
 		pip.add_theme_stylebox_override("panel", _ammo_style_empty)
 		ammo_box.add_child(pip)
 		_ammo_pips.append(pip)
+	# Desktop-only "how do I use this?" hint: keycap with the actual bound
+	# key under the item slot, shown while an item or snowball ammo is held.
+	# Touch devices have a dedicated item button, so no hint there.
+	if not UITheme.is_touch():
+		_use_hint = HBoxContainer.new()
+		_use_hint.alignment = BoxContainer.ALIGNMENT_CENTER
+		_use_hint.add_theme_constant_override("separation", 5)
+		_use_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_use_hint.visible = false
+		item_box.add_child(_use_hint)
+		var use_cap := _make_keycap("?", int(15 * hud_scale))
+		_use_key_label = use_cap.get_child(0) as Label
+		_use_hint.add_child(use_cap)
+		_use_verb_label = Label.new()
+		_use_verb_label.text = "Use"
+		_use_verb_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_use_verb_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_use_verb_label.add_theme_font_size_override("font_size", int(15 * hud_scale))
+		_use_verb_label.add_theme_color_override("font_color", Color(0.85, 0.93, 1.0, 0.9))
+		_use_hint.add_child(_use_verb_label)
 	_root.add_child(_item_panel)
 
 	# Fish counter card (bottom left) with generated fish icon.
@@ -330,6 +381,31 @@ func _build() -> void:
 	_center_label.add_theme_constant_override("outline_size", 12)
 	_center_label.add_theme_color_override("font_outline_color", OUTLINE_NAVY)
 	_root.add_child(_center_label)
+
+	# Desktop-only pause hint (bottom right, under the speed bar): shows the
+	# actual bound pause key at low opacity. Hidden on touch devices.
+	if not UITheme.is_touch():
+		var esc_hint := HBoxContainer.new()
+		esc_hint.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+		esc_hint.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		esc_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		esc_hint.offset_right = -30
+		esc_hint.offset_bottom = -10
+		esc_hint.add_theme_constant_override("separation", 5)
+		esc_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		esc_hint.modulate.a = 0.5
+		var pause_key := SettingsManager.describe_action_binding("pause", "key")
+		if pause_key == "—":
+			pause_key = "Esc"
+		esc_hint.add_child(_make_keycap(pause_key, int(14 * hud_scale)))
+		var pause_label := Label.new()
+		pause_label.text = "Pause"
+		pause_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pause_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		pause_label.add_theme_font_size_override("font_size", int(14 * hud_scale))
+		pause_label.add_theme_color_override("font_color", Color(0.85, 0.93, 1.0))
+		esc_hint.add_child(pause_label)
+		_root.add_child(esc_hint)
 
 
 ## Endless mode: time label doubles as score/distance/storm readout.
@@ -460,12 +536,16 @@ func _on_item_received(_racer: Racer, item_id: String) -> void:
 	_item_panel.pivot_offset = _item_panel.size * 0.5
 	tween.tween_property(_item_panel, "scale", Vector2.ONE, 0.2)
 	_start_item_pulse()
+	_held_item = true
+	_update_use_hint()
 
 
 func _on_item_used(_racer: Racer, _item_id: String) -> void:
 	_item_label.text = "No Item"
 	_item_icon.color = ITEM_ICON_EMPTY
 	_stop_item_pulse()
+	_held_item = false
+	_update_use_hint()
 
 
 func _on_snowball_ammo(_racer: Racer, ammo: int) -> void:
@@ -476,6 +556,22 @@ func _on_snowball_ammo(_racer: Racer, ammo: int) -> void:
 	_item_panel.scale = Vector2.ONE * 1.08
 	var tween := create_tween()
 	tween.tween_property(_item_panel, "scale", Vector2.ONE, 0.15)
+	_ammo_count = ammo
+	_update_use_hint()
+
+
+## Desktop keycap hint under the item slot: visible while the player holds
+## an item ("Use") or, with no item, snowball ammo ("Throw"). Rereads the
+## live binding each time so remaps show correctly.
+func _update_use_hint() -> void:
+	if _use_hint == null:
+		return
+	var should_show := _held_item or _ammo_count > 0
+	_use_hint.visible = should_show
+	if should_show:
+		var key := SettingsManager.describe_action_binding("use_item", "key")
+		_use_key_label.text = key if key != "—" else "Q"
+		_use_verb_label.text = "Use" if _held_item else "Throw"
 
 
 ## Slow warm glow pulse on the item frame while an item is held. With

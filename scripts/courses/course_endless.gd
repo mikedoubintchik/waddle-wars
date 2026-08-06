@@ -132,11 +132,16 @@ func _build_segment(kind: String, intensity: float) -> void:
 			var side := 1.0 if rng.randf() > 0.5 else -1.0
 			_advance(70, 35 * side, 3, {"width": 16.0})
 			_advance(70, -35 * side, 3, {"width": 16.0})
-			# Corner-exit acceleration pad: reward a clean line out of the S.
+			# Acceleration pad rewarding a clean S: placed mid-way down the
+			# second sweep (its straightest stretch, pointing down-track)
+			# rather than at the exit point, where the smoothed bend into the
+			# next segment is still underway and boosted AI overshot into the
+			# walls. Placement math only — zero rng draws, so segment rolls
+			# stay byte-identical for a given run_seed.
 			var exit_pos := _cursor
 			_post_build.append(func() -> void:
 				var o := float(main_guide.nearest(exit_pos, -1)["offset"])
-				TrackBuilder.add_boost_pad(self, main_guide, o - 6.0))
+				TrackBuilder.add_boost_pad(self, main_guide, o - 35.0))
 		"downhill":
 			_advance(60, rng.randf_range(-10, 10), 4, {"width": 18.0, "surface": ICE})
 			var start := _cursor

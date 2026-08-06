@@ -268,15 +268,25 @@ func build_course() -> void:
 	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(4, 6.2, -965)) + 6.0)
 	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(2, 5.0, -1490)) + 6.0)
 
-	# More acceleration pads: the start-dip exit into the berg arc, the outer
-	# berg-arc corner exit (offset onto the safe right side the danger hints
-	# steer toward), a berg-chain shortcut survivor reward, and the swell hump
-	# after the seal flat. All clear of the platform crossing, the causeway,
-	# and the seal weave itself.
+	# More acceleration pads. Playtest: pads on corner exits and narrow
+	# no-wall spans boosted AI straight off edges into the water (DNF loop),
+	# so every pad below sits on a straight pointing down-track, centered,
+	# and >=60m upstream of the platform crossing, the causeway, the swim
+	# edges, and the berg-arc pinch points:
+	# - start-dip exit straight (boost expires well before the arc's
+	#   open-left span at -170),
+	# - the centered mid-straight BEFORE the berg-arc apex at -380 (was the
+	#   corner exit at lateral +3.0, which held boosted AI on the outer-right
+	#   line into the -440 pinch — the exact edge the old sim DNF loop used),
+	# - the berg-chain survivor reward, moved OFF the narrow no-wall shortcut
+	#   onto the walled main straight just past its merge (94m before the
+	#   platform-crossing jump edge),
+	# - the seal-flat straight just past the last seal (was the swell hump
+	#   only ~48m before the finale swim edge; now 68m clear).
 	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(2, 10.5, -100)) + 4.0)
-	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(56, 9, -380)) + 4.0, 3.0)
-	TrackBuilder.add_boost_pad(self, shortcut, shortcut.length - 20.0)
-	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(2, 5.4, -1360)) + 2.0)
+	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(56, 9, -380)) - 40.0)
+	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(6, 10, -540)) + 6.0)
+	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(0, 5.5, -1330)) + 12.0)
 	# Slide hints for the new smooth-ice patches (hint offsets are index
 	# space): the start dip and the downhill run into the big swim channel.
 	add_hint(_offset_near(Vector3(0, 12, -30)) + 4.0, "slide", _offset_near(Vector3(2, 10.5, -100)))

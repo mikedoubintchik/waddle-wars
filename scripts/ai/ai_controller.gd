@@ -59,7 +59,12 @@ func tick(delta: float) -> void:
 		_lateral_offset = rng.randf_range(-spread, spread)
 
 	if _retarget_timer <= 0.0:
-		_retarget_timer = float(difficulty.get("reaction_delay", 0.3))
+		var reaction := float(difficulty.get("reaction_delay", 0.3))
+		if racer.boost_mult > 1.05:
+			# Boosted: retarget sooner so anticipation keeps up with the
+			# extra ground covered per reaction window (post-pad corners).
+			reaction *= 0.6
+		_retarget_timer = reaction
 		_update_target()
 
 	_steer_toward_target(delta)
@@ -72,6 +77,10 @@ func _update_target() -> void:
 	_consider_branches(progress)
 	_consider_snowball_pickups()
 	var lookahead := 8.0 + racer.current_speed * 0.55
+	if racer.boost_mult > 1.05:
+		# Extra anticipation while boosted so corners after pads are entered
+		# on a line chosen for the boosted speed, not the base speed.
+		lookahead += racer.current_speed * 0.25
 	if _chosen_branch >= 0:
 		var branch: Dictionary = course.branches[_chosen_branch]
 		var entry := float(branch["entry"])
@@ -130,7 +139,10 @@ func _steer_toward_target(delta: float) -> void:
 			_mistake_timer = rng.randf_range(0.3, 0.7)
 		else:
 			_mistake_steer = 0.0
-	raw_steer += _mistake_steer
+	if racer.boost_mult <= 1.05:
+		# Wobble pulses are suppressed while boosted: at boost speed a pulse
+		# is enough to overshoot a corner straight into the walls.
+		raw_steer += _mistake_steer
 	steer = clampf(lerpf(steer, raw_steer, minf(delta * 8.0, 1.0)), -1.0, 1.0)
 
 

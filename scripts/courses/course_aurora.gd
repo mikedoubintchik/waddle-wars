@@ -231,15 +231,22 @@ func build_course() -> void:
 	TrackBuilder.add_boost_pad(self, main_guide, spiral_arc + 45.0, -2.5)
 	TrackBuilder.add_boost_pad(self, main_guide, spiral_arc + 125.0, 2.5)
 
-	# More acceleration pads: every switchback hairpin exit (the climb's
-	# corner-exit rewards), the safe-descent hairpin exit, and a ridge
-	# shortcut survivor reward near its merge. All clear of the wind zones,
-	# icicle cavern, and geyser field.
-	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(112, 53.6, -170)) + 4.0)
-	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(-70, 71.2, -254)) + 4.0)
-	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(58, 80.0, -306)) + 4.0)
-	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(-62, 55.0, -774)) + 4.0, 2.5)
-	TrackBuilder.add_boost_pad(self, shortcut, shortcut.length - 20.0)
+	# More acceleration pads, each on a straight AFTER its corner fully
+	# completes (playtest: pads directly on hairpin exits boosted AI while
+	# still steering — they overshot into walls/edges and fell): the gentle
+	# uphill grind before the hairpin-1 climb (extra speed is safe into a
+	# grade), the mid-straight after hairpin 1, the straight between
+	# hairpins 2 and 3 (~70m before hairpin 3 begins), and the run-out
+	# straight after the descent hairpin (boost expires before the descent-
+	# tail ice and the wall-less merge span at -840). The ridge-shortcut
+	# survivor reward moved OFF the narrow no-wall spine onto the wide main
+	# line just past its merge, where rejoining racers have realigned. All
+	# clear of the wind zones, icicle cavern, and the geyser lanes.
+	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(48, 44.5, -108)) + 6.0)
+	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(64, 57.3, -180)) + 4.0)
+	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(-28, 74.2, -264)) + 4.0)
+	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(-34, 53.0, -792)) + 4.0)
+	TrackBuilder.add_boost_pad(self, main_guide, merge_arc + 10.0)
 	# Slide hint for the new descent-tail ice patch (start plateau ice is
 	# left unhinted — racers are still building speed off the grid; the
 	# corkscrew-approach ice sits inside the geyser->spiral slide hint).

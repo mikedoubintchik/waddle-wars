@@ -25,6 +25,12 @@ const SLOPE_SLIDE_ACCEL: float = 15.0
 const COYOTE_TIME: float = 0.14
 const JUMP_BUFFER: float = 0.16
 const MAX_STEER_DEG: float = 55.0
+const STEER_AUTHORITY_MAX: float = 1.6  # yaw response scales with speed up to this
+const BOOST_MAX_MULT: float = 1.5  # apply_boost() clamp
+const BOOST_TOP_SPEED_MULT: float = 1.55  # cap on surface max_speed * boost_mult
+const BOOST_SLIDE_TOP_MULT: float = 1.6  # cap on slide_target * boost_mult
+const BOOST_DECAY_PER_S: float = 0.42  # ~1.2s smooth fade after the boost timer ends
+const BOOST_STRAIGHTEN_RATE: float = 0.8  # heading pull toward guide tangent while boosted
 const BANK_MAX_DEG: float = 15.0  # visual roll into turns
 const BANK_YAW_RATE_SCALE: float = 0.32  # rad of roll per rad/s of yaw rate
 const SHOVE_COOLDOWN: float = 1.6
@@ -228,8 +234,9 @@ func _update_timers(delta: float) -> void:
 	_invuln_timer = maxf(0.0, _invuln_timer - delta)
 	_stumble_timer = maxf(0.0, _stumble_timer - delta)
 	_blizzard_slip_timer = maxf(0.0, _blizzard_slip_timer - delta)
-	if _boost_timer <= 0.0:
-		boost_mult = 1.0
+	if _boost_timer <= 0.0 and boost_mult > 1.0:
+		# Smooth fade instead of a cliff: ~1.2s from full pad boost to normal.
+		boost_mult = maxf(1.0, boost_mult - BOOST_DECAY_PER_S * delta)
 	if controller.jump_pressed:
 		_jump_buffer_timer = JUMP_BUFFER
 		controller.consume_jump()
@@ -319,17 +326,22 @@ func _tick_ground_air(delta: float) -> void:
 		# or descending ground (penguins are fast on ice). Never applied while
 		# ascending, so the uphill stall stand-up below still bleeds speed
 		# under its 5.0 threshold (QA finding).
-		var slide_target := BASE_SPEED * float(surface["slide_target"]) * speed_scale * boost_mult
+		# Boost stacks multiplicatively with slick-surface targets, so cap the
+		# combined multiplier: a pad hit mid-slide tops out ~1.6x base instead
+		# of 2x+ (playtest: boosted racers became uncontrollable).
+		var slide_target := BASE_SPEED * minf(float(surface["slide_target"]) * boost_mult, BOOST_SLIDE_TOP_MULT) * speed_scale
 		var slide_ramp := float(surface["slide_ramp"])
 		if slide_ramp > 0.0 and on_floor and downhill_dot >= -0.02 and current_speed < slide_target:
 			current_speed = move_toward(current_speed, slide_target, slide_ramp * delta)
-		current_speed = clampf(current_speed, 0.0, SLIDE_MAX_SPEED * boost_mult)
+		current_speed = clampf(current_speed, 0.0, SLIDE_MAX_SPEED)
 		# Sliding uphill or into deep snow bleeds speed fast; standing back up
 		# is handled once speed drops below waddle pace.
 		if current_speed < BASE_SPEED * 0.55 * speed_scale:
 			current_speed = move_toward(current_speed, BASE_SPEED * 0.55 * speed_scale, 4.0 * delta)
 	else:
-		var target := BASE_SPEED * float(surface["max_speed"]) * speed_scale * boost_mult * stumble_mult * _finish_slowdown
+		# Same combined cap as sliding: surface speed and boost never stack past
+		# ~1.55x base, keeping top boost speed inside steerable range.
+		var target := BASE_SPEED * minf(float(surface["max_speed"]) * boost_mult, BOOST_TOP_SPEED_MULT) * speed_scale * stumble_mult * _finish_slowdown
 		var accel := 14.0 * float(surface["accel"])
 		if not on_floor:
 			accel *= 0.5
@@ -348,9 +360,20 @@ func _tick_ground_air(delta: float) -> void:
 	if _stumble_timer > 0.0:
 		steer *= 0.4
 	var steer_target := steer * deg_to_rad(MAX_STEER_DEG)
-	_steer_offset = lerpf(_steer_offset, steer_target, minf(delta * 7.0 * grip, 1.0))
-	_facing_yaw = _wrap_lerp_angle(_facing_yaw, _guide_yaw + _steer_offset, minf(delta * 5.0, 1.0))
-	_velocity_yaw = _wrap_lerp_angle(_velocity_yaw, _facing_yaw, minf(delta * (2.0 + 6.0 * grip), 1.0))
+	# Yaw response scales with speed so the turning radius stays roughly
+	# constant: without this, boost pads doubled speed while turn rate stayed
+	# tuned for BASE_SPEED and the racer felt like a runaway sled (playtest).
+	var speed_authority := clampf(current_speed / BASE_SPEED, 1.0, STEER_AUTHORITY_MAX)
+	_steer_offset = lerpf(_steer_offset, steer_target, minf(delta * 7.0 * grip * speed_authority, 1.0))
+	_facing_yaw = _wrap_lerp_angle(_facing_yaw, _guide_yaw + _steer_offset, minf(delta * 5.0 * speed_authority, 1.0))
+	if boost_mult > 1.02:
+		# Light auto-straighten while boosted: pull the heading toward the
+		# guide tangent so a pad hit mid-corner doesn't launch into the walls.
+		# Fades out with active steering input so it never fights the player.
+		var straighten := BOOST_STRAIGHTEN_RATE * (1.0 - absf(steer))
+		if straighten > 0.0:
+			_facing_yaw = _wrap_lerp_angle(_facing_yaw, _guide_yaw, minf(delta * straighten, 1.0))
+	_velocity_yaw = _wrap_lerp_angle(_velocity_yaw, _facing_yaw, minf(delta * (2.0 + 6.0 * grip) * speed_authority, 1.0))
 
 	# Jumping.
 	if _jump_buffer_timer > 0.0 and (on_floor or _coyote_timer > 0.0) and _stumble_timer <= 0.0:
@@ -595,9 +618,12 @@ func apply_stun(source: String = "") -> bool:
 	return true
 
 
+## Boost multiplier is clamped to BOOST_MAX_MULT and never downgraded by a
+## weaker overlapping boost; combined surface*boost speed is capped in the
+## movement code so pads top out ~1.5x base speed.
 func apply_boost(duration: float, mult: float = 1.45) -> void:
 	_boost_timer = maxf(_boost_timer, duration)
-	boost_mult = mult
+	boost_mult = clampf(maxf(boost_mult, mult), 1.0, BOOST_MAX_MULT)
 	if state == State.WADDLING:
 		_set_state(State.BOOSTED)
 
