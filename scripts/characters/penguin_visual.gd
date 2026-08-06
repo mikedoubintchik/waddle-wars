@@ -194,6 +194,9 @@ static func get_material(color: Color, metallic: float = 0.0, roughness: float =
 ## Body/feather material: a faint rim kiss so the silhouette separates from
 ## snow without lifting overall value. Rim is kept weak and albedo-tinted —
 ## strong white rim washed the racers gray under the bright glacier ambient.
+## Retained as public API; the penguin's own solid plumage parts now use
+## _get_plumage_tinted() instead so they share the body's countershading and
+## distance-adaptive rim rather than reading as flat patches beside it.
 static func get_body_material(color: Color, roughness: float = 0.68, rim: float = 0.11) -> StandardMaterial3D:
 	var key := "body_%s_%s_%s" % [color.to_html(), roughness, rim]
 	if _material_cache.has(key):
@@ -211,16 +214,35 @@ static func get_body_material(color: Color, roughness: float = 0.68, rim: float 
 
 ## Shared feather material for all vertex-colored penguin meshes (body,
 ## flippers, feet). The baked vertex colors carry the palette, so one material
-## covers every variant. On top of the baked colors the shader layers
-## procedural feather micro-detail: fine barb striations crossed with
-## feather-row scallops modulating albedo and roughness (fading out over
-## 6-16 m, same pattern as the snow detail shader), a view-grazing structural
-## iridescence on the dark dorsal only (the green-blue-violet oily sheen of
-## real penguin plumage), a matte belly, and the same weak albedo-tinted rim
-## the old StandardMaterial3D had (a strong white rim washed racers gray under
-## the bright glacier ambient). WebGL2/gl_compatibility-safe: pure math, no
-## screen or depth reads, and object-space detail so nothing swims when the
-## body animates.
+## covers every variant — 8 racers share this single ShaderMaterial, so the
+## whole treatment below costs draw calls nothing and is pure fragment ALU.
+##
+## Four layers, in the order they solve the "near-black featureless blob at
+## race distance" problem:
+##
+##  1. FORM (hemispheric countershading). A world-space up/down term derived
+##     from the normal multiplies the baked color: sky-facing plumage lifts,
+##     ground-facing plumage sinks. It is multiplicative and roughly
+##     mean-preserving, so the body does NOT go gray — the tonal RANGE across
+##     it roughly triples instead, which is what turns a flat egg into a
+##     rounded, weighted mass. A small additive sky bounce tints the upper
+##     back cool so it reads as light from above rather than a paint gradient.
+##  2. RIM / EDGE LIGHT, distance-adaptive. A Fresnel band in EMISSION (so it
+##     survives any light direction, including the aurora course's near-black
+##     key) tightens to a crisp edge in close-ups and deliberately BROADENS
+##     and strengthens with distance, because a 1-pixel rim is invisible on a
+##     racer that is 30 px tall. Weighted to the upper silhouette so it reads
+##     as sky light spilling over the back instead of a sticker outline, and
+##     masked off the white belly, which needs no help separating.
+##  3. FEATHER STRUCTURE at two scales: fine barb striations (visible inside
+##     ~15 m) and broad overlapping feather tracts big enough to survive to
+##     ~40 m, so mid-pack rivals still show plumage instead of a smooth mass.
+##  4. SATIN SHEEN: roughness tightens toward the sky-facing back so the sun
+##     lays a real specular sweep along the dorsal, plus the green-blue-violet
+##     structural iridescence of real penguin plumage at grazing angles.
+##
+## WebGL2/gl_compatibility-safe: pure math, no screen or depth reads, and
+## object-space detail so nothing swims when the body animates.
 static func _get_plumage_material() -> Material:
 	var key := "penguin_plumage_vtx"
 	if _material_cache.has(key):
@@ -229,6 +251,18 @@ static func _get_plumage_material() -> Material:
 	shader.code = """
 shader_type spatial;
 
+// Solid (non-vertex-colored) plumage parts — tail wedge, shoulder mounds,
+// brow ridges, crest quills — reuse this exact shader with tint set to their
+// color and COLOR left at white. Same compiled program, different uniform
+// buffer, so they batch with the body instead of needing a second shader.
+// Deliberately NOT ": source_color": that hint applies an sRGB->linear decode,
+// but mesh vertex colors are handed to the shader raw. Tagging it would put
+// the solid parts roughly a stop and a half below the body they are welded to
+// — which is exactly what made the shoulder mounds read as dark lumps and the
+// tail as a black hole back when they used StandardMaterial3D.albedo_color
+// (which does decode). Raw keeps every plumage part in one color space.
+uniform vec4 tint = vec4(1.0, 1.0, 1.0, 1.0);
+
 varying vec3 v_obj;
 
 void vertex() {
@@ -236,36 +270,95 @@ void vertex() {
 }
 
 void fragment() {
-	vec3 base = COLOR.rgb;
+	vec3 base = COLOR.rgb * tint.rgb;
 	float lum = dot(base, vec3(0.299, 0.587, 0.114));
 	// 1 on the dark dorsal feathers, 0 on the white belly.
 	float dark_m = 1.0 - smoothstep(0.18, 0.55, lum);
-	// Micro-detail fades with view distance so far racers stay clean.
-	float detail = 1.0 - smoothstep(6.0, 16.0, length(VERTEX));
-	// Feather micro-grain: fine barbs crossed with coarser feather rows.
+	// Rim mask: everything that is not near-white takes an edge light, so the
+	// orange feet and bill zones separate too; only the bright belly opts out.
+	float rim_m = 1.0 - smoothstep(0.52, 0.88, lum);
+
+	float dist = length(VERTEX);
+	float near_k = 1.0 - smoothstep(5.0, 15.0, dist);   // barb scale
+	float mid_k = 1.0 - smoothstep(16.0, 40.0, dist);   // feather-tract scale
+
+	// --- feather structure, two scales -------------------------------------
 	float barbs = sin(v_obj.x * 340.0 + v_obj.y * 110.0) * sin(v_obj.z * 300.0 - v_obj.y * 70.0);
 	float rows = sin(v_obj.y * 96.0 + sin(v_obj.x * 34.0 + v_obj.z * 27.0) * 2.2);
-	float grain = (barbs * 0.55 + rows * 0.45) * detail;
+	float grain = (barbs * 0.55 + rows * 0.45) * near_k;
+	float tract = sin(v_obj.y * 27.0 + sin(v_obj.x * 8.0 + v_obj.z * 7.0) * 1.8)
+		* (0.55 + 0.45 * sin(v_obj.x * 14.0 - v_obj.z * 11.0));
+	float group = tract * mid_k;
+
+	// --- form: hemispheric countershading ----------------------------------
+	// World "up" component of the (view-space) fragment normal, for one dot
+	// product and no extra varying: the second row of the inverse-view
+	// rotation IS world up expressed in view space.
+	// NOTE: do NOT reach for MODEL_NORMAL_MATRIX in vertex() here — it is not
+	// emitted in every gl_compatibility vertex specialization, and the aurora
+	// course's additive light passes then fail to link ("input of fragment
+	// shader not written by vertex shader"), dropping every racer to an
+	// unshaded black silhouette.
+	vec3 world_up = vec3(INV_VIEW_MATRIX[0][1], INV_VIEW_MATRIX[1][1], INV_VIEW_MATRIX[2][1]);
+	float up = clamp(dot(NORMAL, world_up) * 0.5 + 0.5, 0.0, 1.0);
+	float shade = up * up * (3.0 - 2.0 * up);
+	// Bright surfaces (white belly, orange feet and bill zones) take the
+	// downward darkening for grounding but only a muted upward lift — pushed
+	// the full amount they wash out toward paper white instead of reading as
+	// saturated feet against snow.
+	float form = mix(0.50, mix(1.10, 1.34, dark_m), shade);
+	vec3 col = base * (form + (grain * 0.055 + group * 0.06) * dark_m);
+	col += vec3(0.09, 0.13, 0.22) * (shade * shade * shade * 0.16) * dark_m;
+
+	// --- rim / edge light, distance-adaptive --------------------------------
 	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+	float far_k = smoothstep(7.0, 30.0, dist);
+	float rim = pow(1.0 - ndv, mix(4.5, 2.1, far_k));
+	float rim_w = mix(0.50, 0.74, far_k) * (0.42 + 0.58 * up);
+
+	// --- structural iridescence --------------------------------------------
 	float fres = pow(1.0 - ndv, 3.0);
-	// Structural iridescence: thin-film-style green->blue->violet sweep
-	// across the grazing angle, dark feathers only, kept faint so the dorsal
-	// still reads dark at race distance.
 	vec3 irid = vec3(
 		0.30 + 0.30 * sin(fres * 9.0 + 1.8),
 		0.50 + 0.30 * sin(fres * 9.0 + 3.6),
 		0.70 + 0.25 * sin(fres * 9.0 + 5.2));
-	ALBEDO = base * (1.0 + grain * 0.045);
-	// Weak albedo-tinted rim + the iridescent sheen live in EMISSION so they
-	// read under any light direction; both stay far below bloom threshold.
-	EMISSION = (irid * dark_m * 0.10 + mix(vec3(1.0), base, 0.7) * 0.05) * fres;
-	// Dorsal feathers carry a satin sheen; the belly stays matte.
-	ROUGHNESS = mix(0.72, 0.50 + grain * 0.08, dark_m);
-	SPECULAR = mix(0.38, 0.52, dark_m);
+
+	ALBEDO = clamp(col, vec3(0.0), vec3(1.0));
+	// Rim + a tiny light-independent skylight floor on the sky-facing dorsal.
+	// The floor exists for the aurora course: with only a dim night key, an
+	// albedo-0.1 back renders as literal black no matter how good the albedo
+	// gradient is, so the form has to be carried by something that does not
+	// go through the light loop. It is far below the direct sun on glacier,
+	// where it changes nothing.
+	EMISSION = vec3(0.64, 0.79, 1.0) * (rim * rim_w * rim_m)
+		+ vec3(0.30, 0.42, 0.62) * (0.07 * shade * dark_m)
+		+ irid * (dark_m * 0.09 * fres);
+	// Dorsal feathers carry a satin sheen that tightens toward the sky-facing
+	// back, where the sun lays its highlight; the belly stays matte.
+	ROUGHNESS = mix(0.72, mix(0.70, 0.56, shade) + grain * 0.09, dark_m);
+	SPECULAR = mix(0.38, 0.46, dark_m);
 }
 """
 	var mat := ShaderMaterial.new()
 	mat.shader = shader
+	_material_cache[key] = mat
+	return mat
+
+
+## Solid-color variant of the plumage material for the parts that carry no
+## vertex colors (tail wedge, shoulder mounds, brow ridges, crest quills).
+## Same Shader object -> same compiled program -> they batch with the body and
+## pick up the identical countershading + rim, so no flat patch breaks the
+## form. Cached per color; there are only ~a dozen distinct ones across all
+## eight species, shared by every racer.
+static func _get_plumage_tinted(color: Color) -> Material:
+	var key := "plumage_tint_" + color.to_html(false)
+	if _material_cache.has(key):
+		return _material_cache[key]
+	var src := _get_plumage_material() as ShaderMaterial
+	var mat := ShaderMaterial.new()
+	mat.shader = src.shader
+	mat.set_shader_parameter("tint", color)
 	_material_cache[key] = mat
 	return mat
 
@@ -343,7 +436,7 @@ static func _tune_dorsal(color: Color) -> Color:
 	return Color.from_hsv(
 		color.h,
 		clampf(color.s * 1.45, 0.0, 0.95),
-		clampf(color.v * 0.50, 0.04, 0.30),
+		clampf(color.v * 0.46, 0.035, 0.28),
 		color.a
 	)
 
@@ -437,11 +530,14 @@ static func _grain(col: Color, pos: Vector3) -> Color:
 ## sp is a SPECIES entry: it selects the ventral boundary curve and which
 ## vertex-color markings (ear patch, chest wash, headphone band) are baked.
 static func _plumage_at(y: float, theta_deg: float, pos: Vector3, dorsal: Color, ventral: Color, patch: Color, sp: Dictionary) -> Color:
-	# Dorsal sheen: back feathers read slightly lighter toward the shoulders.
-	# Deliberately faint — the stronger lift was washing the dark base gray
-	# once bright scene ambient stacked on top of it.
-	var sheen := clampf((y - 0.3) / 0.7, 0.0, 1.0) * 0.15
-	var dors := dorsal.lerp(dorsal.lightened(0.10), sheen)
+	# Dorsal sheen: back feathers read lighter toward the shoulders and crown,
+	# darker down the flanks. This is baked countershading along the body's
+	# LENGTH; the shader adds the view-independent up/down term on top. Two
+	# axes of tonal variation is what stops the dorsal reading as one flat
+	# mass — but the lift is kept under ~9% so the base still reads dark once
+	# bright glacier ambient stacks on it.
+	var sheen := clampf((y - 0.28) / 0.72, 0.0, 1.0) * 0.55
+	var dors := dorsal.lerp(dorsal.lightened(0.16), sheen)
 	# Structural-color hint: head/neck feathers pick up a faint cool
 	# green-blue cast where the surface grazes the light (the sides) — a
 	# cheap baked stand-in for feather iridescence. Kept subtle so the head
@@ -548,16 +644,25 @@ static func _plumage_at(y: float, theta_deg: float, pos: Vector3, dorsal: Color,
 			var spk := clampf((sin(pos.x * 210.0 + pos.z * 170.0) \
 				* sin(pos.z * 190.0 - pos.x * 140.0 + y * 90.0) - 0.82) / 0.18, 0.0, 1.0)
 			col = col.lerp(ventral.darkened(0.08), spk * 0.55)
-	# Baked ambient-occlusion fakes: a soft contact band where the flipper
-	# root and shoulder mound meet the torso (theta ~92 deg, y ~0.585 matches
-	# the pivot at x 0.24 / y 0.60), and a faint grounding gradient under the
-	# belly skirt. Applied before grain so the darkening stays feathered.
+	# Baked ambient-occlusion fakes. These are the cheapest readability tool
+	# there is (zero runtime cost, they ship inside the cached mesh) and they
+	# do most of the work of turning the silhouette into separate parts:
+	#   * flipper-root / shoulder crease (theta ~92 deg, y ~0.585 matches the
+	#     pivot at x 0.24 / y 0.60),
+	#   * a neck crease at y ~0.75 — the single most valuable one, because
+	#     from the chase camera it is what separates the head ball from the
+	#     body mass instead of one continuous dark egg,
+	#   * a grounding gradient under the belly skirt, deepened so the body
+	#     sits INTO the snow with contact weight instead of floating on it.
+	# Applied before grain so the darkening stays feathered.
 	var du_f := (theta_deg - 92.0) / 24.0
 	var dv_f := (y - 0.585) / 0.09
-	var ao := exp(-(du_f * du_f + dv_f * dv_f)) * 0.16
-	ao += (1.0 - smoothstep(0.035, 0.17, y)) * 0.10
+	var ao := exp(-(du_f * du_f + dv_f * dv_f)) * 0.18
+	var dn := (y - 0.752) / 0.052
+	ao += exp(-dn * dn) * 0.17
+	ao += (1.0 - smoothstep(0.03, 0.24, y)) * 0.30
 	if ao > 0.003:
-		col = col.darkened(minf(ao, 0.24))
+		col = col.darkened(minf(ao, 0.36))
 	return _grain(col, pos)
 
 
@@ -582,11 +687,11 @@ static func _build_body_mesh(species_id: String, dorsal: Color, ventral: Color, 
 		Vector2(0.480, 0.314),
 		Vector2(0.580, 0.274),
 		Vector2(0.660, 0.236),
-		Vector2(0.720, 0.210),  # neck taper
-		Vector2(0.762, 0.200),  # neck
-		Vector2(0.805, 0.210),  # head swell
-		Vector2(0.850, 0.216),  # head widest
-		Vector2(0.900, 0.200),
+		Vector2(0.716, 0.207),  # neck taper
+		Vector2(0.758, 0.186),  # neck pinch: deep enough that the head reads as
+		Vector2(0.800, 0.207),  # a separate ball at 40 m, where the old shallow
+		Vector2(0.850, 0.222),  # taper made body+head one continuous dark egg
+		Vector2(0.900, 0.204),
 		Vector2(0.940, 0.165),
 		Vector2(0.970, 0.118),
 		Vector2(0.990, 0.062),
@@ -787,13 +892,23 @@ func setup(config: Dictionary) -> void:
 	# Body + head: one continuous smooth lathe with baked plumage.
 	_body = _mesh(_root, _build_body_mesh(species_id, body_color, belly_color, patch_color), body_color, Vector3.ZERO, Vector3.ZERO, Vector3.ONE, plumage)
 
-	# Tail: dark wedge tucked against the lower back, tip swept up.
+	# Tail: a flat wedge that HUGS the rump rather than sticking out of it.
+	# Verified with a debug-tinted build: from the chase camera a protruding
+	# tail projects onto the lower back, its camera-facing end points away and
+	# down (so countershading drops it to the darkest part of the ramp) and its
+	# silhouette edge picks up the rim — the net read was a black elliptical
+	# hole punched in the middle of every racer, which is exactly where the eye
+	# lands. Tucked flat with a matched tint it merges into the rump and only
+	# lifts the profile, and in the SLIDE pose (body pitched -80 deg) it swings
+	# up to read as a proper tail against the sky. Shadow casting off (_prop):
+	# it also used to throw a hard ellipse onto its own back, and skipping it
+	# drops a shadow-pass draw on every racer.
 	var tail_mesh := SphereMesh.new()
 	tail_mesh.radius = 0.13
 	tail_mesh.height = 0.26
 	tail_mesh.radial_segments = 20
 	tail_mesh.rings = 12
-	_mesh(_root, tail_mesh, body_color, Vector3(0, 0.22, 0.30), Vector3(deg_to_rad(-30), 0, 0), Vector3(0.85, 0.38, 1.25), get_body_material(body_color))
+	_prop(_root, tail_mesh, body_color, Vector3(0, 0.268, 0.286), Vector3(deg_to_rad(-22), 0, 0), Vector3(0.82, 0.24, 0.98), _get_plumage_tinted(body_color))
 
 	# Head anchor at the head-sphere center (the lathe's upper bulge).
 	_head_anchor = Node3D.new()
@@ -888,7 +1003,7 @@ func setup(config: Dictionary) -> void:
 	brow_mesh.radial_segments = 12
 	brow_mesh.rings = 6
 	var brow_color := body_color.lerp(belly_color, 0.18)
-	var brow_mat := get_body_material(brow_color, 0.7, 0.08)
+	var brow_mat := _get_plumage_tinted(brow_color)
 	_brow_l = _mesh(_face_anchor, brow_mesh, brow_color, Vector3(-0.112, 0.058, 0.020), Vector3(0, 0, BROW_REST), Vector3(1.3, 0.30, 0.55), brow_mat)
 	_brow_r = _mesh(_face_anchor, brow_mesh, brow_color, Vector3(0.112, 0.058, 0.020), Vector3(0, 0, -BROW_REST), Vector3(1.3, 0.30, 0.55), brow_mat)
 
@@ -960,8 +1075,8 @@ func setup(config: Dictionary) -> void:
 	var crest_style := String(sp.get("crest", ""))
 	if crest_style != "":
 		var crest_color := _saturate(config.get("crest_color", sp.get("crest_color", Color(0.98, 0.82, 0.2))) as Color)
-		var crest_mat := get_body_material(crest_color, 0.6, 0.10)
-		var crest_deep := get_body_material(crest_color.darkened(0.22), 0.64, 0.08)
+		var crest_mat := _get_plumage_tinted(crest_color)
+		var crest_deep := _get_plumage_tinted(crest_color.darkened(0.22))
 		var quill := CylinderMesh.new()
 		quill.top_radius = 0.0
 		quill.bottom_radius = 0.016
@@ -977,7 +1092,7 @@ func setup(config: Dictionary) -> void:
 				# Spiky yellow fans flaring up-and-out above each brow, backed
 				# by finer shadowed strands, plus the rockhopper's short black
 				# occipital crest spiking off the crown (hidden under hats).
-				var crown_mat := get_body_material(body_color, 0.68, 0.08)
+				var crown_mat := _get_plumage_tinted(body_color)
 				for side: float in [-1.0, 1.0]:
 					_prop(_head_anchor, quill, crest_color, Vector3(0.105 * side, 0.095, -0.045), Vector3(deg_to_rad(-14), 0, deg_to_rad(46.0 * side)), Vector3(1.0, 1.0, 1.0), crest_mat)
 					_prop(_head_anchor, quill, crest_color, Vector3(0.115 * side, 0.085, -0.02), Vector3(deg_to_rad(2), 0, deg_to_rad(58.0 * side)), Vector3(0.9, 0.85, 0.9), crest_mat)
@@ -1023,16 +1138,18 @@ func _make_flipper(body_color: Color, belly_color: Color, side: float) -> Node3D
 	shoulder_mesh.height = 0.14
 	shoulder_mesh.radial_segments = 16
 	shoulder_mesh.rings = 8
-	_mesh(pivot, shoulder_mesh, body_color, Vector3(0.015 * side, -0.015, 0), Vector3.ZERO, Vector3(0.75, 0.95, 0.9), get_body_material(body_color))
+	_mesh(pivot, shoulder_mesh, body_color, Vector3(0.015 * side, -0.015, 0), Vector3.ZERO, Vector3(0.75, 0.95, 0.9), _get_plumage_tinted(body_color))
 	# Blade: shared two-tone mesh; the left side is the same mesh yawed PI so
 	# its dark face points outward (the cross-section is Z-symmetric; the
 	# per-side flip keeps the pale trailing-edge border facing backward).
 	var blade := _mesh(pivot, _build_flipper_mesh(body_color, belly_color, side), Color.WHITE, Vector3(0.012 * side, -0.02, 0), Vector3.ZERO, Vector3.ONE, _get_plumage_material())
 	if side < 0.0:
 		blade.rotation.y = PI
-	# Match tick()'s rest targets (l: -16, r: +16) so static frames (previews,
+	# Match tick()'s rest targets (l: -21, r: +21) so static frames (previews,
 	# first frame before tick) already show the correct outward-flared rest.
-	pivot.rotation.z = deg_to_rad(16.0 * side)
+	# 21 deg (was 16) is the smallest flare that visibly breaks the egg
+	# silhouette from directly behind, where the chase camera lives.
+	pivot.rotation.z = deg_to_rad(21.0 * side)
 	return pivot
 
 
@@ -1162,8 +1279,8 @@ func tick(delta: float, speed_ratio: float) -> void:
 	# so this rate lands the step cadence around ~2-3 steps/s across the
 	# speed range — a real penguin waddle — instead of the old ~6 Hz buzz.
 	var wave := _time * (3.2 + 2.8 * speed_ratio)
-	var flipper_l_target := deg_to_rad(-16.0)
-	var flipper_r_target := deg_to_rad(16.0)
+	var flipper_l_target := deg_to_rad(-21.0)
+	var flipper_r_target := deg_to_rad(21.0)
 	var flipper_swing := 0.0
 	var brow_target := BROW_REST
 	var step_lift := 0.0
