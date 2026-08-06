@@ -98,7 +98,9 @@ func _clear() -> void:
 func _heading(text: String) -> void:
 	var label := UITheme.heading(text, 52)
 	_content.add_child(label)
-	_content.add_child(UITheme.accent_rule(260.0))
+	# Shared header treatment: the rule spans the card column and sweeps in,
+	# matching every other menu's make_header_rule rhythm.
+	_content.add_child(UITheme.make_header_rule())
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 8)
 	_content.add_child(gap)

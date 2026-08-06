@@ -7,7 +7,11 @@ extends Area3D
 ## with corneal glints. The body and fin surfaces use inline spatial shaders:
 ## silvery countershaded iridescence with gill/operculum detail, plus a
 ## world-position-phased vertex swim stroke so every fish waves its tail on
-## its own beat (no instance uniforms — gl_compatibility safe).
+## its own beat (no instance uniforms — gl_compatibility safe). Fins add a
+## faster membrane flutter on top of the shared sway, masked to zero at the
+## fin roots so they stay seamlessly attached to the flank. Collecting pops
+## the fish inside a fan of water droplets that arcs out and rains down
+## (shared mesh/base material; skipped on low particle quality).
 
 ## Body shader: countershading (slate dorsal -> mirror-silver belly), scale
 ## shimmer bands + sparse view-angle scale glitter, wavy lateral line, dorsal
@@ -79,7 +83,8 @@ void fragment() {
 """
 
 ## Fin shader: same swim sway (phase-matched to the body so the tail wags
-## with the peduncle), warm membrane with fin-ray striations + rim glow.
+## with the peduncle) plus a faster, finer membrane flutter that fades to
+## zero at the fin roots, warm membrane with fin-ray striations + rim glow.
 const FIN_SHADER_CODE := """shader_type spatial;
 render_mode cull_disabled, diffuse_burley, specular_schlick_ggx;
 
@@ -89,6 +94,12 @@ void vertex() {
 	v_obj = VERTEX;
 	float phase = MODEL_MATRIX[3].x * 1.7 + MODEL_MATRIX[3].z * 2.3;
 	VERTEX.z += sin(TIME * 5.0 + phase + VERTEX.x * 6.0) * 0.045 * smoothstep(-0.16, 0.34, VERTEX.x);
+	// Membrane flutter: higher-frequency ripple riding the shared sway.
+	// Masked by distance outside an ellipsoid approximating the body, so
+	// fin roots (which must track the flank exactly) never move relative
+	// to the body surface while the free edges flutter.
+	float away = smoothstep(0.14, 0.26, length(vec3(v_obj.x * 0.55, v_obj.y, v_obj.z * 1.6)));
+	VERTEX.z += sin(TIME * 9.0 + phase * 1.7 + (v_obj.x - v_obj.y) * 22.0) * 0.016 * away;
 }
 
 void fragment() {
@@ -109,6 +120,8 @@ static var _fish_mat_contrast: StandardMaterial3D = null
 static var _ring_mesh: TorusMesh = null
 static var _ring_mat: StandardMaterial3D = null
 static var _ring_mat_contrast: StandardMaterial3D = null
+static var _droplet_mesh: ArrayMesh = null
+static var _droplet_base_mat: StandardMaterial3D = null
 
 var value: int = 1
 var collected: bool = false
@@ -306,6 +319,53 @@ static func _get_ring_material() -> StandardMaterial3D:
 	return _ring_mat
 
 
+## Radial fan of teardrop water droplets for the collect splash: golden-angle
+## directions biased upward (a splash, not an explosion), each an elongated
+## kite with deterministic size variance. Same construction family as
+## Snowball's chunk fan so all pickup bursts share one aesthetic. Winding is
+## irrelevant — the base material is cull_disabled.
+static func _get_droplet_mesh() -> ArrayMesh:
+	if _droplet_mesh != null:
+		return _droplet_mesh
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var count := 14
+	for i: int in count:
+		var g := float(i) * 2.39996
+		var y := lerpf(-0.1, 0.85, (float(i) + 0.5) / float(count))
+		var r := sqrt(maxf(1.0 - y * y, 0.0))
+		var dir := Vector3(cos(g) * r, y, sin(g) * r)
+		var ref_axis := Vector3.UP if absf(dir.y) < 0.9 else Vector3.RIGHT
+		var tangent := dir.cross(ref_axis).normalized()
+		var drop_len := 0.13 + 0.10 * fmod(float(i) * 0.618, 1.0)
+		var half_w := 0.020 + 0.010 * fmod(float(i) * 0.382, 1.0)
+		var inner := dir * 0.10
+		var outer := dir * (0.10 + drop_len)
+		var mid := dir * (0.10 + drop_len * 0.45)
+		st.add_vertex(mid + tangent * half_w)
+		st.add_vertex(mid - tangent * half_w)
+		st.add_vertex(outer)
+		st.add_vertex(mid - tangent * half_w)
+		st.add_vertex(mid + tangent * half_w)
+		st.add_vertex(inner)
+	_droplet_mesh = st.commit()
+	return _droplet_mesh
+
+
+## Base material for the droplet fan. Alpha animates during the splash, so
+## each burst duplicates it — same pattern as Snowball's chunk material.
+static func _get_droplet_base_material() -> StandardMaterial3D:
+	if _droplet_base_mat == null:
+		_droplet_base_mat = StandardMaterial3D.new()
+		_droplet_base_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_droplet_base_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_droplet_base_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		_droplet_base_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_droplet_base_mat.albedo_color = Color(0.55, 0.85, 1.0, 0.0)
+		_droplet_base_mat.render_priority = 1
+	return _droplet_base_mat
+
+
 func _physics_process(delta: float) -> void:
 	if collected:
 		return
@@ -342,8 +402,46 @@ func _on_body_entered(body: Node3D) -> void:
 	if racer.is_player:
 		AudioManager.play_sfx_varied("sfx_fish", -2.0)
 	set_deferred("monitoring", false)
-	# Pop animation then free.
-	var tween := create_tween()
-	tween.tween_property(_visual, "scale", Vector3.ONE * 1.6, 0.08)
-	tween.tween_property(_visual, "scale", Vector3.ONE * 0.01, 0.12)
-	tween.tween_callback(queue_free)
+	# Pop the fish, then splash: a droplet fan arcs out and rains down where
+	# it was swimming. When the splash is skipped (headless, low particle
+	# quality) the pop alone carries the read and frees the node.
+	var pop := create_tween()
+	pop.tween_property(_visual, "scale", Vector3.ONE * 1.6, 0.08)
+	pop.tween_property(_visual, "scale", Vector3.ONE * 0.01, 0.12)
+	var drops := _spawn_droplet_burst()
+	if drops == null:
+		pop.tween_callback(queue_free)
+		return
+	# The splash outlives the pop, so it owns the queue_free.
+	var drop_mat := drops.material_override as StandardMaterial3D
+	var splash := create_tween()
+	splash.set_parallel(true)
+	splash.tween_property(drops, "scale", Vector3.ONE * 1.7, 0.42) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	splash.tween_property(drops, "rotation:y", drops.rotation.y + 0.7, 0.42)
+	splash.tween_property(drops, "position:y", drops.position.y - 0.35, 0.42) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	splash.tween_property(drop_mat, "albedo_color:a", 0.0, 0.42)
+	splash.chain().tween_callback(queue_free)
+
+
+## Builds the one-shot droplet fan at the fish's position, or returns null
+## when the splash is skipped (headless, low particle quality). Mesh and
+## base material are shared across all fish; only the animated duplicate and
+## the burst node are allocated, and both free with the pickup.
+func _spawn_droplet_burst() -> MeshInstance3D:
+	if GameConfig.is_headless():
+		return null
+	if String(SettingsManager.get_setting("display", "particle_quality")) == "low":
+		return null
+	var mat := _get_droplet_base_material().duplicate() as StandardMaterial3D
+	mat.albedo_color = Color(0.55, 0.85, 1.0, 0.85)
+	var drops := MeshInstance3D.new()
+	drops.mesh = _get_droplet_mesh()
+	drops.material_override = mat
+	drops.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	drops.position = _visual.position
+	drops.rotation.y = randf() * TAU
+	drops.scale = Vector3.ONE * 0.55
+	add_child(drops)
+	return drops

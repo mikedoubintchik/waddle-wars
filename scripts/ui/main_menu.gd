@@ -41,8 +41,9 @@ func _ready() -> void:
 	title.add_theme_constant_override("shadow_outline_size", 14)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
-	var rule := UITheme.accent_rule(360.0)
-	vbox.add_child(rule)
+	# Shared header treatment: full-column rule sweeping in under the wordmark
+	# (same make_header_rule every other menu uses).
+	vbox.add_child(UITheme.make_header_rule())
 	var tagline := UITheme.sub_label("Slide. Shove. Snack. Repeat.", 24)
 	tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(tagline)
@@ -70,12 +71,13 @@ func _ready() -> void:
 			SaveManager.save_now()
 			get_tree().quit())
 
-	_build_status_chip()
+	var chip := _build_status_chip()
 	UITheme.attach_swipe_back(self, func() -> void:
 		SceneRouter.go_to(Game.SCENE_TITLE))
 	var entrance_items: Array[Control] = [title, tagline]
 	for button: Button in _buttons:
 		entrance_items.append(button)
+	entrance_items.append(chip)
 	UITheme.play_entrance(self, entrance_items)
 
 	if not _buttons.is_empty():
@@ -91,9 +93,21 @@ func _add_button(parent: Control, text: String, icon_svg: String, on_pressed: Ca
 	_buttons.append(button)
 
 
-func _build_status_chip() -> void:
+## Builds the fish/level (and, on web, sign-in) status chip and returns it so
+## the caller can include it in the entrance cascade.
+func _build_status_chip() -> PanelContainer:
 	var chip := PanelContainer.new()
-	chip.add_theme_stylebox_override("panel", UITheme.make_panel_style(Color(0.06, 0.11, 0.19, 0.9), UITheme.COLOR_GOLD))
+	# Rounded glass pill with a soft gold rim — quieter than the old full-
+	# strength gold border, and the pill shape reads as a status chip.
+	var chip_style := UITheme.make_panel_style(
+		Color(0.055, 0.10, 0.18, 0.88), Color(UITheme.COLOR_GOLD, 0.5))
+	chip_style.set_corner_radius_all(27)
+	chip_style.content_margin_left = 22.0
+	chip_style.content_margin_right = 22.0
+	chip_style.content_margin_top = 8.0
+	chip_style.content_margin_bottom = 8.0
+	chip_style.shadow_size = 6
+	chip.add_theme_stylebox_override("panel", chip_style)
 	chip.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	chip.offset_left = -280.0
 	chip.offset_top = 16.0
@@ -101,7 +115,7 @@ func _build_status_chip() -> void:
 	chip.offset_bottom = 70.0
 	add_child(chip)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 18)
+	row.add_theme_constant_override("separation", 16)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	chip.add_child(row)
 	var fish_box := HBoxContainer.new()
@@ -126,12 +140,15 @@ func _build_status_chip() -> void:
 		fish_glyph.add_theme_color_override("font_color", Color(0.55, 0.85, 0.95))
 		fish_box.add_child(fish_glyph)
 	_fish_label = Label.new()
+	_fish_label.add_theme_font_override("font", UITheme.bold_font())
 	_fish_label.add_theme_font_size_override("font_size", 22)
 	_fish_label.add_theme_color_override("font_color", UITheme.COLOR_GOLD)
 	_fish_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_fish_label.text = "%d" % Progression.get_fish()
 	fish_box.add_child(_fish_label)
+	row.add_child(_chip_divider())
 	var level_label := Label.new()
+	level_label.add_theme_font_override("font", UITheme.bold_font())
 	level_label.add_theme_font_size_override("font_size", 22)
 	level_label.add_theme_color_override("font_color", UITheme.COLOR_ACCENT)
 	level_label.text = "Lv %d" % Progression.get_level()
@@ -141,6 +158,7 @@ func _build_status_chip() -> void:
 	# and unlocks leaderboard posting. Chip widens to fit.
 	if LeaderboardClient.can_sign_in():
 		chip.offset_left = -560.0
+		row.add_child(_chip_divider())
 		_auth_chip_label = Label.new()
 		_auth_chip_label.add_theme_font_size_override("font_size", 20)
 		_auth_chip_label.add_theme_color_override("font_color", Color(0.75, 0.85, 0.95))
@@ -161,6 +179,17 @@ func _build_status_chip() -> void:
 		LeaderboardClient.cloud_save_restored.connect(func() -> void:
 			if is_inside_tree():
 				SceneRouter.go_to(Game.SCENE_MAIN_MENU))
+	return chip
+
+
+## Thin vertical separator between the chip's stat groups.
+static func _chip_divider() -> Control:
+	var divider := ColorRect.new()
+	divider.color = Color(UITheme.COLOR_ACCENT, 0.22)
+	divider.custom_minimum_size = Vector2(1.0, 26.0)
+	divider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return divider
 
 
 func _refresh_auth_chip() -> void:

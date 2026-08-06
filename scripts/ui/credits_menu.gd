@@ -1,7 +1,12 @@
 extends Control
-## Credits screen with a gentle floating scroll animation.
+## Credits screen with a gentle floating scroll animation. The list lives in
+## a ScrollContainer so cramped viewports (large Menu Scale, short landscape
+## phones) can still reach the Back button; the float only runs when the
+## content fits and reduced motion is off.
 
 var _content: VBoxContainer
+var _scroll: ScrollContainer
+var _reduced: bool = false
 var _elapsed: float = 0.0
 var _base_y: float = 0.0
 var _base_y_set: bool = false
@@ -10,10 +15,21 @@ var _base_y_set: bool = false
 func _ready() -> void:
 	UITheme.make_background(self)
 	UITheme.apply_ui_scale(self)
+	_reduced = UITheme.reduced_motion()
 
+	_scroll = ScrollContainer.new()
+	_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.follow_focus = true
+	add_child(_scroll)
+
+	# Expand flags let the CenterContainer fill the scroll viewport while the
+	# content fits (keeping the centered composition) and grow past it when it
+	# does not, which is what makes the list scrollable.
 	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_scroll.add_child(center)
 
 	_content = VBoxContainer.new()
 	_content.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -23,7 +39,7 @@ func _ready() -> void:
 	var logo := UITheme.heading(GameConfig.GAME_NAME.to_upper(), 64)
 	logo.add_theme_color_override("font_color", UITheme.COLOR_ACCENT)
 	_content.add_child(logo)
-	_content.add_child(UITheme.accent_rule(320.0, UITheme.COLOR_GOLD))
+	_content.add_child(UITheme.make_header_rule(UITheme.COLOR_GOLD))
 
 	var studio := UITheme.heading("a %s production" % GameConfig.STUDIO_NAME, 26)
 	studio.add_theme_color_override("font_color", UITheme.COLOR_GOLD)
@@ -105,6 +121,12 @@ func _process(delta: float) -> void:
 	if not _base_y_set:
 		_base_y = _content.position.y
 		_base_y_set = true
+	# Float only while everything fits on screen; once the ScrollContainer has
+	# to scroll (or reduced motion is on), the list must sit still. Compare
+	# against the scroll viewport, not the center wrapper — the wrapper grows
+	# with the content when it overflows.
+	if _reduced or _content.size.y > _scroll.size.y + 1.0:
+		return
 	_content.position.y = _base_y + sin(_elapsed * 0.8) * 10.0
 
 

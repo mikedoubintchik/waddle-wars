@@ -65,6 +65,7 @@ func _ready() -> void:
 	UITheme.hook_sounds(back_button)
 	back_button.pressed.connect(_go_back)
 	header.add_child(back_button)
+	layout.add_child(UITheme.make_header_rule())
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL

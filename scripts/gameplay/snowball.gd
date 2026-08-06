@@ -246,6 +246,18 @@ static func _get_splat_mesh() -> ArrayMesh:
 	return _splat_mesh
 
 
+## Shared chunk-fan resources exposed for SnowballPickup's collect puff, so
+## grabbing ammo bursts the exact same snow clods the projectile splats into
+## (one mesh + one base material across both, mirroring how the projectile
+## borrows the pickup's packed-snow material).
+static func get_chunk_mesh() -> ArrayMesh:
+	return _get_chunk_mesh()
+
+
+static func get_chunk_base_material() -> StandardMaterial3D:
+	return _get_chunk_base_material()
+
+
 static func _get_splat_base_material() -> StandardMaterial3D:
 	if _splat_base_mat == null:
 		_splat_base_mat = StandardMaterial3D.new()

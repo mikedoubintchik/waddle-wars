@@ -11,9 +11,17 @@ extends Area3D
 ## Rendering: the stack is one shared ArrayMesh (three uniformly-scaled,
 ## individually rotated sphere lobes) under an inline packed-snow shader —
 ## clumpy grain, cool crevice occlusion, sparse per-cell glitter facets that
-## flash as the view sweeps, and a frosty rim. The same material is reused
+## flash as the view sweeps, and a frosty rim — plus a second surface of
+## tiny vertex-colored pebble/coal flecks half-sunk into the lobes (the grit
+## a hand-packed ball picks up off the track). The snow material is reused
 ## by the thrown Snowball projectile via get_snow_material() so ammo and
 ## projectile read as one substance.
+##
+## Game feel: a larger sense Area3D (the pickup sphere is untouched) makes
+## the stack wobble in anticipation as a racer closes in; collecting bursts
+## the same snow-clod chunk fan the projectile splats with (shared mesh and
+## base material from Snowball) under a soft central flash, and the respawn
+## scales back in with ItemBox's back-eased overshoot instead of popping.
 ##
 ## Accessibility: reads through SHAPE (pyramid stack) + PATTERN (glitter,
 ## twin sparkle billboards) + BRIGHTNESS (ground halo ring), never hue
@@ -79,13 +87,24 @@ static var _sparkle_mat: StandardMaterial3D = null
 static var _halo_mesh: TorusMesh = null
 static var _halo_mat: StandardMaterial3D = null
 static var _halo_mat_contrast: StandardMaterial3D = null
+static var _collect_flash_mesh: QuadMesh = null
+static var _collect_flash_base_mat: StandardMaterial3D = null
 
 var _visual: MeshInstance3D = null
 var _sparkle: MeshInstance3D = null
 var _sparkle2: MeshInstance3D = null
 var _halo: MeshInstance3D = null
+var _sense: Area3D = null
+var _chunks: MeshInstance3D = null
+var _chunk_mat: StandardMaterial3D = null
+var _flash: MeshInstance3D = null
+var _flash_mat: StandardMaterial3D = null
+var _burst_tween: Tween = null
+var _respawn_tween: Tween = null
 var _active: bool = true
 var _bob_time: float = 0.0
+var _near_racers: int = 0
+var _wobble: float = 0.0
 
 
 func _ready() -> void:
@@ -129,6 +148,43 @@ func _ready() -> void:
 		_sparkle2.position = Vector3(-0.17, 0.0, 0.11)
 		_sparkle2.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_visual.add_child(_sparkle2)
+		# Anticipation sense: a second, larger Area3D that only watches for
+		# approaching racers so the stack can wobble before the grab (the
+		# pickup collision sphere above is untouched). Layer 0 + monitorable
+		# off — nothing ever collides with or queries it back.
+		_sense = Area3D.new()
+		_sense.collision_layer = 0
+		_sense.collision_mask = GameConfig.LAYER_RACERS
+		_sense.monitorable = false
+		var sense_shape := CollisionShape3D.new()
+		var sense_sphere := SphereShape3D.new()
+		sense_sphere.radius = 4.5
+		sense_shape.shape = sense_sphere
+		_sense.add_child(sense_shape)
+		add_child(_sense)
+		_sense.body_entered.connect(_on_sense_entered)
+		_sense.body_exited.connect(_on_sense_exited)
+		# Collect puff: central soft flash + the same snow-clod chunk fan the
+		# thrown Snowball splats with (shared mesh/base material; duplicates
+		# because the alpha animates — ItemBox burst pattern). Both nodes are
+		# built once and reused every respawn cycle. Chunks are skipped on low
+		# particle quality; the flash alone still marks the grab.
+		_flash_mat = _get_collect_flash_base_material().duplicate() as StandardMaterial3D
+		_flash = MeshInstance3D.new()
+		_flash.mesh = _get_collect_flash_mesh()
+		_flash.material_override = _flash_mat
+		_flash.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_flash.visible = false
+		_flash.position.y = VISUAL_BASE_Y
+		add_child(_flash)
+		if String(SettingsManager.get_setting("display", "particle_quality")) != "low":
+			_chunk_mat = Snowball.get_chunk_base_material().duplicate() as StandardMaterial3D
+			_chunks = MeshInstance3D.new()
+			_chunks.mesh = Snowball.get_chunk_mesh()
+			_chunks.material_override = _chunk_mat
+			_chunks.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			_chunks.visible = false
+			add_child(_chunks)
 	_bob_time = randf() * TAU
 	body_entered.connect(_on_body_entered)
 
@@ -136,7 +192,10 @@ func _ready() -> void:
 ## Three uniformly-scaled sphere lobes composed into one shared ArrayMesh:
 ## two nestled base balls plus one resting on top. Uniform scale + rotation
 ## per lobe keeps append_from normals valid; the slight size differences and
-## tilts sell "hand-packed" rather than "three primitives".
+## tilts sell "hand-packed" rather than "three primitives". Surface 1 adds
+## tiny vertex-colored pebble/coal flecks half-sunk into each lobe. Both
+## surface materials live on the shared mesh (FishPickup pattern), so every
+## instance reuses ONE snow material and ONE fleck material.
 static func _get_mesh() -> ArrayMesh:
 	if _stack_mesh != null:
 		return _stack_mesh
@@ -154,8 +213,60 @@ static func _get_mesh() -> ArrayMesh:
 	]
 	for t: Transform3D in lobes:
 		st.append_from(ball, 0, t)
-	_stack_mesh = st.commit()
+	var mesh := st.commit()
+	# Fleck surface: three grit chips per lobe on a deterministic golden-angle
+	# spread, biased toward the upper hemisphere so some stay visible from any
+	# spin angle. Centers sit at 97% of the lobe radius — half embedded, half
+	# proud. Vertex colors alternate coal dark / pebble brown so ONE cached
+	# rock material (multiplies vertex color) covers both.
+	st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var coal := Color(0.14, 0.13, 0.15)
+	var pebble := Color(0.44, 0.38, 0.33)
+	var fleck_i := 0
+	for t: Transform3D in lobes:
+		for _k: int in 3:
+			var ga := float(fleck_i) * 2.39996 + 0.7
+			var el := lerpf(0.05, 0.8, fmod(float(fleck_i) * 0.618, 1.0))
+			var ring := sqrt(maxf(1.0 - el * el, 0.0))
+			var pos := t * (Vector3(cos(ga) * ring, el, sin(ga) * ring) * 0.97)
+			var r := 0.015 + 0.009 * fmod(float(fleck_i) * 0.382, 1.0)
+			_add_fleck(st, pos, r, pebble if fleck_i % 3 == 1 else coal)
+			fleck_i += 1
+	st.generate_normals()
+	st.commit(mesh)
+	mesh.surface_set_material(0, get_snow_material())
+	mesh.surface_set_material(1, VisualLibrary.rock_material(Color(1.0, 1.0, 1.0), 0.92))
+	_stack_mesh = mesh
 	return _stack_mesh
+
+
+## One grit chip: a squashed octahedron with a per-size equator twist —
+## small enough to read as embedded grit, not decoration.
+static func _add_fleck(st: SurfaceTool, center: Vector3, r: float, color: Color) -> void:
+	var top := center + Vector3(0.0, r * 0.8, 0.0)
+	var bottom := center - Vector3(0.0, r * 0.8, 0.0)
+	var eq: Array[Vector3] = []
+	for i: int in 4:
+		var a := TAU * float(i) / 4.0 + r * 200.0
+		eq.append(center + Vector3(cos(a) * r, 0.0, sin(a) * r))
+	for i: int in 4:
+		var j := (i + 1) % 4
+		_add_fleck_tri(st, top, eq[i], eq[j], center, color)
+		_add_fleck_tri(st, bottom, eq[j], eq[i], center, color)
+
+
+## Adds one fleck triangle, auto-orienting to Godot's clockwise front-face
+## winding relative to the fleck's own center (same rule as ItemBox faces).
+static func _add_fleck_tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, center: Vector3, color: Color) -> void:
+	var outward := (a + b + c) / 3.0 - center
+	var normal := (b - a).cross(c - a)
+	var ordered: Array[Vector3] = [a, b, c]
+	if normal.dot(outward) > 0.0:
+		ordered = [a, c, b]
+	for p: Vector3 in ordered:
+		st.set_color(color)
+		st.add_vertex(p)
 
 
 ## Shared packed-snow glitter material — also used by the thrown Snowball
@@ -173,7 +284,8 @@ static func get_snow_material() -> ShaderMaterial:
 
 static func _get_material() -> Material:
 	# High-contrast accessibility mode reuses the same bright-gold emissive
-	# language as FishPickup so all pickups read consistently.
+	# language as FishPickup so all pickups read consistently (the override
+	# also gilds the grit flecks: one solid readable silhouette).
 	var high_contrast := bool(SettingsManager.get_setting("accessibility", "high_contrast_pickups"))
 	if high_contrast:
 		if _ball_mat_contrast == null:
@@ -183,7 +295,9 @@ static func _get_material() -> Material:
 			_ball_mat_contrast.emission = Color(1.0, 0.7, 0.05)
 			_ball_mat_contrast.emission_energy_multiplier = 1.6
 		return _ball_mat_contrast
-	return get_snow_material()
+	# Normal mode: null override, so the shared mesh's per-surface materials
+	# (packed snow + grit flecks) show through.
+	return null
 
 
 static func _get_sparkle_mesh() -> QuadMesh:
@@ -231,6 +345,29 @@ static func _get_halo_material() -> StandardMaterial3D:
 	return _halo_mat
 
 
+static func _get_collect_flash_mesh() -> QuadMesh:
+	if _collect_flash_mesh == null:
+		_collect_flash_mesh = QuadMesh.new()
+		_collect_flash_mesh.size = Vector2(0.9, 0.9)
+	return _collect_flash_mesh
+
+
+## Base material for the collect flash. Alpha animates during the burst, so
+## instances duplicate it — same pattern as ItemBox's burst materials.
+static func _get_collect_flash_base_material() -> StandardMaterial3D:
+	if _collect_flash_base_mat == null:
+		_collect_flash_base_mat = StandardMaterial3D.new()
+		_collect_flash_base_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_collect_flash_base_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_collect_flash_base_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		_collect_flash_base_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		_collect_flash_base_mat.billboard_keep_scale = true
+		_collect_flash_base_mat.albedo_texture = VisualLibrary.soft_radial_texture(32, 0.85)
+		_collect_flash_base_mat.albedo_color = Color(0.95, 0.98, 1.0, 0.0)
+		_collect_flash_base_mat.render_priority = 1
+	return _collect_flash_base_mat
+
+
 func _physics_process(delta: float) -> void:
 	if not _active:
 		return
@@ -239,6 +376,19 @@ func _physics_process(delta: float) -> void:
 	# (no broadphase re-sync every tick; same pattern as item_box.gd).
 	_visual.position.y = VISUAL_BASE_Y + sin(_bob_time * 2.2) * 0.1
 	_visual.rotation.y += delta * 1.3
+	# Anticipation wobble: the stack jitters like loose-packed snow about to
+	# be grabbed while a racer is inside the sense radius. Eased in and out
+	# so it never snaps; amplitude drops under reduced motion. Frequencies
+	# stay well under flashing-safety thresholds.
+	var wobble_target := 1.0 if _near_racers > 0 else 0.0
+	_wobble = move_toward(_wobble, wobble_target, delta * 3.0)
+	if _wobble > 0.0:
+		var amp := 0.4 if UITheme.reduced_motion() else 1.0
+		_visual.rotation.z = sin(_bob_time * 9.2) * 0.13 * _wobble * amp
+		_visual.rotation.x = sin(_bob_time * 7.1 + 1.4) * 0.07 * _wobble * amp
+	else:
+		_visual.rotation.z = 0.0
+		_visual.rotation.x = 0.0
 	if _sparkle != null:
 		# Gentle glint breathing; slow enough to stay reduced-flashing safe.
 		var pulse := 0.75 + 0.25 * sin(_bob_time * 4.6)
@@ -246,6 +396,19 @@ func _physics_process(delta: float) -> void:
 	if _sparkle2 != null:
 		var pulse2 := (0.75 + 0.25 * sin(_bob_time * 4.6 + PI)) * 0.6
 		_sparkle2.scale = Vector3(pulse2, pulse2, pulse2)
+
+
+## Sense handlers: count racers inside the wobble radius. The count is kept
+## across collection/respawn, so a stack reappearing next to a waiting racer
+## resumes wobbling immediately.
+func _on_sense_entered(body: Node3D) -> void:
+	if body is Racer:
+		_near_racers += 1
+
+
+func _on_sense_exited(body: Node3D) -> void:
+	if body is Racer:
+		_near_racers = maxi(_near_racers - 1, 0)
 
 
 ## AI queries this before steering toward the pickup.
@@ -265,6 +428,7 @@ func _on_body_entered(body: Node3D) -> void:
 		AudioManager.play_sfx("sfx_powerup", 1.45, -4.0)
 	_visual.visible = false
 	_halo.visible = false
+	_play_collect_burst()
 	set_deferred("monitoring", false)
 	var timer := get_tree().create_timer(RESPAWN_TIME)
 	timer.timeout.connect(func() -> void:
@@ -272,4 +436,51 @@ func _on_body_entered(body: Node3D) -> void:
 			_active = true
 			_visual.visible = true
 			_halo.visible = true
-			set_deferred("monitoring", true))
+			set_deferred("monitoring", true)
+			_play_respawn())
+
+
+## Collect puff: soft central flash + the Snowball splat's chunk fan
+## bursting off the stack, so grabbing ammo reads as the same substance the
+## projectile splats into. Nodes are pre-built in _ready and reused every
+## respawn cycle; only the one-shot tween allocates. No-op headless.
+func _play_collect_burst() -> void:
+	if _flash == null:
+		return
+	if _burst_tween != null and _burst_tween.is_valid():
+		_burst_tween.kill()
+	_burst_tween = create_tween()
+	_burst_tween.set_parallel(true)
+	_flash.visible = true
+	_flash.scale = Vector3.ONE * 0.5
+	_flash_mat.albedo_color = Color(0.95, 0.98, 1.0, 0.85)
+	_burst_tween.tween_property(_flash, "scale", Vector3.ONE * 1.6, 0.24) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_burst_tween.tween_property(_flash_mat, "albedo_color:a", 0.0, 0.24)
+	if _chunks != null:
+		_chunks.visible = true
+		_chunks.position = Vector3(0.0, VISUAL_BASE_Y, 0.0)
+		_chunks.rotation.y = randf() * TAU
+		_chunks.scale = Vector3.ONE * 0.4
+		_chunk_mat.albedo_color = Color(0.95, 0.98, 1.0, 0.9)
+		_burst_tween.tween_property(_chunks, "scale", Vector3.ONE * 1.4, 0.36) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		_burst_tween.tween_property(_chunks, "rotation:y", _chunks.rotation.y + 0.8, 0.36)
+		_burst_tween.tween_property(_chunks, "position:y", VISUAL_BASE_Y - 0.28, 0.36) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		_burst_tween.tween_property(_chunk_mat, "albedo_color:a", 0.0, 0.36)
+	_burst_tween.chain().tween_callback(func() -> void:
+		_flash.visible = false
+		if _chunks != null:
+			_chunks.visible = false)
+
+
+## Respawn scale-in with a back-eased overshoot (ItemBox's respawn language)
+## so the stack re-packs itself instead of popping into existence.
+func _play_respawn() -> void:
+	if _respawn_tween != null and _respawn_tween.is_valid():
+		_respawn_tween.kill()
+	_visual.scale = Vector3.ONE * 0.2
+	_respawn_tween = create_tween()
+	_respawn_tween.tween_property(_visual, "scale", Vector3.ONE, 0.35) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)

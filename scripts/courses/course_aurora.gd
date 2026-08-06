@@ -9,11 +9,12 @@ extends CourseBase
 ## the forward view (shared VisualLibrary shader) that converge into a crown
 ## over the finish and reflect faintly off the smooth-ice corkscrew,
 ## dark-blue ambient snow, a warm light-pollution stain on the horizon over
-## the research-camp side, star field with power-law brightness plus a few
-## large scintillating twinklers, pulsing glow crystals along the route, warm
-## research lamps (sparse real lights), a dome-tent research outpost and
-## cable-car line seen from the climb, dramatic frost-banded cliff dropoffs
-## with exposure-driven blowing-snow streamers along the windy ridge.
+## the research-camp side, a zenith-dense star field with power-law brightness
+## plus a few large scintillating twinklers, pulsing glow crystals along the
+## route, warm research lamps (sparse real lights), a dome-tent research
+## outpost and cable-car line seen from the climb, dramatic frost-banded cliff
+## dropoffs with exposure-driven blowing-snow streamers along the windy ridge,
+## and distant lit-from-within crystal spires ringing the valley floor.
 
 const SNOW := SurfacesDB.Surface.PACKED_SNOW
 const ICE := SurfacesDB.Surface.ICE_SMOOTH
@@ -632,6 +633,12 @@ func _decorate() -> void:
 	# above stay individual; this field is pure density at two draw calls).
 	_add_crystal_field()
 
+	# Distant lit-from-within crystal spires ringing the valley floor below
+	# the mountain — mid-distance landmarks between the track and the peak
+	# silhouettes, so the world reads inhabited by the same crystal light the
+	# trackside shards carry.
+	_add_crystal_spires()
+
 	# Landmark crystal monoliths: one on the outside of each hairpin apex
 	# (all three apexes bulge away from x=0 and run -Z, so the outward side
 	# is sign(apex.x) along basis.x) + a beacon rising through the middle of
@@ -1200,8 +1207,8 @@ func _add_cable_car_line(a: Vector3, b: Vector3) -> void:
 
 ## Serpentine curtain meshes wearing the shared animated aurora shader.
 ## The shader expects UV.x along the ribbon and UV.y = 0 at the top edge;
-## each ribbon duplicates the cached material to vary intensity, band scale,
-## curtain frequency, alpha, and scroll speed.
+## each ribbon picks a cached shader_variant of the shared material to vary
+## intensity, band scale, curtain frequency, alpha, and scroll speed.
 func _build_aurora() -> void:
 	if GameConfig.is_headless():
 		set_process(false)
@@ -1223,6 +1230,12 @@ func _build_aurora() -> void:
 			"intensity": 2.0, "bands": 2.8, "freq": 18.0, "alpha": 0.48, "scroll": 0.08},
 		{"radius": 660.0, "y": 246.0, "h": 100.0, "a0": -1.2, "a1": 1.1, "wobble": 30.0,
 			"intensity": 1.8, "bands": 3.6, "freq": 26.0, "alpha": 0.42, "scroll": 0.035},
+		# Second fainter band: an ultra-dim, very high veil hanging behind the
+		# hero curtains in the forward sky — the pale secondary arc real
+		# displays carry above the main one. Slowest scroll of the set and the
+		# lowest alpha: it drifts, it never flashes.
+		{"radius": 620.0, "y": 298.0, "h": 132.0, "a0": -2.95, "a1": -0.25, "wobble": 46.0,
+			"intensity": 1.15, "bands": 3.4, "freq": 19.0, "alpha": 0.3, "scroll": 0.022},
 	]
 	for cfg: Dictionary in configs:
 		var st := SurfaceTool.new()
@@ -1251,13 +1264,16 @@ func _build_aurora() -> void:
 			prev_t = t
 		var ribbon := MeshInstance3D.new()
 		ribbon.mesh = st.commit()
-		var mat := VisualLibrary.aurora_material().duplicate() as ShaderMaterial
-		mat.set_shader_parameter("intensity", float(cfg["intensity"]))
-		mat.set_shader_parameter("band_scale", float(cfg["bands"]))
-		mat.set_shader_parameter("curtain_frequency", float(cfg["freq"]))
-		mat.set_shader_parameter("max_alpha", float(cfg["alpha"]))
-		mat.set_shader_parameter("scroll_speed", float(cfg["scroll"]))
-		ribbon.material_override = mat
+		# shader_variant: identical parameter sets resolve to ONE cached shared
+		# material across course reloads (each duplicate() minted a fresh WebGL
+		# program state on first sight — a hitch on single-threaded wasm).
+		ribbon.material_override = VisualLibrary.shader_variant(VisualLibrary.aurora_material(), {
+			"intensity": float(cfg["intensity"]),
+			"band_scale": float(cfg["bands"]),
+			"curtain_frequency": float(cfg["freq"]),
+			"max_alpha": float(cfg["alpha"]),
+			"scroll_speed": float(cfg["scroll"]),
+		})
 		ribbon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(ribbon)
 		_aurora_ribbons.append(ribbon)
@@ -1299,25 +1315,34 @@ func _build_aurora_crown() -> void:
 			prev_t = t
 		var streamer := MeshInstance3D.new()
 		streamer.mesh = st.commit()
-		var mat := VisualLibrary.aurora_material().duplicate() as ShaderMaterial
-		mat.set_shader_parameter("intensity", 3.2)
-		mat.set_shader_parameter("band_scale", 2.2)
-		mat.set_shader_parameter("curtain_frequency", 16.0)
-		mat.set_shader_parameter("max_alpha", 0.66)
-		mat.set_shader_parameter("scroll_speed", 0.09)
-		streamer.material_override = mat
+		# All six streamers share ONE cached variant (shader_variant), where the
+		# old per-streamer duplicate() minted six identical materials per load.
+		streamer.material_override = VisualLibrary.shader_variant(VisualLibrary.aurora_material(), {
+			"intensity": 3.2,
+			"band_scale": 2.2,
+			"curtain_frequency": 16.0,
+			"max_alpha": 0.66,
+			"scroll_speed": 0.09,
+		})
 		streamer.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(streamer)
 		_aurora_ribbons.append(streamer)
 
 
 ## Star dome: one MultiMesh of soft additive billboards (same recipe as the
-## title screen sky), fog-immune, brighter toward the dark zenith.
+## title screen sky), fog-immune, brighter AND denser toward the dark zenith
+## (real dark-sky gradient: horizon extinction eats the faint crowd first).
+## Count scales with display/quality_preset (low ~40% of high).
 func _build_stars() -> void:
 	if GameConfig.is_headless():
 		return
 	var center := Vector3(20.0, 20.0, -520.0)
-	var count := 840
+	var quality := String(SettingsManager.get_setting("display", "quality_preset"))
+	var count := 1150
+	if quality == "medium":
+		count = 800
+	elif quality == "low":
+		count = 460
 	var quad := QuadMesh.new()
 	quad.size = Vector2(1.0, 1.0)
 	var star_material := StandardMaterial3D.new()
@@ -1344,7 +1369,9 @@ func _build_stars() -> void:
 	var band_from := count * 2 / 3
 	for i: int in count:
 		var azimuth := rng.randf() * TAU
-		var altitude := rng.randf_range(0.1, 1.5)
+		# Zenith-weighted altitude: pow-biased sampling packs the dome densely
+		# overhead and thins smoothly toward the horizon band.
+		var altitude := lerpf(0.08, 1.5, pow(rng.randf(), 0.58))
 		var dir := Vector3(cos(azimuth) * cos(altitude), sin(altitude), sin(azimuth) * cos(altitude))
 		var in_band := i >= band_from
 		if in_band:
@@ -1549,14 +1576,14 @@ func _add_aurora_reflections(start_arc: float, end_arc: float) -> void:
 		prev_t = t
 	var sheet := MeshInstance3D.new()
 	sheet.mesh = st.commit()
-	var mat := VisualLibrary.aurora_material().duplicate() as ShaderMaterial
-	mat.set_shader_parameter("intensity", 0.55)
-	mat.set_shader_parameter("band_scale", 2.2)
-	mat.set_shader_parameter("curtain_frequency", 13.0)
-	mat.set_shader_parameter("max_alpha", 0.16)
-	mat.set_shader_parameter("scroll_speed", 0.06)
-	mat.set_shader_parameter("core_boost", 0.2)
-	sheet.material_override = mat
+	sheet.material_override = VisualLibrary.shader_variant(VisualLibrary.aurora_material(), {
+		"intensity": 0.55,
+		"band_scale": 2.2,
+		"curtain_frequency": 13.0,
+		"max_alpha": 0.16,
+		"scroll_speed": 0.06,
+		"core_boost": 0.2,
+	})
 	sheet.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(sheet)
 
@@ -1703,6 +1730,47 @@ func _add_crystal_field() -> void:
 		_field_crystal_material(Color(0.5, 0.36, 0.78)), "CrystalFieldViolet")
 
 
+## Distant crystal spires: tall shard clusters scattered across the valley
+## floor 260-430m out, glowing steadily from within (cached emissive
+## materials at 0.85 energy — well under the 1.05 bloom threshold, so no
+## flashing, just lit ice). Shared crystal mesh, two MultiMesh draw calls
+## (green + violet); rejection sampling keeps every spire 90m+ off the
+## racing line; counts scale with display/quality_preset (low ~40% of high).
+func _add_crystal_spires() -> void:
+	var quality := String(SettingsManager.get_setting("display", "quality_preset"))
+	var count := 9
+	if quality == "medium":
+		count = 6
+	elif quality == "low":
+		count = 4
+	var center := Vector3(20.0, 0.0, -520.0)
+	var green_transforms: Array[Transform3D] = []
+	var violet_transforms: Array[Transform3D] = []
+	for i: int in count:
+		var angle := TAU * float(i) / float(count) + rng.randf_range(-0.3, 0.3)
+		for _attempt: int in 6:
+			var dist := rng.randf_range(260.0, 430.0)
+			var pos := center + Vector3(sin(angle) * dist, 0.0, cos(angle) * dist)
+			if float(main_guide.nearest(pos, -1)["distance"]) < 90.0:
+				angle += 0.35
+				continue
+			var h := rng.randf_range(26.0, 52.0)
+			var spire_basis := Basis(Vector3.UP, rng.randf() * TAU) \
+				* Basis.from_scale(Vector3(h * rng.randf_range(0.4, 0.55), h, h * rng.randf_range(0.4, 0.55)))
+			var xform := Transform3D(spire_basis, Vector3(pos.x, -31.0, pos.z))
+			if i % 2 == 0:
+				green_transforms.append(xform)
+			else:
+				violet_transforms.append(xform)
+			break
+	_add_multimesh(VisualLibrary.ice_crystal_mesh(), green_transforms,
+		VisualLibrary.emissive_material(Color(0.1, 0.24, 0.2), Color(0.3, 0.95, 0.6), 0.85, 0.3),
+		"CrystalSpiresGreen", 1500.0)
+	_add_multimesh(VisualLibrary.ice_crystal_mesh(), violet_transforms,
+		VisualLibrary.emissive_material(Color(0.2, 0.15, 0.32), Color(0.66, 0.45, 1.0), 0.85, 0.3),
+		"CrystalSpiresViolet", 1500.0)
+
+
 ## Static crystal-field material: dark glassy shard with a faint colored
 ## emissive lift (never blooms) and a rim so silhouettes catch the sky.
 func _field_crystal_material(glow: Color) -> StandardMaterial3D:
@@ -1719,20 +1787,34 @@ func _field_crystal_material(glow: Color) -> StandardMaterial3D:
 	return mat
 
 
-func _add_multimesh(mesh: Mesh, transforms: Array[Transform3D], material: Material, name_hint: String) -> void:
+## range_base > 0 opts the dressing into VisualLibrary.apply_dressing_range
+## distance culling. Visibility range keys off the NODE origin, so the node is
+## re-anchored at the transforms' centroid (instance transforms made relative):
+## the fade then measures from the feature itself, not world zero.
+func _add_multimesh(mesh: Mesh, transforms: Array[Transform3D], material: Material, name_hint: String, range_base: float = 0.0) -> void:
 	if transforms.is_empty():
 		return
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.mesh = mesh
 	mm.instance_count = transforms.size()
-	for i: int in transforms.size():
-		mm.set_instance_transform(i, transforms[i])
 	var instance := MultiMeshInstance3D.new()
 	instance.name = name_hint
 	instance.multimesh = mm
 	instance.material_override = material
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if range_base > 0.0:
+		var centroid := Vector3.ZERO
+		for t: Transform3D in transforms:
+			centroid += t.origin
+		centroid /= float(transforms.size())
+		instance.position = centroid
+		for i: int in transforms.size():
+			mm.set_instance_transform(i, Transform3D(transforms[i].basis, transforms[i].origin - centroid))
+		VisualLibrary.apply_dressing_range(instance, range_base)
+	else:
+		for i: int in transforms.size():
+			mm.set_instance_transform(i, transforms[i])
 	add_child(instance)
 
 

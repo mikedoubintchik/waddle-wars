@@ -179,6 +179,14 @@ glacier/aurora/iceberg×2/endless/gp/tutorial (SUITE-DONE, exit 0). Iceberg
 causeway tilt at 13° also passed a separate 3/3 battery (15° caused one
 Marina DNF and was reverted).
 
+2026-08-06 mega round 2: part-1 (sharing/minimap/UI) battery — units 50/50,
+glacier/aurora/iceberg/tutorial PASS. Post-physics-pass battery — import 0
+errors, units 50/50, all sims PASS except iceberg 2/3 (one triple-AI-DNF
+run; 8/9 including follow-up reps). After making platform carry player-only
+and halving AI-vs-AI bump impulses: iceberg 8/8 PASS + glacier PASS.
+Physics jump-arc parity checked by the agent analytically (airtime 0.83s vs
+0.73s, height 2.10m vs 2.02m — gaps only get more forgiving).
+
 Iceberg flake investigation: baseline b0a5c19 timed out 3/6 sim runs — a
 pre-existing autopilot resonance (boost pad 16m before the moving-platform
 crossing + fixed respawn cadence re-hitting the same platform phase), NOT a

@@ -30,6 +30,13 @@ const JOY_BUTTON_NAMES: Dictionary = {
 
 var settings: Dictionary = {}
 var _default_bindings: Dictionary = {}
+## Web auto-quality governor state (see _start_web_governor). The override
+## lives outside `settings` so it can never reach disk — only an explicit
+## user choice persists a quality change.
+var _governor_override: String = ""
+var _governor_stepped: bool = false
+var _governor_fps_sum: float = 0.0
+var _governor_fps_count: int = 0
 
 
 static func default_settings() -> Dictionary:
@@ -82,9 +89,12 @@ func _ready() -> void:
 	_capture_default_bindings()
 	_load_settings()
 	apply_all()
+	_start_web_governor()
 
 
 func get_setting(section: String, key: String) -> Variant:
+	if section == "display" and key == "quality_preset" and _governor_override != "":
+		return _governor_override
 	var sect: Dictionary = settings.get(section, {})
 	if sect.has(key):
 		return sect[key]
@@ -92,6 +102,8 @@ func get_setting(section: String, key: String) -> Variant:
 
 
 func set_setting(section: String, key: String, value: Variant) -> void:
+	if section == "display" and key == "quality_preset":
+		_governor_override = ""  # explicit user choice wins over the governor
 	if not settings.has(section):
 		settings[section] = {}
 	settings[section][key] = value
@@ -323,7 +335,11 @@ func _apply_display(key: String, value: Variant) -> void:
 						viewport.msaa_3d = Viewport.MSAA_2X
 		"fps_limit":
 			Engine.max_fps = maxi(0, int(value))
-		"shadow_quality", "quality_preset", "particle_quality":
+		"quality_preset":
+			# Courses read the preset live on scene load; drop VisualLibrary's
+			# cached quality-derived values so the next build sees the new tier.
+			VisualLibrary.reset_quality_cache()
+		"shadow_quality", "particle_quality":
 			pass  # Read live by course lighting / VFX systems on scene load.
 
 
@@ -339,6 +355,62 @@ func _apply_audio(key: String, value: Variant) -> void:
 			AudioManager.set_muted(bool(value))
 		"mute_unfocused":
 			pass  # AudioManager reads this on focus notifications.
+
+
+## --- Web auto-quality governor ---------------------------------------------
+
+const GOVERNOR_SAMPLE_WINDOW: int = 8  # seconds of 1 Hz samples per decision
+const GOVERNOR_MIN_FPS: float = 22.0
+
+## Browsers vary wildly: the desktop 'high' profile can melt a phone GPU while
+## looking fine in Chrome on an M-series Mac. On web builds only, sample the
+## FPS at 1 Hz while a course is loaded (group "course") and, if an 8-sample
+## average drops below 22 FPS, step the quality preset down ONE tier for the
+## rest of the session. The override is applied through the normal _apply_one
+## path but never saved: settings.json keeps the user's own choice, and a
+## manual quality change clears the override immediately.
+func _start_web_governor() -> void:
+	if not OS.has_feature("web") or GameConfig.is_headless():
+		return
+	var timer := Timer.new()
+	timer.name = "QualityGovernor"
+	timer.wait_time = 1.0
+	timer.autostart = true
+	timer.timeout.connect(_governor_tick.bind(timer))
+	add_child(timer)
+
+
+func _governor_tick(timer: Timer) -> void:
+	if _governor_stepped:
+		timer.stop()
+		timer.queue_free()
+		return
+	if get_tree().get_first_node_in_group(&"course") == null:
+		# Menus and loading screens say nothing about gameplay cost — restart
+		# the sampling window whenever no course is active.
+		_governor_fps_sum = 0.0
+		_governor_fps_count = 0
+		return
+	_governor_fps_sum += Engine.get_frames_per_second()
+	_governor_fps_count += 1
+	if _governor_fps_count < GOVERNOR_SAMPLE_WINDOW:
+		return
+	var average := _governor_fps_sum / float(_governor_fps_count)
+	_governor_fps_sum = 0.0
+	_governor_fps_count = 0
+	if average >= GOVERNOR_MIN_FPS:
+		return
+	var lower := ""
+	match String(get_setting("display", "quality_preset")):
+		"high":
+			lower = "medium"
+		"medium":
+			lower = "low"
+	_governor_stepped = true  # one step per session, even when already "low"
+	if lower != "":
+		_governor_override = lower
+		_apply_one("display", "quality_preset", lower)
+		setting_changed.emit("display/quality_preset", lower)
 
 
 ## --- Persistence ----------------------------------------------------------

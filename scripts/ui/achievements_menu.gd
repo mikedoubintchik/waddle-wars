@@ -47,6 +47,7 @@ func _ready() -> void:
 	UITheme.hook_sounds(back_button)
 	back_button.pressed.connect(_go_back)
 	header.add_child(back_button)
+	layout.add_child(UITheme.make_header_rule())
 
 	var player_panel := _build_player_panel()
 	layout.add_child(player_panel)
@@ -188,10 +189,24 @@ func _build_achievement_row(id: String) -> PanelContainer:
 	desc_label.add_theme_color_override("font_color", UITheme.COLOR_TEXT if unlocked else UITheme.COLOR_DISABLED)
 	text_box.add_child(desc_label)
 
+	# Status rendered as a small pill chip (gold-tinted when unlocked) so the
+	# row's right edge reads as a badge instead of loose text.
 	var state_label := Label.new()
 	state_label.text = "Unlocked" if unlocked else "Locked"
-	state_label.add_theme_font_size_override("font_size", 19)
-	state_label.add_theme_color_override("font_color", UITheme.COLOR_GOLD if unlocked else UITheme.COLOR_DISABLED)
+	state_label.add_theme_font_override("font", UITheme.bold_font())
+	state_label.add_theme_font_size_override("font_size", 17)
+	state_label.add_theme_color_override("font_color", UITheme.COLOR_GOLD if unlocked else UITheme.COLOR_TEXT_DIM)
+	var pill := StyleBoxFlat.new()
+	pill.bg_color = Color(UITheme.COLOR_GOLD, 0.13) if unlocked else Color(1.0, 1.0, 1.0, 0.05)
+	pill.border_color = Color(UITheme.COLOR_GOLD, 0.45) if unlocked else Color(1.0, 1.0, 1.0, 0.10)
+	pill.set_border_width_all(1)
+	pill.set_corner_radius_all(12)
+	pill.content_margin_left = 12.0
+	pill.content_margin_right = 12.0
+	pill.content_margin_top = 3.0
+	pill.content_margin_bottom = 3.0
+	state_label.add_theme_stylebox_override("normal", pill)
+	state_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	state_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(state_label)
 	return panel

@@ -52,6 +52,7 @@ func _ready() -> void:
 	UITheme.hook_sounds(back_button)
 	back_button.pressed.connect(_go_back)
 	header.add_child(back_button)
+	layout.add_child(UITheme.make_header_rule())
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -89,13 +90,17 @@ func _ready() -> void:
 	touch_panel.add_theme_stylebox_override("panel", UITheme.make_panel_style())
 	list.add_child(touch_panel)
 	var touch_box := VBoxContainer.new()
-	touch_box.add_theme_constant_override("separation", 4)
+	touch_box.add_theme_constant_override("separation", 6)
 	touch_panel.add_child(touch_box)
+	# Same section-header treatment as the Settings cards: display font plus a
+	# thin sweeping rule.
 	var touch_title := Label.new()
 	touch_title.text = "Touch"
+	touch_title.add_theme_font_override("font", UITheme.display_font())
 	touch_title.add_theme_font_size_override("font_size", 24)
 	touch_title.add_theme_color_override("font_color", UITheme.COLOR_ACCENT)
 	touch_box.add_child(touch_title)
+	touch_box.add_child(UITheme.make_header_rule())
 	for hint: String in [
 		"Steer: left / right screen halves or on-screen stick",
 		"Jump: JUMP button    Slide: SLIDE button",

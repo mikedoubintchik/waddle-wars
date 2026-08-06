@@ -257,6 +257,7 @@ func _decorate() -> void:
 		offset += 90.0
 
 	_decorate_mountains()
+	_decorate_horizon_bands()
 	_decorate_snowbanks(density)
 	_decorate_boulders(density)
 
@@ -309,6 +310,78 @@ func _place_peak(mat: Material, lat_min: float, lat_max: float, w_min: float, w_
 		return
 
 
+## Per-biome horizon bands: the 26-segment expedition crosses three difficulty
+## tiers, so each third of the run gets its own horizon character — bright
+## sunlit foothills over the easy opening, a paler hazed high range mid-run,
+## and dark storm-shadowed massifs plus lit ice spires over the hard final
+## third (the deepening skyline foreshadows the blizzard chasing the run).
+## One shared seeded silhouette + one cached material per band (a MultiMesh
+## draw call each); rejection sampling keeps everything far off the wandering
+## corridor; counts scale with display/quality_preset (low ~40% of high).
+func _decorate_horizon_bands() -> void:
+	var quality := String(SettingsManager.get_setting("display", "quality_preset"))
+	var q := 1.0
+	if quality == "medium":
+		q = 0.7
+	elif quality == "low":
+		q = 0.4
+	var lowest := INF
+	for point: Vector3 in main_guide.points:
+		lowest = minf(lowest, point.y)
+	var third := main_guide.length / 3.0
+	var bands: Array[Dictionary] = [
+		{"span": Vector2(0.0, third), "mesh_seed": 31, "count": 10,
+			"tint": Color(0.92, 0.95, 1.0), "lat": Vector2(420.0, 640.0),
+			"w": Vector2(70.0, 150.0), "h": Vector2(90.0, 200.0)},
+		{"span": Vector2(third, third * 2.0), "mesh_seed": 32, "count": 9,
+			"tint": Color(0.66, 0.76, 0.92), "lat": Vector2(560.0, 820.0),
+			"w": Vector2(110.0, 210.0), "h": Vector2(160.0, 300.0)},
+		{"span": Vector2(third * 2.0, main_guide.length), "mesh_seed": 33, "count": 8,
+			"tint": Color(0.44, 0.52, 0.68), "lat": Vector2(640.0, 940.0),
+			"w": Vector2(150.0, 260.0), "h": Vector2(220.0, 380.0)},
+	]
+	for b_i: int in bands.size():
+		var band: Dictionary = bands[b_i]
+		var span: Vector2 = band["span"]
+		var lat: Vector2 = band["lat"]
+		var w_range: Vector2 = band["w"]
+		var h_range: Vector2 = band["h"]
+		var tint: Color = band["tint"]
+		var transforms: Array[Transform3D] = []
+		for _i: int in maxi(int(float(band["count"]) * q), 3):
+			for _attempt: int in 8:
+				var anchor := main_guide.transform_at(rng.randf_range(span.x, span.y))
+				var side := 1.0 if rng.randf() > 0.5 else -1.0
+				var width := rng.randf_range(w_range.x, w_range.y)
+				var pos := anchor.origin + anchor.basis.x * (rng.randf_range(lat.x, lat.y) * side)
+				if float(main_guide.nearest(pos, -1)["distance"]) < width * 1.7 + 60.0:
+					continue
+				var peak_basis := Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(
+					Vector3(width * rng.randf_range(0.9, 1.4), rng.randf_range(h_range.x, h_range.y), width))
+				transforms.append(Transform3D(peak_basis, Vector3(pos.x, lowest - 20.0, pos.z)))
+				break
+		_add_multimesh(VisualLibrary.berg_mesh(int(band["mesh_seed"])), transforms,
+			VisualLibrary.rock_material(tint), "HorizonBand_%d" % b_i, 2400.0)
+	# Final-third biome accent: pale ice spires glinting between the dark
+	# massifs — a colder, stranger horizon as the difficulty (and the storm)
+	# closes in. Shared crystal mesh, one cached glossy material.
+	var spire_transforms: Array[Transform3D] = []
+	for _i: int in maxi(int(8.0 * q), 3):
+		for _attempt: int in 8:
+			var anchor := main_guide.transform_at(rng.randf_range(third * 2.0, main_guide.length - 10.0))
+			var side := 1.0 if rng.randf() > 0.5 else -1.0
+			var pos := anchor.origin + anchor.basis.x * (rng.randf_range(240.0, 420.0) * side)
+			if float(main_guide.nearest(pos, -1)["distance"]) < 120.0:
+				continue
+			var h := rng.randf_range(24.0, 46.0)
+			var spire_basis := Basis(Vector3.UP, rng.randf() * TAU) \
+				* Basis.from_scale(Vector3(h * 0.5, h, h * 0.5))
+			spire_transforms.append(Transform3D(spire_basis, Vector3(pos.x, lowest - 16.0, pos.z)))
+			break
+	_add_multimesh(VisualLibrary.ice_crystal_mesh(), spire_transforms,
+		VisualLibrary.rock_material(Color(0.6, 0.76, 0.94), 0.35), "HorizonSpires", 1600.0)
+
+
 ## Wind-blown snowbank drifts hugging both track flanks along the whole run —
 ## the glacier course's density pattern, one MultiMesh draw call.
 func _decorate_snowbanks(density: float) -> void:
@@ -350,20 +423,34 @@ func _decorate_boulders(density: float) -> void:
 		TrackBuilder.surface_material(SurfacesDB.Surface.ICE_SMOOTH), "IceBoulders")
 
 
-func _add_multimesh(mesh: Mesh, transforms: Array[Transform3D], material: Material, name_hint: String) -> void:
+## range_base > 0 opts the dressing into VisualLibrary.apply_dressing_range
+## distance culling. Visibility range keys off the NODE origin, so the node is
+## re-anchored at the transforms' centroid (instance transforms made relative):
+## the fade then measures from the feature itself, not world zero.
+func _add_multimesh(mesh: Mesh, transforms: Array[Transform3D], material: Material, name_hint: String, range_base: float = 0.0) -> void:
 	if transforms.is_empty():
 		return
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.mesh = mesh
 	mm.instance_count = transforms.size()
-	for i: int in transforms.size():
-		mm.set_instance_transform(i, transforms[i])
 	var instance := MultiMeshInstance3D.new()
 	instance.name = name_hint
 	instance.multimesh = mm
 	instance.material_override = material
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if range_base > 0.0:
+		var centroid := Vector3.ZERO
+		for t: Transform3D in transforms:
+			centroid += t.origin
+		centroid /= float(transforms.size())
+		instance.position = centroid
+		for i: int in transforms.size():
+			mm.set_instance_transform(i, Transform3D(transforms[i].basis, transforms[i].origin - centroid))
+		VisualLibrary.apply_dressing_range(instance, range_base)
+	else:
+		for i: int in transforms.size():
+			mm.set_instance_transform(i, transforms[i])
 	add_child(instance)
 
 

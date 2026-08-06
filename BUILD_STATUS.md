@@ -160,3 +160,40 @@ series (v8-glacier, v10-iceberg clean of blob artifacts, aurora/seal/penguin
 close-ups). Known-open: leaderboard/sign-in bridge rewrite not yet
 re-verified on user's phone; Clerk keys are TEST instance (swap before
 serious traffic); LICENSE choice pending user.
+
+## Mega round 2 (2026-08-06, second session)
+
+Bug fixes (verified in Chrome on the live site): menu pixelation root-caused
+to SubViewport logical-res rendering — UITheme.crisp_subviewport() now
+supersamples title/customize/results by the real canvas scale; SceneRouter
+"Loading…" overlay held until 3 frames post-draw (was: seconds of raw sky
+during WebGL shader compile after the studio splash); race-HUD control strip
+holds 8s after GO (was 2s — players missed it); leaderboard + sign-in
+confirmed WORKING live (stale 10-min GitHub Pages cache explains the phone
+failure; no service worker). tools/deploy_web.sh added.
+
+Feature passes (8 parallel agents across two workflow runs, disjoint file
+ownership): (1) PHYSICS — apex-hang/fast-fall jump arc, surface-scaled slide
+grip, low-speed steering assist, wall glancing instead of sticking,
+mass-weighted racer bumps, velocity-based shove knock (no teleport), moving-
+platform carry (player-only, see below), ease-out boost decay, speed-reactive
+trails. (2) PERF — ~45-60 unique materials per course build collapsed to ~12
+cached instances (WebGL first-sight compile hitches were the browser
+freezes), shared meshes, quality-tier dressing culling + shadow scaling,
+web-only FPS governor (avg <22 over 8s → one-tier step-down, never
+persisted). (3) SHARING — ShareManager (navigator.share + clipboard
+fallback), Share on results, Challenge Friends on leaderboard. (4) BEAUTY —
+title diorama ambient life (diver penguin, whale spout, shooting stars, water
+glints, floe bob), hover glow/header rules/refined backdrop across all menus.
+(5) MINIMAP — course-ribbon card with live dots, wired into race HUD.
+(6) ITEMS — snowball fuzz/trail/impact splat, pickup wobble/flecks, fish fin
+flutter + droplet burst, item-box prize glow. (7) WADDLE SCHOOL — lesson
+cards with live keycap hints, per-station chime + sparkle, gold graduation
+confetti, dressed course. (8) OFF-COURSE — glacier icefall + bird flocks,
+aurora starfield/spires/fifth veil, iceberg breaching whale + drifting pack
+ice, endless per-biome horizon bands, water sparkle pinpoints.
+
+Physics regression handled: iceberg sim flaked 1/9 (triple AI DNF at the
+platform crossing) after the physics pass; fixed by making platform carry
+player-only and halving AI-vs-AI bump impulses (AI target selection doesn't
+model inherited drift). Post-fix battery results in TESTING.md.

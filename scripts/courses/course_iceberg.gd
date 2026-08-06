@@ -48,6 +48,8 @@ const SUN_WARM_RIM: Color = Color(1.0, 0.8, 0.56)
 ## meltwater sheen (lower roughness). The high berg-hop arc and the shortcut
 ## stay dry frosted ice.
 const WET_SHEEN_Y: float = 7.0
+## Airtime of one breaching-whale leap (see _update_breach).
+const BREACH_DURATION: float = 3.4
 
 var _bobbers: Array[Dictionary] = []  # {node, base_y, phase, amp, speed}
 var _bob_time: float = 0.0
@@ -59,6 +61,12 @@ var _wet_band_mat: StandardMaterial3D = null  # shared glossy spray-wet band
 var _hero_centers: Array[Vector3] = []  # sculpted hero-berg spots (seabird anchors)
 var _water_lines: Array[Array] = []  # swim channel point arrays, kept for edge foam
 var _foam_st: SurfaceTool = null  # batches every foam quad into one mesh/draw call
+var _drift_layers: Array[Dictionary] = []  # {node, dir, amp, speed, phase} pack-ice parallax
+var _breach_whale: Node3D = null  # live breaching whale (never built under reduced motion)
+var _breach_splash: MeshInstance3D = null
+var _breach_anchor: Vector3 = Vector3.ZERO
+var _breach_wait: float = 0.0
+var _breach_t: float = -1.0  # <0 = submerged, waiting out the long timer
 ## Prefix arclength per guide sample point. PathGuide.nearest() reports offsets
 ## as index * SAMPLE_SPACING while transform_at()/point_at() consume true
 ## arclength. With the current PathGuide (uniform resampling in _init) the two
@@ -404,7 +412,8 @@ func _index_offset_of_arc(arc_offset: float) -> float:
 
 
 func _process(delta: float) -> void:
-	if _bobbers.is_empty() and _spinners.is_empty() and _buoy_lamps.is_empty() and _drift_foam == null:
+	if _bobbers.is_empty() and _spinners.is_empty() and _buoy_lamps.is_empty() \
+			and _drift_foam == null and _drift_layers.is_empty() and _breach_whale == null:
 		return
 	_bob_time += delta
 	for b: Dictionary in _bobbers:
@@ -431,6 +440,16 @@ func _process(delta: float) -> void:
 	if _drift_foam != null:
 		_drift_foam.position = _drift_origin + Vector3(
 			sin(_bob_time * 0.045) * 3.5, 0.0, cos(_bob_time * 0.06) * 2.5)
+	# Pack-ice parallax: each layer's root slides on its own slow sine — the
+	# near band faster and farther than the far band — so the plates visibly
+	# shear against each other and the bergs. Two node writes per frame.
+	for layer: Dictionary in _drift_layers:
+		var node := layer["node"] as Node3D
+		var sway := sin(_bob_time * float(layer["speed"]) + float(layer["phase"]))
+		node.position = (layer["dir"] as Vector3) * (sway * float(layer["amp"])) \
+			+ Vector3.UP * (sin(_bob_time * 0.5 + float(layer["phase"])) * 0.06)
+	if _breach_whale != null:
+		_update_breach(delta)
 
 
 ## --- Scenery ----------------------------------------------------------------
@@ -600,10 +619,12 @@ func _decorate() -> void:
 	if not headless:
 		_add_hero_bergs()
 		_add_breach_arcs()
+		_add_breaching_whale()
 		_add_seabirds()
 		_add_drift_foam()
 		_add_brash_ice()
 		_add_floes()
+		_add_pack_ice()
 		_add_sun_glint()
 
 	# Foam bands hugging the swim channel edges, then one batched commit for
@@ -1308,6 +1329,189 @@ func _add_breach_arcs() -> void:
 			for k: int in 3:
 				_foam_quad(Vector3(splash.x + rng.randf_range(-2.0, 2.0), OCEAN_Y + 0.68,
 					splash.z + rng.randf_range(-2.0, 2.0)), rng.randf_range(2.0, 3.5))
+
+
+## Live breaching whale: far off toward the sunrise, a low-poly humpback
+## launches nose-first out of the swell on a long timer, arcs through open
+## air and falls back — pure _process pose math on one Node3D, no
+## allocations, no physics. UITheme.reduced_motion() disables the whole
+## performer (a leaping peripheral silhouette is exactly the motion that
+## setting exists to remove); the static breach-arc story beats remain.
+func _add_breaching_whale() -> void:
+	if UITheme.reduced_motion():
+		return
+	var xf := main_guide.transform_at(main_guide.length * 0.12)
+	var anchor := Vector3(xf.origin.x, 0.0, xf.origin.z) + _sun_dir_h() * 330.0
+	var body_mat := StandardMaterial3D.new()
+	body_mat.albedo_color = Color(0.14, 0.16, 0.21)
+	body_mat.roughness = 0.5
+	body_mat.rim_enabled = true
+	body_mat.rim = 0.65
+	body_mat.rim_tint = 0.25
+	var pale_mat := TrackBuilder.prop_material(Color(0.72, 0.76, 0.8))
+	var whale := Node3D.new()
+	whale.name = "BreachWhale"
+	var body := MeshInstance3D.new()
+	var body_mesh := CapsuleMesh.new()
+	body_mesh.radius = 2.6
+	body_mesh.height = 15.0
+	body_mesh.radial_segments = 10
+	body_mesh.rings = 6
+	body.mesh = body_mesh
+	body.material_override = body_mat
+	body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	body.rotation.z = -PI / 2.0  # capsule Y axis -> nose along +X
+	whale.add_child(body)
+	# Pale throat pleats: humpbacks flash a light belly mid-breach.
+	var throat := MeshInstance3D.new()
+	var throat_mesh := CapsuleMesh.new()
+	throat_mesh.radius = 2.1
+	throat_mesh.height = 11.0
+	throat_mesh.radial_segments = 8
+	throat_mesh.rings = 4
+	throat.mesh = throat_mesh
+	throat.material_override = pale_mat
+	throat.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	throat.rotation.z = -PI / 2.0
+	throat.position = Vector3(1.0, -0.9, 0.0)
+	whale.add_child(throat)
+	var fluke := MeshInstance3D.new()
+	var fluke_mesh := PrismMesh.new()
+	fluke_mesh.size = Vector3(6.0, 2.6, 0.5)
+	fluke.mesh = fluke_mesh
+	fluke.material_override = body_mat
+	fluke.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	fluke.position = Vector3(-8.6, 0.6, 0.0)
+	fluke.rotation.z = deg_to_rad(24.0)
+	whale.add_child(fluke)
+	for zside: float in [-1.0, 1.0]:
+		var fin := MeshInstance3D.new()
+		var fin_mesh := PrismMesh.new()
+		fin_mesh.size = Vector3(4.6, 1.4, 0.4)
+		fin.mesh = fin_mesh
+		fin.material_override = pale_mat
+		fin.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		fin.position = Vector3(1.6, -1.4, 2.4 * zside)
+		fin.rotation.x = deg_to_rad(50.0 * zside)
+		whale.add_child(fin)
+	whale.position = Vector3(anchor.x, OCEAN_Y - 30.0, anchor.z)
+	whale.rotation.y = rng.randf() * TAU
+	add_child(whale)
+	_breach_whale = whale
+	_breach_anchor = anchor
+	_breach_wait = rng.randf_range(9.0, 16.0)
+	# Splash disc at the anchor: scaled up in _update_breach whenever the body
+	# straddles the waterline, invisible (near-zero scale) the rest of the time.
+	_breach_splash = MeshInstance3D.new()
+	var splash_mesh := PlaneMesh.new()
+	splash_mesh.size = Vector2(1.0, 1.0)
+	_breach_splash.mesh = splash_mesh
+	var splash_mat := StandardMaterial3D.new()
+	splash_mat.albedo_color = Color(1.0, 0.97, 0.92, 0.55)
+	splash_mat.albedo_texture = VisualLibrary.soft_radial_texture(64, 0.85)
+	splash_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	splash_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	splash_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	splash_mat.render_priority = 2
+	_breach_splash.material_override = splash_mat
+	_breach_splash.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_breach_splash.position = Vector3(anchor.x, OCEAN_Y + 0.7, anchor.z)
+	_breach_splash.scale = Vector3(0.05, 1.0, 0.05)
+	add_child(_breach_splash)
+
+
+## Drives the breaching whale: long submerged waits (26-44s) punctuated by a
+## ~3.4s parabolic leap — nose-led rise, pitch-over through the apex,
+## back-first re-entry. The splash disc flares only while the body crosses
+## the waterline.
+func _update_breach(delta: float) -> void:
+	if _breach_t < 0.0:
+		_breach_wait -= delta
+		if _breach_wait <= 0.0:
+			_breach_t = 0.0
+			_breach_whale.rotation.y = rng.randf() * TAU
+		return
+	_breach_t += delta
+	var t := _breach_t / BREACH_DURATION
+	if t >= 1.0:
+		_breach_t = -1.0
+		_breach_wait = rng.randf_range(26.0, 44.0)
+		_breach_whale.position.y = OCEAN_Y - 30.0
+		_breach_splash.scale = Vector3(0.05, 1.0, 0.05)
+		return
+	# Body center rises from 9m under the surface to ~7m over it and back.
+	var height := -9.0 + 4.0 * 16.0 * t * (1.0 - t)
+	_breach_whale.position = Vector3(_breach_anchor.x, OCEAN_Y + height, _breach_anchor.z)
+	_breach_whale.rotation.z = lerpf(1.15, -1.4, t)
+	var wet := clampf(1.0 - absf(height) / 5.0, 0.0, 1.0)
+	var spread := 0.05 + wet * 13.0
+	_breach_splash.scale = Vector3(spread, 1.0, spread)
+
+
+## Drifting pack-ice field beyond the brash band, in two depth layers that
+## slow-drift on opposing diagonals — near plates slide visibly against the
+## far band and the anchored bergs, so the whole bay parallaxes like loose
+## pack riding a current. One shared plate mesh + ONE cached ice material
+## across both layers (same cache entry the pancake floes use); plate counts
+## scale with display/quality_preset (low ~40% of high). Each layer is a
+## single MultiMesh whose root drifts in _process. Reduced motion keeps the
+## field but pins it static.
+func _add_pack_ice() -> void:
+	var quality := String(SettingsManager.get_setting("display", "quality_preset"))
+	var keep := 1.0
+	if quality == "medium":
+		keep = 0.7
+	elif quality == "low":
+		keep = 0.4
+	var plate_mesh := CylinderMesh.new()
+	plate_mesh.top_radius = 1.0
+	plate_mesh.bottom_radius = 1.14
+	plate_mesh.height = 0.34
+	plate_mesh.radial_segments = 7
+	plate_mesh.rings = 0
+	var mat := VisualLibrary.ice_material(Color(0.9, 0.95, 1.0), 0.3)
+	var layers: Array[Dictionary] = [
+		{"name": "PackIceNear", "lat": Vector2(120.0, 200.0), "s": Vector2(2.4, 5.5),
+			"step": 44.0, "dir": Vector3(0.8, 0.0, 0.6), "amp": 7.0, "speed": 0.05},
+		{"name": "PackIceFar", "lat": Vector2(210.0, 360.0), "s": Vector2(4.0, 9.0),
+			"step": 62.0, "dir": Vector3(-0.5, 0.0, 0.86), "amp": 3.0, "speed": 0.03},
+	]
+	for layer: Dictionary in layers:
+		var xforms: Array[Transform3D] = []
+		var lat_range: Vector2 = layer["lat"]
+		var s_range: Vector2 = layer["s"]
+		var o := 30.0
+		while o < main_guide.length - 30.0:
+			var xf := main_guide.transform_at(o)
+			for side: float in [-1.0, 1.0]:
+				if rng.randf() > keep * 0.85:
+					continue
+				var lat := rng.randf_range(lat_range.x, lat_range.y) * side
+				var pos := xf.origin + xf.basis.x * lat + xf.basis.z * rng.randf_range(-18.0, 18.0)
+				var b := Basis.from_euler(Vector3(rng.randf_range(-0.04, 0.04),
+					rng.randf() * TAU, rng.randf_range(-0.04, 0.04))) \
+					* Basis.from_scale(Vector3(rng.randf_range(s_range.x, s_range.y), 1.0,
+						rng.randf_range(s_range.x, s_range.y)))
+				xforms.append(Transform3D(b, Vector3(pos.x, OCEAN_Y + 0.28, pos.z)))
+			o += float(layer["step"])
+		if xforms.is_empty():
+			continue
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = plate_mesh
+		mm.instance_count = xforms.size()
+		for i: int in xforms.size():
+			mm.set_instance_transform(i, xforms[i])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.name = String(layer["name"])
+		mmi.multimesh = mm
+		mmi.material_override = mat
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mmi)
+		if not UITheme.reduced_motion():
+			_drift_layers.append({"node": mmi, "dir": (layer["dir"] as Vector3).normalized(),
+				"amp": float(layer["amp"]), "speed": float(layer["speed"]),
+				"phase": rng.randf() * TAU})
 
 
 ## Seabird flocks circling high over the first and last hero bergs: thin dark

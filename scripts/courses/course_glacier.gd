@@ -249,12 +249,14 @@ func _decorate() -> void:
 	_decorate_spectators(density)
 	_decorate_mountains()
 	_decorate_cliffs(density)
+	_decorate_icefall()
 	_decorate_boulders(density)
 	_decorate_cave_glints(density)
 	_decorate_crevasse_cracks()
 	_decorate_lake_cracks()
 	_decorate_fog(density)
 	_decorate_sun_glint()
+	_decorate_birds()
 
 	# One shared multimesh for every ice crystal cluster on the course, plus a
 	# second for hanging icicles (same mesh flipped in the instance transform).
@@ -266,21 +268,35 @@ func _decorate() -> void:
 	_add_multimesh(VisualLibrary.ice_crystal_mesh(), icicle_transforms, crystal_mat, "Icicles")
 
 
-func _add_multimesh(mesh: Mesh, transforms: Array[Transform3D], material: Material, name_hint: String, shadows: bool = true) -> void:
+## range_base > 0 opts the dressing into VisualLibrary.apply_dressing_range
+## distance culling. Visibility range keys off the NODE origin, so the node is
+## re-anchored at the transforms' centroid (instance transforms made relative):
+## the fade then measures from the feature itself, not world zero.
+func _add_multimesh(mesh: Mesh, transforms: Array[Transform3D], material: Material, name_hint: String, shadows: bool = true, range_base: float = 0.0) -> void:
 	if transforms.is_empty():
 		return
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.mesh = mesh
 	mm.instance_count = transforms.size()
-	for i: int in transforms.size():
-		mm.set_instance_transform(i, transforms[i])
 	var instance := MultiMeshInstance3D.new()
 	instance.name = name_hint
 	instance.multimesh = mm
 	instance.material_override = material
 	if not shadows:
 		instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if range_base > 0.0:
+		var centroid := Vector3.ZERO
+		for t: Transform3D in transforms:
+			centroid += t.origin
+		centroid /= float(transforms.size())
+		instance.position = centroid
+		for i: int in transforms.size():
+			mm.set_instance_transform(i, Transform3D(transforms[i].basis, transforms[i].origin - centroid))
+		VisualLibrary.apply_dressing_range(instance, range_base)
+	else:
+		for i: int in transforms.size():
+			mm.set_instance_transform(i, transforms[i])
 	add_child(instance)
 
 
@@ -769,6 +785,122 @@ func _cliff_mesh(seed_value: int) -> ArrayMesh:
 		prev_top = top
 	st.generate_normals()
 	return st.commit()
+
+
+## Frozen waterfall wall: a broad columnar icefall frozen mid-pour down the
+## sunlit right flank of the opening dip — five overlapping slabs of one
+## seeded cascade mesh chained along the guide so the wall follows the
+## track's curvature (kept clear of the cliff runs at the cave approach and
+## final downhill). One MultiMesh draw call, one cached glossy rock material
+## (vertex colors carry the glacial banding); 23m+ off the racing line,
+## shadows off, distance-culled on the low/medium presets.
+func _decorate_icefall() -> void:
+	var wall_start := _offset_near(Vector3(4, 54, -90)) + 6.0
+	var transforms: Array[Transform3D] = []
+	var offset := wall_start
+	for _i: int in 5:
+		var xform := main_guide.transform_at(offset)
+		var lateral := 23.0 + rng.randf_range(0.0, 3.0)
+		var pos := xform.origin + xform.basis.x * lateral + Vector3.DOWN * 5.0
+		var toward := -xform.basis.x
+		var yaw := atan2(toward.x, toward.z)
+		var fall_basis := Basis(Vector3.UP, yaw + rng.randf_range(-0.06, 0.06)) * Basis.from_scale(Vector3(
+			rng.randf_range(17.0, 22.0), rng.randf_range(15.0, 20.0), rng.randf_range(4.0, 6.0)))
+		transforms.append(Transform3D(fall_basis, pos))
+		offset += 19.0
+	_add_multimesh(_icefall_mesh(6161), transforms,
+		VisualLibrary.rock_material(Color(1.0, 1.0, 1.0), 0.3), "FrozenFalls", false, 480.0)
+
+
+## Unit frozen-waterfall slab: x -0.5..0.5, y 0..1, cascade face toward +Z.
+## Vertical melt-columns with per-column width/depth jitter, deep glacial
+## teal in the recesses between columns, pale aqua flow streaks down the
+## column fronts, a frost-white crown lip where the cascade pours over the
+## edge, and a hanging icicle tip below each column base. Deterministic per
+## seed; recess return faces are double-sided so oblique views never see
+## through the wall.
+func _icefall_mesh(seed_value: int) -> ArrayMesh:
+	var mrng := RandomNumberGenerator.new()
+	mrng.seed = seed_value
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var cols := 10
+	var crown := Color(0.94, 0.97, 1.0)
+	var flow_hi := Color(0.66, 0.84, 0.97)
+	var flow_lo := Color(0.34, 0.6, 0.86)
+	var recess := Color(0.1, 0.28, 0.5)
+	var prev_z := 0.0
+	var prev_lip := 0.0
+	for i: int in cols:
+		var x0 := -0.5 + float(i) / float(cols)
+		var x1 := -0.5 + float(i + 1) / float(cols)
+		var z := mrng.randf_range(0.03, 0.14)
+		var lip := mrng.randf_range(0.86, 0.93)
+		var tip_y := mrng.randf_range(0.02, 0.12)
+		var streak := mrng.randf_range(0.8, 1.1)
+		var hi := Color(flow_hi.r * streak, flow_hi.g * (0.85 + 0.15 * streak), flow_hi.b)
+		var lo := Color(flow_lo.r * streak, flow_lo.g * (0.85 + 0.15 * streak), flow_lo.b)
+		var mid_y := lerpf(tip_y, lip, 0.45)
+		# Column front: deep pour base -> pale upper flow -> frost crown lip.
+		_cquad(st, Vector3(x0, tip_y, z), Vector3(x1, tip_y, z), Vector3(x1, mid_y, z), Vector3(x0, mid_y, z), lo)
+		_cquad(st, Vector3(x0, mid_y, z), Vector3(x1, mid_y, z), Vector3(x1, lip, z), Vector3(x0, lip, z), hi)
+		_cquad(st, Vector3(x0, lip, z), Vector3(x1, lip, z), Vector3(x1, 1.0, z - 0.1), Vector3(x0, 1.0, z - 0.1), crown)
+		# Icicle tip hanging under the column base (both windings).
+		var drop := Vector3((x0 + x1) * 0.5 + mrng.randf_range(-0.02, 0.02),
+			tip_y - mrng.randf_range(0.05, 0.14), z * 0.5)
+		_ctri(st, Vector3(x0, tip_y, z), Vector3(x1, tip_y, z), drop, lo)
+		_ctri(st, Vector3(x1, tip_y, z), Vector3(x0, tip_y, z), drop, lo)
+		if i > 0:
+			var rec := recess * mrng.randf_range(0.8, 1.05)
+			rec.a = 1.0
+			var hi_y := maxf(lip, prev_lip)
+			_cquad(st, Vector3(x0, 0.0, prev_z), Vector3(x0, 0.0, z), Vector3(x0, hi_y, z), Vector3(x0, hi_y, prev_z), rec)
+			_cquad(st, Vector3(x0, 0.0, z), Vector3(x0, 0.0, prev_z), Vector3(x0, hi_y, prev_z), Vector3(x0, hi_y, z), rec)
+		prev_z = z
+		prev_lip = lip
+	st.generate_normals()
+	return st.commit()
+
+
+## Occasional distant birds: snow-petrel flocks wheeling high over the frozen
+## lake — thin dark billboard slivers on slow-circling pivots (one looping
+## tween per flock, zero per-frame script cost). UITheme.reduced_motion()
+## pins the flocks static; flock count scales with display/quality_preset.
+## Anchors sit 90-150m off the racing line; shadows off on every quad.
+func _decorate_birds() -> void:
+	var quality := String(SettingsManager.get_setting("display", "quality_preset"))
+	var flock_count := 3
+	if quality == "medium":
+		flock_count = 2
+	elif quality == "low":
+		flock_count = 1
+	var bird_mesh := QuadMesh.new()
+	bird_mesh.size = Vector2(1.9, 0.42)
+	var bird_mat := VisualLibrary.billboard_puff_material(Color(0.13, 0.15, 0.2, 0.92), 32, 1.0)
+	var anchors: Array[Vector3] = [
+		Vector3(-120.0, 58.0, -560.0),
+		Vector3(150.0, 50.0, -820.0),
+		Vector3(-90.0, 46.0, -1120.0),
+	]
+	for f: int in flock_count:
+		var pivot := Node3D.new()
+		pivot.name = "BirdFlock_%d" % f
+		pivot.position = anchors[f]
+		add_child(pivot)
+		for _b: int in 4:
+			var bird := MeshInstance3D.new()
+			bird.mesh = bird_mesh
+			bird.material_override = bird_mat
+			bird.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var ang := rng.randf() * TAU
+			var rad := rng.randf_range(7.0, 15.0)
+			bird.position = Vector3(cos(ang) * rad, rng.randf_range(-2.5, 2.5), sin(ang) * rad)
+			pivot.add_child(bird)
+		if not UITheme.reduced_motion():
+			var tw := pivot.create_tween()
+			tw.set_loops()
+			var dir := 1.0 if f % 2 == 0 else -1.0
+			tw.tween_property(pivot, "rotation:y", TAU * dir, rng.randf_range(26.0, 40.0)).as_relative()
 
 
 ## Scattered ice boulders: calved glacial blocks wearing the full smooth-ice

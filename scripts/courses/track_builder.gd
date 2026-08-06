@@ -18,7 +18,13 @@ static var _surface_materials: Dictionary = {}
 
 static func surface_material(surface: SurfacesDB.Surface) -> Material:
 	if _surface_materials.has(surface):
-		return _surface_materials[surface]
+		var cached: Material = _surface_materials[surface]
+		# detail_level is quality-derived: refresh on reuse so a preset change
+		# (settings menu or the web auto-governor) reaches the cached ice
+		# shaders on the next course build. Uniform write only — no recompile.
+		if cached is ShaderMaterial and surface != SurfacesDB.Surface.BOOST:
+			(cached as ShaderMaterial).set_shader_parameter("detail_level", VisualLibrary.shader_detail_level())
+		return cached
 	var mat: Material
 	match surface:
 		SurfacesDB.Surface.PACKED_SNOW:
@@ -275,14 +281,25 @@ static func _emit_skirt(root: Node3D, left: PackedVector3Array, right: PackedVec
 	st.generate_normals()
 	var instance := MeshInstance3D.new()
 	instance.mesh = st.commit()
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color.WHITE
-	mat.vertex_color_use_as_albedo = true
-	mat.roughness = 0.6
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	instance.material_override = mat
+	instance.material_override = _skirt_material()
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(instance)
+
+
+static var _skirt_material_cache: StandardMaterial3D = null
+
+
+## Shared skirt material: identical for every ribbon, so every skirt (main
+## line + branches, all courses) reuses ONE material/pipeline instead of
+## minting a fresh WebGL program per track build.
+static func _skirt_material() -> StandardMaterial3D:
+	if _skirt_material_cache == null:
+		_skirt_material_cache = StandardMaterial3D.new()
+		_skirt_material_cache.albedo_color = Color.WHITE
+		_skirt_material_cache.vertex_color_use_as_albedo = true
+		_skirt_material_cache.roughness = 0.6
+		_skirt_material_cache.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return _skirt_material_cache
 
 
 ## 0..1 proximity of a sample row to its surface run's start/end boundary,
@@ -383,21 +400,13 @@ static func build_water(points: Array, name_hint: String = "Water") -> Node3D:
 	st.generate_normals()
 	var water_mesh := MeshInstance3D.new()
 	water_mesh.mesh = st.commit()
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.15, 0.42, 0.62, 0.78)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.roughness = 0.05
-	mat.metallic = 0.3
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	water_mesh.material_override = mat
+	water_mesh.material_override = _water_surface_material()
 	root.add_child(water_mesh)
 
 	floor_st.generate_normals()
 	var floor_mesh_instance := MeshInstance3D.new()
 	floor_mesh_instance.mesh = floor_st.commit()
-	var floor_mat := StandardMaterial3D.new()
-	floor_mat.albedo_color = Color(0.1, 0.28, 0.42)
-	floor_mesh_instance.material_override = floor_mat
+	floor_mesh_instance.material_override = VisualLibrary.rock_material(Color(0.1, 0.28, 0.42), 1.0)
 	root.add_child(floor_mesh_instance)
 	var floor_body := StaticBody3D.new()
 	floor_body.collision_layer = GameConfig.LAYER_WORLD
@@ -408,6 +417,22 @@ static func build_water(points: Array, name_hint: String = "Water") -> Node3D:
 	floor_body.add_child(floor_shape)
 	root.add_child(floor_body)
 	return root
+
+
+static var _water_surface_material_cache: StandardMaterial3D = null
+
+
+## Shared translucent water ribbon material (channels share one instance;
+## courses that restyle water swap material_override afterward).
+static func _water_surface_material() -> StandardMaterial3D:
+	if _water_surface_material_cache == null:
+		_water_surface_material_cache = StandardMaterial3D.new()
+		_water_surface_material_cache.albedo_color = Color(0.15, 0.42, 0.62, 0.78)
+		_water_surface_material_cache.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_water_surface_material_cache.roughness = 0.05
+		_water_surface_material_cache.metallic = 0.3
+		_water_surface_material_cache.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return _water_surface_material_cache
 
 
 static func _on_water_entered(body: Node3D, area: Area3D, surface_y: float) -> void:
@@ -426,31 +451,39 @@ static func prop_material(color: Color, rough: float = 0.8) -> StandardMaterial3
 	return PenguinVisual.get_material(color, 0.0, rough)
 
 
+static var _flag_pole_mesh: CylinderMesh = null
+static var _flag_finial_mesh: SphereMesh = null
+
+
 static func add_flag(parent: Node3D, pos: Vector3, color: Color = Color(0.9, 0.25, 0.3)) -> void:
+	if _flag_pole_mesh == null:
+		_flag_pole_mesh = CylinderMesh.new()
+		_flag_pole_mesh.top_radius = 0.05
+		_flag_pole_mesh.bottom_radius = 0.07
+		_flag_pole_mesh.height = 3.0
+		_flag_finial_mesh = SphereMesh.new()
+		_flag_finial_mesh.radius = 0.09
+		_flag_finial_mesh.height = 0.18
+		_flag_finial_mesh.radial_segments = 12
+		_flag_finial_mesh.rings = 6
 	var pole := MeshInstance3D.new()
-	var pole_mesh := CylinderMesh.new()
-	pole_mesh.top_radius = 0.05
-	pole_mesh.bottom_radius = 0.07
-	pole_mesh.height = 3.0
-	pole.mesh = pole_mesh
+	pole.mesh = _flag_pole_mesh
 	pole.material_override = prop_material(Color(0.5, 0.35, 0.2))
 	pole.position = pos + Vector3.UP * 1.5
+	VisualLibrary.apply_dressing_range(pole)
 	parent.add_child(pole)
 	var finial := MeshInstance3D.new()
-	var finial_mesh := SphereMesh.new()
-	finial_mesh.radius = 0.09
-	finial_mesh.height = 0.18
-	finial_mesh.radial_segments = 12
-	finial_mesh.rings = 6
-	finial.mesh = finial_mesh
+	finial.mesh = _flag_finial_mesh
 	finial.material_override = prop_material(Color(0.85, 0.72, 0.35))
 	finial.position = pos + Vector3.UP * 3.05
+	VisualLibrary.apply_dressing_range(finial)
 	parent.add_child(finial)
 	var flag := MeshInstance3D.new()
 	flag.mesh = _pennant_mesh()
 	var flag_mat := prop_material(color)
 	flag.material_override = flag_mat
 	flag.position = pos + Vector3.UP * 2.85
+	VisualLibrary.apply_dressing_range(flag)
 	parent.add_child(flag)
 
 
@@ -488,49 +521,78 @@ static func _pennant_mesh() -> ArrayMesh:
 	return _pennant_cache
 
 
+static var _rock_mesh: SphereMesh = null
+static var _rock_cap_mesh: SphereMesh = null
+
+
 static func add_rock(parent: Node3D, pos: Vector3, scale_factor: float = 1.0, rng: RandomNumberGenerator = null) -> void:
+	# Shared unit meshes, sized per instance via node scale — one rock mesh +
+	# one cap mesh for every rock in the game instead of two per call.
+	if _rock_mesh == null:
+		_rock_mesh = SphereMesh.new()
+		_rock_mesh.radius = 0.8
+		_rock_mesh.height = 1.1
+		_rock_mesh.radial_segments = 8
+		_rock_mesh.rings = 5
+		_rock_cap_mesh = SphereMesh.new()
+		_rock_cap_mesh.radius = 0.7
+		_rock_cap_mesh.height = 0.5
 	var rock := MeshInstance3D.new()
-	var rock_mesh := SphereMesh.new()
-	rock_mesh.radius = 0.8 * scale_factor
-	rock_mesh.height = 1.1 * scale_factor
-	rock_mesh.radial_segments = 8
-	rock_mesh.rings = 5
-	rock.mesh = rock_mesh
+	rock.mesh = _rock_mesh
 	rock.material_override = prop_material(Color(0.45, 0.48, 0.54))
 	rock.position = pos + Vector3.UP * 0.3 * scale_factor
+	rock.scale = Vector3.ONE * scale_factor
 	if rng != null:
 		rock.rotation.y = rng.randf() * TAU
-		rock.scale = Vector3(rng.randf_range(0.8, 1.4), rng.randf_range(0.6, 1.0), rng.randf_range(0.8, 1.4))
+		rock.scale = Vector3(rng.randf_range(0.8, 1.4), rng.randf_range(0.6, 1.0), rng.randf_range(0.8, 1.4)) * scale_factor
+	VisualLibrary.apply_dressing_range(rock)
 	parent.add_child(rock)
 	# Snow cap.
 	var cap := MeshInstance3D.new()
-	var cap_mesh := SphereMesh.new()
-	cap_mesh.radius = 0.7 * scale_factor
-	cap_mesh.height = 0.5 * scale_factor
-	cap.mesh = cap_mesh
+	cap.mesh = _rock_cap_mesh
 	cap.material_override = prop_material(Color(0.96, 0.98, 1.0))
 	cap.position = pos + Vector3.UP * 0.75 * scale_factor
 	cap.scale = rock.scale
+	VisualLibrary.apply_dressing_range(cap)
 	parent.add_child(cap)
 
 
+static var _crystal_mesh: CylinderMesh = null
+static var _crystal_materials: Dictionary = {}
+
+
 static func add_ice_crystal(parent: Node3D, pos: Vector3, height: float = 3.0, color: Color = Color(0.55, 0.85, 1.0)) -> void:
+	# Shared unit spike (bottom_radius/height ratio preserved) scaled per node,
+	# plus one cached transparent material per tint. Transparent uniques are
+	# the most expensive kind of material explosion on WebGL — endless mode
+	# used to mint one per crystal spawned mid-run.
+	if _crystal_mesh == null:
+		_crystal_mesh = CylinderMesh.new()
+		_crystal_mesh.top_radius = 0.0
+		_crystal_mesh.bottom_radius = 0.16
+		_crystal_mesh.height = 1.0
+		_crystal_mesh.radial_segments = 5
 	var crystal := MeshInstance3D.new()
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = 0.0
-	mesh.bottom_radius = height * 0.16
-	mesh.height = height
-	mesh.radial_segments = 5
-	crystal.mesh = mesh
+	crystal.mesh = _crystal_mesh
+	crystal.material_override = _crystal_material(color)
+	crystal.scale = Vector3.ONE * height
+	crystal.position = pos + Vector3.UP * height * 0.5
+	VisualLibrary.apply_dressing_range(crystal)
+	parent.add_child(crystal)
+
+
+static func _crystal_material(color: Color) -> StandardMaterial3D:
+	var key := "crystal_%s" % color.to_html()
+	if _crystal_materials.has(key):
+		return _crystal_materials[key]
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(color.r, color.g, color.b, 0.85)
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.roughness = 0.1
 	mat.rim_enabled = true
 	mat.rim = 0.6
-	crystal.material_override = mat
-	crystal.position = pos + Vector3.UP * height * 0.5
-	parent.add_child(crystal)
+	_crystal_materials[key] = mat
+	return mat
 
 
 static func add_spectator(parent: Node3D, pos: Vector3, look_target: Vector3, rng: RandomNumberGenerator) -> void:
@@ -552,23 +614,29 @@ static func add_spectator(parent: Node3D, pos: Vector3, look_target: Vector3, rn
 	penguin.set_meta("spectator", true)
 
 
+static var _bar_mesh: BoxMesh = null
+static var _bar_shape: BoxShape3D = null
+
+
 ## Overhead bar that forces a belly slide (low ice tunnel hazard).
 static func add_overhead_bar(parent: Node3D, guide: PathGuide, offset: float, clearance: float = 1.05) -> void:
+	if _bar_mesh == null:
+		_bar_mesh = BoxMesh.new()
+		_bar_mesh.size = Vector3(16.0, 1.3, 1.6)
+		_bar_shape = BoxShape3D.new()
+		_bar_shape.size = _bar_mesh.size
 	var xform := guide.transform_at(offset)
 	var bar := StaticBody3D.new()
 	bar.collision_layer = GameConfig.LAYER_WORLD
 	bar.collision_mask = 0
-	var mesh := BoxMesh.new()
-	mesh.size = Vector3(16.0, 1.3, 1.6)
 	var instance := MeshInstance3D.new()
-	instance.mesh = mesh
+	instance.mesh = _bar_mesh
 	instance.material_override = surface_material(SurfacesDB.Surface.ICE_ROUGH)
 	bar.add_child(instance)
 	var shape := CollisionShape3D.new()
-	shape.shape = BoxShape3D.new()
-	(shape.shape as BoxShape3D).size = mesh.size
+	shape.shape = _bar_shape
 	bar.add_child(shape)
-	bar.transform = Transform3D(xform.basis, xform.origin + xform.basis.y * (clearance + mesh.size.y * 0.5))
+	bar.transform = Transform3D(xform.basis, xform.origin + xform.basis.y * (clearance + _bar_mesh.size.y * 0.5))
 	parent.add_child(bar)
 
 
@@ -644,23 +712,31 @@ static func _boost_rim_material() -> StandardMaterial3D:
 	return _pad_rim_material
 
 
+static var _pad_deck_mesh: BoxMesh = null
+static var _pad_arrow_mesh: PlaneMesh = null
+static var _pad_trigger_shape: BoxShape3D = null
+
+
 static func add_boost_pad(parent: Node3D, guide: PathGuide, offset: float, lateral: float = 0.0) -> void:
+	if _pad_deck_mesh == null:
+		_pad_deck_mesh = BoxMesh.new()
+		_pad_deck_mesh.size = Vector3(4.0, 0.15, 6.0)
+		_pad_arrow_mesh = PlaneMesh.new()
+		_pad_arrow_mesh.size = Vector2(3.6, 5.6)
+		_pad_trigger_shape = BoxShape3D.new()
+		_pad_trigger_shape.size = Vector3(4.0, 2.0, 6.0)
 	var xform := guide.transform_at(offset)
 	var pad := Area3D.new()
 	pad.collision_layer = GameConfig.LAYER_TRIGGERS
 	pad.collision_mask = GameConfig.LAYER_RACERS
-	var mesh := BoxMesh.new()
-	mesh.size = Vector3(4.0, 0.15, 6.0)
 	var instance := MeshInstance3D.new()
-	instance.mesh = mesh
+	instance.mesh = _pad_deck_mesh
 	instance.material_override = surface_material(SurfacesDB.Surface.BOOST)
 	pad.add_child(instance)
-	var arrow_mesh := PlaneMesh.new()
-	arrow_mesh.size = Vector2(3.6, 5.6)
 	var arrows := MeshInstance3D.new()
-	arrows.mesh = arrow_mesh
+	arrows.mesh = _pad_arrow_mesh
 	arrows.material_override = _boost_arrow_material()
-	arrows.position = Vector3(0.0, mesh.size.y * 0.5 + 0.03, 0.0)
+	arrows.position = Vector3(0.0, _pad_deck_mesh.size.y * 0.5 + 0.03, 0.0)
 	arrows.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	pad.add_child(arrows)
 	var rim := MeshInstance3D.new()
@@ -674,9 +750,7 @@ static func add_boost_pad(parent: Node3D, guide: PathGuide, offset: float, later
 	(instance.material_override as ShaderMaterial).set_shader_parameter("contrast_boost", contrast)
 	_boost_arrow_material().set_shader_parameter("contrast_boost", contrast)
 	var shape := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	box.size = Vector3(4.0, 2.0, 6.0)
-	shape.shape = box
+	shape.shape = _pad_trigger_shape
 	pad.add_child(shape)
 	pad.transform = Transform3D(xform.basis, xform.origin + xform.basis.x * lateral + xform.basis.y * 0.1)
 	pad.body_entered.connect(func(body: Node3D) -> void:

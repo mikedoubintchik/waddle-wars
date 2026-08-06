@@ -14,10 +14,11 @@
 // dissolve instead of gluing to wave phase), softened noise-broken foam
 // edges, an anisotropic glitter-broken specular sun streak elongated toward
 // the sun azimuth (the sun lane itself survives to the horizon; only its
-// per-pixel glitter calms with distance), and finite-difference micro-facet
+// per-pixel glitter calms with distance), finite-difference micro-facet
 // tilt so each sparkle is a real facet catching the sun, not brightness
-// noise. Mobile-cheap: no textures, no screen-space reads; up to 6 extra
-// noise samples inside the distance-faded detail branch.
+// noise, and sparse pinpoint sky-glitter off the lane (rare wavelet facets
+// flashing cool white). Mobile-cheap: no textures, no screen-space reads;
+// up to 8 extra noise samples inside the distance-faded detail branch.
 // WebGL2/gl_compatibility-safe: basic spatial features only, no screen or
 // depth reads.
 shader_type spatial;
@@ -59,6 +60,10 @@ uniform float sun_glint_power = 180.0;
 // Anisotropy of the sun path: damps facet tilt along the sun azimuth so the
 // glint lane stretches toward the sun instead of a round hotspot.
 uniform float sun_streak : hint_range(0.0, 1.0) = 0.65;
+// Pinpoint glitter: sparse near-camera micro-sparkles independent of the sun
+// lane — isolated wavelet facets catching the sky. Subtle by default; 0
+// disables (and the two extra noise samples are distance-faded regardless).
+uniform float sparkle_pinpoint : hint_range(0.0, 1.0) = 0.3;
 uniform float foam_break_scale = 2.6;
 // Backlit crest translucency: how strongly a low sun shining through raised
 // crests toward the camera lifts a green-teal transmission glow — the glassy
@@ -233,6 +238,18 @@ void fragment() {
 		float graze_gain = 0.45 + 0.55 * clamp(fresnel * 6.0, 0.0, 1.0);
 		EMISSION = vec3(1.0, 0.98, 0.9) * glint * sun_glint_strength * graze_gain
 				* (0.35 + 0.65 * ripple) * (1.0 - foam) * detail_level;
+		if (dl > 0.001) {
+			// Pinpoint glitter: two counter-drifting sparse fields multiplied
+			// together, so only rare coincident peaks fire — isolated wavelet
+			// facets popping brief cool sky-flashes near the camera, breaking
+			// the calm between the warm sun-lane sparkles. Two extra noise
+			// samples inside the distance-faded branch; zero cost at range.
+			float sp_a = value_noise(world_pos.xz * 5.1 + vec2(TIME * 0.5, TIME * -0.33));
+			float sp_b = value_noise(world_pos.xz * 5.1 + vec2(17.3 - TIME * 0.44, 5.9 + TIME * 0.36));
+			float pin = smoothstep(0.88, 0.99, sp_a * sp_b * 1.9);
+			EMISSION += vec3(0.95, 0.98, 1.0) * pin * sparkle_pinpoint * dl
+					* (0.35 + 0.65 * clamp(fresnel * 5.0, 0.0, 1.0)) * (1.0 - foam);
+		}
 	}
 
 	ALPHA = clamp(alpha_value + foam * 0.1 + fresnel * 0.08, 0.0, 1.0);

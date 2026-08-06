@@ -53,6 +53,9 @@ func add_branch(points: Array, risk: float = 0.5, id_hint: String = "") -> PathG
 	branches.append({
 		"id": branches.size(), "guide": guide,
 		"entry": entry, "exit": exit_offset, "risk": risk, "name": id_hint,
+		# Precomputed guide_cache key: get_guide/ai_target run per racer per
+		# frame, and formatting this string there allocated every call.
+		"cache_key": "branch_idx_%d" % branches.size(),
 	})
 	return guide
 
@@ -70,6 +73,17 @@ var checkpoint_offsets: Array[float] = []
 
 
 func _build_checkpoints() -> void:
+	# One shared mesh + one cached material for every post in the game — the
+	# per-post StandardMaterial3D.new() here minted a fresh WebGL program per
+	# checkpoint per race.
+	var post_mesh: CylinderMesh = null
+	var post_mat: StandardMaterial3D = null
+	if not GameConfig.is_headless():
+		post_mesh = CylinderMesh.new()
+		post_mesh.top_radius = 0.08
+		post_mesh.bottom_radius = 0.12
+		post_mesh.height = 2.4
+		post_mat = VisualLibrary.emissive_material(Color(0.4, 0.9, 1.0), Color(0.3, 0.8, 1.0), 0.8)
 	var offset := 40.0
 	while offset < finish_offset - 60.0:
 		var xform := main_guide.transform_at(offset)
@@ -79,18 +93,10 @@ func _build_checkpoints() -> void:
 		if not GameConfig.is_headless() and checkpoint_offsets.size() % 2 == 0:
 			for side: float in [-1.0, 1.0]:
 				var post := MeshInstance3D.new()
-				var mesh := CylinderMesh.new()
-				mesh.top_radius = 0.08
-				mesh.bottom_radius = 0.12
-				mesh.height = 2.4
-				post.mesh = mesh
-				var mat := StandardMaterial3D.new()
-				mat.albedo_color = Color(0.4, 0.9, 1.0)
-				mat.emission_enabled = true
-				mat.emission = Color(0.3, 0.8, 1.0)
-				mat.emission_energy_multiplier = 0.8
-				post.material_override = mat
+				post.mesh = post_mesh
+				post.material_override = post_mat
 				post.position = xform.origin + xform.basis.x * (9.0 * side) + Vector3.UP * 1.2
+				VisualLibrary.apply_dressing_range(post)
 				add_child(post)
 		offset += CHECKPOINT_INTERVAL
 
@@ -140,13 +146,12 @@ func _build_finish_line() -> void:
 	bar.material_override = TrackBuilder.prop_material(Color(0.95, 0.96, 1.0))
 	bar.transform = Transform3D(xform.basis, xform.origin + Vector3.UP * 6.6)
 	add_child(bar)
-	var checker_mat := StandardMaterial3D.new()
-	checker_mat.albedo_color = Color(0.1, 0.1, 0.12)
+	var checker_mat := VisualLibrary.rock_material(Color(0.1, 0.1, 0.12), 1.0)
+	var square_mesh := BoxMesh.new()
+	square_mesh.size = Vector3(2.26, 0.7, 0.42)
 	for i: int in 10:
 		if i % 2 == 0:
 			var square := MeshInstance3D.new()
-			var square_mesh := BoxMesh.new()
-			square_mesh.size = Vector3(2.26, 0.7, 0.42)
 			square.mesh = square_mesh
 			square.material_override = checker_mat
 			square.transform = Transform3D(xform.basis,
@@ -189,9 +194,10 @@ func get_guide(racer: Racer) -> Dictionary:
 			continue
 		var branch_id := int(branch["id"])
 		var guide: PathGuide = branch["guide"]
-		var hint := int(cache.get("branch_idx_%d" % branch_id, -1))
+		var cache_key: String = branch["cache_key"]
+		var hint := int(cache.get(cache_key, -1))
 		var res := guide.nearest(pos, hint)
-		cache["branch_idx_%d" % branch_id] = int(res["index"])
+		cache[cache_key] = int(res["index"])
 		var dist := float(res["distance"])
 		if current_path == branch_id:
 			dist -= 2.0
@@ -204,15 +210,21 @@ func get_guide(racer: Racer) -> Dictionary:
 	cache["path"] = best_path
 	racer.guide_cache = cache
 
-	var result: Dictionary
+	# Reused per-racer result dict: this runs for every racer every physics
+	# frame, so a fresh Dictionary per call is steady allocation pressure on
+	# the single-threaded web build.
+	if not cache.has("result"):
+		cache["result"] = {"yaw": 0.0, "progress": 0.0}
+	var result: Dictionary = cache["result"]
 	if best_path == -1:
-		result = {"yaw": main_guide.yaw_at(float(main_res["offset"])), "progress": float(main_res["offset"])}
+		result["yaw"] = main_guide.yaw_at(float(main_res["offset"]))
+		result["progress"] = float(main_res["offset"])
 	else:
 		var branch: Dictionary = branches[best_path]
 		var guide: PathGuide = branch["guide"]
 		var frac := float(best_res["offset"]) / maxf(guide.length, 0.001)
-		var mapped := lerpf(float(branch["entry"]), float(branch["exit"]), frac)
-		result = {"yaw": guide.yaw_at(float(best_res["offset"])), "progress": mapped}
+		result["yaw"] = guide.yaw_at(float(best_res["offset"]))
+		result["progress"] = lerpf(float(branch["entry"]), float(branch["exit"]), frac)
 	_advance_checkpoints(racer, float(result["progress"]))
 	return result
 
@@ -224,7 +236,7 @@ func ai_target(racer: Racer, lookahead: float, lateral: float = 0.0) -> Vector3:
 	if path >= 0 and path < branches.size():
 		var branch: Dictionary = branches[path]
 		var guide: PathGuide = branch["guide"]
-		var idx := int(cache.get("branch_idx_%d" % path, 0))
+		var idx := int(cache.get(branch["cache_key"], 0))
 		var offset := float(idx) * PathGuide.SAMPLE_SPACING + lookahead
 		if offset < guide.length - 2.0:
 			return guide.point_at(offset, lateral)
@@ -385,7 +397,16 @@ func build_environment(params: Dictionary) -> void:
 	sun.rotation_degrees = Vector3(float(params.get("sun_angle_deg", -48.0)), float(params.get("sun_yaw_deg", -30.0)), 0.0)
 	var shadow_quality := String(SettingsManager.get_setting("display", "shadow_quality"))
 	sun.shadow_enabled = shadow_quality != "off" and not GameConfig.is_headless()
-	sun.directional_shadow_max_distance = float(params.get("shadow_distance", 140.0))
+	# Shorter shadow range on the lower presets: fewer casters in the maps and
+	# sharper texels near the racer for less GPU work. High keeps the authored
+	# distance untouched.
+	var shadow_distance := float(params.get("shadow_distance", 140.0))
+	match String(SettingsManager.get_setting("display", "quality_preset")):
+		"low":
+			shadow_distance *= 0.55
+		"medium":
+			shadow_distance *= 0.8
+	sun.directional_shadow_max_distance = shadow_distance
 	sun.shadow_bias = 0.03
 	sun.shadow_normal_bias = 1.6
 	sun.directional_shadow_fade_start = 0.85
@@ -428,13 +449,13 @@ func build_environment(params: Dictionary) -> void:
 
 
 ## 3-puff soft billboard cloud clusters spread high along the main line.
+## One cached keep-scale billboard material + one shared unit quad for every
+## puff (previously: a unique material per course build and a unique QuadMesh
+## per puff); per-puff size lives in the node scale instead.
 func _add_clouds(color: Color) -> void:
-	var cloud_mat := StandardMaterial3D.new()
-	cloud_mat.albedo_color = color
-	cloud_mat.albedo_texture = VisualLibrary.soft_radial_texture(64, 0.85)
-	cloud_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	cloud_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	cloud_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	var cloud_mat := VisualLibrary.billboard_puff_material(color, 64, 0.85, true)
+	var puff_mesh := QuadMesh.new()
+	puff_mesh.size = Vector2(1.0, 0.55)
 	var count := 5
 	for i: int in count:
 		var anchor := Vector3.ZERO
@@ -448,10 +469,9 @@ func _add_clouds(color: Color) -> void:
 			rng.randf_range(-120.0, 120.0))
 		for j: int in 3:
 			var puff := MeshInstance3D.new()
-			var quad := QuadMesh.new()
 			var size := rng.randf_range(55.0, 110.0)
-			quad.size = Vector2(size, size * 0.55)
-			puff.mesh = quad
+			puff.mesh = puff_mesh
+			puff.scale = Vector3(size, size, 1.0)
 			puff.material_override = cloud_mat
 			# Translucent quads still cast shadows by default — with a low sun
 			# they paint huge blue blobs across the track.
@@ -460,6 +480,8 @@ func _add_clouds(color: Color) -> void:
 				rng.randf_range(-30.0, 30.0),
 				rng.randf_range(-8.0, 8.0),
 				rng.randf_range(-18.0, 18.0))
+			# Generous range so only genuinely distant clouds fade on medium/low.
+			VisualLibrary.apply_dressing_range(puff, 900.0)
 			cluster.add_child(puff)
 		add_child(cluster)
 
@@ -489,6 +511,8 @@ func _add_distant_bergs(params: Dictionary) -> void:
 		berg.scale = Vector3(s * rng.randf_range(0.8, 1.3), s * rng.randf_range(0.55, 0.9), s)
 		berg.position = Vector3(center.x + cos(angle) * distance, base_y, center.z + sin(angle) * distance)
 		berg.rotation.y = rng.randf() * TAU
+		# Horizon dressing: only the far side of the berg ring fades on low.
+		VisualLibrary.apply_dressing_range(berg, 1200.0)
 		add_child(berg)
 
 
@@ -507,13 +531,7 @@ func _add_snowfall() -> void:
 	snow.process_material = mat
 	var flake := QuadMesh.new()
 	flake.size = Vector2(0.12, 0.12)
-	var flake_mat := StandardMaterial3D.new()
-	flake_mat.albedo_color = Color(1, 1, 1, 0.85)
-	flake_mat.albedo_texture = VisualLibrary.soft_radial_texture(32, 0.9)
-	flake_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	flake_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	flake_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	flake.material = flake_mat
+	flake.material = VisualLibrary.billboard_puff_material(Color(1, 1, 1, 0.85), 32, 0.9)
 	snow.draw_pass_1 = flake
 	var quality := String(SettingsManager.get_setting("display", "particle_quality"))
 	snow.amount = 220 if quality == "high" else (120 if quality == "medium" else 50)
@@ -537,10 +555,19 @@ func _add_snowfall() -> void:
 func _build_vfx_pools() -> void:
 	if GameConfig.is_headless():
 		return
-	for i: int in 8:
-		_puff_pool.append(_make_burst(Color(0.98, 0.99, 1.0, 0.9), 14, 0.45))
-	for i: int in 6:
-		_splash_pool.append(_make_burst(Color(0.55, 0.78, 0.95, 0.9), 20, 0.6))
+	# Smaller pools + fewer particles per burst on the low tier; high and
+	# medium keep the current look.
+	var low := String(SettingsManager.get_setting("display", "particle_quality")) == "low"
+	for i: int in (4 if low else 8):
+		_puff_pool.append(_make_burst(Color(0.98, 0.99, 1.0, 0.9), 8 if low else 14, 0.45))
+	for i: int in (3 if low else 6):
+		_splash_pool.append(_make_burst(Color(0.55, 0.78, 0.95, 0.9), 12 if low else 20, 0.6))
+
+
+## Process material + draw mesh per burst config, shared by the whole pool
+## across every course and race: identical bursts must not compile one WebGL
+## program per pooled emitter.
+static var _burst_configs: Dictionary = {}
 
 
 func _make_burst(color: Color, count: int, life: float) -> GPUParticles3D:
@@ -550,27 +577,32 @@ func _make_burst(color: Color, count: int, life: float) -> GPUParticles3D:
 	particles.explosiveness = 0.95
 	particles.amount = count
 	particles.lifetime = life
-	var mat := ParticleProcessMaterial.new()
-	mat.direction = Vector3.UP
-	mat.spread = 70.0
-	mat.initial_velocity_min = 2.0
-	mat.initial_velocity_max = 5.0
-	mat.gravity = Vector3(0, -9, 0)
-	mat.scale_min = 0.08
-	mat.scale_max = 0.22
-	mat.color = color
-	particles.process_material = mat
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.09
-	mesh.height = 0.18
-	mesh.radial_segments = 6
-	mesh.rings = 4
-	var draw_mat := StandardMaterial3D.new()
-	draw_mat.albedo_color = color
-	draw_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	draw_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mesh.material = draw_mat
-	particles.draw_pass_1 = mesh
+	var key := "burst_%s" % color.to_html()
+	var config: Array = _burst_configs.get(key, [])
+	if config.is_empty():
+		var mat := ParticleProcessMaterial.new()
+		mat.direction = Vector3.UP
+		mat.spread = 70.0
+		mat.initial_velocity_min = 2.0
+		mat.initial_velocity_max = 5.0
+		mat.gravity = Vector3(0, -9, 0)
+		mat.scale_min = 0.08
+		mat.scale_max = 0.22
+		mat.color = color
+		var mesh := SphereMesh.new()
+		mesh.radius = 0.09
+		mesh.height = 0.18
+		mesh.radial_segments = 6
+		mesh.rings = 4
+		var draw_mat := StandardMaterial3D.new()
+		draw_mat.albedo_color = color
+		draw_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		draw_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mesh.material = draw_mat
+		config = [mat, mesh]
+		_burst_configs[key] = config
+	particles.process_material = config[0]
+	particles.draw_pass_1 = config[1]
 	add_child(particles)
 	return particles
 
@@ -648,9 +680,7 @@ func add_ground_plane(y: float, color: Color, size: float = 4000.0, material: Ma
 	if material != null:
 		plane.material_override = material
 	else:
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = color
-		mat.roughness = 0.6
-		plane.material_override = mat
+		# Cached; the plane has no vertex colors so it renders plain `color`.
+		plane.material_override = VisualLibrary.rock_material(color, 0.6)
 	plane.position = Vector3(0, y, 0)
 	add_child(plane)
