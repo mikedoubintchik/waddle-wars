@@ -1387,27 +1387,68 @@ func _make_burst(color: Color, count: int, life: float) -> GPUParticles3D:
 		mat.direction = Vector3.UP
 		mat.spread = 70.0
 		mat.initial_velocity_min = 2.0
-		mat.initial_velocity_max = 5.0
+		mat.initial_velocity_max = 5.5
 		mat.gravity = Vector3(0, -9, 0)
-		mat.scale_min = 0.08
-		mat.scale_max = 0.22
+		mat.scale_min = 0.10
+		mat.scale_max = 0.30
 		mat.color = color
-		var mesh := SphereMesh.new()
-		mesh.radius = 0.09
-		mesh.height = 0.18
-		mesh.radial_segments = 6
-		mesh.rings = 4
-		var draw_mat := StandardMaterial3D.new()
-		draw_mat.albedo_color = color
-		draw_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		draw_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		mesh.material = draw_mat
+		# Air drag: thrown snow loses its speed fast instead of flying on a clean
+		# parabola, which is most of what separates a puff of powder from a
+		# handful of pellets.
+		mat.damping_min = 1.5
+		mat.damping_max = 4.0
+		# Spin so no two puffs present the same face.
+		mat.angular_velocity_min = -220.0
+		mat.angular_velocity_max = 220.0
+		mat.scale_curve = _burst_scale_curve()
+		mat.color_ramp = _burst_fade_ramp()
+		# Soft round billboard rather than a lit sphere: a burst of powder has
+		# no shading of its own, and the shared puff material is one the boot
+		# warm-up has already linked.
+		var mesh := QuadMesh.new()
+		mesh.size = Vector2(0.36, 0.36)
+		mesh.material = VisualLibrary.billboard_puff_material(color, 32, 0.85, true)
 		config = [mat, mesh]
 		_burst_configs[key] = config
 	particles.process_material = config[0]
 	particles.draw_pass_1 = config[1]
 	add_child(particles)
 	return particles
+
+
+## Puffs swell as they are thrown and shrink as they settle, instead of holding
+## one size for their whole life the way an untreated emitter does.
+static var _burst_scale_curve_cache: CurveTexture = null
+static var _burst_fade_ramp_cache: GradientTexture1D = null
+
+
+static func _burst_scale_curve() -> CurveTexture:
+	if _burst_scale_curve_cache != null:
+		return _burst_scale_curve_cache
+	var curve := Curve.new()
+	curve.add_point(Vector2(0.0, 0.35))
+	curve.add_point(Vector2(0.22, 1.0))
+	curve.add_point(Vector2(1.0, 0.15))
+	var tex := CurveTexture.new()
+	tex.curve = curve
+	_burst_scale_curve_cache = tex
+	return tex
+
+
+## Bright at the moment of impact, then fading out rather than popping off.
+static func _burst_fade_ramp() -> GradientTexture1D:
+	if _burst_fade_ramp_cache != null:
+		return _burst_fade_ramp_cache
+	var gradient := Gradient.new()
+	gradient.set_offset(0, 0.0)
+	gradient.set_color(0, Color(1.0, 1.0, 1.0, 1.0))
+	gradient.set_offset(1, 1.0)
+	gradient.set_color(1, Color(1.0, 1.0, 1.0, 0.0))
+	gradient.add_point(0.45, Color(1.0, 1.0, 1.0, 0.85))
+	var tex := GradientTexture1D.new()
+	tex.gradient = gradient
+	_burst_fade_ramp_cache = tex
+	return tex
 
 
 func spawn_land_puff(pos: Vector3) -> void:
