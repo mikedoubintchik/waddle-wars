@@ -260,3 +260,26 @@ used to hand steering to a second finger.
 Validation (2026-08-06): units 50/50; tutorial_sim 3/3 PASS; race_sim PASS
 on all nine course x difficulty combinations; endless_sim and gp_sim PASS.
 
+## Deploy incident (2026-08-06, GitHub-side)
+
+Live publishing broke mid-session and is NOT a code problem. Symptoms, in
+order: the legacy Pages branch builder returned "Page build failed" with no
+detail on every push once the payload carried the ~40MB WASM blob;
+`workflow_dispatch` returned HTTP 500 twice; and the Actions publish path
+failed with `Invalid actions OIDC token due to No keys from key endpoint
+match the id token` — GitHub's own OIDC key endpoint rejecting a token it had
+just issued.
+
+Result: https://waddlewars.ninjaconsulting.ai/ is serving the 14:48 UTC build
+(round 3). Everything after that — physics rework, hazard motion, dressing
+grounding, Chrome shader warm-up, dancing-penguin loaders, touch slide
+steering, M-mute, drawn item icons, minimap rivals — is committed on main and
+staged on the gh-pages branch, waiting only on a successful publish.
+
+`.github/workflows/deploy-pages.yml` (dispatch-triggered, fired by
+tools/deploy_web.sh) publishes the gh-pages contents through the Pages
+artifact API. Switch `build_type` between "workflow" and "legacy" with
+`gh api -X PUT repos/mikedoubintchik/waddle-wars/pages` depending on which
+path is healthy; re-run the deploy once GitHub recovers and verify with the
+index.pck md5 comparison in tools/deploy_web.sh.
+
