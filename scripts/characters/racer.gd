@@ -48,6 +48,15 @@ const BOOST_SLIDE_TOP_MULT: float = 1.6  # cap on slide_target * boost_mult
 const BOOST_FADE_BASE: float = 0.18  # boost fade floor (mult/s) — ease-out tail
 const BOOST_FADE_SCALE: float = 0.9  # extra fade per unit of boost above 1.0
 const BOOST_STRAIGHTEN_RATE: float = 0.8  # heading pull toward guide tangent while boosted
+## Lateral acceleration a fully banked surface adds, in m/s^2, pulling the
+## racer down the camber. Banked corners are geometry alone until something
+## makes them push: this is what turns a banked corner into a corner that
+## helps you, and running wide onto the high side into a real mistake.
+## Deliberately gentle -- it biases a line, it does not drive one.
+const CAMBER_ACCEL: float = 7.0
+## Camber is felt most on a belly slide (no feet to edge with); on foot the
+## racer grips far more of it away.
+const CAMBER_WADDLE_SCALE: float = 0.35
 const BANK_MAX_DEG: float = 15.0  # visual roll into turns
 const BANK_YAW_RATE_SCALE: float = 0.32  # rad of roll per rad/s of yaw rate
 const SHOVE_COOLDOWN: float = 1.6
@@ -83,6 +92,8 @@ var current_surface: SurfacesDB.Surface = SurfacesDB.Surface.PACKED_SNOW
 
 var _facing_yaw: float = 0.0
 var _velocity_yaw: float = 0.0
+## Sideways drift accumulated from the surface camber, in world space.
+var _camber_velocity: Vector3 = Vector3.ZERO
 var _prev_facing_yaw: float = 0.0
 var _visual_bank: float = 0.0
 var _visual_pitch: float = 0.0
@@ -251,6 +262,7 @@ func _physics_process(delta: float) -> void:
 			use_held_item()
 		elif snowball_ammo > 0:
 			throw_snowball()
+	_update_camber(delta)
 	move_and_slide()
 	_resolve_contacts(delta)
 	_check_kill_plane()
@@ -539,9 +551,35 @@ func apply_wind(push: Vector3) -> void:
 func _apply_velocity() -> void:
 	var dir := _yaw_to_dir(_velocity_yaw)
 	velocity = dir * current_speed + Vector3.UP * vertical_velocity \
-			+ _external_push + _knock_velocity + _platform_velocity
+			+ _external_push + _knock_velocity + _platform_velocity + _camber_velocity
 	_external_push = Vector3.ZERO
 	rotation.y = _facing_yaw
+
+
+## Sideways pull from a banked surface, integrated as its own velocity so it
+## biases the line without fighting the guide-relative steering model (which
+## owns heading). Only the cross-track component counts -- along-track slope is
+## already handled as slope acceleration by the speed code above.
+func _update_camber(delta: float) -> void:
+	if not is_on_floor() or state == State.FINISHED:
+		_camber_velocity = _camber_velocity.lerp(Vector3.ZERO, minf(delta * 6.0, 1.0))
+		return
+	var normal := get_floor_normal()
+	# Flat ground has nothing to give, and a wall-steep hit is not camber.
+	if normal.y > 0.999 or normal.y < 0.35:
+		_camber_velocity = _camber_velocity.lerp(Vector3.ZERO, minf(delta * 6.0, 1.0))
+		return
+	var downhill := Vector3.DOWN - normal * Vector3.DOWN.dot(normal)
+	if downhill.length_squared() < 0.0001:
+		_camber_velocity = _camber_velocity.lerp(Vector3.ZERO, minf(delta * 6.0, 1.0))
+		return
+	var forward := _yaw_to_dir(_velocity_yaw)
+	var across := forward.cross(Vector3.UP).normalized()
+	# Cross-track slope only: how much of the fall line runs sideways.
+	var lateral := across * downhill.dot(across)
+	var scale := 1.0 if state == State.SLIDING else CAMBER_WADDLE_SCALE
+	var target := lateral * CAMBER_ACCEL * scale
+	_camber_velocity = _camber_velocity.lerp(target, minf(delta * 4.0, 1.0))
 
 
 ## Jump arc shaping: reduced gravity in a small window around the apex (the
