@@ -14,6 +14,11 @@ const OUTLINE_NAVY := Color(0.07, 0.14, 0.27)
 const SHADOW_SOFT := Color(0.0, 0.0, 0.0, 0.32)
 const ITEM_ICON_EMPTY := Color(0.16, 0.26, 0.42)
 
+## Placeholder drawn in the item slot while the player carries nothing.
+const EMPTY_SLOT_SVG := """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<rect x="10" y="10" width="44" height="44" rx="10" fill="#ffffff" opacity="0.5"/>
+</svg>"""
+
 const FISH_ICON_SVG := """<svg xmlns="http://www.w3.org/2000/svg" width="60" height="40" viewBox="0 0 60 40">
 <path d="M3 20 L19 8 L19 32 Z" fill="#6fc0ee"/>
 <ellipse cx="34" cy="21" rx="21" ry="12" fill="#8fd8f8"/>
@@ -22,6 +27,37 @@ const FISH_ICON_SVG := """<svg xmlns="http://www.w3.org/2000/svg" width="60" hei
 <circle cx="45" cy="17" r="3.2" fill="#0e2036"/>
 <circle cx="46.2" cy="15.8" r="1.1" fill="#ffffff"/>
 </svg>"""
+
+## Drawn item-slot glyphs, one per PowerupsDB "icon" key. The slot used to be
+## a flat colour swatch, which read as unfinished next to the rest of the HUD.
+const ITEM_ICONS: Dictionary = {
+	"snowball": """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<circle cx="32" cy="34" r="22" fill="#eef6ff" stroke="#9dbdd8" stroke-width="2.5"/>
+<circle cx="24" cy="26" r="6" fill="#ffffff" opacity="0.9"/>
+<circle cx="41" cy="42" r="4" fill="#cfe2f2"/>
+<circle cx="43" cy="27" r="3" fill="#dfeeff"/>
+<circle cx="27" cy="44" r="3" fill="#cfe2f2"/>
+</svg>""",
+	"shield": """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<path d="M32 6 L54 15 V33 C54 46 44 55 32 59 C20 55 10 46 10 33 V15 Z" fill="#6fd0f7" stroke="#2f7fa8" stroke-width="3" stroke-linejoin="round"/>
+<path d="M32 12 L48 19 V33 C48 42 41 49 32 52 Z" fill="#a6e6ff" opacity="0.65"/>
+<path d="M22 32 L29 40 L44 24" stroke="#ffffff" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>""",
+	"bolt": """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<path d="M36 4 L14 36 H28 L24 60 L50 26 H34 Z" fill="#ffc93f" stroke="#c98f1b" stroke-width="3" stroke-linejoin="round"/>
+<path d="M33 12 L22 32 H31" stroke="#fff3c4" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+</svg>""",
+	"magnet": """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<path d="M14 46 V30 C14 20 22 12 32 12 C42 12 50 20 50 30 V46" fill="none" stroke="#e05a8c" stroke-width="12" stroke-linecap="butt"/>
+<rect x="8" y="44" width="12" height="12" fill="#d7e6f5"/>
+<rect x="44" y="44" width="12" height="12" fill="#d7e6f5"/>
+<path d="M20 30 C20 23 25 18 32 18 C39 18 44 23 44 30" fill="none" stroke="#f5a0c0" stroke-width="3" opacity="0.7"/>
+</svg>""",
+	"cloud": """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<path d="M18 40 C11 40 7 35 7 30 C7 24 12 20 18 21 C20 13 27 9 34 11 C41 12 46 18 46 25 C53 25 57 30 57 35 C57 39 54 43 49 43 Z" fill="#dfeaf7" stroke="#8fa8c4" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M20 50 L18 58 M32 50 L30 60 M44 50 L42 57" stroke="#a8c8e8" stroke-width="4" stroke-linecap="round"/>
+</svg>""",
+}
 
 var manager: RaceManager = null
 var player: Racer = null
@@ -32,7 +68,8 @@ var _time_label: Label
 var _fish_label: Label
 var _item_panel: PanelContainer
 var _item_label: Label
-var _item_icon: ColorRect
+var _item_icon: TextureRect
+var _item_icon_size: float = 46.0
 var _item_style: StyleBoxFlat
 var _item_pulse: Tween = null
 var _ammo_pips: Array[Panel] = []
@@ -247,7 +284,7 @@ static func build_controls_strip(hud_scale: float, max_per_row: int = 0) -> Cont
 	return row
 
 
-## Tiny dim caption naming a HUD bar ("Course", "Boost"): low-contrast with a
+## Tiny dim caption naming a HUD bar ("Course", "Speed"): low-contrast with a
 ## thin navy outline so it reads over snow without drawing focus.
 func _make_bar_tag(text: String, hud_scale: float) -> Label:
 	var tag := Label.new()
@@ -338,10 +375,14 @@ func _build() -> void:
 	_item_panel.add_child(item_box)
 	var icon_center := CenterContainer.new()
 	item_box.add_child(icon_center)
-	_item_icon = ColorRect.new()
-	_item_icon.custom_minimum_size = Vector2(46 * hud_scale, 46 * hud_scale)
-	_item_icon.color = ITEM_ICON_EMPTY
+	_item_icon_size = 46.0 * hud_scale
+	_item_icon = TextureRect.new()
+	_item_icon.custom_minimum_size = Vector2(_item_icon_size, _item_icon_size)
+	_item_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_item_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_item_icon.modulate = ITEM_ICON_EMPTY
 	icon_center.add_child(_item_icon)
+	_set_item_icon("")
 	_item_label = Label.new()
 	_item_label.text = "No Item"
 	_item_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -443,7 +484,7 @@ func _build() -> void:
 	_style_bar(_speed_bar, Color(0.35, 0.65, 0.95), ACCENT_YELLOW)
 	_root.add_child(_speed_bar)
 	# Tiny dim caption naming the bar (playtest: its meaning wasn't obvious).
-	var boost_tag := _make_bar_tag("Boost", hud_scale)
+	var boost_tag := _make_bar_tag("Speed", hud_scale)
 	boost_tag.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	boost_tag.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	boost_tag.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -772,7 +813,7 @@ func _on_fish(_racer: Racer, _value: int) -> void:
 func _on_item_received(_racer: Racer, item_id: String) -> void:
 	var info := PowerupsDB.get_item(item_id)
 	_item_label.text = String(info.get("name", item_id))
-	_item_icon.color = info.get("color", Color.WHITE)
+	_set_item_icon(String(info.get("icon", "")))
 	var tween := create_tween()
 	_item_panel.scale = Vector2.ONE * 1.15
 	_item_panel.pivot_offset = _item_panel.size * 0.5
@@ -784,7 +825,7 @@ func _on_item_received(_racer: Racer, item_id: String) -> void:
 
 func _on_item_used(_racer: Racer, _item_id: String) -> void:
 	_item_label.text = "No Item"
-	_item_icon.color = ITEM_ICON_EMPTY
+	_set_item_icon("")
 	_stop_item_pulse()
 	_held_item = false
 	_update_use_hint()
@@ -848,3 +889,18 @@ func _on_checkpoint(_racer: Racer, index: int) -> void:
 	var tween := create_tween()
 	tween.tween_interval(1.0)
 	tween.tween_property(_checkpoint_label, "modulate:a", 0.0, 0.5)
+
+
+## Swaps the item-slot glyph. An empty id draws the dimmed placeholder square
+## so the slot still reads as a slot when the player is carrying nothing.
+func _set_item_icon(icon_id: String) -> void:
+	if _item_icon == null:
+		return
+	var svg := String(ITEM_ICONS.get(icon_id, ""))
+	if svg.is_empty():
+		_item_icon.texture = UITheme.make_icon(EMPTY_SLOT_SVG, 1.0)
+		_item_icon.modulate = ITEM_ICON_EMPTY
+		return
+	_item_icon.texture = UITheme.make_icon(svg, 1.0)
+	_item_icon.modulate = Color.WHITE
+

@@ -110,10 +110,10 @@ func _open() -> void:
 		slider.value_changed.connect(func(value: float) -> void:
 			SettingsManager.set_setting("audio", key, value))
 		row.add_child(slider)
-	var mute_button := _add_button(vbox, "Mute All" if not bool(SettingsManager.get_setting("audio", "muted")) else "Unmute", func() -> void:
+	var mute_button := _add_button(vbox, _mute_label(), func() -> void:
 		var now_muted := not bool(SettingsManager.get_setting("audio", "muted"))
 		SettingsManager.set_setting("audio", "muted", now_muted)
-		(_mute_button_ref as Button).text = "Unmute" if now_muted else "Mute All")
+		(_mute_button_ref as Button).text = _mute_label())
 	_mute_button_ref = mute_button
 	# Control reference: the same keycap/gesture strip the race HUD shows at
 	# the start (live bindings, gesture sheet on touch), wrapped into compact
@@ -172,3 +172,13 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and not _paused and is_inside_tree():
 		if not GameConfig.is_headless():
 			_open()
+
+
+## Mute button caption, with the M hotkey advertised on keyboard devices.
+func _mute_label() -> String:
+	var muted := bool(SettingsManager.get_setting("audio", "muted"))
+	var base := "Unmute" if muted else "Mute All"
+	if UITheme.is_touch():
+		return base
+	return "%s  (M)" % base
+

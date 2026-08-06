@@ -237,6 +237,11 @@ func _process(delta: float) -> void:
 ## allocations). Dots clamp to the card so a fallen racer never escapes it.
 func _update_dots() -> void:
 	var racers := _manager.racers
+	# The HUD is built before the grid is populated, so the first dot arrays
+	# can be empty (or hold only the player). Re-baking whenever the roster
+	# size changes is what makes rivals appear at all.
+	if racers.size() != _dot_points.size():
+		_build_dot_arrays()
 	var clamp_low := Vector2(8.0, 8.0)
 	var clamp_high := _panel_size - clamp_low
 	var count := mini(racers.size(), _dot_points.size())
@@ -266,18 +271,22 @@ func _draw() -> void:
 		draw_multiline(_finish_light, CHECKER_LIGHT, _checker_px, true)
 	if _finish_dark.size() >= 2:
 		draw_multiline(_finish_dark, CHECKER_DARK, _checker_px, true)
-	var ai_radius := 3.4 * _hud_scale
-	for i: int in _dot_points.size():
-		if i == _player_index or _dot_alive[i] == 0:
-			continue
-		draw_circle(_dot_points[i], ai_radius + 1.2, DOT_OUTLINE, true, -1.0, true)
-		draw_circle(_dot_points[i], ai_radius, _dot_colors[i], true, -1.0, true)
+	# The player marker goes down FIRST as a filled gold disc with a white
+	# ring, then rivals draw over it. Racers are bunched within a few map
+	# pixels for much of a race, and painting the larger player dot last hid
+	# every rival underneath it.
 	if _player_index >= 0 and _player_index < _dot_points.size() \
 			and _dot_alive[_player_index] == 1:
 		var player_pos := _dot_points[_player_index]
-		var player_radius := 5.0 * _hud_scale
-		draw_circle(player_pos, player_radius + 2.0, PLAYER_RING, true, -1.0, true)
+		var player_radius := 5.6 * _hud_scale
+		draw_circle(player_pos, player_radius + 2.4, PLAYER_RING, true, -1.0, true)
 		draw_circle(player_pos, player_radius, PLAYER_GOLD, true, -1.0, true)
+	var ai_radius := 3.6 * _hud_scale
+	for i: int in _dot_points.size():
+		if i == _player_index or _dot_alive[i] == 0:
+			continue
+		draw_circle(_dot_points[i], ai_radius + 1.4, DOT_OUTLINE, true, -1.0, true)
+		draw_circle(_dot_points[i], ai_radius, _dot_colors[i], true, -1.0, true)
 
 
 ## --- Visibility -------------------------------------------------------------

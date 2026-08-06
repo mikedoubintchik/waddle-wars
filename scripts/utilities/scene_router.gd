@@ -11,6 +11,8 @@ var _loading_label: Label
 var _loading_box: VBoxContainer
 var _toast_layer: CanvasLayer
 var _busy: bool = false
+var _mute_layer: CanvasLayer
+var _mute_toast: Label = null
 
 
 func _ready() -> void:
@@ -49,6 +51,9 @@ func _ready() -> void:
 	_toast_layer.layer = 99
 	add_child(_toast_layer)
 	Progression.achievement_unlocked.connect(_on_achievement_unlocked)
+	_mute_layer = CanvasLayer.new()
+	_mute_layer.layer = 98
+	add_child(_mute_layer)
 
 
 func go_to(scene_path: String) -> void:
@@ -137,3 +142,38 @@ func _on_achievement_unlocked(id: String) -> void:
 	tween.tween_interval(2.6)
 	tween.tween_property(panel, "position:y", -panel.size.y - 10.0, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 	tween.tween_callback(panel.queue_free)
+
+
+## Global mute hotkey (M). Lives here rather than in the race scene so it
+## works on menus, results and mid-race alike; the pause-menu toggle writes
+## the same setting.
+func _unhandled_input(event: InputEvent) -> void:
+	if GameConfig.is_headless() or not event.is_action_pressed("mute_audio"):
+		return
+	var now_muted := not bool(SettingsManager.get_setting("audio", "muted"))
+	SettingsManager.set_setting("audio", "muted", now_muted)
+	_show_mute_toast("Sound muted" if now_muted else "Sound on")
+	get_viewport().set_input_as_handled()
+
+
+func _show_mute_toast(text: String) -> void:
+	if _mute_toast != null and is_instance_valid(_mute_toast):
+		_mute_toast.queue_free()
+	var label := Label.new()
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	label.offset_top = 96.0
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_size_override("font_size", 26)
+	label.add_theme_color_override("font_color", Color(0.92, 0.96, 1.0))
+	label.add_theme_color_override("font_outline_color", Color(0.03, 0.06, 0.12, 0.85))
+	label.add_theme_constant_override("outline_size", 8)
+	_mute_layer.add_child(label)
+	_mute_toast = label
+	var tween := label.create_tween()
+	tween.tween_interval(1.0)
+	tween.tween_property(label, "modulate:a", 0.0, 0.4)
+	tween.tween_callback(label.queue_free)
+
