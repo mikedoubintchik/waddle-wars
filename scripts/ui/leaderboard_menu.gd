@@ -74,7 +74,7 @@ func _ready() -> void:
 	panel_box.add_child(_status_label)
 	# Dancing penguins mark the fetch; hidden once a result (or error) lands.
 	if not GameConfig.is_headless():
-		_status_dancers = PenguinLoader.new(3, 34.0)
+		_status_dancers = PenguinLoader.new(96.0)
 		_status_dancers.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		panel_box.add_child(_status_dancers)
 	var scroll := ScrollContainer.new()

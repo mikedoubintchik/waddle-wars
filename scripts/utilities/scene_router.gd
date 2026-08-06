@@ -37,7 +37,7 @@ func _ready() -> void:
 	_loading_box.modulate.a = 0.0
 	_fade_rect.add_child(_loading_box)
 	if not GameConfig.is_headless():
-		var dancers := PenguinLoader.new(3, 54.0)
+		var dancers := PenguinLoader.new(150.0)
 		dancers.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		_loading_box.add_child(dancers)
 	_loading_label = Label.new()
