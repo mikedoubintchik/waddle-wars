@@ -257,6 +257,9 @@ func _handle_drag(index: int, pos: Vector2) -> void:
 		return
 	if index == _gesture_touch_index:
 		_update_gesture(pos)
+		# A finger holding a slide steers too (claimed in _update_gesture).
+		if _gesture_sliding and index == _steer_touch_index:
+			_apply_steer(pos)
 		return
 	if not _pending.has(index):
 		return
@@ -321,6 +324,16 @@ func _update_gesture(pos: Vector2) -> void:
 		_gesture_fired = true
 		_gesture_sliding = true
 		controller.touch_slide_changed(true)
+		# The sliding finger takes over steering when no other finger is
+		# already doing it. Belly slides are the fastest, most committed part
+		# of a run, and a one-finger player had no way to turn during one
+		# without lifting off (playtest: "when sliding on mobile, turning is
+		# harder"). Anchor at the current point so the slide itself does not
+		# register as steering input.
+		if _steer_touch_index < 0:
+			_steer_touch_index = _gesture_touch_index
+			_steer_origin = pos
+			controller.touch_steer = 0.0
 
 
 ## Short side of the visible viewport in event-space pixels — gesture
@@ -346,6 +359,11 @@ func _begin_gesture(index: int, origin: Vector2, start_ms: int) -> void:
 func _end_gesture() -> void:
 	if _gesture_sliding and controller != null:
 		controller.touch_slide_changed(false)
+	# Hand back the steering claim a sliding finger took over.
+	if _gesture_touch_index >= 0 and _gesture_touch_index == _steer_touch_index:
+		_steer_touch_index = -1
+		if controller != null:
+			controller.touch_steer = 0.0
 	_gesture_touch_index = -1
 	_gesture_fired = false
 	_gesture_sliding = false

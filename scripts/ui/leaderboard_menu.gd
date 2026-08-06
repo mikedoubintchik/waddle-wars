@@ -13,6 +13,7 @@ var _tab_index: int = 0
 var _tab_buttons: Array[Button] = []
 var _list_box: VBoxContainer
 var _status_label: Label
+var _status_dancers: PenguinLoader = null
 var _auth_button: Button
 var _auth_label: Label
 var _name_row: HBoxContainer = null
@@ -71,6 +72,11 @@ func _ready() -> void:
 	_status_label = UITheme.sub_label("Loading…", UITheme.scaled_font(22))
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	panel_box.add_child(_status_label)
+	# Dancing penguins mark the fetch; hidden once a result (or error) lands.
+	if not GameConfig.is_headless():
+		_status_dancers = PenguinLoader.new(3, 34.0)
+		_status_dancers.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		panel_box.add_child(_status_dancers)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -204,6 +210,7 @@ func _select_tab(index: int) -> void:
 		_tab_buttons[i].button_pressed = i == index
 	var tab: Dictionary = TABS[index]
 	_status_label.text = "Loading…"
+	_set_busy(true)
 	for child in _list_box.get_children():
 		child.queue_free()
 	_fetch_serial += 1
@@ -218,13 +225,16 @@ func _select_tab(index: int) -> void:
 func _populate(ok: bool, data: Dictionary, tab: Dictionary) -> void:
 	if not ok:
 		_status_label.text = "Couldn't reach the leaderboard. Check your connection."
+		_set_busy(false)
 		return
 	var entries: Array = data.get("entries", [])
 	if entries.is_empty():
 		_status_label.text = "No times posted yet — be the first!"
+		_set_busy(false)
 		return
 	var mode := String(tab["mode"])
 	_status_label.text = "Top %d — %s" % [entries.size(), String(tab["label"])]
+	_set_busy(false)
 	var me: Variant = data.get("me")
 	var my_rank := int((me as Dictionary).get("rank", -1)) if me is Dictionary else -1
 	for entry: Variant in entries:
@@ -279,3 +289,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		accept_event()
 		AudioManager.ui_click()
 		_go_back()
+
+
+## Toggles the dancing-penguin busy row (headless builds have none).
+func _set_busy(busy: bool) -> void:
+	if _status_dancers != null and is_instance_valid(_status_dancers):
+		_status_dancers.visible = busy

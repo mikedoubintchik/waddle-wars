@@ -8,6 +8,7 @@ const FADE_TIME: float = 0.35
 var _overlay_layer: CanvasLayer
 var _fade_rect: ColorRect
 var _loading_label: Label
+var _loading_box: VBoxContainer
 var _toast_layer: CanvasLayer
 var _busy: bool = false
 
@@ -23,17 +24,27 @@ func _ready() -> void:
 	_fade_rect.modulate.a = 0.0
 	_fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_overlay_layer.add_child(_fade_rect)
+	# Busy state is a row of dancing penguins over the word, not a bare label.
+	_loading_box = VBoxContainer.new()
+	_loading_box.set_anchors_preset(Control.PRESET_CENTER)
+	_loading_box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_loading_box.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_loading_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	_loading_box.add_theme_constant_override("separation", 10)
+	_loading_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_loading_box.modulate.a = 0.0
+	_fade_rect.add_child(_loading_box)
+	if not GameConfig.is_headless():
+		var dancers := PenguinLoader.new(3, 54.0)
+		dancers.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		_loading_box.add_child(dancers)
 	_loading_label = Label.new()
 	_loading_label.text = "Loading…"
-	_loading_label.set_anchors_preset(Control.PRESET_CENTER)
-	_loading_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_loading_label.grow_vertical = Control.GROW_DIRECTION_BOTH
 	_loading_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_loading_label.add_theme_font_size_override("font_size", 30)
+	_loading_label.add_theme_font_size_override("font_size", 28)
 	_loading_label.add_theme_color_override("font_color", Color(0.72, 0.82, 0.95))
 	_loading_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_loading_label.modulate.a = 0.0
-	_fade_rect.add_child(_loading_label)
+	_loading_box.add_child(_loading_label)
 	_toast_layer = CanvasLayer.new()
 	_toast_layer.layer = 99
 	add_child(_toast_layer)
@@ -51,7 +62,7 @@ func go_to(scene_path: String) -> void:
 	_fade_rect.mouse_filter = Control.MOUSE_FILTER_STOP
 	# Loading text rides the fade so heavy scene builds (course generation,
 	# first-run WebGL shader compiles) never leave an unlabeled blank screen.
-	_loading_label.modulate.a = 1.0
+	_loading_box.modulate.a = 1.0
 	var tween := create_tween()
 	tween.tween_property(_fade_rect, "modulate:a", 1.0, FADE_TIME)
 	tween.tween_callback(_change_now.bind(scene_path))
@@ -84,7 +95,7 @@ func _fade_out_when_scene_drawn() -> void:
 		await RenderingServer.frame_post_draw
 	var tween := create_tween()
 	tween.tween_property(_fade_rect, "modulate:a", 0.0, FADE_TIME)
-	tween.parallel().tween_property(_loading_label, "modulate:a", 0.0, FADE_TIME * 0.6)
+	tween.parallel().tween_property(_loading_box, "modulate:a", 0.0, FADE_TIME * 0.6)
 	tween.tween_callback(func() -> void:
 		_fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE)
 
