@@ -572,8 +572,7 @@ func build_environment(params: Dictionary) -> void:
 		env.adjustment_enabled = true
 		env.adjustment_contrast = float(params.get("contrast", 1.05))
 		env.adjustment_saturation = float(params.get("saturation", 1.06))
-	var particle_quality := String(SettingsManager.get_setting("display", "particle_quality"))
-	if bool(params.get("glow", true)) and particle_quality != "low" and not GameConfig.is_headless():
+	if bool(params.get("glow", true)) and SettingsManager.glow_allowed():
 		# High HDR threshold: only emissive peaks (boost pads, pickups, aurora)
 		# bloom — cheap on Forward Mobile, never a full-screen wash.
 		env.glow_enabled = true
@@ -630,6 +629,7 @@ func build_environment(params: Dictionary) -> void:
 	# glint (a second specular sun reads instantly fake). Skipped on the low
 	# quality preset where every per-pixel light matters.
 	var fill_energy := float(params.get("fill_energy", 0.12))
+	var particle_quality := String(SettingsManager.get_setting("display", "particle_quality"))
 	if fill_energy > 0.0 and particle_quality != "low" and not GameConfig.is_headless():
 		var fill := DirectionalLight3D.new()
 		var sky_top: Color = params.get("sky_top", Color(0.25, 0.55, 0.85))

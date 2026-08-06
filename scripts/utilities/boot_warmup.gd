@@ -142,7 +142,7 @@ func _build_viewport() -> void:
 	_viewport.own_world_3d = true
 	_viewport.size = Vector2i(VIEWPORT_EDGE, VIEWPORT_EDGE)
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	_viewport.msaa_3d = Viewport.MSAA_2X
+	_viewport.msaa_3d = SettingsManager.msaa_3d_mode() as Viewport.MSAA
 	add_child(_viewport)
 
 	var sky_material := ProceduralSkyMaterial.new()
@@ -156,7 +156,7 @@ func _build_viewport() -> void:
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
 	env.fog_enabled = true
 	env.fog_density = 0.002
-	if String(SettingsManager.get_setting("display", "particle_quality")) != "low":
+	if SettingsManager.glow_allowed():
 		env.glow_enabled = true
 		env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
 		env.glow_hdr_threshold = 1.1

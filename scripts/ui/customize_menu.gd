@@ -113,7 +113,7 @@ func _build_preview(parent: HBoxContainer) -> void:
 	var viewport := SubViewport.new()
 	viewport.own_world_3d = true
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	viewport.msaa_3d = Viewport.MSAA_2X
+	viewport.msaa_3d = SettingsManager.msaa_3d_mode() as Viewport.MSAA
 	container.add_child(viewport)
 	UITheme.crisp_subviewport(viewport, self)
 

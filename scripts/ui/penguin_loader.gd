@@ -76,7 +76,7 @@ func _build() -> void:
 	_viewport.own_world_3d = true
 	_viewport.transparent_bg = true
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	_viewport.msaa_3d = Viewport.MSAA_2X
+	_viewport.msaa_3d = SettingsManager.msaa_3d_mode() as Viewport.MSAA
 	container.add_child(_viewport)
 	UITheme.crisp_subviewport(_viewport, self)
 

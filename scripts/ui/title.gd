@@ -181,7 +181,7 @@ func _build_diorama() -> void:
 	var viewport := SubViewport.new()
 	viewport.own_world_3d = true
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	viewport.msaa_3d = Viewport.MSAA_2X
+	viewport.msaa_3d = SettingsManager.msaa_3d_mode() as Viewport.MSAA
 	container.add_child(viewport)
 	UITheme.crisp_subviewport(viewport, self)
 
@@ -249,8 +249,7 @@ func _build_environment(viewport: SubViewport) -> void:
 	env.fog_light_color = Color(0.45, 0.36, 0.52)
 	env.fog_density = 0.0022
 	env.fog_sky_affect = 0.12
-	var particle_quality := String(SettingsManager.get_setting("display", "particle_quality"))
-	if particle_quality != "low" and not GameConfig.is_headless():
+	if SettingsManager.glow_allowed():
 		# High HDR threshold: only emissive peaks (aurora, snow glints) bloom.
 		env.glow_enabled = true
 		env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE

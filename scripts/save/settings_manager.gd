@@ -36,7 +36,7 @@ var _binding_labels: Dictionary = {}
 ## lives outside `settings` so it can never reach disk — only an explicit
 ## user choice persists a quality change.
 var _governor_override: String = ""
-var _governor_stepped: bool = false
+var _governor_steps: int = 0
 var _governor_fps_sum: float = 0.0
 var _governor_fps_count: int = 0
 
@@ -357,13 +357,7 @@ func _apply_display(key: String, value: Variant) -> void:
 		"msaa":
 			var viewport := get_viewport()
 			if viewport != null:
-				match String(value):
-					"off":
-						viewport.msaa_3d = Viewport.MSAA_DISABLED
-					"4x":
-						viewport.msaa_3d = Viewport.MSAA_4X
-					_:
-						viewport.msaa_3d = Viewport.MSAA_2X
+				viewport.msaa_3d = msaa_3d_mode() as Viewport.MSAA
 		"fps_limit":
 			Engine.max_fps = maxi(0, int(value))
 		"quality_preset":
@@ -426,10 +420,59 @@ func _apply_web_render_scale() -> void:
 	viewport.scaling_3d_scale = render_scale_3d()
 
 
+## Multisample level every 3D viewport should use.
+##
+## A render target's sample count is part of its pipeline key, so this has to be
+## one decision shared by the main viewport, the menu dioramas and BootWarmup's
+## offscreen stage -- a warm-up that disagreed would link programs the real
+## scenes never use, and every material would stall again on first sight.
+func msaa_3d_mode() -> int:
+	# Multisampling resolves the whole colour buffer every frame, and on web that
+	# buffer is already the most expensive thing in the frame. The desktop
+	# default of 4x on a dpr-2 canvas was a large part of why Chrome sat one
+	# notch over its frame budget, and the 3D pass is bilinear-upscaled there
+	# anyway, which hides most of what MSAA would have bought.
+	if OS.has_feature("web"):
+		return Viewport.MSAA_DISABLED
+	match String(get_setting("display", "msaa")):
+		"off":
+			return Viewport.MSAA_DISABLED
+		"4x":
+			return Viewport.MSAA_4X
+		_:
+			return Viewport.MSAA_2X
+
+
+## Whether a scene may enable Environment glow.
+##
+## Glow is not one pass: it downsamples and blurs the frame across several
+## levels, so it scales with the same buffer that already costs the most on
+## web. It stays on for desktop and for web clients still on the 'high' tier,
+## and the governor below takes it away as soon as one proves it cannot hold a
+## frame rate. Every environment builder must ask through here, including
+## BootWarmup -- glow changes the shader program set, so a warm-up that
+## disagreed with the real scene would warm the wrong programs.
+func glow_allowed() -> bool:
+	if GameConfig.is_headless():
+		return false
+	if String(get_setting("display", "particle_quality")) == "low":
+		return false
+	if OS.has_feature("web"):
+		return String(get_setting("display", "quality_preset")) == "high"
+	return true
+
+
 ## --- Web auto-quality governor ---------------------------------------------
 
 const GOVERNOR_SAMPLE_WINDOW: int = 8  # seconds of 1 Hz samples per decision
-const GOVERNOR_MIN_FPS: float = 22.0
+## A web client pinned at 30 fps is not "playing badly", it is one notch over
+## its frame budget and being halved by vsync -- exactly the case this governor
+## exists to rescue. The old 22 fps trigger sat below that, so it never fired on
+## the most common failure. 45 catches a halved 60 Hz client while staying clear
+## of a healthy one.
+const GOVERNOR_MIN_FPS: float = 45.0
+## high -> medium -> low, at most.
+const GOVERNOR_MAX_STEPS: int = 2
 
 ## Browsers vary wildly: the desktop 'high' profile can melt a phone GPU while
 ## looking fine in Chrome on an M-series Mac. On web builds only, sample the
@@ -450,7 +493,7 @@ func _start_web_governor() -> void:
 
 
 func _governor_tick(timer: Timer) -> void:
-	if _governor_stepped:
+	if _governor_steps >= GOVERNOR_MAX_STEPS:
 		timer.stop()
 		timer.queue_free()
 		return
@@ -475,11 +518,13 @@ func _governor_tick(timer: Timer) -> void:
 			lower = "medium"
 		"medium":
 			lower = "low"
-	_governor_stepped = true  # one step per session, even when already "low"
-	if lower != "":
-		_governor_override = lower
-		_apply_one("display", "quality_preset", lower)
-		setting_changed.emit("display/quality_preset", lower)
+	_governor_steps += 1
+	if lower == "":
+		_governor_steps = GOVERNOR_MAX_STEPS  # already at the bottom tier
+		return
+	_governor_override = lower
+	_apply_one("display", "quality_preset", lower)
+	setting_changed.emit("display/quality_preset", lower)
 
 
 ## --- Persistence ----------------------------------------------------------
