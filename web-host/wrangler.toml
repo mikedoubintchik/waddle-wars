@@ -1,0 +1,9 @@
+name = "waddle-wars-web"
+main = "src/worker.js"
+compatibility_date = "2026-01-01"
+account_id = "592217b354c4f0813d17c0818429ef93"
+workers_dev = true
+
+[[r2_buckets]]
+binding = "SITE"
+bucket_name = "waddle-wars-web"
