@@ -20,8 +20,10 @@ Exports the web build, uploads the changed files to the `waddle-wars-web`
 bucket, and redeploys the Worker. Needs `CLOUDFLARE_API_TOKEN` +
 `CLOUDFLARE_ACCOUNT_ID`, sourced from the ninja-consulting deploy env.
 
-## Pointing the vanity domain here
+## The vanity domain
 
-`waddlewars.ninjaconsulting.ai` still resolves to GitHub Pages. To move it,
-add a custom domain to this Worker in the Cloudflare dashboard (Workers →
-waddle-wars-web → Triggers → Custom Domains) and drop the GitHub Pages CNAME.
+`waddlewars.ninjaconsulting.ai` is bound to this Worker as a Custom Domain
+(Workers → waddle-wars-web → Triggers → Custom Domains), which manages its own
+proxied DNS record and certificate. The GitHub Pages CNAME it used to point at
+is gone, the Pages custom domain is cleared and the `gh-pages` branch is
+deleted, so this Worker is the only thing serving the game.

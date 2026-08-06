@@ -108,11 +108,14 @@ godot --headless --export-release "macOS" build/waddle-wars-macos.zip
 godot --headless --export-release "Linux" build/waddle-wars-linux.x86_64
 ```
 
-- **Web**: the exported build in `build/web/` is what gets deployed to GitHub
-  Pages (served at https://waddlewars.ninjaconsulting.ai/ via a Cloudflare
-  CNAME). When deploying, also copy `web/share.png` and `web/CNAME` next to the
-  exported `index.html` — the `og:image` tag expects share.png at the site
-  root, and GitHub Pages drops the custom domain if CNAME goes missing.
+- **Web**: `tools/deploy_cloudflare.sh` exports the build, uploads it to the
+  `waddle-wars-web` R2 bucket and redeploys the Worker that serves it at
+  https://waddlewars.ninjaconsulting.ai/. The Worker (see `web-host/`) exists
+  because the build cannot be hosted on the obvious services: the WASM blob is
+  ~38 MB, over Cloudflare Pages' 25 MB per-file ceiling, and GitHub Pages
+  cannot send the `Cross-Origin-Opener-Policy` / `Cross-Origin-Embedder-Policy`
+  headers at all. `web/share.png` is uploaded alongside the export because the
+  `og:image` tag expects it at the site root.
 - **Android**: install Android build tools + a debug keystore, set them in Editor
   Settings, then export the `Android` preset. The project already uses the
   Mobile renderer, landscape orientation, touch controls, and `user://` saves.

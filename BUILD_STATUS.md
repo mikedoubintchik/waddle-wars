@@ -170,7 +170,8 @@ supersamples title/customize/results by the real canvas scale; SceneRouter
 during WebGL shader compile after the studio splash); race-HUD control strip
 holds 8s after GO (was 2s — players missed it); leaderboard + sign-in
 confirmed WORKING live (stale 10-min GitHub Pages cache explains the phone
-failure; no service worker). tools/deploy_web.sh added.
+failure; no service worker). tools/deploy_web.sh added (later deleted — see
+"Hosting moved off GitHub Pages" below).
 
 Feature passes (8 parallel agents across two workflow runs, disjoint file
 ownership): (1) PHYSICS — apex-hang/fast-fall jump arc, surface-scaled slide
@@ -348,3 +349,36 @@ it resolves the Chrome report needs a human with a focused Chrome window.
 Ruled out while investigating: `UITheme.crisp_subviewport()` does not
 double-count device pixel ratio (it targets `win.size / logical`, clamped 1..2,
 which lands on the real backbuffer — 2940x1984 at dpr 2 on this display).
+
+## Hosting moved off GitHub Pages to a Cloudflare Worker (2026-08-06)
+
+`waddlewars.ninjaconsulting.ai` is now served by the `waddle-wars-web` Worker
+out of R2, not GitHub Pages. Everything above about Pages build failures,
+`build_type` switching and `tools/deploy_web.sh` is history — that script and
+`web/CNAME` are deleted, and the only deploy path is:
+
+    tools/deploy_cloudflare.sh
+
+Why the move: Pages was in a multi-hour major outage (incident opened
+2026-08-06T15:22Z, still investigating at 20:40Z) and a queued build sat in
+`building` indefinitely, so there was no way to publish. The Worker was already
+serving the current build, and it is the better host regardless — GitHub Pages
+cannot send `Cross-Origin-Opener-Policy` / `Cross-Origin-Embedder-Policy` at
+all, and Cloudflare Pages rejects the ~38 MB WASM against its 25 MB per-file
+ceiling.
+
+What changed, in order:
+1. Backed up and deleted the zone's `CNAME waddlewars -> mikedoubintchik.github.io`
+   (backup JSON kept in the session scratchpad).
+2. Bound the hostname to the Worker via the Workers Custom Domains API, which
+   creates its own proxied record and certificate.
+3. Verified the domain serves the current build: `index.pck` md5 matches the
+   local export, `cross-origin-opener-policy: same-origin`,
+   `cross-origin-embedder-policy: require-corp`, `.wasm` as `application/wasm`.
+4. Cleared the Pages custom domain (`cname: null`) and deleted the `gh-pages`
+   branch. The Pages *site* could not be deleted — the API returns 422
+   "Deactivating GitHub pages for this repository is not allowed" — but with no
+   custom domain and no source branch it has nothing to serve.
+
+The canonical URL did not change, so `ShareManager.SHARE_URL`, the OG/Twitter
+meta in `export_presets.cfg` and every shared link still resolve correctly.
