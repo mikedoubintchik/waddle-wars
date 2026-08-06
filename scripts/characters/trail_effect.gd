@@ -1,6 +1,26 @@
 class_name TrailEffect
 extends GPUParticles3D
 ## Cosmetic trail behind a racer (snowflake / fish / aurora). Purely visual.
+## Emission tracks the parent racer's speed — faint at a waddle, dense at a
+## full slide, silent when stopped — so the trail doubles as speed feedback.
+## The particle budget respects the display/particle_quality setting.
+
+var _racer: Racer = null
+
+
+func _ready() -> void:
+	if String(SettingsManager.get_setting("display", "particle_quality")) == "low":
+		amount = maxi(12, amount * 2 / 3)
+	_racer = get_parent() as Racer
+
+
+func _process(_delta: float) -> void:
+	if _racer == null:
+		return
+	var ratio := clampf(_racer.current_speed / Racer.SLIDE_MAX_SPEED, 0.0, 1.0)
+	emitting = _racer.current_speed > 3.0
+	amount_ratio = 0.35 + ratio * 0.65
+	speed_scale = 0.85 + ratio * 0.5
 
 
 static func create(trail_id: String) -> TrailEffect:

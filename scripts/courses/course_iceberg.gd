@@ -228,7 +228,8 @@ func build_course() -> void:
 		# First slab is static so the crossing is always survivable regardless
 		# of arrival timing; the moving pair behind it stays the skill element.
 		var sweep := 0.0 if i == 0 else 2.2
-		plat.configure(Vector3(13.0, 0.8, 11.5), Vector3.RIGHT, sweep, plat_periods[i], 0.0, plat_phases[i])
+		plat.configure(Vector3(13.0, 0.8, 11.5), Vector3.RIGHT, sweep, plat_periods[i], 0.0, plat_phases[i],
+			{"heave": 0.22, "heave_freq": 0.6, "yaw_deg": 5.0, "yaw_freq": 0.4, "variance": 0.1, "seed": 70 + i})
 		plat.position = Vector3(0.0, 7.6, -643.0 - 10.0 * float(i))
 		add_child(plat)
 	# 70m upstream so the boost expires well before the platform jump — at
@@ -241,7 +242,8 @@ func build_course() -> void:
 	var slab_phases: Array[float] = [0.0, 0.4, 0.8, 1.2]
 	for i: int in 4:
 		var slab := HazardPlatform.new()
-		slab.configure(Vector3(11.0, 0.8, 9.5), Vector3.RIGHT, 0.0, 4.0, 13.0, slab_phases[i])
+		slab.configure(Vector3(11.0, 0.8, 9.5), Vector3.RIGHT, 0.0, 4.0, 13.0, slab_phases[i],
+			{"heave": 0.22, "heave_freq": 0.55, "yaw_deg": 5.0, "yaw_freq": 0.45, "variance": 0.1, "seed": 80 + i})
 		slab.position = Vector3(-8.0, 5.6, -1188.0 - 9.0 * float(i))
 		add_child(slab)
 
