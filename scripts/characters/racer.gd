@@ -53,6 +53,11 @@ const BOOST_STRAIGHTEN_RATE: float = 0.8  # heading pull toward guide tangent wh
 ## makes them push: this is what turns a banked corner into a corner that
 ## helps you, and running wide onto the high side into a real mistake.
 ## Deliberately gentle -- it biases a line, it does not drive one.
+## Belly-slide spray tuning: below this speed a slide throws nothing, and this
+## much steering angle counts as a full-lock carve for spray purposes.
+const SPRAY_MIN_SPEED: float = 6.0
+const SPRAY_FULL_CARVE_DEG: float = 26.0
+const SPRAY_MIN_RATIO: float = 0.18
 const CAMBER_ACCEL: float = 7.0
 ## Camber is felt most on a belly slide (no feet to edge with); on foot the
 ## racer grips far more of it away.
@@ -454,8 +459,28 @@ func _tick_ground_air(delta: float) -> void:
 
 	_apply_velocity()
 	_was_on_floor = on_floor
-	_slide_particles.emitting = sliding and on_floor and current_speed > 6.0
+	_update_slide_spray(on_floor)
 	_set_crouched(state == State.SLIDING or state == State.SWIMMING)
+
+
+## Spray volume tracks how hard the racer is actually working the surface.
+##
+## It used to be a boolean above 6 m/s, so a gentle straight-line slide threw
+## exactly as much snow as a full-lock carve through a banked corner -- the
+## effect carried no information. Emission now scales with speed over the
+## threshold and with how far the nose is turned out of the guide line, which
+## is the moment a slide is biting and the moment spray should sell it.
+func _update_slide_spray(on_floor: bool) -> void:
+	var active := state == State.SLIDING and on_floor and current_speed > SPRAY_MIN_SPEED
+	_slide_particles.emitting = active
+	if not active:
+		return
+	var speed_part := clampf(
+		(current_speed - SPRAY_MIN_SPEED) / maxf(SLIDE_MAX_SPEED - SPRAY_MIN_SPEED, 0.001), 0.0, 1.0)
+	var carve_part := clampf(absf(_steer_offset) / deg_to_rad(SPRAY_FULL_CARVE_DEG), 0.0, 1.0)
+	# Carve dominates: a hard direction change should read louder than raw pace.
+	_slide_particles.amount_ratio = clampf(
+		SPRAY_MIN_RATIO + speed_part * 0.35 + carve_part * 0.55, SPRAY_MIN_RATIO, 1.0)
 
 
 func _tick_swimming(delta: float) -> void:
