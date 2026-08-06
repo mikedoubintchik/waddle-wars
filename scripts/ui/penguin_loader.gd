@@ -15,6 +15,12 @@ extends Control
 ## materials).
 ##
 ## Under reduced motion the dance settles to a gentle idle sway.
+##
+## The penguin is built the first time the loader is shown, never at startup,
+## and the viewport only renders while visible. Both matter: SceneRouter's
+## overlay lives for the whole session, and an always-updating SubViewport
+## holding a lathe-built penguin cost enough main-thread time on the
+## single-threaded web build to stall the boot splash outright.
 
 ## Seconds per hop; the sway and turn are derived from it so the whole dance
 ## reads as one rhythm.
@@ -40,11 +46,23 @@ func _init(p_size: float = 132.0) -> void:
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(penguin_size, penguin_size)
+	set_process(false)
 	if GameConfig.is_headless():
-		set_process(false)
 		return
 	_reduced = UITheme.reduced_motion()
-	_build()
+	visibility_changed.connect(_on_visibility_changed)
+	_on_visibility_changed()
+
+
+## Builds on first reveal, then parks the viewport whenever it is hidden.
+func _on_visibility_changed() -> void:
+	var showing := is_visible_in_tree()
+	if showing and _viewport == null:
+		_build()
+	if _viewport != null:
+		_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if showing \
+			else SubViewport.UPDATE_DISABLED
+	set_process(showing and _viewport != null)
 
 
 func _build() -> void:

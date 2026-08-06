@@ -35,6 +35,7 @@ func _ready() -> void:
 	_loading_box.add_theme_constant_override("separation", 10)
 	_loading_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_loading_box.modulate.a = 0.0
+	_loading_box.visible = false
 	_fade_rect.add_child(_loading_box)
 	if not GameConfig.is_headless():
 		var dancers := PenguinLoader.new(150.0)
@@ -67,6 +68,7 @@ func go_to(scene_path: String) -> void:
 	_fade_rect.mouse_filter = Control.MOUSE_FILTER_STOP
 	# Loading text rides the fade so heavy scene builds (course generation,
 	# first-run WebGL shader compiles) never leave an unlabeled blank screen.
+	_loading_box.visible = true
 	_loading_box.modulate.a = 1.0
 	var tween := create_tween()
 	tween.tween_property(_fade_rect, "modulate:a", 1.0, FADE_TIME)
@@ -101,6 +103,7 @@ func _fade_out_when_scene_drawn() -> void:
 	var tween := create_tween()
 	tween.tween_property(_fade_rect, "modulate:a", 0.0, FADE_TIME)
 	tween.parallel().tween_property(_loading_box, "modulate:a", 0.0, FADE_TIME * 0.6)
+	tween.parallel().tween_callback(func() -> void: _loading_box.visible = false).set_delay(FADE_TIME * 0.6)
 	tween.tween_callback(func() -> void:
 		_fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE)
 

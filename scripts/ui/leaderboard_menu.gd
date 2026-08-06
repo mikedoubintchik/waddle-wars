@@ -76,6 +76,7 @@ func _ready() -> void:
 	if not GameConfig.is_headless():
 		_status_dancers = PenguinLoader.new(96.0)
 		_status_dancers.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		_status_dancers.visible = false
 		panel_box.add_child(_status_dancers)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL

@@ -1,4 +1,6 @@
 build/
 .godot/
+.wrangler/
 leaderboard/.wrangler/
+node_modules/
 qa_shots/
