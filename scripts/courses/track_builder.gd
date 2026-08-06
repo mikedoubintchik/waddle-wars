@@ -99,9 +99,33 @@ static func make_curve(positions: Array) -> Curve3D:
 	return curve
 
 
+## Peak banking angle, in degrees, a corner can reach. Beyond roughly this a
+## belly-sliding penguin starts sledding down the camber instead of railing
+## the turn, and the inner edge dips far enough to fight the ground probes.
+const MAX_BANK_DEG: float = 14.0
+## Curvature (radians of heading change per metre) that earns full bank. A 30 m
+## radius corner -- the tightest these courses use -- sits near 0.033.
+const FULL_BANK_CURVATURE: float = 0.030
+## Metres either side of a sample used to measure heading change. Wide enough
+## to ignore spline wobble, short enough that a corner's bank arrives with the
+## corner rather than a car length late.
+const BANK_LOOKAHEAD: float = 9.0
+## Banking is smoothed across this many samples (SAMPLE metres each) so a
+## corner eases in and out instead of kinking at its entry.
+const BANK_SMOOTH_SAMPLES: int = 5
+
+
 ## points: Array of Dictionaries {pos: Vector3, width: float, surface: int,
 ## wall_l: bool, wall_r: bool}. Missing keys use defaults (width 14,
 ## packed snow, walls on).
+##
+## Corners are banked automatically from the spline's own curvature -- outer
+## edge up, inner edge down, pivoting about the centreline so the racing line
+## keeps its height. Flat ribbons read as prototype geometry and give a slide
+## nothing to lean on; camber is most of what makes a corner feel like a
+## corner. A point may set "bank" (degrees, positive = left edge raised, which
+## is the camber a right-hand turn wants) to override the automatic value, or
+## "bank": 0.0 to force a corner flat.
 ## Returns a Node3D containing floor meshes/collision + walls, with a
 ## PathGuide stored under meta "guide".
 static func build_ribbon(points: Array, name_hint: String = "Track") -> Node3D:
@@ -138,8 +162,15 @@ static func build_ribbon(points: Array, name_hint: String = "Track") -> Node3D:
 		var t := clampf((offset - control_offsets[ctrl]) / span, 0.0, 1.0)
 		var width := lerpf(float(p.get("width", 14.0)), float(p_next.get("width", 14.0)), t)
 		var xform := guide.transform_at(offset)
-		left_pts.append(xform.origin - xform.basis.x * (width * 0.5))
-		right_pts.append(xform.origin + xform.basis.x * (width * 0.5))
+		var bank := deg_to_rad(_bank_at(guide, offset, p, p_next, t))
+		# Roll the cross-track axis about the direction of travel: the outer edge
+		# lifts and the inner drops by the same amount, so the centre of the
+		# ribbon -- and the racing line the AI follows -- stays where the spline
+		# put it.
+		var forward := -xform.basis.z
+		var across := xform.basis.x.rotated(forward.normalized(), bank)
+		left_pts.append(xform.origin - across * (width * 0.5))
+		right_pts.append(xform.origin + across * (width * 0.5))
 		surfaces.append(int(p.get("surface", SurfacesDB.Surface.PACKED_SNOW)))
 		walls_l.append(bool(p.get("wall_l", true)) and not bool(p.get("gap", false)))
 		walls_r.append(bool(p.get("wall_r", true)) and not bool(p.get("gap", false)))
@@ -157,7 +188,57 @@ static func build_ribbon(points: Array, name_hint: String = "Track") -> Node3D:
 	_emit_walls(root, left_pts, right_pts, walls_l, true)
 	_emit_walls(root, left_pts, right_pts, walls_r, false)
 	_emit_skirt(root, left_pts, right_pts, gaps)
+	_emit_edge_markers(root, left_pts, right_pts, walls_l, walls_r, gaps)
 	return root
+
+
+## Bank angle in degrees at an offset: an explicit per-point "bank" when the
+## layout sets one (interpolated like width), otherwise derived from how fast
+## the spline's heading is turning there.
+static func _bank_at(guide: PathGuide, offset: float, p: Dictionary, p_next: Dictionary, t: float) -> float:
+	if p.has("bank") or p_next.has("bank"):
+		var b0 := float(p.get("bank", p_next.get("bank", 0.0)))
+		var b1 := float(p_next.get("bank", p.get("bank", 0.0)))
+		return lerpf(b0, b1, t)
+	return _auto_bank(guide, offset)
+
+
+## Curvature-driven bank, smoothed over a few samples. Heading change is
+## measured across a fixed arc either side of the point and converted to
+## radians per metre; the sign follows the turn so the outside always rises.
+static func _auto_bank(guide: PathGuide, offset: float) -> float:
+	var total := 0.0
+	var taken := 0
+	for i: int in range(-BANK_SMOOTH_SAMPLES, BANK_SMOOTH_SAMPLES + 1):
+		var at := offset + float(i) * SAMPLE
+		if at < 0.0 or at > guide.length:
+			continue
+		total += _raw_curvature(guide, at)
+		taken += 1
+	if taken == 0:
+		return 0.0
+	var curvature := total / float(taken)
+	var ratio := clampf(curvature / FULL_BANK_CURVATURE, -1.0, 1.0)
+	# Ease the response so gentle sweepers stay nearly flat and only real
+	# corners earn their camber.
+	return signf(ratio) * ratio * ratio * MAX_BANK_DEG
+
+
+## Signed heading change per metre at an offset. Positive = turning right.
+static func _raw_curvature(guide: PathGuide, offset: float) -> float:
+	var back := clampf(offset - BANK_LOOKAHEAD, 0.0, guide.length)
+	var fwd := clampf(offset + BANK_LOOKAHEAD, 0.0, guide.length)
+	var span := fwd - back
+	if span < 0.001:
+		return 0.0
+	# Wrap into [-PI, PI] so a heading crossing the +/-PI seam does not read as
+	# an enormous corner.
+	var delta := wrapf(guide.yaw_at(fwd) - guide.yaw_at(back), -PI, PI)
+	# yaw_at grows counter-clockwise (left); invert so positive means a right
+	# turn. Rolling the cross-track axis about the forward direction by a
+	# positive angle drops the right edge and lifts the left -- the outside of
+	# a right-hander -- so the signs line up.
+	return -delta / span
 
 
 static func _control_index_for(offsets: Array[float], offset: float) -> int:
@@ -229,6 +310,119 @@ static func _emit_walls(root: Node3D, left: PackedVector3Array, right: PackedVec
 	shape.shape = make_solid_shape(mesh)
 	body.add_child(shape)
 	root.add_child(body)
+
+
+## --- Edge markers -------------------------------------------------------------
+## Metres between marker posts along an open edge.
+const MARKER_SPACING: float = 22.0
+const MARKER_HEIGHT: float = 2.3
+const MARKER_POST_RADIUS: float = 0.16
+## Posts lean this far outboard of the edge so a racer clipping the boundary
+## brushes past them rather than through them.
+const MARKER_OUTBOARD: float = 0.9
+
+
+## Slalom-style marker posts down any edge that has no wall.
+##
+## Without these the widest courses are unreadable: on Glacier the ribbon, the
+## surrounding terrain and the skyline are all the same white, so there is no
+## boundary to race against and the course reads as an open field rather than a
+## track. Walls already state the edge where they exist, so posts only fill the
+## gaps -- and they are visual-only (no collision), because the boundary they
+## describe is already enforced by the ribbon's own edge and the AI's guide.
+##
+## One MultiMesh per side keeps a whole course's posts at two draw calls.
+static func _emit_edge_markers(root: Node3D, left: PackedVector3Array, right: PackedVector3Array,
+		walls_l: Array[bool], walls_r: Array[bool], gaps: Array[bool]) -> void:
+	_emit_marker_side(root, left, right, walls_l, gaps, true)
+	_emit_marker_side(root, left, right, walls_r, gaps, false)
+
+
+static func _emit_marker_side(root: Node3D, left: PackedVector3Array, right: PackedVector3Array,
+		walls: Array[bool], gaps: Array[bool], is_left: bool) -> void:
+	var stride := maxi(int(MARKER_SPACING / SAMPLE), 1)
+	var transforms: Array[Transform3D] = []
+	var colors: PackedColorArray = []
+	var i := stride
+	while i < walls.size() - 1:
+		# Only where the edge is open: a wall is its own boundary marker.
+		if not walls[i] and not gaps[i]:
+			var edge := left[i] if is_left else right[i]
+			var other := right[i] if is_left else left[i]
+			var outward := (edge - other)
+			outward.y = 0.0
+			if outward.length_squared() > 0.0001:
+				outward = outward.normalized()
+			else:
+				outward = Vector3.RIGHT
+			var base := edge + outward * MARKER_OUTBOARD
+			transforms.append(Transform3D(Basis.IDENTITY, base))
+			# Alternating red/white, the universal "edge of the course" language.
+			colors.append(Color(0.92, 0.26, 0.28) if (i / stride) % 2 == 0 else Color(0.97, 0.98, 1.0))
+		i += stride
+	if transforms.is_empty():
+		return
+
+	var multi := MultiMesh.new()
+	multi.transform_format = MultiMesh.TRANSFORM_3D
+	multi.use_colors = true
+	multi.mesh = _marker_mesh()
+	multi.instance_count = transforms.size()
+	for idx: int in transforms.size():
+		multi.set_instance_transform(idx, transforms[idx])
+		multi.set_instance_color(idx, colors[idx])
+	var instance := MultiMeshInstance3D.new()
+	instance.name = "EdgeMarkersLeft" if is_left else "EdgeMarkersRight"
+	instance.multimesh = multi
+	instance.material_override = _marker_material()
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(instance)
+
+
+static var _marker_mesh_cache: Mesh = null
+static var _marker_material_cache: StandardMaterial3D = null
+
+
+## A slim tapered post. Cheap enough to stamp a hundred times and tall enough
+## to break the horizon line, which is what actually makes an edge readable.
+static func _marker_mesh() -> Mesh:
+	if _marker_mesh_cache != null:
+		return _marker_mesh_cache
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = MARKER_POST_RADIUS * 0.55
+	cyl.bottom_radius = MARKER_POST_RADIUS
+	cyl.height = MARKER_HEIGHT
+	cyl.radial_segments = 6
+	cyl.rings = 1
+	# CylinderMesh is centred on its origin; lift it so the post stands on the
+	# ground rather than sinking half its height into the track.
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.create_from(cyl, 0)
+	var offset := Transform3D(Basis.IDENTITY, Vector3(0.0, MARKER_HEIGHT * 0.5, 0.0))
+	var array_mesh := st.commit()
+	var st2 := SurfaceTool.new()
+	st2.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st2.create_from(array_mesh, 0)
+	st2.set_material(null)
+	var data := array_mesh.surface_get_arrays(0)
+	var verts: PackedVector3Array = data[Mesh.ARRAY_VERTEX]
+	for v: int in verts.size():
+		verts[v] = offset * verts[v]
+	data[Mesh.ARRAY_VERTEX] = verts
+	var out := ArrayMesh.new()
+	out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, data)
+	_marker_mesh_cache = out
+	return _marker_mesh_cache
+
+
+static func _marker_material() -> StandardMaterial3D:
+	if _marker_material_cache == null:
+		var mat := StandardMaterial3D.new()
+		mat.vertex_color_use_as_albedo = true
+		mat.roughness = 0.6
+		_marker_material_cache = mat
+	return _marker_material_cache
 
 
 static var _wall_material_cache: ShaderMaterial = null

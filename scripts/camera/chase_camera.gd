@@ -14,6 +14,13 @@ const MAX_FOV_BONUS: float = 18.0
 const YAW_FOLLOW_RATE: float = 3.0  # 1/s slerp responsiveness toward heading
 const YAW_CATCHUP_START: float = 1.2  # rad of error where fast catch-up kicks in
 const YAW_CATCHUP_GAIN: float = 4.0  # extra rate per rad beyond the start (respawns)
+## Peak camera roll into a corner, in degrees. Small on purpose: the frame
+## should hint at the lean, not tip the horizon over.
+const MAX_ROLL_DEG: float = 6.5
+## Yaw rate (rad/s) that earns full roll. A hard corner sits near 1.6.
+const FULL_ROLL_YAW_RATE: float = 1.8
+## How fast the roll eases in and out (1/s).
+const ROLL_RATE: float = 4.5
 
 var target: Racer = null
 var camera: Camera3D
@@ -25,6 +32,8 @@ var _follow_yaw: float = 0.0
 var _finish_orbit_angle: float = 0.0
 var _mode_finish: bool = false
 var _fov_extra: float = 0.0
+var _roll: float = 0.0  ## Smoothed corner lean, radians.
+var _prev_follow_yaw: float = 0.0
 var _initialized: bool = false
 
 
@@ -83,6 +92,7 @@ func _physics_process(delta: float) -> void:
 		var heading_yaw := _heading_yaw()
 		if not _initialized:
 			_follow_yaw = heading_yaw
+			_prev_follow_yaw = heading_yaw
 		else:
 			var yaw_error := absf(wrapf(heading_yaw - _follow_yaw, -PI, PI))
 			var yaw_rate := YAW_FOLLOW_RATE
@@ -142,18 +152,32 @@ func _physics_process(delta: float) -> void:
 		target_fov += 10.0
 	camera.fov = lerpf(camera.fov, target_fov, minf(delta * 5.0, 1.0))
 
-	# Shake.
+	# Corner lean: the frame rolls slightly into a turn, scaled by how fast the
+	# racer is actually going, so the newly banked corners read as banked and a
+	# hard change of direction is felt rather than merely seen. Derived from the
+	# already-smoothed follow yaw, so it inherits that damping instead of
+	# twitching on raw steering input.
+	var roll_target := 0.0
+	if not _mode_finish and delta > 0.0:
+		var yaw_rate := wrapf(_follow_yaw - _prev_follow_yaw, -PI, PI) / delta
+		var lean := clampf(yaw_rate / FULL_ROLL_YAW_RATE, -1.0, 1.0)
+		roll_target = deg_to_rad(MAX_ROLL_DEG) * lean * clampf(speed_ratio, 0.0, 1.0)
+	_prev_follow_yaw = _follow_yaw
+	_roll = lerpf(_roll, roll_target, 1.0 - exp(-delta * ROLL_RATE))
+
+	# Shake rides on top of the lean rather than replacing it.
+	var shake_roll := 0.0
 	if _shake_trauma > 0.001:
 		_shake_time += delta * 30.0
 		var strength := _shake_trauma * _shake_trauma
 		camera.h_offset = sin(_shake_time * 1.31) * strength * 0.25
 		camera.v_offset = cos(_shake_time * 1.73) * strength * 0.22
-		camera.rotation.z = sin(_shake_time * 0.97) * strength * 0.02
+		shake_roll = sin(_shake_time * 0.97) * strength * 0.02
 		_shake_trauma = maxf(0.0, _shake_trauma - delta * 1.6)
 	else:
 		camera.h_offset = 0.0
 		camera.v_offset = 0.0
-		camera.rotation.z = 0.0
+	camera.rotation.z = _roll + shake_roll
 
 
 ## Yaw of the direction the racer is actually travelling; falls back to the
