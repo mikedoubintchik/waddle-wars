@@ -3,14 +3,6 @@ extends CharacterBody3D
 ## Core racer: state machine, surface-aware movement, jumping with coyote
 ## time and input buffering, belly sliding, swimming, shoving, items,
 ## checkpoint recovery. Driven by a RacerController (player or AI).
-##
-## Feel layer: jump arcs hang briefly at the apex then fall fast; walls
-## deflect instead of stopping (velocity projects along the surface);
-## racer-vs-racer contact trades momentum by "mass" (boost = heavier);
-## shoves knock the victim into a short forced slide through move_and_slide;
-## riders inherit moving-platform velocity so icebergs don't slip out from
-## underfoot. All of it lives on top of the scalar-speed model — external
-## pushes go through velocity, never position teleports.
 
 enum State { WADDLING, SLIDING, AIRBORNE, SWIMMING, BOOSTED, STUNNED, RECOVERING, FINISHED }
 
@@ -32,18 +24,12 @@ const SLIDE_MAX_SPEED: float = 26.0
 const SLOPE_SLIDE_ACCEL: float = 15.0
 const COYOTE_TIME: float = 0.14
 const JUMP_BUFFER: float = 0.16
-const APEX_HANG_SPEED: float = 2.6  # |v_y| window treated as the jump apex
-const APEX_HANG_GRAVITY: float = 0.55  # gravity scale inside the apex hang
-const FALL_GRAVITY: float = 1.45  # gravity scale while descending from a jump
-const MAX_FALL_SPEED: float = 38.0  # terminal velocity (kill-plane dives)
-const KNOCK_DECAY: float = 16.0  # m/s^2 bleed on shove/seal knockback slides
 const MAX_STEER_DEG: float = 55.0
 const STEER_AUTHORITY_MAX: float = 1.6  # yaw response scales with speed up to this
 const BOOST_MAX_MULT: float = 1.5  # apply_boost() clamp
 const BOOST_TOP_SPEED_MULT: float = 1.55  # cap on surface max_speed * boost_mult
 const BOOST_SLIDE_TOP_MULT: float = 1.6  # cap on slide_target * boost_mult
-const BOOST_FADE_BASE: float = 0.18  # boost fade floor (mult/s) — ease-out tail
-const BOOST_FADE_SCALE: float = 0.9  # extra fade per unit of boost above 1.0
+const BOOST_DECAY_PER_S: float = 0.42  # ~1.2s smooth fade after the boost timer ends
 const BOOST_STRAIGHTEN_RATE: float = 0.8  # heading pull toward guide tangent while boosted
 const BANK_MAX_DEG: float = 15.0  # visual roll into turns
 const BANK_YAW_RATE_SCALE: float = 0.32  # rad of roll per rad/s of yaw rate
@@ -82,7 +68,6 @@ var _facing_yaw: float = 0.0
 var _velocity_yaw: float = 0.0
 var _prev_facing_yaw: float = 0.0
 var _visual_bank: float = 0.0
-var _visual_pitch: float = 0.0
 var _steer_offset: float = 0.0
 var _guide_yaw: float = 0.0
 var _coyote_timer: float = 0.0
@@ -101,12 +86,6 @@ var _has_shield: bool = false
 var _shield_visual: MeshInstance3D = null
 var _was_on_floor: bool = false
 var _airborne_from_jump: bool = false
-var _knock_velocity: Vector3 = Vector3.ZERO  # decaying shove/bump slide
-var _wall_sfx_cooldown: float = 0.0
-var _platform_node: AnimatableBody3D = null  # moving platform underfoot
-var _platform_prev_origin: Vector3 = Vector3.ZERO
-var _platform_velocity: Vector3 = Vector3.ZERO
-var _platform_carry_timer: float = 0.0  # keeps inherited momentum after leaving
 var _slide_particles: GPUParticles3D = null
 var _bubble_particles: GPUParticles3D = null
 var _finish_slowdown: float = 1.0
@@ -227,7 +206,6 @@ func _physics_process(delta: float) -> void:
 	_update_timers(delta)
 	_update_guide()
 	_detect_surface()
-	_update_platform_carry(delta)
 
 	match state:
 		State.FINISHED:
@@ -249,7 +227,6 @@ func _physics_process(delta: float) -> void:
 		elif snowball_ammo > 0:
 			throw_snowball()
 	move_and_slide()
-	_resolve_contacts(delta)
 	_check_kill_plane()
 	_update_visual(delta)
 	controller.consume_edges()
@@ -264,14 +241,9 @@ func _update_timers(delta: float) -> void:
 	_invuln_timer = maxf(0.0, _invuln_timer - delta)
 	_stumble_timer = maxf(0.0, _stumble_timer - delta)
 	_blizzard_slip_timer = maxf(0.0, _blizzard_slip_timer - delta)
-	_wall_sfx_cooldown = maxf(0.0, _wall_sfx_cooldown - delta)
-	if _knock_velocity != Vector3.ZERO:
-		_knock_velocity = _knock_velocity.move_toward(Vector3.ZERO, KNOCK_DECAY * delta)
 	if _boost_timer <= 0.0 and boost_mult > 1.0:
-		# Ease-out fade instead of a cliff: fast falloff at full boost that
-		# tapers as it nears base pace (~1.2s total, same as the old linear
-		# fade, but the end of a boost reads as a glide instead of a wall).
-		boost_mult = maxf(1.0, boost_mult - (BOOST_FADE_BASE + (boost_mult - 1.0) * BOOST_FADE_SCALE) * delta)
+		# Smooth fade instead of a cliff: ~1.2s from full pad boost to normal.
+		boost_mult = maxf(1.0, boost_mult - BOOST_DECAY_PER_S * delta)
 	if controller.jump_pressed:
 		_jump_buffer_timer = JUMP_BUFFER
 		controller.consume_jump()
@@ -315,7 +287,7 @@ func _tick_ground_air(delta: float) -> void:
 	if on_floor:
 		_coyote_timer = COYOTE_TIME
 		if not _was_on_floor and _airborne_from_jump or (not _was_on_floor and vertical_velocity < -6.0):
-			_land_feedback(vertical_velocity)
+			_land_feedback()
 		_airborne_from_jump = false
 
 	# Penguins cannot slide up a hill: once a slide stalls on an ascent,
@@ -385,10 +357,7 @@ func _tick_ground_air(delta: float) -> void:
 	if not on_floor:
 		grip *= 0.45
 	if sliding:
-		# Belly grip scales with the surface itself: packed snow still bites
-		# (~0.75x) while smooth ice drops to ~0.5x, so ice slides drift wide
-		# and carve late where snow slides stay planted and steerable.
-		grip *= 0.30 + 0.45 * float(surface["grip"])
+		grip *= 0.55
 	var sensitivity := 1.0
 	if is_player:
 		sensitivity = float(SettingsManager.get_setting("gameplay", "steer_sensitivity"))
@@ -400,11 +369,8 @@ func _tick_ground_air(delta: float) -> void:
 	# constant: without this, boost pads doubled speed while turn rate stayed
 	# tuned for BASE_SPEED and the racer felt like a runaway sled (playtest).
 	var speed_authority := clampf(current_speed / BASE_SPEED, 1.0, STEER_AUTHORITY_MAX)
-	# Below waddle pace the nose answers faster still: pulling out of a
-	# stumble, respawn, or standing start feels immediate, not barge-like.
-	var low_speed_assist := lerpf(1.45, 1.0, clampf(current_speed / BASE_SPEED, 0.0, 1.0))
-	_steer_offset = lerpf(_steer_offset, steer_target, minf(delta * 7.0 * grip * speed_authority * low_speed_assist, 1.0))
-	_facing_yaw = _wrap_lerp_angle(_facing_yaw, _guide_yaw + _steer_offset, minf(delta * 5.0 * speed_authority * low_speed_assist, 1.0))
+	_steer_offset = lerpf(_steer_offset, steer_target, minf(delta * 7.0 * grip * speed_authority, 1.0))
+	_facing_yaw = _wrap_lerp_angle(_facing_yaw, _guide_yaw + _steer_offset, minf(delta * 5.0 * speed_authority, 1.0))
 	if boost_mult > 1.02:
 		# Light auto-straighten while boosted: pull the heading toward the
 		# guide tangent so a pad hit mid-corner doesn't launch into the walls.
@@ -427,7 +393,7 @@ func _tick_ground_air(delta: float) -> void:
 	elif on_floor and vertical_velocity < 0.0:
 		vertical_velocity = -2.0
 	else:
-		vertical_velocity = maxf(vertical_velocity - GRAVITY * _jump_gravity_scale() * delta, -MAX_FALL_SPEED)
+		vertical_velocity -= GRAVITY * delta
 
 	# Shove.
 	if controller.shove_pressed and _shove_cooldown <= 0.0 and state != State.FINISHED:
@@ -519,161 +485,20 @@ func _tick_finished(delta: float) -> void:
 	_apply_velocity()
 
 
-## External forces (wind, racer bumps), accumulated then consumed every
-## physics tick so pushes go through move_and_slide and can never tunnel
-## through colliders.
+## External continuous force (wind). Consumed every physics tick so pushes
+## go through move_and_slide and can never tunnel through colliders.
 var _external_push: Vector3 = Vector3.ZERO
 
 
 func apply_wind(push: Vector3) -> void:
-	_external_push += push
+	_external_push = push
 
 
 func _apply_velocity() -> void:
 	var dir := _yaw_to_dir(_velocity_yaw)
-	velocity = dir * current_speed + Vector3.UP * vertical_velocity \
-			+ _external_push + _knock_velocity + _platform_velocity
+	velocity = dir * current_speed + Vector3.UP * vertical_velocity + _external_push
 	_external_push = Vector3.ZERO
 	rotation.y = _facing_yaw
-
-
-## Jump arc shaping: reduced gravity in a small window around the apex (the
-## hang) and a heavier pull on the way down (fast fall). Only applied to arcs
-## the racer jumped into — geyser launches, ledge walk-offs, and water
-## breaches keep the plain parabola the courses were tuned around. The hang
-## slightly outweighs the fast fall, so net airtime and peak height sit a
-## hair ABOVE the old symmetric arc and gap jumps only get more forgiving.
-func _jump_gravity_scale() -> float:
-	if not _airborne_from_jump:
-		return 1.0
-	if absf(vertical_velocity) < APEX_HANG_SPEED:
-		return APEX_HANG_GRAVITY
-	if vertical_velocity < 0.0:
-		return FALL_GRAVITY
-	return 1.0
-
-
-## Riders inherit moving-platform velocity. The iceberg hoppers are
-## AnimatableBody3D moved in code with sync_to_physics off, so the physics
-## server reports no platform velocity — track the frame delta manually and
-## feed it into velocity. After leaving the platform the inherited momentum
-## persists briefly (jumping off a moving berg carries), then bleeds off.
-func _update_platform_carry(delta: float) -> void:
-	# Player-only: AI target selection doesn't model inherited platform drift,
-	# and carrying rivals sideways mid-crossing measurably raised DNF rates.
-	if not is_player:
-		return
-	var found: AnimatableBody3D = null
-	if is_on_floor():
-		for i: int in get_slide_collision_count():
-			var col := get_slide_collision(i)
-			if col.get_normal().y > 0.55:
-				found = col.get_collider() as AnimatableBody3D
-				if found != null:
-					break
-	if found != null:
-		if found == _platform_node and delta > 0.0001:
-			var vel := (found.global_position - _platform_prev_origin) / delta
-			# A teleporting platform (course reset) must not fling the rider.
-			_platform_velocity = vel if vel.length_squared() < 144.0 else Vector3.ZERO
-		else:
-			_platform_velocity = Vector3.ZERO
-		_platform_node = found
-		_platform_prev_origin = found.global_position
-		_platform_carry_timer = 0.5
-	else:
-		_platform_node = null
-		if is_on_floor():
-			# Back on solid ground: drop the carry immediately.
-			_platform_velocity = Vector3.ZERO
-			_platform_carry_timer = 0.0
-		elif _platform_carry_timer > 0.0:
-			_platform_carry_timer -= delta
-		else:
-			_platform_velocity = _platform_velocity.move_toward(Vector3.ZERO, 6.0 * delta)
-
-
-## Post-move contact response: walls deflect instead of stopping, and
-## racer-vs-racer touches exchange believable momentum.
-func _resolve_contacts(delta: float) -> void:
-	if state == State.FINISHED:
-		return
-	for i: int in get_slide_collision_count():
-		var col := get_slide_collision(i)
-		var normal := col.get_normal()
-		var other := col.get_collider() as Racer
-		if other != null:
-			_bump_racer(other, normal)
-		elif normal.y < 0.4 and normal.y > -0.5:
-			_glance_wall(normal, delta)
-
-
-## Project the travel direction along a wall instead of grinding into it:
-## glancing scrapes keep nearly all speed, head-on hits bleed hard while the
-## heading swings parallel. Self-limiting — once the heading runs along the
-## wall the into-component is ~0 and both the redirect and the bleed vanish.
-func _glance_wall(normal: Vector3, delta: float) -> void:
-	var flat := Vector3(normal.x, 0.0, normal.z)
-	if flat.length_squared() < 0.01:
-		return
-	flat = flat.normalized()
-	var dir := _yaw_to_dir(_velocity_yaw)
-	var into := dir.dot(flat)  # < 0 when driving at the wall
-	if into > -0.05:
-		return
-	var along := dir - flat * into
-	along.y = 0.0
-	if along.length_squared() < 0.003:
-		# Dead-perpendicular hit: deflect along the wall toward the course
-		# direction so nobody ever sticks nose-first to a cliff.
-		var tangent := flat.cross(Vector3.UP)
-		along = tangent if tangent.dot(_yaw_to_dir(_guide_yaw)) >= 0.0 else -tangent
-	along = along.normalized()
-	var weight := minf(delta * 14.0, 1.0)
-	_velocity_yaw = _wrap_lerp_angle(_velocity_yaw, atan2(-along.x, -along.z), weight)
-	var keep := sqrt(maxf(1.0 - into * into, 0.0))
-	current_speed *= lerpf(1.0, maxf(keep, 0.3), weight)
-	if into < -0.55 and current_speed > 7.0 and _wall_sfx_cooldown <= 0.0:
-		_wall_sfx_cooldown = 0.5
-		AudioManager.play_sfx_3d("sfx_impact", global_position, randf_range(0.82, 0.92), -12.0)
-		if visual != null:
-			visual.trigger_squash(0.88)
-
-
-## Racer-vs-racer contact: trade momentum along the contact normal, weighted
-## by "mass" so a boosted racer barges through and the lighter body soaks the
-## hit. Both bodies may process the same touch on their own ticks, so the
-## impulse is halved per side and scales with closing speed only — once the
-## pair separates it naturally goes quiet.
-func _bump_racer(other: Racer, normal: Vector3) -> void:
-	if other.state == State.FINISHED:
-		return
-	var flat := Vector3(normal.x, 0.0, normal.z)
-	if flat.length_squared() < 0.01:
-		return
-	flat = flat.normalized()  # points from the other racer toward us
-	var closing := (_yaw_to_dir(other._velocity_yaw) * other.current_speed \
-			- _yaw_to_dir(_velocity_yaw) * current_speed).dot(flat)
-	if closing < 0.6:
-		return
-	var my_mass := _bump_mass()
-	var other_mass := other._bump_mass()
-	var share := other_mass / (my_mass + other_mass)
-	var impulse := minf(closing, 10.0) * 0.55
-	# AI-vs-AI pack jostle stays gentle: full impulses occasionally chain-
-	# knocked three rivals off the iceberg platform section (sim-measured).
-	if not is_player and not other.is_player:
-		impulse *= 0.5
-	_external_push += flat * impulse * share
-	other._external_push -= flat * impulse * (1.0 - share)
-	if closing > 5.0 and _wall_sfx_cooldown <= 0.0:
-		_wall_sfx_cooldown = 0.4
-		AudioManager.play_sfx_3d("sfx_stumble", global_position, randf_range(0.9, 1.05), -12.0)
-
-
-## Effective mass for racer-vs-racer bumps: boost and sheer pace carry weight.
-func _bump_mass() -> float:
-	return 1.0 + (boost_mult - 1.0) * 1.6 + clampf(current_speed / BASE_SPEED - 1.0, 0.0, 1.0) * 0.5
 
 
 ## --- State helpers ---------------------------------------------------------
@@ -687,11 +512,9 @@ func _set_state(new_state: State) -> void:
 	state_changed.emit(new_state)
 
 
-## fall_speed is the (negative) vertical velocity at touchdown: harder falls
-## squash deeper so landings after the fast-fall arc read with real weight.
-func _land_feedback(fall_speed: float = 0.0) -> void:
+func _land_feedback() -> void:
 	if visual != null:
-		visual.trigger_squash(clampf(0.78 + (fall_speed + 6.0) * 0.014, 0.56, 0.8))
+		visual.trigger_squash(0.72)
 	AudioManager.play_sfx_3d("sfx_land", global_position, randf_range(0.92, 1.05), -6.0)
 	if course != null and course.has_method("spawn_land_puff"):
 		course.spawn_land_puff(global_position)
@@ -716,20 +539,6 @@ func _update_visual(delta: float) -> void:
 			bank_target = clampf(yaw_rate * BANK_YAW_RATE_SCALE, -bank_max, bank_max)
 		_visual_bank = lerpf(_visual_bank, bank_target, minf(delta * 7.0, 1.0))
 		visual.rotation.z = _visual_bank
-		# Slope-aligned pitch while belly sliding, plus a subtle nose-follow
-		# on the jump arc (up on the rise, down on the fall) so descents and
-		# airtime read ballistic instead of board-flat.
-		var pitch_target := 0.0
-		if state == State.SLIDING and is_on_floor():
-			var floor_n := get_floor_normal()
-			var fwd := _yaw_to_dir(_velocity_yaw)
-			var slope_t := fwd - floor_n * fwd.dot(floor_n)
-			if slope_t.length_squared() > 0.001:
-				pitch_target = asin(clampf(slope_t.normalized().y, -0.55, 0.55))
-		elif state == State.AIRBORNE:
-			pitch_target = clampf(vertical_velocity * 0.028, -0.34, 0.26)
-		_visual_pitch = lerpf(_visual_pitch, pitch_target, minf(delta * 6.0, 1.0))
-		visual.rotation.x = _visual_pitch
 	_prev_facing_yaw = _facing_yaw
 	var ratio := current_speed / BASE_SPEED
 	visual.anim_speed = ratio
@@ -777,18 +586,9 @@ func receive_shove(attacker: Racer) -> bool:
 			break_shield()
 		return false
 	_shove_immunity = 2.2
-	# Steering lockout and the forced slide both scale with the attacker's
-	# pace: a full-sprint hit launches a longer, harder tumble than a
-	# standing-start nudge.
-	var pace := clampf(attacker.current_speed / BASE_SPEED, 0.4, 1.8)
-	_stumble_timer = clampf(STUMBLE_TIME * (0.65 + pace * 0.4), 0.35, 0.95)
-	var push := global_position - attacker.global_position
-	push.y = 0.0
-	push = push.normalized() if push.length_squared() > 0.001 \
-			else _yaw_to_dir(attacker._velocity_yaw)
-	# Crisp impulse + short victim slide through move_and_slide (never a
-	# position teleport, so a shove can't press anyone through walls).
-	_knock_velocity = push * (4.0 + attacker.current_speed * 0.28)
+	_stumble_timer = STUMBLE_TIME
+	var push := (global_position - attacker.global_position).normalized()
+	global_position += push * 0.6
 	_steer_offset += signf(push.dot(_yaw_to_dir(_velocity_yaw + PI / 2.0))) * deg_to_rad(25.0)
 	current_speed *= 0.72
 	if visual != null:
@@ -805,13 +605,9 @@ func receive_shove_from_position(source: Vector3) -> void:
 		break_shield()
 		return
 	_stumble_timer = STUMBLE_TIME
-	var push := global_position - source
+	var push := (global_position - source).normalized()
 	push.y = 0.0
-	push = push.normalized() if push.length_squared() > 0.001 \
-			else -_yaw_to_dir(_velocity_yaw)
-	# Velocity knock instead of a teleport: the bounce-away slide resolves
-	# through move_and_slide and can never press the victim into geometry.
-	_knock_velocity = push * 6.5
+	global_position += push * 0.5
 	current_speed *= 0.65
 	if visual != null:
 		visual.trigger_squash(0.78)
@@ -971,10 +767,6 @@ func respawn_at_checkpoint() -> void:
 	_steer_offset = 0.0
 	current_speed = BASE_SPEED * 0.35
 	vertical_velocity = 0.0
-	_knock_velocity = Vector3.ZERO
-	_platform_node = null
-	_platform_velocity = Vector3.ZERO
-	_platform_carry_timer = 0.0
 	_water_areas.clear()
 	guide_cache = {}  # force fresh global guide search from the new position
 	_invuln_timer = 2.0

@@ -9,16 +9,20 @@
 // a wet shoreline rim (the half-wet band just outside painted foam darkens
 // slightly, separating the foam line from open water).
 // High-detail additions (gated by detail_level AND a snow-shader-style view
-// distance fade, skipped entirely when either is 0): secondary fine ripple
+// distance fade, skipped entirely when either is 0): two scrolling
+// directional value-noise octaves finite-differenced into a world-space
+// normal perturbation (the surface shades like textured water — fresnel,
+// diffuse and the sun lane all read it), a secondary fine ripple
 // octave, animated whitecap lifecycle on crests (caps form, break and
-// dissolve instead of gluing to wave phase), softened noise-broken foam
+// dissolve instead of gluing to wave phase), chop-peak fleck foam where the
+// directional octaves coincide, softened noise-broken foam
 // edges, an anisotropic glitter-broken specular sun streak elongated toward
 // the sun azimuth (the sun lane itself survives to the horizon; only its
 // per-pixel glitter calms with distance), finite-difference micro-facet
 // tilt so each sparkle is a real facet catching the sun, not brightness
 // noise, and sparse pinpoint sky-glitter off the lane (rare wavelet facets
 // flashing cool white). Mobile-cheap: no textures, no screen-space reads;
-// up to 8 extra noise samples inside the distance-faded detail branch.
+// up to 14 extra noise samples inside the distance-faded detail branch.
 // WebGL2/gl_compatibility-safe: basic spatial features only, no screen or
 // depth reads.
 shader_type spatial;
@@ -69,6 +73,20 @@ uniform float foam_break_scale = 2.6;
 // crests toward the camera lifts a green-teal transmission glow — the glassy
 // against-the-light band real cold seas show. 0 disables.
 uniform float sss_strength : hint_range(0.0, 1.0) = 0.5;
+// Always-on crest subsurface lift: ambient light scattering up through raised
+// thin water, independent of sun alignment (the sun-through term above is
+// view-gated). Subtle green-teal brightening on every crest; 0 disables.
+uniform float crest_glow : hint_range(0.0, 1.0) = 0.3;
+// Scrolling multi-octave normal detail strength. Two directional value-noise
+// height fields (broad chop + mid wavelets at different scales, speeds and
+// travel directions) are finite-differenced and layered onto the analytic
+// gerstner normal, so lighting, fresnel and the sun lane all see real surface
+// texture. 0 = analytic normal only (the old look). Detail/distance gated.
+uniform float wave_strength : hint_range(0.0, 2.0) = 1.0;
+// Fake sky reflection: at grazing angles fresnel pulls the surface toward
+// this horizon/sky tint (no reflection probes on web). RGB is the sky color,
+// alpha scales the effect strength.
+uniform vec4 reflect_tint : source_color = vec4(0.72, 0.83, 0.93, 1.0);
 
 varying vec3 world_pos;
 varying float wave_h;      // -1..1 relative crest height
@@ -123,15 +141,6 @@ void vertex() {
 }
 
 void fragment() {
-	float facing = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
-	// Schlick reflectance: near-zero looking straight down (see into the
-	// volume), rising steeply only near grazing — real water, not the soft
-	// omnidirectional sheen of the old plain power curve.
-	float fresnel = clamp(fresnel_f0 + (1.0 - fresnel_f0) * pow(1.0 - facing, 5.0), 0.0, 1.0);
-	// Legacy gentler curve kept for the color gradient so the horizon still
-	// picks up shallow/sky tones over a usable angle range.
-	float horizon_mix = pow(1.0 - facing, fresnel_power);
-
 	// Detail distance fade (snow-shader pattern): micro-noise is only
 	// resolvable near the camera; past detail_fade_end every fragment skips
 	// the detail branch entirely — visual calm and a perf win in one.
@@ -141,6 +150,41 @@ void fragment() {
 	// Shared world-space view/sun vectors (translucency + sun path).
 	vec3 view_world = normalize(CAMERA_POSITION_WORLD - world_pos);
 	vec3 sun = normalize(sun_direction);
+
+	// Multi-octave directional normal detail: two scrolling value-noise
+	// height fields (broad chop and mid wavelets — different scales, speeds
+	// and travel directions) finite-differenced into world-space slopes and
+	// layered onto the analytic gerstner normal BEFORE fresnel, diffuse and
+	// the sun lane read it, so the surface shades like textured water
+	// instead of smooth sines. Perturbs NORMAL directly (not NORMAL_MAP):
+	// SurfaceTool water ribbons carry no tangents, and the vertex normal is
+	// analytic anyway — same result, mesh-safe. Six noise samples, gated by
+	// dl: zero cost at range and on the low preset.
+	float chop_a = 0.5;
+	float chop_b = 0.5;
+	if (dl > 0.001) {
+		vec2 uv_a = world_pos.xz * 0.55 + vec2(0.82, 0.57) * (TIME * 0.32);
+		vec2 uv_b = world_pos.xz * 1.7 + vec2(-0.51, 0.86) * (TIME * 0.55);
+		chop_a = value_noise(uv_a);
+		chop_b = value_noise(uv_b);
+		vec2 slope = vec2(chop_a - value_noise(uv_a + vec2(0.35, 0.0)),
+				chop_a - value_noise(uv_a + vec2(0.0, 0.35))) * 0.62
+				+ vec2(chop_b - value_noise(uv_b + vec2(0.25, 0.0)),
+				chop_b - value_noise(uv_b + vec2(0.0, 0.25))) * 0.38;
+		vec3 n_ws = normalize((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
+		n_ws = normalize(n_ws + vec3(slope.x, 0.0, slope.y) * (wave_strength * dl * 0.9));
+		NORMAL = normalize((VIEW_MATRIX * vec4(n_ws, 0.0)).xyz);
+	}
+
+	float facing = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+	// Schlick reflectance: near-zero looking straight down (see into the
+	// volume), rising steeply only near grazing — real water, not the soft
+	// omnidirectional sheen of the old plain power curve. Reads the detail
+	// normal above, so grazing reflectance glitters with the chop.
+	float fresnel = clamp(fresnel_f0 + (1.0 - fresnel_f0) * pow(1.0 - facing, 5.0), 0.0, 1.0);
+	// Legacy gentler curve kept for the color gradient so the horizon still
+	// picks up shallow/sky tones over a usable angle range.
+	float horizon_mix = pow(1.0 - facing, fresnel_power);
 
 	// Scrolling surface shimmer (fake normal-map shading).
 	vec2 uv = world_pos.xz * 0.5 + vec2(TIME * 0.14, TIME * -0.09);
@@ -168,8 +212,10 @@ void fragment() {
 	// horizon sheen still wins at the far edge).
 	water = mix(water, deep_color.rgb * vec3(0.45, 0.6, 0.9),
 			smoothstep(30.0, 380.0, view_dist) * distance_deep);
-	// Grazing reflectance lifts the surface toward the pale sky tone.
-	water = mix(water, shallow_color.rgb * 1.05, fresnel * 0.3);
+	// Fake sky reflection: grazing reflectance pulls the surface toward the
+	// horizon/sky tint (fresnel-driven — no reflection probes on web). Steep
+	// view angles keep the deep volume color; the horizon sheets over silver.
+	water = mix(water, reflect_tint.rgb, fresnel * 0.62 * reflect_tint.a);
 	// Backlit crest translucency: looking toward a low sun through a raised
 	// crest, thin water transmits instead of reflecting — a green-teal glow
 	// band rides the crests facing away from the camera. Crest-height gated
@@ -177,6 +223,11 @@ void fragment() {
 	float sun_through = pow(clamp(dot(-view_world, sun), 0.0, 1.0), 4.0);
 	water += shallow_color.rgb * vec3(0.55, 1.0, 0.85)
 			* (sun_through * clamp(wave_h, 0.0, 1.0) * sss_strength * 0.6);
+	// Ambient crest scatter: even off the sun axis, raised thin water lifts
+	// slightly toward the transmission tint — crests read faintly lit from
+	// within instead of shaded like solid geometry. One madd, always on.
+	water += shallow_color.rgb * vec3(0.55, 1.0, 0.88)
+			* (max(wave_h, 0.0) * crest_glow * 0.22);
 	// Wet shoreline rim: the half-wet band just outside the painted foam edge
 	// darkens slightly (soaked ice/shore under a thin film), visually seating
 	// the foam line against open water. Vertex-color driven — meshes that
@@ -191,6 +242,13 @@ void fragment() {
 		float cap_a = value_noise(world_pos.xz * 1.4 + vec2(TIME * 0.06, TIME * -0.04));
 		float cap_b = value_noise(world_pos.xz * 1.4 + vec2(31.7 - TIME * 0.05, 8.2 + TIME * 0.08));
 		crest *= mix(1.0, smoothstep(0.22, 0.68, cap_a * cap_b * 1.9), dl * 0.85);
+		// Chop-peak flecks: where both directional octaves peak at once the
+		// micro-chop is steepest and spills — sparse white flecks on open
+		// water, denser toward true crests. Reuses chop_a/chop_b (zero extra
+		// samples) and adds after the lifecycle gate so flecks live on their
+		// own clock, not the whitecap one.
+		crest += smoothstep(0.74, 0.96, chop_a * chop_b * 1.55)
+				* (0.35 + 0.65 * clamp(wave_h * 0.5 + 0.5, 0.0, 1.0)) * (dl * 0.45);
 	}
 	float foam = clamp(foam_mask + crest, 0.0, 1.0);
 	if (dl > 0.001) {

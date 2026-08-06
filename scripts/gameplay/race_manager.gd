@@ -32,6 +32,12 @@ var _finish_countdown: float = -1.0
 var _completed: bool = false
 var _final_music: bool = false
 var _rng := RandomNumberGenerator.new()
+# Recent course pace per racer (smoothed metres/second along the guide),
+# sampled on the position cadence. Feeds projected finish times when the
+# post-winner window closes with racers still on course.
+var _pace_speed: Dictionary = {}
+var _pace_progress: Dictionary = {}
+var _pace_sample_time: float = -1.0
 
 
 func setup(p_course: CourseBase, p_powerups: PowerupSystem, time_trial: bool = false) -> void:
@@ -141,6 +147,7 @@ func _physics_process(delta: float) -> void:
 		_position_timer = 0.25
 		_update_positions()
 		_update_rubberband()
+		_update_pace()
 		# Final-stretch music escalation.
 		if not _final_music and player != null and is_instance_valid(player) \
 				and course.finish_offset > 0.0 and player.progress > course.finish_offset * 0.78:
@@ -200,6 +207,25 @@ func _update_rubberband() -> void:
 		racer.speed_scale = clampf(base + adjust, 0.78, 1.14)
 
 
+## Smoothed per-racer course pace over a ~3 s window. Runs on race_time (the
+## accumulated physics delta), so browser jank and time_scale cannot skew it.
+func _update_pace() -> void:
+	var dt := (race_time - _pace_sample_time) if _pace_sample_time >= 0.0 else 0.0
+	_pace_sample_time = race_time
+	for racer: Racer in racers:
+		if racer.state == Racer.State.FINISHED:
+			continue
+		var last := float(_pace_progress.get(racer, racer.progress))
+		_pace_progress[racer] = racer.progress
+		if dt <= 0.0:
+			continue
+		# A respawn snaps progress backward; read that as a zero-pace sample
+		# rather than negative pace.
+		var inst := clampf((racer.progress - last) / dt, 0.0, 22.0)
+		var prev := float(_pace_speed.get(racer, inst))
+		_pace_speed[racer] = lerpf(prev, inst, minf(dt / 3.0, 1.0))
+
+
 func _on_finish_crossed(racer: Racer) -> void:
 	if racer.state == Racer.State.FINISHED:
 		return
@@ -237,19 +263,32 @@ func _complete_race() -> void:
 	sorted.sort_custom(func(a: Racer, b: Racer) -> bool:
 		return a.race_position < b.race_position)
 	var course_length := course.finish_offset
+	var last_time := 0.0
 	for racer: Racer in sorted:
 		var finished := racer.state == Racer.State.FINISHED
 		var remaining := maxf(course_length - racer.progress, 0.0)
-		# Racers still on course when the race resolves get a projected time;
-		# only racers that never made real progress count as DNF.
-		var dnf := not finished and remaining > course_length * 0.4
-		var projected := race_time + remaining / 11.0
+		# True DNF is reserved for racers stuck at near-zero progress. Everyone
+		# else still on course when the window closes gets a finish projected
+		# from their recent pace — a janky real-time run (low-FPS browser) must
+		# never mass-DNF the field.
+		var dnf := not finished and racer.progress < course_length * 0.1
+		var time := racer.finish_time
+		if not finished:
+			if dnf:
+				time = race_time + DNF_TIME_PENALTY
+			else:
+				var pace := clampf(float(_pace_speed.get(racer, 0.0)), 6.5, 16.0)
+				# Monotonic with standings order, so a projected row can never
+				# leapfrog a real finisher or an on-course racer ahead of it.
+				time = maxf(race_time + remaining / pace, last_time + 0.6)
+		if not dnf:
+			last_time = maxf(last_time, time)
 		results.append({
 			"key": racer.racer_key,
 			"name": racer.display_name,
 			"is_player": racer.is_player,
 			"position": racer.race_position,
-			"time": racer.finish_time if finished else (projected if not dnf else race_time + DNF_TIME_PENALTY),
+			"time": time,
 			"fish": racer.fish_count,
 			"dnf": dnf,
 		})

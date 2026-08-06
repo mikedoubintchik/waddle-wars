@@ -1,7 +1,8 @@
 class_name RaceHUD
 extends CanvasLayer
 ## In-race HUD: position, progress, item, fish, speed, countdown, time,
-## messages. Scales with the accessibility HUD-scale setting.
+## messages, and an early "Finish Race" button once the player is done while
+## AI are still on course. Scales with the accessibility HUD-scale setting.
 ## Visual theme: deep navy rounded panels, ice-blue accents, warm yellow
 ## position highlight, soft drop shadows.
 
@@ -47,6 +48,10 @@ var _progress_bar: ProgressBar
 var _center_label: Label
 var _checkpoint_label: Label
 var _controls_hint: PanelContainer = null
+var _bar_tags: Array[Label] = []
+var _finish_button: Button = null
+var _race_over: bool = false
+var _hud_scale: float = 1.0
 var _root: Control
 
 
@@ -58,6 +63,12 @@ func setup(p_manager: RaceManager, p_player: Racer) -> void:
 	manager.race_started.connect(_fade_controls_hint)
 	manager.positions_updated.connect(_on_positions)
 	manager.message.connect(show_message)
+	manager.race_completed.connect(_on_race_completed)
+	# Early-finish offer: only meaningful when AI rivals keep racing after the
+	# player is done (never Time Trial or Endless; pointless in headless sims).
+	if not manager.single_racer_mode and not (manager is EndlessManager) \
+			and not GameConfig.is_headless():
+		manager.player_finished.connect(_on_player_finished)
 	player.fish_collected.connect(_on_fish)
 	player.item_received.connect(_on_item_received)
 	player.item_used.connect(_on_item_used)
@@ -176,11 +187,98 @@ static func _make_keycap(text: String, font_size: int) -> PanelContainer:
 	return cap
 
 
+## Shared control-reference strip: keycap/gesture pairs for the core race
+## actions, used by the in-race onboarding chip and the pause menu. Reads the
+## live key bindings at build time so remaps always display correctly; touch
+## devices get the gesture + button cheat sheet instead. With max_per_row > 0
+## the pairs wrap into centered rows (compact layouts like the pause menu).
+static func build_controls_strip(hud_scale: float, max_per_row: int = 0) -> Control:
+	var hints: Array = []
+	if UITheme.is_touch():
+		hints = [
+			[["Drag ↔"], "Steer"],
+			[["Swipe ↑"], "Jump"],
+			[["Hold ↓"], "Slide"],
+			[["SHOVE"], "Bump rivals"],
+			[["ITEM"], "Use pickup"],
+		]
+	else:
+		hints = [
+			[["steer_left", "steer_right"], "Steer"],
+			[["jump"], "Jump"],
+			[["slide"], "Slide"],
+			[["shove"], "Shove"],
+			[["use_item"], "Item"],
+		]
+	var column: VBoxContainer = null
+	if max_per_row > 0:
+		column = VBoxContainer.new()
+		column.add_theme_constant_override("separation", 8)
+		column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var row: HBoxContainer = null
+	for i: int in hints.size():
+		if row == null or (max_per_row > 0 and i % max_per_row == 0):
+			row = HBoxContainer.new()
+			row.add_theme_constant_override("separation", 16)
+			row.alignment = BoxContainer.ALIGNMENT_CENTER
+			row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			if column != null:
+				column.add_child(row)
+		var hint: Array = hints[i]
+		var pair := HBoxContainer.new()
+		pair.add_theme_constant_override("separation", 4)
+		pair.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for action: String in hint[0]:
+			var cap := action
+			if not UITheme.is_touch():
+				var key := SettingsManager.describe_action_binding(action, "key")
+				cap = key if key != "—" else "?"
+			pair.add_child(_make_keycap(cap, int(14 * hud_scale)))
+		var verb := Label.new()
+		verb.text = String(hint[1])
+		verb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		verb.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		verb.add_theme_font_size_override("font_size", int(14 * hud_scale))
+		verb.add_theme_color_override("font_color", Color(0.92, 0.96, 1.0))
+		pair.add_child(verb)
+		row.add_child(pair)
+	if column != null:
+		return column
+	return row
+
+
+## Tiny dim caption naming a HUD bar ("Course", "Boost"): low-contrast with a
+## thin navy outline so it reads over snow without drawing focus.
+func _make_bar_tag(text: String, hud_scale: float) -> Label:
+	var tag := Label.new()
+	tag.text = text
+	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tag.add_theme_font_size_override("font_size", int(12 * hud_scale))
+	tag.add_theme_color_override("font_color", Color(0.85, 0.93, 1.0, 0.62))
+	tag.add_theme_constant_override("outline_size", 4)
+	tag.add_theme_color_override("font_outline_color", Color(OUTLINE_NAVY, 0.85))
+	return tag
+
+
+## Mirrors the minimap's narrow-portrait rule: when a logical pixel renders
+## physically tiny the 12 px captions are unreadable noise, so hide them.
+func _update_bar_tags() -> void:
+	var window := get_window()
+	var viewport := get_viewport()
+	if window == null or viewport == null:
+		return
+	var logical_width := maxf(viewport.get_visible_rect().size.x, 1.0)
+	var px_per_logical := float(window.size.x) / logical_width
+	for tag: Label in _bar_tags:
+		tag.visible = px_per_logical >= 0.4
+
+
 func _build() -> void:
 	_root = Control.new()
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var hud_scale := float(SettingsManager.get_setting("accessibility", "hud_scale"))
+	_hud_scale = hud_scale
 	add_child(_root)
 
 	# Position card (top left).
@@ -344,6 +442,15 @@ func _build() -> void:
 	_speed_bar.show_percentage = false
 	_style_bar(_speed_bar, Color(0.35, 0.65, 0.95), ACCENT_YELLOW)
 	_root.add_child(_speed_bar)
+	# Tiny dim caption naming the bar (playtest: its meaning wasn't obvious).
+	var boost_tag := _make_bar_tag("Boost", hud_scale)
+	boost_tag.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	boost_tag.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	boost_tag.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	boost_tag.offset_right = -30
+	boost_tag.offset_bottom = -58
+	_root.add_child(boost_tag)
+	_bar_tags.append(boost_tag)
 
 	# Course progress (bottom center): deep ice to bright ice gradient.
 	_progress_bar = ProgressBar.new()
@@ -356,6 +463,21 @@ func _build() -> void:
 	_progress_bar.show_percentage = false
 	_style_bar(_progress_bar, Color(0.3, 0.6, 0.95), Color(0.62, 0.9, 1.0))
 	_root.add_child(_progress_bar)
+	var course_tag := _make_bar_tag("Course", hud_scale)
+	course_tag.anchor_left = 0.32
+	course_tag.anchor_right = 0.32
+	course_tag.anchor_top = 1.0
+	course_tag.anchor_bottom = 1.0
+	course_tag.grow_horizontal = Control.GROW_DIRECTION_END
+	course_tag.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	course_tag.offset_bottom = -48
+	_root.add_child(course_tag)
+	_bar_tags.append(course_tag)
+	# Same narrow-portrait rule as the minimap: hide the captions when logical
+	# pixels render physically tiny.
+	if not GameConfig.is_headless():
+		get_viewport().size_changed.connect(_update_bar_tags)
+		_update_bar_tags()
 
 	_checkpoint_label = Label.new()
 	_checkpoint_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
@@ -432,45 +554,7 @@ func _build() -> void:
 		strip_style.content_margin_top = 8.0
 		strip_style.content_margin_bottom = 8.0
 		_controls_hint.add_theme_stylebox_override("panel", strip_style)
-		var strip := HBoxContainer.new()
-		strip.add_theme_constant_override("separation", 16)
-		strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_controls_hint.add_child(strip)
-		var hints: Array = []
-		if UITheme.is_touch():
-			hints = [
-				[["Drag ↔"], "Steer"],
-				[["Swipe ↑"], "Jump"],
-				[["Hold ↓"], "Slide"],
-				[["SHOVE"], "Bump rivals"],
-				[["ITEM"], "Use pickup"],
-			]
-		else:
-			hints = [
-				[["steer_left", "steer_right"], "Steer"],
-				[["jump"], "Jump"],
-				[["slide"], "Slide"],
-				[["shove"], "Shove"],
-				[["use_item"], "Item"],
-			]
-		for hint: Array in hints:
-			var pair := HBoxContainer.new()
-			pair.add_theme_constant_override("separation", 4)
-			pair.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			for action: String in hint[0]:
-				var cap := action
-				if not UITheme.is_touch():
-					var key := SettingsManager.describe_action_binding(action, "key")
-					cap = key if key != "—" else "?"
-				pair.add_child(_make_keycap(cap, int(14 * hud_scale)))
-			var verb := Label.new()
-			verb.text = String(hint[1])
-			verb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			verb.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			verb.add_theme_font_size_override("font_size", int(14 * hud_scale))
-			verb.add_theme_color_override("font_color", Color(0.92, 0.96, 1.0))
-			pair.add_child(verb)
-			strip.add_child(pair)
+		_controls_hint.add_child(build_controls_strip(hud_scale))
 		_root.add_child(_controls_hint)
 
 	# Course minimap (top-right card under the item slot; hides itself on
@@ -543,6 +627,11 @@ func _process(_delta: float) -> void:
 		var course := player.course as CourseBase
 		if course.main_guide != null and course.main_guide.length > 1.0:
 			_progress_bar.value = clampf(player.progress / course.finish_offset, 0.0, 1.0)
+	# Keyboard/controller reachability: the finish button is the HUD's only
+	# focusable, so reclaim focus if a pause-menu round trip dropped it.
+	if _finish_button != null and is_instance_valid(_finish_button) \
+			and not _finish_button.disabled and get_viewport().gui_get_focus_owner() == null:
+		_finish_button.grab_focus()
 
 
 static func format_time(seconds: float) -> String:
@@ -566,18 +655,81 @@ func _on_countdown(value: int) -> void:
 			_center_label.modulate.a = 1.0)
 
 
-## Fades out the keyboard onboarding strip shortly after the race starts.
+## Fades out the keyboard onboarding strip a while after the race starts.
 func _fade_controls_hint() -> void:
 	if _controls_hint == null:
 		return
 	var tween := create_tween()
-	# 2s proved too short — players still reading it at GO missed it entirely.
-	tween.tween_interval(8.0)
-	tween.tween_property(_controls_hint, "modulate:a", 0.0, 0.6)
+	# 8s proved too short in playtests — hold well into the first stretch so
+	# new players can glance down mid-run, then fade.
+	tween.tween_interval(30.0)
 	tween.tween_callback(func() -> void:
-		if _controls_hint != null:
-			_controls_hint.queue_free()
-			_controls_hint = null)
+		_dismiss_controls_hint(0.6))
+
+
+## Fades and frees the onboarding chip; also called early when the player
+## finishes, since the strip is dead weight (and in the finish button's slot)
+## once the run is over.
+func _dismiss_controls_hint(fade_sec: float) -> void:
+	if _controls_hint == null:
+		return
+	var chip := _controls_hint
+	_controls_hint = null
+	var tween := create_tween()
+	tween.tween_property(chip, "modulate:a", 0.0, fade_sec)
+	tween.tween_callback(chip.queue_free)
+
+
+## Player done, rivals still racing: after a short grace window offer to close
+## the race out instead of making the player watch the full finish timeout.
+func _on_player_finished(_racer: Racer) -> void:
+	_dismiss_controls_hint(0.4)
+	get_tree().create_timer(4.0, false).timeout.connect(_show_finish_button)
+
+
+## Bottom-center "Finish Race" button (focusable, touch-sized): collapses the
+## manager's remaining finish window, so AI still on course resolve exactly as
+## they would at the timeout (projected times, DNF rules unchanged).
+func _show_finish_button() -> void:
+	if _race_over or _finish_button != null or manager == null or not is_inside_tree():
+		return
+	var button_scale := clampf(_hud_scale, 0.85, 1.6)
+	_finish_button = UITheme.make_button("Finish Race →",
+		Vector2(250.0 * button_scale, 54.0 * button_scale), int(24.0 * button_scale))
+	UITheme.hook_sounds(_finish_button)
+	_finish_button.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_finish_button.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_finish_button.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_finish_button.offset_bottom = -96
+	_finish_button.pressed.connect(_on_finish_button_pressed)
+	_root.add_child(_finish_button)
+	if UITheme.reduced_motion():
+		_finish_button.modulate.a = 1.0
+	else:
+		_finish_button.modulate.a = 0.0
+		var tween := create_tween()
+		tween.tween_property(_finish_button, "modulate:a", 1.0, 0.25)
+	_finish_button.grab_focus()
+
+
+func _on_finish_button_pressed() -> void:
+	if manager == null or _race_over:
+		return
+	_race_over = true
+	if _finish_button != null:
+		_finish_button.disabled = true
+	# Close the finish window through the manager's own time-based path: the
+	# next physics tick runs its normal completion, which assigns projected
+	# times to any AI still on course.
+	if manager._finish_countdown > 0.05:
+		manager._finish_countdown = 0.05
+
+
+func _on_race_completed() -> void:
+	_race_over = true
+	if _finish_button != null and is_instance_valid(_finish_button):
+		_finish_button.queue_free()
+	_finish_button = null
 
 
 func show_message(text: String) -> void:

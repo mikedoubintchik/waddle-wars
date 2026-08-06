@@ -26,7 +26,9 @@ const SPACE_M: int = 24
 const SPACE_L: int = 40
 
 ## Minimum comfortable touch target height (logical px) and list spacing on
-## touch devices. Applied centrally so every menu inherits them.
+## touch devices. Applied centrally so every control inherits them, including
+## the in-race HUD and the pause menu, which have their own vertical budgets —
+## keep this floor conservative and use scaled_size for menu rows instead.
 const TOUCH_MIN_HEIGHT: int = 48
 const TOUCH_SPACING: int = 12
 
@@ -34,6 +36,42 @@ const TOUCH_SPACING: int = 12
 const SWIPE_BACK_EDGE_WIDTH: float = 36.0
 const SWIPE_BACK_DISTANCE: float = 80.0
 const SWIPE_BACK_TIME_MS: int = 600
+
+## --- Touch enlargement ------------------------------------------------------
+##
+## Menus are authored against the 1920x1080 desktop canvas. SettingsManager
+## already shrinks that canvas by TOUCH_UI_BOOST on touch devices, but a phone
+## still reads the result as a small desktop screen rather than an app, so
+## menus pass their authored metrics through the scaled*/content_width helpers
+## below for a second, menu-only enlargement.
+##
+## The stretch aspect is "expand" and the design height is fixed, so a
+## landscape phone always has ~1080/boost logical units of height no matter the
+## device while width grows with the aspect ratio. Height is therefore the
+## scarce dimension: widths and fonts take the full step, heights take the
+## gentler MENU_TOUCH_SCALE_Y step, and display headings are capped outright.
+const MENU_TOUCH_SCALE: float = 1.45
+const MENU_TOUCH_SCALE_Y: float = 1.16
+
+## Fraction of the viewport width a centered menu column should occupy on
+## touch (content_width clamps into this band). Wide enough to read as a
+## native app, narrow enough to keep a visible margin on both edges.
+const TOUCH_CONTENT_MIN_FRAC: float = 0.70
+const TOUCH_CONTENT_MAX_FRAC: float = 0.86
+
+## Ceiling for display headings on touch. Headings are the tallest thing on a
+## menu and the least interactive, so on a phone they are scaled up only until
+## this cap and the reclaimed height goes to the rows below.
+const TOUCH_HEADING_MAX: int = 56
+
+## Floor for a menu row's height on touch, applied by scaled_size only. The
+## design canvas keeps its 1080-unit height on every device, so a logical unit
+## is roughly half a physical point on a landscape phone: 48 units would be a
+## ~23pt target, well under the ~44pt a native app uses, while 88 lands at
+## ~43pt. Menu screens opt into this through scaled_size; the race HUD and the
+## pause menu stay on the conservative TOUCH_MIN_HEIGHT floor because their
+## vertical budgets are already tight.
+const MENU_TOUCH_ROW_HEIGHT: int = 88
 
 ## Three depth-layered bands (near green with curtain striations, mid violet,
 ## far faint magenta) — one draw pass, ALU only, so the layered-parallax read
@@ -121,6 +159,12 @@ const ICON_DOOR: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" 
 <path d="M42 32 H58 M51 24 L59 32 L51 40" stroke="#9fc4e0" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>"""
 
+## Back chevron shared by every screen's Back affordance so "leave this page"
+## always looks the same.
+const ICON_BACK: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<path d="M38 12 L18 32 L38 52" stroke="#9fc4e0" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>"""
+
 static var _display_font: FontVariation = null
 static var _button_font: FontVariation = null
 ## Aurora backdrop shader/materials are cached and shared across every menu
@@ -175,17 +219,99 @@ static func crisp_subviewport(viewport: SubViewport, host: Node) -> void:
 			win.size_changed.disconnect(apply))
 
 
+## Menu enlargement factor: 1.0 on desktop, MENU_TOUCH_SCALE on touch. Use the
+## scaled* helpers below in preference to multiplying by this directly.
+static func menu_scale() -> float:
+	return MENU_TOUCH_SCALE if is_touch() else 1.0
+
+
+## Authored horizontal metric (width, inset, icon size) -> on-screen metric.
+static func scaled(value: float) -> float:
+	return value * menu_scale()
+
+
+## Integer flavour of scaled(), for container theme constants.
+static func scaled_int(value: int) -> int:
+	return roundi(float(value) * menu_scale())
+
+
+## Authored font size -> on-screen font size. Body and control text takes the
+## full touch step; use scaled_heading for display headings instead.
+static func scaled_font(size: int) -> int:
+	return roundi(float(size) * menu_scale())
+
+
+## Authored control size -> on-screen control size. Width takes the full touch
+## step, height the gentler vertical step, and any positive height is floored
+## at MENU_TOUCH_ROW_HEIGHT so every menu row is a comfortable target. A zero
+## axis means "let the container decide" and is passed through untouched.
+static func scaled_size(size: Vector2) -> Vector2:
+	if not is_touch():
+		return size
+	var out := size
+	if out.x > 0.0:
+		out.x *= MENU_TOUCH_SCALE
+	if out.y > 0.0:
+		out.y = maxf(out.y * MENU_TOUCH_SCALE_Y, float(MENU_TOUCH_ROW_HEIGHT))
+	return out
+
+
+## Display-heading size: scaled up like body text but capped at
+## TOUCH_HEADING_MAX, because on a landscape phone vertical space runs out
+## long before horizontal space does.
+static func scaled_heading(size: int) -> int:
+	return mini(scaled_font(size), TOUCH_HEADING_MAX) if is_touch() else size
+
+
+## Width for a centered menu column (button stack, card list, result panel).
+## Desktop keeps the authored width exactly; touch enlarges it and then clamps
+## it into the TOUCH_CONTENT_* band of the live viewport, so the column fills
+## most of a landscape phone without ever running past the screen edge.
+## `host` only supplies the viewport — pass the screen root. Falls back to the
+## plainly scaled width when no viewport is available.
+static func content_width(base: float, host: Control) -> float:
+	if not is_touch():
+		return base
+	var width := scaled(base)
+	if host == null or not host.is_inside_tree():
+		return width
+	var view_width := host.get_viewport_rect().size.x
+	if view_width <= 0.0:
+		return width
+	return clampf(width, view_width * TOUCH_CONTENT_MIN_FRAC, view_width * TOUCH_CONTENT_MAX_FRAC)
+
+
+## Height for a fixed-size menu block (a list panel, a preview frame). Desktop
+## keeps the authored height; touch scales it vertically but never lets it grow
+## past `max_fraction` of the viewport, so the surrounding header and buttons
+## always keep their room on a short landscape viewport.
+static func content_height(base: float, host: Control, max_fraction: float) -> float:
+	if not is_touch():
+		return base
+	var height := maxf(base * MENU_TOUCH_SCALE_Y, float(TOUCH_MIN_HEIGHT))
+	if host == null or not host.is_inside_tree():
+		return height
+	var view_height := host.get_viewport_rect().size.y
+	if view_height <= 0.0:
+		return height
+	return minf(height, view_height * max_fraction)
+
+
 ## List/row separation helper: authored value on desktop, at least
-## TOUCH_SPACING on touch devices so rows never crowd fingertips.
+## TOUCH_SPACING on touch devices so rows never crowd fingertips. Gaps follow
+## the vertical step — widening them at the full step would eat the height the
+## enlarged rows need.
 static func spacing(base: int) -> int:
-	return maxi(base, TOUCH_SPACING) if is_touch() else base
+	if not is_touch():
+		return base
+	return maxi(roundi(float(base) * MENU_TOUCH_SCALE_Y), TOUCH_SPACING)
 
 
 ## Side margin for full-screen menu layouts: SCREEN_MARGIN on desktop, the
-## large rhythm step on phones so content keeps generous but usable margins
-## inside a 390pt-wide portrait viewport.
+## enlarged large rhythm step on touch so full-bleed list screens keep a
+## visible but thin gutter.
 static func screen_margin() -> int:
-	return SPACE_L if is_touch() else SCREEN_MARGIN
+	return scaled_int(SPACE_L) if is_touch() else SCREEN_MARGIN
 
 
 ## Emboldened, letter-spaced variation of the default font for large headers.
@@ -257,15 +383,19 @@ static func make_button(text: String, size: Vector2 = Vector2(320, 52), font_siz
 ## Standard stacked-menu button with a leading drawn-icon glyph (see the
 ## ICON_* consts). Falls back to the plain themed button when the SVG module
 ## is unavailable, so headless runs and sims are unaffected.
+## Stacked-menu buttons only ever appear on menu screens (never in the race
+## HUD, which has its own hud_scale), so the touch enlargement is applied here
+## rather than at every call site. Callers that need a viewport-relative width
+## override custom_minimum_size.x with content_width afterwards.
 static func make_menu_button(text: String, icon_svg: String, size: Vector2 = Vector2(520, 72), font_size: int = 32) -> Button:
-	var button := make_button(text, size, font_size)
+	var button := make_button(text, scaled_size(size), scaled_font(font_size))
 	if icon_svg != "":
 		var texture := make_icon(icon_svg, 1.0)
 		if texture != null:
 			button.icon = texture
 			button.expand_icon = true
-			button.add_theme_constant_override("icon_max_width", 34)
-			button.add_theme_constant_override("h_separation", 14)
+			button.add_theme_constant_override("icon_max_width", scaled_int(34))
+			button.add_theme_constant_override("h_separation", scaled_int(14))
 	return button
 
 
@@ -611,8 +741,8 @@ static func style_option_button(picker: OptionButton) -> void:
 	if is_touch():
 		picker.custom_minimum_size.y = maxf(picker.custom_minimum_size.y, float(TOUCH_MIN_HEIGHT))
 		var popup := picker.get_popup()
-		popup.add_theme_font_size_override("font_size", 22)
-		popup.add_theme_constant_override("v_separation", 16)
+		popup.add_theme_font_size_override("font_size", scaled_font(19))
+		popup.add_theme_constant_override("v_separation", scaled_int(14))
 
 
 ## Wires standard UI sounds onto a button. Call for every interactive button.

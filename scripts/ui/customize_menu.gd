@@ -27,48 +27,56 @@ func _ready() -> void:
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 32)
-	margin.add_theme_constant_override("margin_right", 32)
-	margin.add_theme_constant_override("margin_top", 20)
-	margin.add_theme_constant_override("margin_bottom", 20)
+	margin.add_theme_constant_override("margin_left", UITheme.scaled_int(32))
+	margin.add_theme_constant_override("margin_right", UITheme.scaled_int(32))
+	margin.add_theme_constant_override("margin_top", UITheme.spacing(20))
+	margin.add_theme_constant_override("margin_bottom", UITheme.spacing(20))
 	add_child(margin)
 
 	var layout := VBoxContainer.new()
-	layout.add_theme_constant_override("separation", 12)
+	layout.add_theme_constant_override("separation", UITheme.spacing(12))
 	margin.add_child(layout)
 
 	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 20)
+	header.add_theme_constant_override("separation", UITheme.scaled_int(20))
 	layout.add_child(header)
-	var title := UITheme.heading("Customize", 48)
+	var title := UITheme.heading("Customize", UITheme.scaled_heading(48))
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	header.add_child(title)
 	var fish_box := HBoxContainer.new()
-	fish_box.add_theme_constant_override("separation", 8)
+	fish_box.add_theme_constant_override("separation", UITheme.scaled_int(8))
 	header.add_child(fish_box)
 	var fish_tex := _make_fish_texture()
 	if fish_tex != null:
 		var fish_icon := TextureRect.new()
 		fish_icon.texture = fish_tex
-		fish_icon.custom_minimum_size = Vector2(42, 28)
+		fish_icon.custom_minimum_size = Vector2(UITheme.scaled(42.0), UITheme.scaled(28.0))
 		fish_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		fish_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		fish_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		fish_box.add_child(fish_icon)
 	_fish_label = Label.new()
-	_fish_label.add_theme_font_size_override("font_size", 28)
+	_fish_label.add_theme_font_size_override("font_size", UITheme.scaled_font(28))
 	_fish_label.add_theme_color_override("font_color", UITheme.COLOR_GOLD)
 	_fish_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	fish_box.add_child(_fish_label)
-	var back_button := UITheme.make_button("Back", Vector2(160, 48), 22)
+	var back_button := UITheme.make_button(
+		"Back", UITheme.scaled_size(Vector2(176, 50)), UITheme.scaled_font(22))
+	back_button.add_theme_color_override("font_color", UITheme.COLOR_GOLD)
+	var back_icon := UITheme.make_icon(UITheme.ICON_BACK, 1.0)
+	if back_icon != null:
+		back_button.icon = back_icon
+		back_button.expand_icon = true
+		back_button.add_theme_constant_override("icon_max_width", UITheme.scaled_int(22))
+		back_button.add_theme_constant_override("h_separation", UITheme.scaled_int(10))
 	UITheme.hook_sounds(back_button)
 	back_button.pressed.connect(_go_back)
 	header.add_child(back_button)
 
 	var columns := HBoxContainer.new()
 	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	columns.add_theme_constant_override("separation", 20)
+	columns.add_theme_constant_override("separation", UITheme.scaled_int(20))
 	layout.add_child(columns)
 
 	_build_preview(columns)
@@ -91,7 +99,9 @@ func _build_preview(parent: HBoxContainer) -> void:
 	var frame := PanelContainer.new()
 	frame.add_theme_stylebox_override("panel", UITheme.make_panel_style(Color(0.06, 0.11, 0.19, 0.95)))
 	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	frame.size_flags_stretch_ratio = 0.42
+	# Touch: the shop rows carry the enlarged item buttons, so the preview
+	# gives up part of its share of a phone's width.
+	frame.size_flags_stretch_ratio = 0.32 if UITheme.is_touch() else 0.42
 	parent.add_child(frame)
 
 	var container := SubViewportContainer.new()
@@ -220,15 +230,17 @@ func _process(delta: float) -> void:
 func _build_shop(parent: HBoxContainer) -> void:
 	var right := VBoxContainer.new()
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	right.size_flags_stretch_ratio = 0.58
-	right.add_theme_constant_override("separation", 10)
+	right.size_flags_stretch_ratio = 0.68 if UITheme.is_touch() else 0.58
+	right.add_theme_constant_override("separation", UITheme.spacing(10))
 	parent.add_child(right)
 
 	var tabs := HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", UITheme.spacing(8))
 	right.add_child(tabs)
 	for category: String in CosmeticsDB.CATEGORIES:
-		var tab := UITheme.make_button(String(CosmeticsDB.CATEGORY_NAMES[category]), Vector2(0, 44), 19)
+		var tab := UITheme.make_button(
+			String(CosmeticsDB.CATEGORY_NAMES[category]),
+			UITheme.scaled_size(Vector2(0, 44)), UITheme.scaled_font(19))
 		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tab.toggle_mode = true
 		UITheme.hook_sounds(tab)
@@ -251,9 +263,9 @@ func _build_shop(parent: HBoxContainer) -> void:
 
 	# Description strip: tooltips are hover-only, so touch (and keyboard)
 	# players read the focused/tapped item's flavor text here instead.
-	_desc_label = UITheme.sub_label("", 18)
+	_desc_label = UITheme.sub_label("", UITheme.scaled_font(18))
 	_desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_desc_label.custom_minimum_size = Vector2(0, 26)
+	_desc_label.custom_minimum_size = Vector2(0, UITheme.scaled(26.0))
 	right.add_child(_desc_label)
 
 
@@ -280,7 +292,8 @@ func _make_none_button() -> Button:
 	var text := "None"
 	if equipped_id == "":
 		text += "\nEquipped"
-	var button := UITheme.make_button(text, Vector2(0, 88), 21)
+	var button := UITheme.make_button(
+		text, UITheme.scaled_size(Vector2(0, 88)), UITheme.scaled_font(21))
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.mouse_entered.connect(AudioManager.ui_hover)
 	button.focus_entered.connect(AudioManager.ui_hover)
@@ -306,7 +319,8 @@ func _make_item_button(id: String) -> Button:
 	else:
 		status = "%d fish" % int(info.get("cost", 0))
 	var text := "%s\n%s" % [String(info.get("name", id)), status]
-	var button := UITheme.make_button(text, Vector2(0, 88), 21)
+	var button := UITheme.make_button(
+		text, UITheme.scaled_size(Vector2(0, 88)), UITheme.scaled_font(21))
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var desc := String(info.get("desc", ""))
 	button.tooltip_text = desc

@@ -22,35 +22,40 @@ func _ready() -> void:
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	margin.add_theme_constant_override("margin_left", UITheme.screen_margin())
 	margin.add_theme_constant_override("margin_right", UITheme.screen_margin())
-	margin.add_theme_constant_override("margin_top", 28)
-	margin.add_theme_constant_override("margin_bottom", 28)
+	margin.add_theme_constant_override("margin_top", UITheme.spacing(28))
+	margin.add_theme_constant_override("margin_bottom", UITheme.spacing(28))
 	add_child(margin)
 
 	var layout := VBoxContainer.new()
-	layout.add_theme_constant_override("separation", UITheme.SPACE_S)
+	layout.add_theme_constant_override("separation", UITheme.spacing(UITheme.SPACE_S))
 	margin.add_child(layout)
 
 	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 20)
+	header.add_theme_constant_override("separation", UITheme.scaled_int(20))
 	layout.add_child(header)
-	var title := UITheme.heading("Achievements", 48)
+	var title := UITheme.heading("Achievements", UITheme.scaled_heading(48))
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	header.add_child(title)
 	var progress_label := Label.new()
 	progress_label.text = "%d / %d" % [Progression.achievements_unlocked_count(), AchievementsDB.ORDER.size()]
-	progress_label.add_theme_font_size_override("font_size", 30)
+	progress_label.add_theme_font_size_override("font_size", UITheme.scaled_font(30))
 	progress_label.add_theme_color_override("font_color", UITheme.COLOR_GOLD)
 	progress_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	header.add_child(progress_label)
-	var back_button := UITheme.make_button("Back", Vector2(160, 48), 22)
+	var back_button := UITheme.make_button(
+		"Back", UITheme.scaled_size(Vector2(176, 50)), UITheme.scaled_font(22))
+	back_button.add_theme_color_override("font_color", UITheme.COLOR_GOLD)
+	var back_icon := UITheme.make_icon(UITheme.ICON_BACK, 1.0)
+	if back_icon != null:
+		back_button.icon = back_icon
+		back_button.expand_icon = true
+		back_button.add_theme_constant_override("icon_max_width", UITheme.scaled_int(22))
+		back_button.add_theme_constant_override("h_separation", UITheme.scaled_int(10))
 	UITheme.hook_sounds(back_button)
 	back_button.pressed.connect(_go_back)
 	header.add_child(back_button)
 	layout.add_child(UITheme.make_header_rule())
-
-	var player_panel := _build_player_panel()
-	layout.add_child(player_panel)
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -62,6 +67,11 @@ func _ready() -> void:
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", UITheme.spacing(10))
 	scroll.add_child(list)
+
+	# The player card scrolls with the badge list: on a landscape phone the
+	# fixed header alone already eats a third of the viewport.
+	var player_panel := _build_player_panel()
+	list.add_child(player_panel)
 
 	var entrance_items: Array[Control] = [header, player_panel]
 	for id: String in AchievementsDB.ORDER:
@@ -82,12 +92,13 @@ func _build_player_panel() -> PanelContainer:
 	panel.add_child(box)
 
 	var level_row := HBoxContainer.new()
-	level_row.add_theme_constant_override("separation", 16)
+	level_row.add_theme_constant_override("separation", UITheme.scaled_int(16))
 	box.add_child(level_row)
 	var level_label := Label.new()
 	level_label.text = "Level %d" % Progression.get_level()
-	level_label.add_theme_font_size_override("font_size", 26)
+	level_label.add_theme_font_size_override("font_size", UITheme.scaled_font(26))
 	level_label.add_theme_color_override("font_color", UITheme.COLOR_ACCENT)
+	level_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	level_row.add_child(level_label)
 
 	var xp_bar := ProgressBar.new()
@@ -95,7 +106,7 @@ func _build_player_panel() -> PanelContainer:
 	xp_bar.max_value = 1.0
 	xp_bar.value = Progression.level_progress()
 	xp_bar.show_percentage = false
-	xp_bar.custom_minimum_size = Vector2(0, 22)
+	xp_bar.custom_minimum_size = Vector2(0, UITheme.scaled(22.0))
 	xp_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	xp_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var bar_bg := StyleBoxFlat.new()
@@ -110,12 +121,13 @@ func _build_player_panel() -> PanelContainer:
 
 	var xp_label := Label.new()
 	xp_label.text = "%d / %d XP" % [Progression.get_xp() % Progression.XP_PER_LEVEL, Progression.XP_PER_LEVEL]
-	xp_label.add_theme_font_size_override("font_size", 19)
+	xp_label.add_theme_font_size_override("font_size", UITheme.scaled_font(19))
 	xp_label.add_theme_color_override("font_color", UITheme.COLOR_TEXT_DIM)
+	xp_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	level_row.add_child(xp_label)
 
 	var stats_row := HBoxContainer.new()
-	stats_row.add_theme_constant_override("separation", 28)
+	stats_row.add_theme_constant_override("separation", UITheme.scaled_int(28))
 	box.add_child(stats_row)
 	var stats: Array = [
 		["Races Finished", Progression.get_stat("races_finished")],
@@ -128,12 +140,12 @@ func _build_player_panel() -> PanelContainer:
 		stats_row.add_child(stat_box)
 		var value_label := Label.new()
 		value_label.text = str(entry[1])
-		value_label.add_theme_font_size_override("font_size", 26)
+		value_label.add_theme_font_size_override("font_size", UITheme.scaled_font(26))
 		value_label.add_theme_color_override("font_color", UITheme.COLOR_TEXT)
 		stat_box.add_child(value_label)
 		var name_label := Label.new()
 		name_label.text = String(entry[0])
-		name_label.add_theme_font_size_override("font_size", 17)
+		name_label.add_theme_font_size_override("font_size", UITheme.scaled_font(17))
 		name_label.add_theme_color_override("font_color", UITheme.COLOR_TEXT_DIM)
 		stat_box.add_child(name_label)
 	return panel
@@ -151,14 +163,15 @@ func _build_achievement_row(id: String) -> PanelContainer:
 		style.set_border_width_all(2)
 	panel.add_theme_stylebox_override("panel", style)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 16)
+	row.add_theme_constant_override("separation", UITheme.scaled_int(16))
+	row.custom_minimum_size = Vector2(0.0, UITheme.scaled_size(Vector2(0.0, 52.0)).y)
 	panel.add_child(row)
 
 	var badge_texture := UITheme.make_icon(BADGE_UNLOCKED_SVG if unlocked else BADGE_LOCKED_SVG, 1.0)
 	if badge_texture != null:
 		var badge := TextureRect.new()
 		badge.texture = badge_texture
-		badge.custom_minimum_size = Vector2(44, 44)
+		badge.custom_minimum_size = Vector2(UITheme.scaled(44.0), UITheme.scaled(44.0))
 		badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		badge.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -168,24 +181,26 @@ func _build_achievement_row(id: String) -> PanelContainer:
 	else:
 		var badge := Label.new()
 		badge.text = "*" if unlocked else "-"
-		badge.add_theme_font_size_override("font_size", 34)
+		badge.add_theme_font_size_override("font_size", UITheme.scaled_font(34))
 		badge.add_theme_color_override("font_color", UITheme.COLOR_GOLD if unlocked else UITheme.COLOR_DISABLED)
-		badge.custom_minimum_size = Vector2(44, 0)
+		badge.custom_minimum_size = Vector2(UITheme.scaled(44.0), 0.0)
 		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		row.add_child(badge)
 
 	var text_box := VBoxContainer.new()
 	text_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(text_box)
 	var name_label := Label.new()
 	name_label.text = String(info.get("name", id))
-	name_label.add_theme_font_size_override("font_size", 24)
+	name_label.add_theme_font_size_override("font_size", UITheme.scaled_font(24))
 	name_label.add_theme_color_override("font_color", UITheme.COLOR_GOLD if unlocked else UITheme.COLOR_TEXT_DIM)
 	text_box.add_child(name_label)
 	var desc_label := Label.new()
 	desc_label.text = String(info.get("desc", ""))
-	desc_label.add_theme_font_size_override("font_size", 19)
+	desc_label.add_theme_font_size_override("font_size", UITheme.scaled_font(19))
+	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc_label.add_theme_color_override("font_color", UITheme.COLOR_TEXT if unlocked else UITheme.COLOR_DISABLED)
 	text_box.add_child(desc_label)
 
@@ -194,15 +209,15 @@ func _build_achievement_row(id: String) -> PanelContainer:
 	var state_label := Label.new()
 	state_label.text = "Unlocked" if unlocked else "Locked"
 	state_label.add_theme_font_override("font", UITheme.bold_font())
-	state_label.add_theme_font_size_override("font_size", 17)
+	state_label.add_theme_font_size_override("font_size", UITheme.scaled_font(17))
 	state_label.add_theme_color_override("font_color", UITheme.COLOR_GOLD if unlocked else UITheme.COLOR_TEXT_DIM)
 	var pill := StyleBoxFlat.new()
 	pill.bg_color = Color(UITheme.COLOR_GOLD, 0.13) if unlocked else Color(1.0, 1.0, 1.0, 0.05)
 	pill.border_color = Color(UITheme.COLOR_GOLD, 0.45) if unlocked else Color(1.0, 1.0, 1.0, 0.10)
 	pill.set_border_width_all(1)
 	pill.set_corner_radius_all(12)
-	pill.content_margin_left = 12.0
-	pill.content_margin_right = 12.0
+	pill.content_margin_left = UITheme.scaled(12.0)
+	pill.content_margin_right = UITheme.scaled(12.0)
 	pill.content_margin_top = 3.0
 	pill.content_margin_bottom = 3.0
 	state_label.add_theme_stylebox_override("normal", pill)

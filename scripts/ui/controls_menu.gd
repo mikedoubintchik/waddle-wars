@@ -29,26 +29,35 @@ func _ready() -> void:
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	margin.add_theme_constant_override("margin_left", UITheme.screen_margin())
 	margin.add_theme_constant_override("margin_right", UITheme.screen_margin())
-	margin.add_theme_constant_override("margin_top", 28)
-	margin.add_theme_constant_override("margin_bottom", 28)
+	margin.add_theme_constant_override("margin_top", UITheme.spacing(28))
+	margin.add_theme_constant_override("margin_bottom", UITheme.spacing(28))
 	add_child(margin)
 
 	var layout := VBoxContainer.new()
-	layout.add_theme_constant_override("separation", UITheme.SPACE_S)
+	layout.add_theme_constant_override("separation", UITheme.spacing(UITheme.SPACE_S))
 	margin.add_child(layout)
 
 	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 20)
+	header.add_theme_constant_override("separation", UITheme.scaled_int(16))
 	layout.add_child(header)
-	var title := UITheme.heading("Controls", 48)
+	var title := UITheme.heading("Controls", UITheme.scaled_heading(48))
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	header.add_child(title)
-	var reset_button := UITheme.make_button("Reset to Defaults", Vector2(240, 48), 20)
+	var reset_button := UITheme.make_button(
+		"Reset to Defaults", UITheme.scaled_size(Vector2(240, 50)), UITheme.scaled_font(20))
 	UITheme.hook_sounds(reset_button)
 	reset_button.pressed.connect(_on_reset_pressed)
 	header.add_child(reset_button)
-	var back_button := UITheme.make_button("Back", Vector2(160, 48), 22)
+	var back_button := UITheme.make_button(
+		"Back", UITheme.scaled_size(Vector2(176, 50)), UITheme.scaled_font(22))
+	back_button.add_theme_color_override("font_color", UITheme.COLOR_GOLD)
+	var back_icon := UITheme.make_icon(UITheme.ICON_BACK, 1.0)
+	if back_icon != null:
+		back_button.icon = back_icon
+		back_button.expand_icon = true
+		back_button.add_theme_constant_override("icon_max_width", UITheme.scaled_int(22))
+		back_button.add_theme_constant_override("h_separation", UITheme.scaled_int(10))
 	UITheme.hook_sounds(back_button)
 	back_button.pressed.connect(_go_back)
 	header.add_child(back_button)
@@ -75,13 +84,14 @@ func _ready() -> void:
 	header_panel.add_theme_stylebox_override("panel", header_style)
 	entrance_items.append(header_panel)
 	for header_text: String in ["Action", "Keyboard", "Gamepad"]:
-		var cell := _cell_label(header_text, UITheme.COLOR_ACCENT, 24)
+		var cell := _cell_label(header_text, UITheme.COLOR_ACCENT, UITheme.scaled_font(24))
 		cell.add_theme_font_override("font", UITheme.display_font())
 		header_row.add_child(cell)
 
 	for action: String in SettingsManager.REMAPPABLE_ACTIONS:
 		var row := _make_row(list)
-		row.add_child(_cell_label(String(ACTION_NAMES.get(action, action)), UITheme.COLOR_TEXT, 21))
+		row.add_child(_cell_label(
+			String(ACTION_NAMES.get(action, action)), UITheme.COLOR_TEXT, UITheme.scaled_font(21)))
 		row.add_child(_make_binding_button(action, "key"))
 		row.add_child(_make_binding_button(action, "joy"))
 		entrance_items.append(row.get_parent() as PanelContainer)
@@ -97,7 +107,7 @@ func _ready() -> void:
 	var touch_title := Label.new()
 	touch_title.text = "Touch"
 	touch_title.add_theme_font_override("font", UITheme.display_font())
-	touch_title.add_theme_font_size_override("font_size", 24)
+	touch_title.add_theme_font_size_override("font_size", UITheme.scaled_heading(24))
 	touch_title.add_theme_color_override("font_color", UITheme.COLOR_ACCENT)
 	touch_box.add_child(touch_title)
 	touch_box.add_child(UITheme.make_header_rule())
@@ -107,7 +117,7 @@ func _ready() -> void:
 		"Shove: SHOVE button    Item: ITEM button",
 		"Pause: pause icon, top corner",
 	]:
-		touch_box.add_child(UITheme.sub_label(hint, 19))
+		touch_box.add_child(UITheme.sub_label(hint, UITheme.scaled_font(19)))
 
 	entrance_items.append(touch_panel)
 	UITheme.play_entrance(self, entrance_items)
@@ -123,7 +133,8 @@ func _make_row(parent: VBoxContainer) -> HBoxContainer:
 	panel.add_theme_stylebox_override("panel", UITheme.make_panel_style(Color(0.106, 0.180, 0.298, 0.7)))
 	parent.add_child(panel)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 16)
+	row.add_theme_constant_override("separation", UITheme.scaled_int(16))
+	row.custom_minimum_size = Vector2(0.0, UITheme.scaled_size(Vector2(0.0, 44.0)).y)
 	panel.add_child(row)
 	return row
 
@@ -139,7 +150,9 @@ func _cell_label(text: String, color: Color, font_size: int) -> Label:
 
 
 func _make_binding_button(action: String, family: String) -> Button:
-	var button := UITheme.make_button(SettingsManager.describe_action_binding(action, family), Vector2(220, 44), 19)
+	var button := UITheme.make_button(
+		SettingsManager.describe_action_binding(action, family),
+		UITheme.scaled_size(Vector2(220, 44)), UITheme.scaled_font(19))
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UITheme.hook_sounds(button)
 	button.pressed.connect(_begin_capture.bind(action, family))
@@ -160,11 +173,11 @@ func _build_capture_overlay() -> void:
 	box.add_theme_constant_override("separation", 10)
 	_capture_overlay.add_child(box)
 	_capture_label = Label.new()
-	_capture_label.add_theme_font_size_override("font_size", 28)
+	_capture_label.add_theme_font_size_override("font_size", UITheme.scaled_heading(28))
 	_capture_label.add_theme_color_override("font_color", UITheme.COLOR_GOLD)
 	_capture_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(_capture_label)
-	var hint := UITheme.sub_label("Esc or tap anywhere cancels", 19)
+	var hint := UITheme.sub_label("Esc or tap anywhere cancels", UITheme.scaled_font(19))
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(hint)
 

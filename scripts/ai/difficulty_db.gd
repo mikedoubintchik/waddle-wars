@@ -17,6 +17,21 @@ const ITEMS: Dictionary = {
 	"competitive": {
 		"name": "Competitive",
 		"desc": "Rivals who actually want the fish.",
+		"reaction_delay": 0.26,
+		"steer_precision": 0.88,
+		"mistake_rate": 0.10,
+		"speed_scale": 0.97,
+		"item_aggression": 0.7,
+		"shortcut_chance": 0.55,
+		"rubberband": 0.17,
+	},
+	## Autopilot profile for the Waddle School demo drive. Frozen at the
+	## pre-2026-08-06 "competitive" numbers: the buffed race profile carries
+	## enough pace and steering precision to overshoot the lesson obstacles,
+	## which stalls the unattended run. Not selectable by players.
+	"tutorial_demo": {
+		"name": "Demo",
+		"desc": "Autopilot profile used by Waddle School.",
 		"reaction_delay": 0.3,
 		"steer_precision": 0.82,
 		"mistake_rate": 0.15,
@@ -28,13 +43,13 @@ const ITEMS: Dictionary = {
 	"emperor": {
 		"name": "Emperor",
 		"desc": "Ruthless, precise, majestic. Good luck.",
-		"reaction_delay": 0.14,
-		"steer_precision": 0.96,
-		"mistake_rate": 0.05,
-		"speed_scale": 1.0,
-		"item_aggression": 0.9,
-		"shortcut_chance": 0.8,
-		"rubberband": 0.18,
+		"reaction_delay": 0.12,
+		"steer_precision": 0.98,
+		"mistake_rate": 0.03,
+		"speed_scale": 1.02,
+		"item_aggression": 0.95,
+		"shortcut_chance": 0.85,
+		"rubberband": 0.2,
 	},
 }
 

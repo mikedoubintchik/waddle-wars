@@ -52,10 +52,6 @@ const ICON_COURSE_ICEBERG: String = """<svg xmlns="http://www.w3.org/2000/svg" w
 <path d="M6 48 Q14 44 22 48 T38 48 T54 48" stroke="#2b6f9e" stroke-width="4" fill="none" stroke-linecap="round"/>
 </svg>"""
 
-const ICON_BACK: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-<path d="M38 12 L18 32 L38 52" stroke="#9fc4e0" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>"""
-
 const COURSE_ICONS: Dictionary = {
 	"glacier": ICON_COURSE_GLACIER,
 	"aurora": ICON_COURSE_AURORA,
@@ -73,14 +69,26 @@ var _chosen_mode: Game.Mode = Game.Mode.QUICK_RACE
 var _chosen_course: String = "glacier"
 var _content: VBoxContainer
 var _buttons: Array[Button] = []
+## Card width: authored on desktop, most of the screen width on touch.
+var _card_width: float = 660.0
 
 
 func _ready() -> void:
 	UITheme.make_background(self)
 	UITheme.apply_ui_scale(self)
+	_card_width = UITheme.content_width(660.0, self)
+	# Five enlarged cards outgrow a landscape phone's viewport, so the step
+	# lives in a scroll wrapper; while it fits, the expanding CenterContainer
+	# keeps the desktop composition perfectly centered.
+	var scroll := ScrollContainer.new()
+	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	add_child(scroll)
 	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.add_child(center)
 	_content = VBoxContainer.new()
 	_content.alignment = BoxContainer.ALIGNMENT_CENTER
 	_content.add_theme_constant_override("separation", UITheme.spacing(UITheme.SPACE_S))
@@ -96,18 +104,18 @@ func _clear() -> void:
 
 
 func _heading(text: String) -> void:
-	var label := UITheme.heading(text, 52)
+	var label := UITheme.heading(text, UITheme.scaled_heading(52))
 	_content.add_child(label)
 	# Shared header treatment: the rule spans the card column and sweeps in,
 	# matching every other menu's make_header_rule rhythm.
 	_content.add_child(UITheme.make_header_rule())
 	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 8)
+	gap.custom_minimum_size = Vector2(0, UITheme.spacing(8))
 	_content.add_child(gap)
 
 
 func _sub(text: String) -> void:
-	var label := UITheme.sub_label(text, 22)
+	var label := UITheme.sub_label(text, UITheme.scaled_font(22))
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_content.add_child(label)
 
@@ -133,7 +141,7 @@ func _show_mode_step() -> void:
 	_add_option("Grand Prix", "Three races. Points decide the cup.", pick_gp, ICON_GRAND_PRIX)
 	_add_option("Endless Expedition", "Outrun an ever-faster storm.  Best: %d" % Progression.endless_high_score(), pick_endless, ICON_ENDLESS)
 	_add_option("Time Trial", "Race your ghost. No items, pure skill.", pick_tt, ICON_TIME_TRIAL)
-	_add_option("Back", "", go_back, ICON_BACK)
+	_add_option("Back", "", go_back, UITheme.ICON_BACK)
 	_focus_first()
 	_play_entrance()
 
@@ -156,7 +164,7 @@ func _show_course_step() -> void:
 			else:
 				_show_difficulty_step()
 		_add_option(String(info["name"]), desc, pick_course, String(COURSE_ICONS.get(id, ICON_COURSE_GLACIER)))
-	_add_option("Back", "", _show_mode_step, ICON_BACK)
+	_add_option("Back", "", _show_mode_step, UITheme.ICON_BACK)
 	_focus_first()
 	_play_entrance()
 
@@ -175,7 +183,7 @@ func _show_difficulty_step() -> void:
 			else:
 				Game.start_quick_race(_chosen_course, difficulty_id)
 		_add_option(String(info["name"]), String(info.get("desc", "")), pick_difficulty, _difficulty_icon(id, i + 1))
-	_add_option("Back", "", _show_mode_step if _chosen_mode == Game.Mode.GRAND_PRIX else _show_course_step, ICON_BACK)
+	_add_option("Back", "", _show_mode_step if _chosen_mode == Game.Mode.GRAND_PRIX else _show_course_step, UITheme.ICON_BACK)
 	_focus_first()
 	_play_entrance()
 
@@ -195,22 +203,24 @@ func _difficulty_icon(id: String, tier: int) -> String:
 func _add_option(title: String, desc: String, action: Callable, icon_svg: String = "") -> void:
 	var is_compact := desc == ""
 	# 112 tall: room for a two-line wrapped description (see autowrap below).
-	var button := UITheme.make_button("", Vector2(660, 64 if is_compact else 112), 24)
+	var button := UITheme.make_button(
+		"", UITheme.scaled_size(Vector2(0.0, 64.0 if is_compact else 112.0)), 24)
+	button.custom_minimum_size.x = _card_width
 	UITheme.hook_sounds(button)
 	button.pressed.connect(action)
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	margin.add_theme_constant_override("margin_left", 22)
-	margin.add_theme_constant_override("margin_right", 22)
+	margin.add_theme_constant_override("margin_left", UITheme.scaled_int(22))
+	margin.add_theme_constant_override("margin_right", UITheme.scaled_int(22))
 	margin.add_theme_constant_override("margin_top", 8)
 	margin.add_theme_constant_override("margin_bottom", 8)
 	button.add_child(margin)
 
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", 20)
+	row.add_theme_constant_override("separation", UITheme.scaled_int(20))
 	row.alignment = BoxContainer.ALIGNMENT_BEGIN
 	margin.add_child(row)
 
@@ -219,7 +229,7 @@ func _add_option(title: String, desc: String, action: Callable, icon_svg: String
 		if texture != null:
 			var icon := TextureRect.new()
 			icon.texture = texture
-			icon.custom_minimum_size = Vector2(52, 52)
+			icon.custom_minimum_size = Vector2(UITheme.scaled(52.0), UITheme.scaled(52.0))
 			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -236,7 +246,7 @@ func _add_option(title: String, desc: String, action: Callable, icon_svg: String
 	var title_label := Label.new()
 	title_label.text = title
 	title_label.add_theme_font_override("font", UITheme.bold_font())
-	title_label.add_theme_font_size_override("font_size", 26)
+	title_label.add_theme_font_size_override("font_size", UITheme.scaled_font(26))
 	title_label.add_theme_color_override("font_color", UITheme.COLOR_TEXT)
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text_box.add_child(title_label)
@@ -244,7 +254,7 @@ func _add_option(title: String, desc: String, action: Callable, icon_svg: String
 	if not is_compact:
 		var desc_label := Label.new()
 		desc_label.text = desc
-		desc_label.add_theme_font_size_override("font_size", 18)
+		desc_label.add_theme_font_size_override("font_size", UITheme.scaled_font(18))
 		desc_label.add_theme_color_override("font_color", UITheme.COLOR_TEXT_DIM)
 		desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		# Wrap inside the card instead of overflowing its right edge.

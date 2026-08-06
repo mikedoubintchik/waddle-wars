@@ -1,6 +1,7 @@
 class_name PauseMenu
 extends CanvasLayer
-## In-race pause overlay with resume / restart / quick settings / quit.
+## In-race pause overlay with resume / restart / quick settings / a control
+## reference (shared with RaceHUD's onboarding strip) / quit.
 
 var _panel: Control = null
 var _paused: bool = false
@@ -114,6 +115,16 @@ func _open() -> void:
 		SettingsManager.set_setting("audio", "muted", now_muted)
 		(_mute_button_ref as Button).text = "Unmute" if now_muted else "Mute All")
 	_mute_button_ref = mute_button
+	# Control reference: the same keycap/gesture strip the race HUD shows at
+	# the start (live bindings, gesture sheet on touch), wrapped into compact
+	# rows so a mid-race pause can always re-check the controls.
+	var controls_label := UITheme.sub_label("Controls", 18)
+	controls_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(controls_label)
+	var hud_scale := float(SettingsManager.get_setting("accessibility", "hud_scale"))
+	var strip := RaceHUD.build_controls_strip(hud_scale, 3)
+	strip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	vbox.add_child(strip)
 	_quit_armed = false
 	_quit_button = _add_button(vbox, "Quit to Menu", _on_quit_pressed)
 	# Edge swipe resumes, mirroring the Resume button for touch players.

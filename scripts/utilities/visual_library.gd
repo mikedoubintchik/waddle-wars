@@ -61,7 +61,13 @@ static func dressing_range_scale() -> float:
 		"medium":
 			return 1.0
 		_:
-			return 0.0
+			# Chrome reaches WebGL2 through ANGLE, where per-draw-call driver
+			# overhead — not shading — is the wall the frame budget hits. The
+			# high preset keeps its look but drops the far field there: 1.3 is
+			# a gentler cut than the medium preset already ships (1.0), and the
+			# skyline dressing opts in at 900-1200 m base, past the camera's
+			# 900 m far plane, so only track-side clutter is ever affected.
+			return 1.3 if GameConfig.is_web_chrome() else 0.0
 
 
 ## Applies VisibilityRange distance culling with a self-fade to decorative
@@ -393,3 +399,71 @@ static func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, color: Col
 	st.add_vertex(b)
 	st.set_color(color)
 	st.add_vertex(c)
+
+
+## --- Cache registry (shader warm-up) -----------------------------------------
+## The dedup pass above collapsed a course build down to a dozen or so shared
+## materials, but each of those still costs a linked GPU program the first time
+## something wearing it is drawn — milliseconds under Chrome's ANGLE -> Metal
+## path. ShaderWarmup walks these registries behind the loading overlay and
+## draws one sub-pixel instance per entry so nothing links mid-race.
+
+## One-triangle mesh carrying the full attribute set (normal, tangent, UV,
+## vertex color) the shipped meshes use, so a warm-up draw links the same
+## program a real surface will ask for.
+##
+## The model itself is 0.08 mm across, which matters for one case the warm-up
+## node's instance scale cannot cover: a billboard material without
+## billboard_keep_scale throws the model matrix's scale away and draws at mesh
+## size. Under a pixel either way.
+static func warmup_mesh() -> ArrayMesh:
+	var key := "warmup_probe"
+	if _meshes.has(key):
+		return _meshes[key]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var corners: Array[Vector3] = [
+		Vector3(-0.00004, -0.00004, 0.0), Vector3(0.00004, -0.00004, 0.0), Vector3(0.0, 0.00004, 0.0),
+	]
+	var uvs: Array[Vector2] = [Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(0.5, 1.0)]
+	for i: int in corners.size():
+		st.set_color(Color(1.0, 1.0, 1.0, 1.0))
+		st.set_normal(Vector3.BACK)
+		st.set_tangent(Plane(Vector3.RIGHT, 1.0))
+		st.set_uv(uvs[i])
+		st.add_vertex(corners[i])
+	var mesh := st.commit()
+	_meshes[key] = mesh
+	return mesh
+
+
+## Every material minted through this library so far, in creation order.
+## Read repeatedly by the warm-up: props and racers spawn deferred, so the
+## registry keeps growing for a frame or two after a course finishes building.
+static func cached_materials() -> Array[Material]:
+	var out: Array[Material] = []
+	for value: Variant in _materials.values():
+		var mat := value as Material
+		if mat != null:
+			out.append(mat)
+	return out
+
+
+## Every helper mesh minted through this library so far. SurfaceTool meshes
+## have no GPU buffers until something draws them, so the warm-up pass touches
+## these too — a berg that only comes into frustum halfway down a course would
+## otherwise upload its vertex data on the frame it appears.
+static func cached_meshes() -> Array[Mesh]:
+	var out: Array[Mesh] = []
+	for value: Variant in _meshes.values():
+		var mesh := value as Mesh
+		if mesh != null:
+			out.append(mesh)
+	return out
+
+
+## Registry sizes (materials, meshes). Both dictionaries only ever grow, so
+## the warm-up compares this between passes and skips re-listing them when
+## nothing new has been minted.
+static func cache_sizes() -> Vector2i:
+	return Vector2i(_materials.size(), _meshes.size())

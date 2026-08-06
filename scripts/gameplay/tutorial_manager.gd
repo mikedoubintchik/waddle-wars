@@ -95,9 +95,12 @@ func _after_spawn() -> void:
 	var xform := course.start_grid_transform(0)
 	player.global_transform = xform
 	player.last_checkpoint_transform = xform
+	# Autopilot uses the frozen demo profile, not a race difficulty: the race
+	# profiles are tuned for competition and their pace overshoots the lesson
+	# obstacles, stalling the unattended run.
 	if RaceManager.autopilot_player and player.controller is AIController:
 		(player.controller as AIController).configure(
-			player, course, PersonalitiesDB.get_item("gus"), DifficultyDB.get_item("competitive"), 99)
+			player, course, PersonalitiesDB.get_item("gus"), DifficultyDB.get_item("tutorial_demo"), 99)
 	var shove_offset: float = course.main_guide.nearest(Vector3(0, 13, -450), -1)["offset"]
 	var buddy_xform := course.main_guide.transform_at(shove_offset)
 	buddy.global_transform = Transform3D(buddy_xform.basis, buddy_xform.origin + Vector3.UP * 0.5)
