@@ -1,3 +1,4 @@
+class_name TitleScreen
 extends Control
 ## Title screen: twilight 3D ice-floe diorama — aurora ribbons, star field,
 ## soft clouds, animated ocean, distant bergs, and idling penguins behind a
@@ -141,6 +142,12 @@ var _prompt_holder: Control
 
 ## Shared across title visits: one streak material and one glint shader —
 ## menus rebuild on every navigation, so statics avoid recompiles (WASM jank).
+## The wordmark raster is identical every visit and costs ~75 ms of SVG
+## rasterisation on the web build, so it is built once per session. BootWarmup
+## primes it during the studio splash, where the time is free.
+static var _logo_texture: ImageTexture = null
+static var _logo_texture_aspect: float = 0.5
+
 static var _streak_material: StandardMaterial3D = null
 static var _glint_shader: Shader = null
 static var _glint_material: ShaderMaterial = null
@@ -832,15 +839,10 @@ func _add_logo_sparkles() -> void:
 ## Rasterize the generated SVG wordmark into a TextureRect. Returns null on
 ## any failure so the caller can fall back to a plain Label.
 func _build_logo() -> Control:
-	var svg := _build_logo_svg()
-	if svg.is_empty():
-		return null
-	var img := Image.new()
-	if img.load_svg_from_string(svg, LOGO_RENDER_SCALE) != OK:
-		return null
-	var texture := ImageTexture.create_from_image(img)
+	var texture := logo_texture()
 	if texture == null:
 		return null
+	_logo_aspect = _logo_texture_aspect
 	_logo_rect = TextureRect.new()
 	_logo_rect.texture = texture
 	_logo_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -865,10 +867,25 @@ func _update_logo_size() -> void:
 	_logo_rect.custom_minimum_size = Vector2(width, width * _logo_aspect)
 
 
+## Session-cached wordmark raster. Safe to call before any title exists, which
+## is how the splash warm-up primes it.
+static func logo_texture() -> ImageTexture:
+	if _logo_texture != null:
+		return _logo_texture
+	var svg := _build_logo_svg()
+	if svg.is_empty():
+		return null
+	var img := Image.new()
+	if img.load_svg_from_string(svg, LOGO_RENDER_SCALE) != OK:
+		return null
+	_logo_texture = ImageTexture.create_from_image(img)
+	return _logo_texture
+
+
 ## Compose the full wordmark SVG: one line per word of GAME_NAME, four draw
 ## layers (offset shadow, navy outline, ice-gradient fill, snow caps).
 ## Returns "" if any character is missing from LOGO_LETTERS.
-func _build_logo_svg() -> String:
+static func _build_logo_svg() -> String:
 	var words: PackedStringArray = GameConfig.GAME_NAME.to_upper().split(" ", false)
 	if words.is_empty():
 		return ""
@@ -903,7 +920,7 @@ func _build_logo_svg() -> String:
 	var canvas_w := max_width + LOGO_MARGIN_X * 2.0
 	var canvas_h := LOGO_MARGIN_Y * 2.0 + float(words.size()) * LOGO_LINE_H \
 			+ float(words.size() - 1) * LOGO_LINE_GAP
-	_logo_aspect = canvas_h / canvas_w
+	_logo_texture_aspect = canvas_h / canvas_w
 
 	var parts: PackedStringArray = []
 	parts.append(
@@ -934,7 +951,7 @@ func _build_logo_svg() -> String:
 	return "".join(parts)
 
 
-func _letter_transform(entry: Array, extra_dy: float) -> String:
+static func _letter_transform(entry: Array, extra_dy: float) -> String:
 	var glyph := entry[0] as Dictionary
 	return "translate(%.1f %.1f) rotate(%.1f %.1f 50)" % [
 		float(entry[1]), float(entry[2]) + extra_dy,
@@ -942,7 +959,7 @@ func _letter_transform(entry: Array, extra_dy: float) -> String:
 	]
 
 
-func _append_stroke_layer(parts: PackedStringArray, layout: Array[Array],
+static func _append_stroke_layer(parts: PackedStringArray, layout: Array[Array],
 		stroke: String, width: float, opacity: float, dy: float) -> void:
 	for entry: Array in layout:
 		var glyph := entry[0] as Dictionary

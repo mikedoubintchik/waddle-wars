@@ -75,6 +75,14 @@ func _get_stream(name_key: String) -> AudioStream:
 	return value
 
 
+## Decodes a stream and caches it without playing anything. load() is
+## synchronous and the title theme costs ~214 ms on the web build, which landed
+## squarely on the title's first frame; BootWarmup calls this during the splash
+## instead. Safe to call for a key that is already loaded, or a missing one.
+func preload_stream(name_key: String) -> void:
+	_get_stream(name_key)
+
+
 ## --- Music ----------------------------------------------------------------
 
 func play_music(name_key: String, fade_time: float = 1.2) -> void:

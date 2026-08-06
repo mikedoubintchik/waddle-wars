@@ -95,6 +95,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build_viewport()
 	_fill_queue()
+	_warm_cpu_assets()
 	BootProfiler.step("warmup queued (%d)" % _queue.size())
 
 
@@ -207,6 +208,16 @@ func _fill_queue() -> void:
 			_queue.append(mat)
 	for probe: Material in ShaderWarmup.probe_materials():
 		_queue.append(probe)
+
+
+## Session-cached CPU work the title would otherwise do on the frame it is
+## first shown. Measured in Chrome, these were the two largest entries in the
+## title's 500 ms build: decoding the theme (~214 ms, load() is synchronous)
+## and rasterising the SVG wordmark (~75 ms). Both results are cached for the
+## session, so paying for them here removes them from the title entirely.
+func _warm_cpu_assets() -> void:
+	AudioManager.preload_stream("music_title")
+	TitleScreen.logo_texture()
 
 
 func _spawn(mat: Material) -> void:
