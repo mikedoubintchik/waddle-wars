@@ -16,6 +16,13 @@
 // Mobile-cheap: opaque, no textures; base = 1 noise octave + one 3x3 voronoi
 // (sin-free hash) + streak ALU; frost adds 3 samples only on track floors;
 // detail branch adds 6 noise samples + one finer voronoi.
+// DISTANCE DISCIPLINE (do not remove): the plate veins, hairline web, glint
+// facets and frost stipple are all sub-metre features. Left at full strength
+// they fall below a pixel at race-camera range and alias into crawling
+// speckle, which reads as dirty ice rather than ice. So the vein edge widens
+// with view distance (a poor-man's mip: veins go soft, never stroboscopic),
+// the sub-decimetre layers fade out entirely, and roughness rises with
+// distance to keep the specular lobe from aliasing into sparkle noise.
 // WebGL2/gl_compatibility-safe: basic spatial features only, no screen or
 // depth reads.
 shader_type spatial;
@@ -116,8 +123,13 @@ void fragment() {
 	float facing = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
 	float fresnel = pow(1.0 - facing, rim_power);
 	float n = value_noise(world_pos.xz * noise_scale + world_pos.y * 0.1);
-	vec3 view_world = normalize(CAMERA_POSITION_WORLD - world_pos);
+	vec3 to_cam = CAMERA_POSITION_WORLD - world_pos;
+	float view_dist = length(to_cam);
+	vec3 view_world = to_cam / max(view_dist, 0.0001);
 	vec3 n_world = normalize((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	// 0 near the camera, 1 out past the point where sub-metre detail stops
+	// being resolvable. Drives every anti-aliasing fade below.
+	float far = smoothstep(20.0, 60.0, view_dist);
 
 	// Looking straight down = "deeper" ice color; grazing angle = pale rim.
 	// clarity pushes toward the deep look (clear ice reads darker inside).
@@ -131,9 +143,13 @@ void fragment() {
 	// cell distances tie. Low-frequency noise varies vein intensity so the
 	// network reads organic, not tiled.
 	vec2 vor = voronoi_f12(world_pos.xz * crack_scale);
-	float crack_line = 1.0 - smoothstep(0.0, crack_sharpness, vor.y - vor.x);
+	// Widen the vein edge with distance instead of letting a fixed hairline
+	// width thin out below a pixel: the network stays legible far down the
+	// track but resolves as a soft line rather than a dashed, crawling one.
+	float crack_w = crack_sharpness * (1.0 + far * 2.5);
+	float crack_line = 1.0 - smoothstep(0.0, crack_w, vor.y - vor.x);
 	float crack_var = 0.55 + 0.45 * value_noise(world_pos.xz * 0.07 + 13.1);
-	float crack = crack_line * crack_strength * crack_var;
+	float crack = crack_line * crack_strength * crack_var * (1.0 - far * 0.35);
 	body = mix(body, vec3(0.9, 0.96, 1.0), crack * 0.75);
 
 	vec3 rim_col = rim_tint.rgb;
@@ -149,7 +165,7 @@ void fragment() {
 		float v2 = value_noise(base_uv * 1.9 - view_world.xz * 1.35 + vec2(0.0, TIME * -0.011));
 		float veins = smoothstep(0.52, 0.78, v1 * 0.6 + v2 * 0.4);
 		body = mix(body, vein_tint.rgb * mix(0.55, 0.85, facing),
-				veins * vein_strength * clarity * detail_level * 0.6);
+				veins * vein_strength * clarity * detail_level * 0.6 * (1.0 - far * 0.7));
 
 		// Deep absorption layer: low-frequency noise pushed far along the view
 		// vector. The strong differential parallax against the vein layers
@@ -159,10 +175,16 @@ void fragment() {
 				smoothstep(0.3, 0.85, v3) * depth_strength * clarity * detail_level);
 
 		// Finer hairline web between the main plates, sparsely masked so most
-		// slabs stay clean glass.
+		// slabs stay clean glass. ~0.7 m plates with a ~4 cm vein: only ever
+		// resolvable up close, so it fades out well before the main network
+		// does, widening as it goes. The sparse mask is a smoothstep rather
+		// than a step() — a hard threshold on a noise field draws a visible
+		// seam across the slabs wherever it flips.
+		float hair_fade = 1.0 - smoothstep(10.0, 30.0, view_dist);
 		vec2 vor2 = voronoi_f12(world_pos.xz * crack_scale * 3.1 + 7.7);
-		float hair = 1.0 - smoothstep(0.0, 0.05, vor2.y - vor2.x);
-		hair *= step(0.45, value_noise(world_pos.xz * 0.11 + 3.7)) * 0.35 * detail_level;
+		float hair = 1.0 - smoothstep(0.0, 0.05 + (1.0 - hair_fade) * 0.06, vor2.y - vor2.x);
+		hair *= smoothstep(0.42, 0.58, value_noise(world_pos.xz * 0.11 + 3.7))
+				* 0.35 * detail_level * hair_fade;
 		body = mix(body, vec3(0.85, 0.94, 1.0), hair * 0.5);
 		crack = max(crack, hair);
 
@@ -179,9 +201,12 @@ void fragment() {
 			hash21(cell) - 0.5,
 			hash21(cell + 3.0) * 0.5 + 0.6,
 			hash21(cell + 7.0) - 0.5));
+		// Cut off with distance like the snow sparkle does: a pow-96 lobe on
+		// 0.45 m cells is pure aliasing once a cell is smaller than a pixel.
+		float glint_fade = 1.0 - smoothstep(16.0, 34.0, view_dist);
 		float g = pow(clamp(dot(view_world, facet), 0.0, 1.0), 96.0);
 		glint_emission = vec3(0.9, 0.97, 1.0) * g * step(0.9, hash21(cell + 17.0))
-				* glint_strength * detail_level;
+				* glint_strength * detail_level * glint_fade;
 	}
 
 	// Frosted edge border: only on meshes flagged as track floors via
@@ -197,8 +222,10 @@ void fragment() {
 		float frost_side = 1.0 - smoothstep(ragged_w * 0.45, ragged_w, lat);
 		float frost_end = smoothstep(0.3, 0.85, UV2.x * (0.7 + 0.6 * frost_n));
 		frost = max(frost_side, frost_end) * frost_strength;
+		// Crystalline stipple: ~14 cm cells, so its contrast is annealed out
+		// with distance — otherwise the band edge boils along the track.
 		float stip = value_noise(world_pos.xz * 7.0 + 31.0);
-		frost *= 0.7 + 0.3 * smoothstep(0.35, 0.75, stip);
+		frost *= 1.0 - (0.3 - 0.3 * far) * (1.0 - smoothstep(0.35, 0.75, stip));
 	}
 
 	// Toward-camera stretched sun streak: elliptical gaussian around the half
@@ -226,7 +253,14 @@ void fragment() {
 			+ streak_emission
 			+ frost_tint.rgb * frost * 0.08;
 
-	float rough = clamp(roughness_base + (n - 0.5) * roughness_variation + crack * 0.25, 0.02, 1.0);
+	// Specular anti-aliasing: a near-mirror roughness on a surface whose
+	// normal-and-noise detail is shrinking below a pixel makes the highlight
+	// flicker. Widening the lobe with distance is the standard cheap fix and
+	// also matches how a rink actually reads far away — a broad sheen, not
+	// point sparkle.
+	float rough = clamp(roughness_base + (n - 0.5) * roughness_variation * (1.0 - far * 0.6)
+			+ crack * 0.25, 0.02, 1.0);
+	rough = clamp(rough + far * 0.14, 0.02, 1.0);
 	ROUGHNESS = mix(rough, 0.75, frost);
 	SPECULAR = specular_amount;
 	METALLIC = 0.0;

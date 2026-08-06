@@ -15,6 +15,16 @@
 // never reads as static or confetti at race-camera distance. Mobile-cheap:
 // no textures, no loops; 2 noise octaves base plus 8 extra noise samples
 // across the distance-gated detail branches.
+// NORMAL SAFETY (do not remove): every relief octave adds into one world-space
+// bump vector with no knowledge of the others. Unbounded, their sum tilts the
+// shading normal past the light terminator, and on a course with a low, dim
+// key light (night/moonlit) those fragments lose the key entirely and render
+// near-black — discrete dark blobs that read as dirt, not snow. So the bump is
+// (a) built from real slope estimates over a SHORT finite-difference step, so
+// the tilt follows the noise it shades instead of being a second incoherent
+// field, (b) projected into the surface tangent plane, and (c) soft-saturated
+// to max_normal_tilt. The shading normal therefore never deviates from the
+// geometric normal by more than atan(max_normal_tilt).
 // WebGL2/gl_compatibility-safe: basic spatial features only, no screen or
 // depth reads.
 shader_type spatial;
@@ -25,6 +35,14 @@ uniform vec4 shadow_tint : source_color = vec4(0.85, 0.91, 0.99, 1.0);
 uniform float noise_scale = 0.35;
 uniform float detail_strength : hint_range(0.0, 1.0) = 0.32;
 uniform float normal_strength : hint_range(0.0, 1.0) = 0.35;
+// Hard ceiling on the COMBINED relief tilt (tangent of the maximum shading
+// normal deviation). 0.20 => ~11.3 deg peak, against a typical (RMS) tilt of
+// ~6 deg from the octave weights below. Must stay well under tan(key light
+// elevation) of the dimmest course — aurora's moon sits at ~23.6 deg
+// (tan 0.44) — so every fragment stays on the lit side of the terminator even
+// on banked track, while drifts still model. Raising this past ~0.3
+// reintroduces the black-speckle artifact on night courses.
+uniform float max_normal_tilt : hint_range(0.0, 1.0) = 0.2;
 uniform float sparkle_strength : hint_range(0.0, 2.0) = 0.55;
 uniform float sparkle_density = 9.0;
 uniform float roughness_value : hint_range(0.0, 1.0) = 0.85;
@@ -92,7 +110,11 @@ void fragment() {
 	// Base tonal patches sit at ~2.9 m and ~1.4 m — inside the 1.5-4 m band
 	// the race camera resolves as soft drifts rather than mottle.
 	vec2 uv = world_pos.xz * noise_scale;
-	float n_base = value_noise(uv) * 0.7 + value_noise(uv * 2.1) * 0.3;
+	// Keep the primary octave separately: the relief gradient below has to be
+	// differenced against the SAME field it samples, otherwise the octave
+	// mismatch shows up as a standing bias in the normal.
+	float n_a = value_noise(uv);
+	float n_base = n_a * 0.7 + value_noise(uv * 2.1) * 0.3;
 	float n = n_base;
 	float grain = 0.5;
 	float roughness = roughness_value;
@@ -103,12 +125,26 @@ void fragment() {
 	float detail_fade = 1.0 - smoothstep(detail_fade_start, detail_fade_end, view_dist);
 	float dl = detail_level * detail_fade;
 
-	// Soft normal perturbation from noise gradient (view-space tilt, no
-	// tangents required — procedural ribbons have none).
-	float e = 0.9;
-	float nx = value_noise(uv + vec2(e, 0.0)) - n_base;
-	float nz = value_noise(uv + vec2(0.0, e)) - n_base;
-	vec3 bump_world = vec3(-nx, 0.0, -nz) * normal_strength;
+	// Geometric world normal, captured BEFORE any perturbation: the relief is
+	// accumulated in world space and gets projected back into this plane, so a
+	// steep face (drift flank, banked wall) can never have its normal shoved
+	// through the surface by a horizontal bump.
+	vec3 geo_normal = normalize((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
+
+	// Soft normal perturbation from the noise SLOPE (view-space tilt, no
+	// tangents required — procedural ribbons have none). The step is short
+	// relative to the 1-unit noise lattice and the difference is divided by it,
+	// so this is a real gradient: crests catch the key light and troughs lose
+	// it, matching the tonal noise. A long step (>0.5) stops approximating a
+	// derivative and instead samples a second, uncorrelated noise field at near
+	// full amplitude — that is what turned this layer into mottle.
+	float grad_e = 0.25;
+	float nx = (value_noise(uv + vec2(grad_e, 0.0)) - n_a) / grad_e;
+	float nz = (value_noise(uv + vec2(0.0, grad_e)) - n_a) / grad_e;
+	// Beyond the detail band the 2.9 m relief is sub-pixel; hold a fraction of
+	// it for large-scale form and drop the rest so far track cannot shimmer.
+	float base_relief = normal_strength * 0.5 * mix(0.35, 1.0, detail_fade);
+	vec3 bump_world = vec3(-nx, 0.0, -nz) * base_relief;
 
 	if (dl > 0.001) {
 		// Broad grain patches (~1/grain_scale metres): a subtle close-range
@@ -130,15 +166,16 @@ void fragment() {
 		vec2 wperp = vec2(-wdir.y, wdir.x);
 		vec2 suv = vec2(dot(world_pos.xz, wperp) * 0.55, dot(world_pos.xz, wdir) * 0.07);
 		float s = value_noise(suv);
-		float sgrad = value_noise(suv + vec2(0.35, 0.0)) - s;
-		bump_world += vec3(wperp.x, 0.0, wperp.y) * (-sgrad) * sastrugi_strength * dl;
+		float sgrad = (value_noise(suv + vec2(grad_e, 0.0)) - s) / grad_e;
+		bump_world += vec3(wperp.x, 0.0, wperp.y) * (-sgrad) * sastrugi_strength * 0.4 * dl;
 
 		// Second, finer sastrugi octave: wind-rippled corduroy riding on the
-		// broad ridges — the cross-wind gradient again tilts the normal.
+		// broad ridges — the cross-wind gradient again tilts the normal. Half
+		// the weight of the broad octave, as a ripple should be.
 		vec2 suv2 = suv * vec2(3.3, 2.2) + 11.0;
 		float s2 = value_noise(suv2);
-		float sgrad2 = value_noise(suv2 + vec2(0.3, 0.0)) - s2;
-		bump_world += vec3(wperp.x, 0.0, wperp.y) * (-sgrad2) * sastrugi_strength * 0.45 * dl;
+		float sgrad2 = (value_noise(suv2 + vec2(grad_e, 0.0)) - s2) / grad_e;
+		bump_world += vec3(wperp.x, 0.0, wperp.y) * (-sgrad2) * sastrugi_strength * 0.18 * dl;
 	}
 
 	float blend = clamp(0.5 + (n - 0.5) * detail_strength * 1.05, 0.0, 1.0);
@@ -167,13 +204,40 @@ void fragment() {
 	float micro_fade = 1.0 - smoothstep(micro_fade_start, micro_fade_end, view_dist);
 	float md = detail_level * micro_fade;
 	if (md > 0.001) {
-		vec2 muv = world_pos.xz * micro_bump_scale + vec2(5.2, 77.7);
+		// Sampled in a rotated, anisotropic frame. value_noise lives on a square
+		// world-axis lattice, so sampling it straight gives evenly spaced,
+		// axis-aligned hollows — a quilted polka-dot grid, the single most
+		// synthetic-looking thing this shader can do at footprint scale.
+		// Rotating ~31 deg off the world axes (and off the base/sastrugi
+		// layers) and squashing one axis turns the cells into scalloped,
+		// wind-drawn crust instead.
+		vec2 mdir = vec2(0.857, 0.515);
+		vec2 mperp = vec2(-mdir.y, mdir.x);
+		vec2 muv = vec2(dot(world_pos.xz, mdir), dot(world_pos.xz, mperp) * 0.72)
+				* micro_bump_scale + vec2(5.2, 77.7);
 		float m0 = value_noise(muv);
-		float m_x = value_noise(muv + vec2(0.55, 0.0)) - m0;
-		float m_z = value_noise(muv + vec2(0.0, 0.55)) - m0;
-		bump_world += vec3(-m_x, 0.0, -m_z) * micro_bump_strength * 1.4 * md;
-		albedo *= 1.0 + (m0 - 0.5) * 0.14 * md;
+		float m_x = (value_noise(muv + vec2(grad_e, 0.0)) - m0) / grad_e;
+		float m_z = (value_noise(muv + vec2(0.0, grad_e)) - m0) / grad_e;
+		// Rotate the gradient back into world XZ so the tilt matches the shape.
+		vec2 mg = mdir * m_x + mperp * (m_z * 0.72);
+		bump_world += vec3(-mg.x, 0.0, -mg.y) * micro_bump_strength * 0.24 * md;
+		// Matched tonal crunch. Albedo relief is terminator-proof (it is a
+		// multiply, it cannot drive a fragment to black), so it carries the
+		// near-camera detail that the tilt cap deliberately refuses to.
+		albedo *= 1.0 + (m0 - 0.5) * 0.16 * md;
 	}
+
+	// --- Combined tilt limiter (see NORMAL SAFETY note at the top) ----------
+	// 1. Project into the tangent plane: the bump may only tilt the normal,
+	//    never push it through the surface.
+	bump_world -= geo_normal * dot(bump_world, geo_normal);
+	// 2. Soft-saturate the total length. Exponential saturation is C-infinite
+	//    and passes small bumps through untouched (factor -> 1 as len -> 0),
+	//    compressing only the rare stacked peaks, so the relief keeps its shape
+	//    instead of clipping into flat plateaus the way a hard clamp would.
+	float bump_len = length(bump_world);
+	float tilt = max(max_normal_tilt, 0.0001);
+	bump_world *= tilt * (1.0 - exp(-bump_len / tilt)) / max(bump_len, 0.00001);
 
 	ALBEDO = albedo;
 	ROUGHNESS = roughness;
