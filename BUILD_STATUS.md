@@ -228,3 +228,35 @@ tutorial autopilot, overshot the lesson obstacles.
 
 Validation (2026-08-06): units 50/50; race sims PASS on all nine
 course x difficulty combinations; endless, GP, tutorial (3/3) PASS.
+
+## Round 4 (2026-08-06, rework of the held-back work)
+
+All four held-back items reworked and landed after isolating what actually
+broke the sim suite. Bisect method: parallel git worktrees, one subsystem
+disabled per worktree, tutorial_sim + race_sim run side by side.
+
+- **Physics** (commit 9937e1c) — the culprit was the low-speed steering
+  assist (1.45x yaw response below base speed), which over-steered
+  guide-following racers into a wall-hugging oscillation and deadlocked the
+  tutorial autopilot. It was NOT the contact system, the first suspect.
+  Removed the assist; landed the rest: apex-hang + fast-fall jump arc,
+  impact-scaled landing squash, surface-scaled slide grip, wall glancing
+  gated to contacts above jump-clearing height (low hurdles must be hopped,
+  not ground along), mass-weighted racer bumps at half impulse between AI,
+  damped AI platform carry, ease-out boost decay, speed-reactive trails.
+- **Hazard motion** (commit 9937e1c) — the upgraded platform code passes
+  with the original values; the aggressive lurch/yaw config was what AI
+  could not cross. Ships gentle heave + slow yaw + seeded per-platform
+  variance plus telegraph edge strips that flash before a reversal.
+- **Dressing grounding** and **Chrome shader warm-up** (commit 93a749f) —
+  both passed in isolation and together, landed unchanged.
+
+Also this round: dancing-penguin loading indicators everywhere (in-game
+scene transitions, leaderboard fetch, and a matching CSS splash on the web
+boot screen before WASM starts), and one-finger slide steering on touch — a
+finger holding a belly slide now also steers, where gesture classification
+used to hand steering to a second finger.
+
+Validation (2026-08-06): units 50/50; tutorial_sim 3/3 PASS; race_sim PASS
+on all nine course x difficulty combinations; endless_sim and gp_sim PASS.
+

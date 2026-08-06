@@ -203,3 +203,10 @@ suspect commit, each with one subsystem disabled, running tutorial_sim and
 race_sim side by side. tutorial_sim's TIMEOUT diagnostic (player progress /
 position / state) is what localised the hurdle stall — keep it.
 
+2026-08-06 round 4: units 50/50; tutorial_sim 3/3; race_sim 9/9 across
+glacier/aurora/iceberg x chill/competitive/emperor; endless_sim, gp_sim PASS
+— with physics, hazard motion, grounding and Chrome warm-up all integrated.
+Each was validated alone in its own worktree before combining, which is what
+separated the real causes (low-speed steer assist; aggressive platform lurch
+config) from the subsystems blamed first.
+
