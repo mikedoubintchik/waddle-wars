@@ -152,10 +152,14 @@ func _ready() -> void:
 	_next_dive = randf_range(6.0, 11.0)
 	_next_whale = randf_range(13.0, 22.0)
 	_next_star = randf_range(9.0, 18.0)
+	BootProfiler.begin("title")
 	_build_diorama()
 	_build_foreground()
+	BootProfiler.step("foreground")
 	_build_tap_catcher()
 	AudioManager.play_music("music_title")
+	BootProfiler.step("audio")
+	BootProfiler.present()
 
 
 ## --- 3D diorama background -------------------------------------------------
@@ -175,24 +179,36 @@ func _build_diorama() -> void:
 	UITheme.crisp_subviewport(viewport, self)
 
 	_build_environment(viewport)
+	BootProfiler.step("environment")
 	_build_ocean(viewport)
+	BootProfiler.step("ocean")
 	# Floe, drifts, and the whole penguin cast share one root so the gentle
 	# bob in _process moves them together (a single transform per frame).
 	_floe_root = Node3D.new()
 	viewport.add_child(_floe_root)
 	_build_floe()
+	BootProfiler.step("floe")
 	_build_cast()
+	BootProfiler.step("cast")
 	if not GameConfig.is_headless():
 		_build_aurora(viewport)
+		BootProfiler.step("aurora")
 		_build_stars(viewport)
+		BootProfiler.step("stars")
 		_build_clouds(viewport)
+		BootProfiler.step("clouds")
 		_build_bergs(viewport)
+		BootProfiler.step("bergs")
 		_build_snowfall(viewport)
+		BootProfiler.step("snowfall")
 		_build_diver()
+		BootProfiler.step("diver")
 		_build_splash(viewport)
 		_build_whale(viewport)
+		BootProfiler.step("whale")
 		_build_shooting_star(viewport)
 		_build_glints(viewport)
+		BootProfiler.step("star+glints")
 
 	_camera = Camera3D.new()
 	viewport.add_child(_camera)

@@ -165,7 +165,7 @@ func _run_pass() -> void:
 		# pre-loop size would never match on the next pass.
 		_last_cache = VisualLibrary.cache_sizes()
 	if _extended:
-		for mat: Material in _probe_materials():
+		for mat: Material in probe_materials():
 			_warm_material(mat)
 	_collect(_world)
 	if _instances == before and before > 0:
@@ -305,7 +305,9 @@ func _warm_particle_process(source: GPUParticles3D) -> void:
 
 ## --- Synthetic feature probes -------------------------------------------------
 
-static func _probe_materials() -> Array[Material]:
+## Shared with BootWarmup, which links the same feature combinations during the
+## studio splash so the first race and the first menu both start warm.
+static func probe_materials() -> Array[Material]:
 	if not _probes.is_empty():
 		return _probes
 	for flags: String in PROBE_FLAGS:

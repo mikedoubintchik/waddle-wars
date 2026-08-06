@@ -2,6 +2,12 @@ extends Control
 ## Studio splash: wordmark eases in with a fade + scale settle and an
 ## expanding accent rule, holds, then fades and routes to title.
 
+## Minimum hold, and the ceiling on waiting for the shader warm-up to drain.
+## Past MAX_HOLD the title is better off paying whatever is left than leaving
+## the player on a wordmark.
+const MIN_HOLD: float = 2.4
+const MAX_HOLD: float = 9.0
+
 var _elapsed: float = 0.0
 var _routed: bool = false
 var _studio_label: Label
@@ -71,6 +77,11 @@ func _ready() -> void:
 	if GameConfig.is_headless():
 		return
 
+	# The splash is ~2.4 s of nearly idle main thread, and the title that
+	# follows costs seconds to draw its first frame on a cold GPU cache. Spend
+	# the hold linking those programs a few per frame so the handoff is instant.
+	BootWarmup.warm(self)
+
 	# Wordmark settles from slightly large; pivot needs post-layout size.
 	await get_tree().process_frame
 	if not is_inside_tree():
@@ -94,7 +105,9 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_elapsed += delta
 	var skip := Input.is_action_just_pressed("ui_accept") or Input.is_action_just_pressed("pause")
-	if _elapsed > 2.4 or skip:
+	if skip or _elapsed > MAX_HOLD:
+		_route()
+	elif _elapsed > MIN_HOLD and BootWarmup.is_finished():
 		_route()
 
 
