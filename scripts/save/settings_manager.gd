@@ -30,6 +30,8 @@ const JOY_BUTTON_NAMES: Dictionary = {
 
 var settings: Dictionary = {}
 var _default_bindings: Dictionary = {}
+## action|family -> display label, rebuilt on rebind/reset.
+var _binding_labels: Dictionary = {}
 ## Web auto-quality governor state (see _start_web_governor). The override
 ## lives outside `settings` so it can never reach disk — only an explicit
 ## user choice persists a quality change.
@@ -140,6 +142,7 @@ static func is_mobile_web() -> bool:
 ## --- Control remapping ---------------------------------------------------
 
 func rebind_action(action: String, event: InputEvent) -> void:
+	_binding_labels.clear()
 	if action not in REMAPPABLE_ACTIONS:
 		return
 	# Replace events of the same device family, keep the rest.
@@ -155,6 +158,7 @@ func rebind_action(action: String, event: InputEvent) -> void:
 
 
 func reset_bindings() -> void:
+	_binding_labels.clear()
 	for action: String in REMAPPABLE_ACTIONS:
 		InputMap.action_erase_events(action)
 		for ev: InputEvent in _default_bindings.get(action, []):
@@ -163,14 +167,41 @@ func reset_bindings() -> void:
 	_save_settings()
 
 
+## Human-readable label for a binding, e.g. "Q" or "LT".
+##
+## Cached: HUD hints re-read the live binding every frame they are visible, and
+## the lookup is neither free nor, on web, silent — see _physical_key_name().
+## The cache is cleared whenever bindings actually change.
 func describe_action_binding(action: String, family: String) -> String:
+	var cache_key := action + "|" + family
+	if _binding_labels.has(cache_key):
+		return String(_binding_labels[cache_key])
+	var label := _describe_action_binding_uncached(action, family)
+	_binding_labels[cache_key] = label
+	return label
+
+
+## Maps a physical key to the label the player's layout actually prints.
+##
+## The web display server does not implement keyboard_get_keycode_from_physical
+## and pushes an error every call; a HUD hint asking once per frame turned that
+## into hundreds of console errors a second, enough to lock up devtools. Web and
+## headless both fall back to the physical code's own name, which is correct for
+## QWERTY and merely approximate elsewhere.
+func _physical_key_name(code: int) -> String:
+	if GameConfig.is_headless() or OS.has_feature("web"):
+		return OS.get_keycode_string(code)
+	return OS.get_keycode_string(DisplayServer.keyboard_get_keycode_from_physical(code))
+
+
+func _describe_action_binding_uncached(action: String, family: String) -> String:
 	for ev: InputEvent in InputMap.action_get_events(action):
 		if family == "key" and ev is InputEventKey:
 			var key_ev := ev as InputEventKey
 			var code := key_ev.physical_keycode
 			if code == KEY_NONE:
 				code = key_ev.keycode
-			return OS.get_keycode_string(DisplayServer.keyboard_get_keycode_from_physical(code)) if not GameConfig.is_headless() else OS.get_keycode_string(code)
+			return _physical_key_name(code)
 		if family == "joy" and (ev is InputEventJoypadButton or ev is InputEventJoypadMotion):
 			if ev is InputEventJoypadButton:
 				var index := (ev as InputEventJoypadButton).button_index
@@ -339,6 +370,7 @@ func _apply_display(key: String, value: Variant) -> void:
 			# Courses read the preset live on scene load; drop VisualLibrary's
 			# cached quality-derived values so the next build sees the new tier.
 			VisualLibrary.reset_quality_cache()
+			_apply_web_render_scale()
 		"shadow_quality", "particle_quality":
 			pass  # Read live by course lighting / VFX systems on scene load.
 
@@ -355,6 +387,43 @@ func _apply_audio(key: String, value: Variant) -> void:
 			AudioManager.set_muted(bool(value))
 		"mute_unfocused":
 			pass  # AudioManager reads this on focus notifications.
+
+
+## --- Web render scale ------------------------------------------------------
+
+## Linear 3D render scale on web, by quality preset. 1.0 elsewhere.
+##
+## Measured in Chrome on an M2: a race sat at exactly 30.0 fps / 33.3 ms, which
+## is not a coincidental number -- it is vsync halving 60 Hz because frames land
+## just over the 16.6 ms budget. The dominant cost is fill rate. The canvas runs
+## at devicePixelRatio 2 (2940x1984 here), and rendering the 3D world at every
+## one of those pixels through ANGLE, with MSAA and glow on top, does not fit.
+##
+## Scaling only the 3D pass keeps the fix off the UI: text, HUD and menus still
+## rasterise at full device resolution, so this does not undo the earlier
+## pixelation work. At 0.75 the world still resolves ~1.5 device pixels per CSS
+## pixel -- visibly sharper than the unscaled 1.0 the build used to ship -- for
+## a little over half the fragment work.
+const WEB_RENDER_SCALE: Dictionary = {
+	"high": 0.75,
+	"medium": 0.7,
+	"low": 0.6,
+}
+
+
+## Linear scale the 3D pass should render at, for this platform and preset.
+func render_scale_3d() -> float:
+	if not OS.has_feature("web") or GameConfig.is_headless():
+		return 1.0
+	return float(WEB_RENDER_SCALE.get(String(get_setting("display", "quality_preset")), 0.75))
+
+
+func _apply_web_render_scale() -> void:
+	var viewport := get_viewport()
+	if viewport == null or GameConfig.is_headless():
+		return
+	viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+	viewport.scaling_3d_scale = render_scale_3d()
 
 
 ## --- Web auto-quality governor ---------------------------------------------

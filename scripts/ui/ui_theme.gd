@@ -210,7 +210,11 @@ static func crisp_subviewport(viewport: SubViewport, host: Node) -> void:
 			return
 		var scale := maxf(
 			float(win.size.x) / logical.x, float(win.size.y) / logical.y)
-		viewport.scaling_3d_scale = clampf(scale, 1.0, 2.0)
+		# Trimmed by the platform's 3D render scale for the same reason the main
+		# viewport is: on web, rendering menu dioramas at every device pixel is
+		# what pushes a frame past its budget. UI drawn over them is unaffected.
+		scale *= SettingsManager.render_scale_3d()
+		viewport.scaling_3d_scale = clampf(scale, 0.6, 2.0)
 	apply.call()
 	host.get_window().size_changed.connect(apply)
 	host.tree_exiting.connect(func() -> void:
