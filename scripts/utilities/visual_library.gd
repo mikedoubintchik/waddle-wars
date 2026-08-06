@@ -87,9 +87,14 @@ static func apply_dressing_range(gi: GeometryInstance3D, base_distance: float = 
 
 ## Snow with procedural detail + view-dependent sparkle. sparkle 0..~1.
 ## detail < 0 (default) = auto from the quality preset; 0..1 forces a level.
-static func snow_material(tint: Color, sparkle: float = 0.55, detail: float = -1.0) -> ShaderMaterial:
+## groom > 0 marks a groomed racing surface (corduroy along the direction of
+## travel plus a packed shoulder at each edge). Off-track snow leaves it at 0,
+## and the difference between the two is what makes a course readable on a
+## white-on-white day course.
+static func snow_material(tint: Color, sparkle: float = 0.55, detail: float = -1.0,
+		groom: float = 0.0) -> ShaderMaterial:
 	var d := _resolve_detail(detail)
-	var key := "snow_%s_%.2f_%.2f" % [tint.to_html(false), sparkle, d]
+	var key := "snow_%s_%.2f_%.2f_%.2f" % [tint.to_html(false), sparkle, d, groom]
 	if _materials.has(key):
 		return _materials[key]
 	var mat := ShaderMaterial.new()
@@ -98,6 +103,7 @@ static func snow_material(tint: Color, sparkle: float = 0.55, detail: float = -1
 	mat.set_shader_parameter("shadow_tint", Color(tint.r * 0.82, tint.g * 0.88, tint.b * 1.0))
 	mat.set_shader_parameter("sparkle_strength", sparkle)
 	mat.set_shader_parameter("detail_level", d)
+	mat.set_shader_parameter("groom_strength", groom)
 	_materials[key] = mat
 	return mat
 
@@ -246,9 +252,12 @@ static func billboard_puff_material(color: Color, tex_size: int = 32, inner_alph
 static func track_surface_material(surface: SurfacesDB.Surface) -> Material:
 	match surface:
 		SurfacesDB.Surface.PACKED_SNOW:
-			return snow_material(Color(0.93, 0.96, 1.0), 0.55)
+			return snow_material(Color(0.93, 0.96, 1.0), 0.55, -1.0, 1.0)
 		SurfacesDB.Surface.DEEP_SNOW:
-			return snow_material(Color(0.99, 0.99, 1.0), 0.25)
+			# Deep snow is the punishing surface, so it is groomed only faintly:
+			# it should still read as part of the course, but visibly softer and
+			# less travelled than the packed racing line.
+			return snow_material(Color(0.99, 0.99, 1.0), 0.25, -1.0, 0.45)
 		SurfacesDB.Surface.ICE_SMOOTH:
 			return ice_material(Color(0.48, 0.74, 0.97), 0.85)
 		SurfacesDB.Surface.ICE_ROUGH:

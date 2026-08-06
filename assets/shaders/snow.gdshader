@@ -79,6 +79,18 @@ uniform vec4 sss_tint : source_color = vec4(1.0, 0.86, 0.68, 1.0);
 uniform float sss_strength : hint_range(0.0, 1.0) = 0.55;
 // Cool sky-bounce shift applied to the shadowed end of the albedo ramp.
 uniform float shadow_cool : hint_range(0.0, 1.0) = 0.35;
+// --- Groomed racing surface -------------------------------------------------
+// 0 = untouched snow (drifts, terrain, dressing). >0 = a groomed track floor,
+// which is the ONLY thing that separates the racing line from the field it
+// crosses: on a bright day course the ribbon, the surrounding sheet and the
+// skyline are all the same white, and without this the course cannot be read
+// at all. TrackBuilder's floor UVs are (across, along): UV.x runs 0..1 from
+// the left edge to the right, UV.y is metres travelled.
+uniform float groom_strength : hint_range(0.0, 1.0) = 0.0;
+// Corduroy line count across the track width.
+uniform float groom_lines = 26.0;
+// Width of the packed, slightly cooler border at each edge, in UV.x.
+uniform float groom_edge = 0.16;
 
 varying vec3 world_pos;
 varying float view_dist;
@@ -238,6 +250,24 @@ void fragment() {
 	float bump_len = length(bump_world);
 	float tilt = max(max_normal_tilt, 0.0001);
 	bump_world *= tilt * (1.0 - exp(-bump_len / tilt)) / max(bump_len, 0.00001);
+
+	if (groom_strength > 0.001) {
+		// Corduroy: fine ridges running along the direction of travel, so they
+		// stream past the camera at speed and read as groomed piste rather than
+		// open snow. Tonal only plus a matching roughness break -- no normal
+		// tilt, which on a low sun would clamp straight to black.
+		float cord = sin(UV.x * groom_lines * 6.2831853);
+		albedo *= 1.0 + cord * 0.055 * groom_strength;
+		roughness = clamp(roughness - cord * 0.08 * groom_strength, 0.05, 1.0);
+		// Packed shoulder at both edges. This is the load-bearing part: on a
+		// bright day course every tone saturates toward white, so a few percent
+		// of tonal difference vanishes and the ribbon disappears into the field.
+		// The shoulder is therefore a real shadowed blue band, wide enough to
+		// survive at distance -- it reads as wind-packed snow piled at the edge
+		// of a groomed piste, which is exactly what it stands in for.
+		float edge = 1.0 - smoothstep(0.0, groom_edge, min(UV.x, 1.0 - UV.x));
+		albedo = mix(albedo, albedo * vec3(0.70, 0.80, 0.96), edge * 0.9 * groom_strength);
+	}
 
 	ALBEDO = albedo;
 	ROUGHNESS = roughness;
