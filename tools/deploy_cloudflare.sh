@@ -8,7 +8,9 @@ set -e
 cd "$(dirname "$0")/.."
 
 source /Users/ninja/Work/ninja-consulting-ai/.local/deploy.env
-WRANGLER=leaderboard/node_modules/.bin/wrangler
+# Absolute: the worker deploy below runs from web-host/, where a relative path
+# to the leaderboard's node_modules would not resolve.
+WRANGLER="$PWD/leaderboard/node_modules/.bin/wrangler"
 
 godot --headless --export-release "Web" build/web/index.html
 command cp -f web/share.png build/web/share.png

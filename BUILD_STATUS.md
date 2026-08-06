@@ -283,3 +283,51 @@ artifact API. Switch `build_type` between "workflow" and "legacy" with
 path is healthy; re-run the deploy once GitHub recovers and verify with the
 index.pck md5 comparison in tools/deploy_web.sh.
 
+
+## Boot cost: measured, and a correction to the Chrome diagnosis (2026-08-06)
+
+Added `scripts/utilities/boot_profiler.gd` (enable with `?profile=1` on web or
+`-- profile` on desktop) to separate CPU scene construction from GPU first-draw
+cost. Numbers from the title screen, `--rendering-driver opengl3`:
+
+| Condition                          | BUILD (cpu) | FIRST DRAWS (3 frames) |
+|------------------------------------|-------------|------------------------|
+| Cold GPU pipeline cache            | 49.8 ms     | 3566.7 ms              |
+| Same diorama rebuilt in-process    | 3.7 ms      | 197.3 ms               |
+
+So construction was never the problem: it is first-sight shader program
+linking, and re-linking is what costs. This also corrects the earlier reading
+of "the splash hangs": nothing hangs. `change_scene_to_file()` is synchronous,
+so the splash is simply the last frame presented before the title's first draw
+blocks the main thread — which is why no loading overlay could ever show
+through it.
+
+`scripts/utilities/boot_warmup.gd` spends the splash's otherwise idle hold
+linking those programs two per frame into a small offscreen viewport that
+mirrors the title's feature set (sky, fog, glow, ACES, shadowed sun, matching
+MSAA — sample count is part of the pipeline key). It covers every VisualLibrary
+factory, every track surface, ShaderWarmup's synthetic feature probes and one
+live PenguinVisual: 28 programs. The splash now holds until the pass drains
+(min 2.4 s, cap 9 s) instead of a fixed 2.4 s; a tap still skips.
+
+### Chrome measurements in this session are INVALID
+
+Every in-browser observation taken here — including the earlier A/B that
+concluded "the old build hangs identically, so the hang is pre-existing" — was
+made through a Chrome tab reporting `document.visibilityState === "hidden"`.
+Chrome stops driving `requestAnimationFrame` in hidden tabs and Godot's main
+loop rides on rAF, so the engine was barely stepping. Proof: a script asking
+for 3 seconds of rAF frames never completed inside a 45 s CDP timeout, and the
+splash tween advanced roughly one second per twenty seconds of wall clock.
+
+The MCP browser tooling could not produce a foreground tab (creating and
+navigating a tab still left it hidden, and the Chrome grant is read-only), so
+**the user-reported "unplayable in Chrome" issue is neither reproduced nor
+disproved here.** Chrome is confirmed hardware-accelerated on this machine
+(`ANGLE (Apple, ANGLE Metal Renderer: Apple M2)`), so a SwiftShader fallback is
+ruled out. The warm-up above is justified on its own measured evidence; whether
+it resolves the Chrome report needs a human with a focused Chrome window.
+
+Ruled out while investigating: `UITheme.crisp_subviewport()` does not
+double-count device pixel ratio (it targets `win.size / logical`, clamped 1..2,
+which lands on the real backbuffer — 2940x1984 at dpr 2 on this display).
