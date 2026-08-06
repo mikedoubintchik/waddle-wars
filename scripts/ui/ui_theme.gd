@@ -35,6 +35,10 @@ const SWIPE_BACK_EDGE_WIDTH: float = 36.0
 const SWIPE_BACK_DISTANCE: float = 80.0
 const SWIPE_BACK_TIME_MS: int = 600
 
+## Three depth-layered bands (near green with curtain striations, mid violet,
+## far faint magenta) — one draw pass, ALU only, so the layered-parallax read
+## costs nothing extra on WebGL2. The curtain term drifts at ~0.4 rad/s, far
+## below flashing territory even before the reduced_flashing strength cut.
 const AURORA_SHADER_CODE: String = """
 shader_type canvas_item;
 render_mode blend_add;
@@ -44,9 +48,14 @@ void fragment() {
 	vec2 uv = UV;
 	float wave1 = sin(uv.x * 4.4 + t * 6.0) * 0.13 + sin(uv.x * 9.7 - t * 4.0) * 0.05;
 	float wave2 = sin(uv.x * 3.1 - t * 5.0 + 1.7) * 0.16 + sin(uv.x * 7.3 + t * 3.0) * 0.04;
+	float wave3 = sin(uv.x * 2.3 + t * 3.2 + 4.1) * 0.11 + sin(uv.x * 5.9 - t * 2.2) * 0.03;
 	float band1 = exp(-pow((uv.y - 0.30 - wave1) * 6.0, 2.0));
 	float band2 = exp(-pow((uv.y - 0.52 - wave2) * 7.5, 2.0));
-	vec3 aurora = vec3(0.20, 0.95, 0.70) * band1 + vec3(0.45, 0.35, 0.95) * band2;
+	float band3 = exp(-pow((uv.y - 0.15 - wave3) * 9.5, 2.0));
+	float curtain = 0.82 + 0.18 * sin(uv.x * 46.0 + t * 9.0 + sin(uv.x * 13.0) * 2.0);
+	vec3 aurora = vec3(0.20, 0.95, 0.70) * band1 * curtain
+			+ vec3(0.45, 0.35, 0.95) * band2
+			+ vec3(0.78, 0.42, 0.85) * band3 * 0.55;
 	float fade = smoothstep(1.0, 0.35, uv.y);
 	float side = smoothstep(0.0, 0.12, uv.x) * smoothstep(1.0, 0.88, uv.x);
 	COLOR = vec4(aurora * strength * fade * (0.6 + 0.4 * side), 1.0);
@@ -114,6 +123,11 @@ const ICON_DOOR: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" 
 
 static var _display_font: FontVariation = null
 static var _button_font: FontVariation = null
+## Aurora backdrop shader/materials are cached and shared across every menu
+## screen: one compile, one material per strength (WebGL2 jank guard — menus
+## rebuild on every navigation).
+static var _aurora_shader: Shader = null
+static var _aurora_materials: Dictionary = {}
 
 
 ## True when a touchscreen is present (phones, tablets, touch laptops).
@@ -122,6 +136,14 @@ static func is_touch() -> bool:
 	if GameConfig.is_headless():
 		return false
 	return DisplayServer.is_touchscreen_available()
+
+
+## Central reduced-motion gate for menu flourishes. The project exposes one
+## accessibility switch for this family (reduced_flashing); every large or
+## eye-catching ambient animation checks it through this helper so the
+## setting reliably calms the whole menu system.
+static func reduced_motion() -> bool:
+	return bool(SettingsManager.get_setting("accessibility", "reduced_flashing"))
 
 
 ## SubViewportContainer.stretch sizes its SubViewport in *logical* (design
@@ -228,6 +250,7 @@ static func make_button(text: String, size: Vector2 = Vector2(320, 52), font_siz
 	button.add_theme_stylebox_override("disabled", disabled)
 	_attach_glass_edges(button)
 	attach_hover_scale(button, 1.02)
+	attach_hover_glow(button)
 	return button
 
 
@@ -294,6 +317,55 @@ static func _button_box(bg: Color, border: Color, border_width: int) -> StyleBox
 	box.shadow_size = 5
 	box.shadow_offset = Vector2(0.0, 3.0)
 	return box
+
+
+## Soft icy glow ring that fades in behind a button on hover/focus and back
+## out on exit — the "lift" half of the hover micro-animation (scale is the
+## other half). Event-driven tweens only; zero per-frame cost at rest.
+## Headless runs skip the extra node so sims stay lean.
+static func attach_hover_glow(button: BaseButton, color: Color = COLOR_ACCENT) -> void:
+	if GameConfig.is_headless():
+		return
+	var glow := Panel.new()
+	glow.name = "HoverGlow"
+	glow.show_behind_parent = true
+	glow.set_anchors_preset(Control.PRESET_FULL_RECT)
+	glow.offset_left = -3.0
+	glow.offset_top = -3.0
+	glow.offset_right = 3.0
+	glow.offset_bottom = 3.0
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glow.focus_mode = Control.FOCUS_NONE
+	glow.modulate.a = 0.0
+	var box := StyleBoxFlat.new()
+	box.draw_center = false
+	box.border_color = Color(color, 0.55)
+	box.set_border_width_all(2)
+	box.set_corner_radius_all(14)
+	box.shadow_color = Color(color, 0.38)
+	box.shadow_size = 12
+	glow.add_theme_stylebox_override("panel", box)
+	button.add_child(glow)
+	var fade := func(target: float, time: float) -> void:
+		if not glow.is_inside_tree():
+			return
+		if glow.has_meta("_glow_tween"):
+			var old: Variant = glow.get_meta("_glow_tween")
+			if old is Tween and (old as Tween).is_valid():
+				(old as Tween).kill()
+		var tween := glow.create_tween()
+		tween.tween_property(glow, "modulate:a", target, time) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		glow.set_meta("_glow_tween", tween)
+	var lift := func() -> void: fade.call(0.9, 0.14)
+	var rest := func() -> void:
+		if button.is_hovered() or button.has_focus():
+			return
+		fade.call(0.0, 0.28)
+	button.mouse_entered.connect(lift)
+	button.focus_entered.connect(lift)
+	button.mouse_exited.connect(rest)
+	button.focus_exited.connect(rest)
 
 
 ## Subtle grow-on-hover/focus with a press-down dip. Pivot tracks center.
@@ -383,6 +455,19 @@ static func accent_rule(width: float = 220.0, color: Color = COLOR_ACCENT) -> Co
 	return holder
 
 
+## Full-width thin divider used directly under screen headers (Settings,
+## Achievements, Controls…) so every menu shares the same header rhythm.
+## Stretches to the parent's width and sweeps in from the left.
+static func make_header_rule(color: Color = COLOR_ACCENT) -> Control:
+	var rule := ColorRect.new()
+	rule.color = Color(color, 0.30)
+	rule.custom_minimum_size = Vector2(0.0, 2.0)
+	rule.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	animate_rule(rule)
+	return rule
+
+
 ## Grow-from-zero entrance for a rule/underline Control. Scale-only, so it
 ## never triggers container relayout; pivot centers when the rule has a fixed
 ## authored width and stays left-anchored for stretch-to-fill rules.
@@ -431,11 +516,13 @@ static func _start_entrance(root: Control, items: Array[Control], rise: float) -
 			continue
 		var target_y := item.position.y
 		item.position.y = target_y + rise
-		var delay := minf(0.04 + 0.055 * float(i), 0.5)
+		# Tight stagger: the whole cascade lands inside ~0.6s so menus feel
+		# instant while still reading as a choreographed entrance.
+		var delay := minf(0.02 + 0.04 * float(i), 0.38)
 		var tween := item.create_tween()
 		tween.set_parallel(true)
-		tween.tween_property(item, "modulate:a", 1.0, 0.24).set_delay(delay)
-		tween.tween_property(item, "position:y", target_y, 0.32) \
+		tween.tween_property(item, "modulate:a", 1.0, 0.20).set_delay(delay)
+		tween.tween_property(item, "position:y", target_y, 0.28) \
 			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT).set_delay(delay)
 
 
@@ -607,11 +694,13 @@ static func make_background(parent: Control) -> void:
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(bg)
 
+	# Four-stop gradient: a faint indigo band between mid and deep adds a
+	# horizon layer the aurora bands sit on, deepening the backdrop for free.
 	var grad := Gradient.new()
 	grad.colors = PackedColorArray([
-		Color(0.098, 0.169, 0.290), COLOR_BG, COLOR_BG_DEEP,
+		Color(0.098, 0.169, 0.290), COLOR_BG, Color(0.043, 0.082, 0.157), COLOR_BG_DEEP,
 	])
-	grad.offsets = PackedFloat32Array([0.0, 0.45, 1.0])
+	grad.offsets = PackedFloat32Array([0.0, 0.42, 0.74, 1.0])
 	var tex := GradientTexture2D.new()
 	tex.gradient = grad
 	tex.fill_from = Vector2(0.0, 0.0)
@@ -637,41 +726,65 @@ static func _add_aurora(parent: Control) -> void:
 	aurora.anchor_right = 1.0
 	aurora.anchor_bottom = 0.62
 	aurora.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var shader := Shader.new()
-	shader.code = AURORA_SHADER_CODE
-	var material := ShaderMaterial.new()
-	material.shader = shader
-	var strength := 0.16
-	if bool(SettingsManager.get_setting("accessibility", "reduced_flashing")):
-		strength = 0.09
-	material.set_shader_parameter("strength", strength)
-	aurora.material = material
+	var strength := 0.09 if reduced_motion() else 0.16
+	aurora.material = _aurora_material(strength)
 	parent.add_child(aurora)
 
 
+## Shared aurora material per strength value: menus rebuild the backdrop on
+## every navigation, so caching avoids a shader recompile + new material each
+## screen change (single-threaded WASM jank guard).
+static func _aurora_material(strength: float) -> ShaderMaterial:
+	var key := "%.2f" % strength
+	if _aurora_materials.has(key):
+		return _aurora_materials[key] as ShaderMaterial
+	if _aurora_shader == null:
+		_aurora_shader = Shader.new()
+		_aurora_shader.code = AURORA_SHADER_CODE
+	var material := ShaderMaterial.new()
+	material.shader = _aurora_shader
+	material.set_shader_parameter("strength", strength)
+	_aurora_materials[key] = material
+	return material
+
+
+## Two parallax snow layers: a dim, small, slow "far" layer behind a brighter
+## "near" layer. The depth split is what sells the backdrop; the far layer is
+## high-quality only so low/medium budgets are unchanged.
 static func _add_snow(parent: Control, quality: String) -> void:
 	var holder := Control.new()
 	holder.set_anchors_preset(Control.PRESET_FULL_RECT)
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(holder)
+	var center_x := parent.get_viewport_rect().size.x * 0.5
+	if quality == "high":
+		var far := _make_snow_layer(16, 0.7, 1.6, 12.0, 26.0, 0.26)
+		far.position = Vector2(center_x, -16.0)
+		holder.add_child(far)
+	var near := _make_snow_layer(40 if quality == "high" else 22, 1.2, 3.2, 26.0, 58.0, 0.5)
+	near.position = Vector2(center_x, -16.0)
+	holder.add_child(near)
+
+
+static func _make_snow_layer(amount: int, scale_min: float, scale_max: float,
+		vel_min: float, vel_max: float, alpha: float) -> CPUParticles2D:
 	var snow := CPUParticles2D.new()
-	snow.amount = 40 if quality == "high" else 22
+	snow.amount = amount
 	snow.lifetime = 14.0
 	snow.preprocess = 14.0
 	snow.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
 	snow.emission_rect_extents = Vector2(1400.0, 8.0)
-	snow.position = Vector2(parent.get_viewport_rect().size.x * 0.5, -16.0)
 	snow.direction = Vector2(0.05, 1.0)
 	snow.spread = 12.0
 	snow.gravity = Vector2(0.0, 4.0)
-	snow.initial_velocity_min = 26.0
-	snow.initial_velocity_max = 58.0
-	snow.scale_amount_min = 1.2
-	snow.scale_amount_max = 3.2
+	snow.initial_velocity_min = vel_min
+	snow.initial_velocity_max = vel_max
+	snow.scale_amount_min = scale_min
+	snow.scale_amount_max = scale_max
 	snow.angular_velocity_min = -40.0
 	snow.angular_velocity_max = 40.0
-	snow.color = Color(0.92, 0.96, 1.0, 0.5)
-	holder.add_child(snow)
+	snow.color = Color(0.92, 0.96, 1.0, alpha)
+	return snow
 
 
 static func _add_vignette(parent: Control) -> void:

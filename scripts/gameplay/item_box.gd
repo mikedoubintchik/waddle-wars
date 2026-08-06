@@ -9,10 +9,14 @@ extends Area3D
 ## spatial shader — fresnel-depth tinting, two parallax-offset internal
 ## caustic layers (fake refraction, no screen reads: gl_compatibility safe),
 ## suspended bubble sparkles, an orbiting internal glint star, per-facet
-## twinkle, and prismatic dispersion in the rim band + chamfer bevels.
+## twinkle, and prismatic dispersion in the rim band + chamfer bevels. A warm
+## prize glow billboard pulses behind the '?' glyph (scale-animated per box,
+## so the shared material never changes), and respawns shimmer back in with
+## a back-eased scale-up + soft flash instead of popping into existence.
 ## Mesh, shell material, glyph material/texture, halo, shard, flash, ring
 ## and mote resources are built once and shared by every box; only burst
-## materials are per-instance (their alpha animates).
+## materials are per-instance (their alpha animates). The ring + mote burst
+## layers are skipped entirely on display/particle_quality == "low".
 ##
 ## Accessibility: the box reads through SHAPE (cube + '?' glyph) +
 ## PATTERN (glyph, facets) + BRIGHTNESS (rim, ground halo) — never hue
@@ -133,9 +137,12 @@ static var _halo_mat: StandardMaterial3D = null
 static var _halo_mat_contrast: StandardMaterial3D = null
 static var _ring_burst_base_mat: StandardMaterial3D = null
 static var _mote_base_mat: StandardMaterial3D = null
+static var _prize_glow_mesh: QuadMesh = null
+static var _prize_glow_mat: StandardMaterial3D = null
 
 var _visual: MeshInstance3D = null
 var _glyph: MeshInstance3D = null
+var _prize_glow: MeshInstance3D = null
 var _halo: MeshInstance3D = null
 var _burst: MeshInstance3D = null
 var _burst_mat: StandardMaterial3D = null
@@ -148,8 +155,11 @@ var _ring_mat: StandardMaterial3D = null
 var _motes: MeshInstance3D = null
 var _mote_mat: StandardMaterial3D = null
 var _burst_tween: Tween = null
+var _respawn_tween: Tween = null
 var _active: bool = true
 var _spin_time: float = 0.0
+var _glow_phase: float = 0.0
+var _fx_rich: bool = true
 var _rng := RandomNumberGenerator.new()
 
 
@@ -164,6 +174,8 @@ func _ready() -> void:
 	collision_layer = GameConfig.LAYER_PICKUPS
 	collision_mask = GameConfig.LAYER_RACERS
 	_rng.randomize()
+	_glow_phase = _rng.randf_range(0.0, TAU)
+	_fx_rich = String(SettingsManager.get_setting("display", "particle_quality")) != "low"
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
 	box.size = Vector3(1.4, 1.4, 1.4)
@@ -198,6 +210,16 @@ func _ready() -> void:
 		_glyph.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_visual.add_child(_glyph)
 
+	# Prize glow: warm additive billboard drawn behind the glyph (still inside
+	# the shell via render_priority). Pulsed by SCALE per box in
+	# _physics_process, so the shared material is never touched — the "there's
+	# something good in here" beacon that reads at race speed.
+	_prize_glow = MeshInstance3D.new()
+	_prize_glow.mesh = _get_prize_glow_mesh()
+	_prize_glow.material_override = _get_prize_glow_material()
+	_prize_glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_visual.add_child(_prize_glow)
+
 	# Pickup burst trio: expanding shell flash + radial ice shards + central
 	# billboard flash. Materials are duplicated per box (alpha animates
 	# independently); every node is created once here and reused on each
@@ -229,22 +251,24 @@ func _ready() -> void:
 	# Two more pre-built burst layers: a cool horizontal shockwave ring
 	# (reuses the halo torus) and a warm gold mote fan counter-rotating
 	# against the ice shards — brightness + pattern variety so the burst
-	# reads without relying on hue.
-	_ring_mat = _get_ring_burst_base_material().duplicate() as StandardMaterial3D
-	_ring = MeshInstance3D.new()
-	_ring.mesh = _get_halo_mesh()
-	_ring.material_override = _ring_mat
-	_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_ring.visible = false
-	add_child(_ring)
+	# reads without relying on hue. Skipped on low particle quality (the
+	# shell flash + shards + center flash still carry the read).
+	if _fx_rich:
+		_ring_mat = _get_ring_burst_base_material().duplicate() as StandardMaterial3D
+		_ring = MeshInstance3D.new()
+		_ring.mesh = _get_halo_mesh()
+		_ring.material_override = _ring_mat
+		_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_ring.visible = false
+		add_child(_ring)
 
-	_mote_mat = _get_mote_base_material().duplicate() as StandardMaterial3D
-	_motes = MeshInstance3D.new()
-	_motes.mesh = _get_shard_mesh()
-	_motes.material_override = _mote_mat
-	_motes.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_motes.visible = false
-	add_child(_motes)
+		_mote_mat = _get_mote_base_material().duplicate() as StandardMaterial3D
+		_motes = MeshInstance3D.new()
+		_motes.mesh = _get_shard_mesh()
+		_motes.material_override = _mote_mat
+		_motes.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_motes.visible = false
+		add_child(_motes)
 
 	body_entered.connect(_on_body_entered)
 
@@ -258,6 +282,13 @@ func _physics_process(delta: float) -> void:
 	if _glyph != null:
 		# Small independent float so the glyph drifts inside the ice.
 		_glyph.position.y = sin(_spin_time * 2.6) * 0.05
+	if _prize_glow != null:
+		# Prize glow breathes by scale (slow — reduced-flashing safe); the
+		# shared material stays untouched so every box pulses on its own phase.
+		var pulse := 0.78 + 0.26 * sin(_spin_time * 2.8 + _glow_phase)
+		_prize_glow.scale = Vector3(pulse, pulse, pulse)
+		if _glyph != null:
+			_prize_glow.position.y = _glyph.position.y
 
 
 func _on_body_entered(body: Node3D) -> void:
@@ -281,13 +312,37 @@ func _on_body_entered(body: Node3D) -> void:
 			_active = true
 			_visual.visible = true
 			_halo.visible = true
-			set_deferred("monitoring", true))
+			set_deferred("monitoring", true)
+			_play_respawn())
+
+
+## Respawn shimmer-in: the shell scales back up with a back-eased overshoot
+## while the central flash blooms softly — the box condenses out of the air
+## instead of popping into existence. Reuses the per-box flash node/material.
+func _play_respawn() -> void:
+	if _respawn_tween != null and _respawn_tween.is_valid():
+		_respawn_tween.kill()
+	_visual.scale = Vector3.ONE * 0.15
+	_respawn_tween = create_tween()
+	_respawn_tween.set_parallel(true)
+	_respawn_tween.tween_property(_visual, "scale", Vector3.ONE, 0.4) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if _flash != null:
+		_flash.visible = true
+		_flash.scale = Vector3.ONE * 0.4
+		_flash_mat.albedo_color = Color(0.85, 0.95, 1.0, 0.55)
+		_respawn_tween.tween_property(_flash, "scale", Vector3.ONE * 1.5, 0.35) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		_respawn_tween.tween_property(_flash_mat, "albedo_color:a", 0.0, 0.35)
+		_respawn_tween.chain().tween_callback(func() -> void:
+			_flash.visible = false)
 
 
 ## One-shot pickup burst: additive shell flash + spinning radial ice shards
 ## + a quick central billboard flash + expanding shockwave ring + warm gold
-## mote fan counter-rotating against the shards. All nodes pre-built in
-## _ready; only the one-shot tween is allocated per pickup.
+## mote fan counter-rotating against the shards (ring + motes skipped on low
+## particle quality). All nodes pre-built in _ready; only the one-shot tween
+## is allocated per pickup.
 func _play_burst() -> void:
 	if _burst == null:
 		return
@@ -303,13 +358,15 @@ func _play_burst() -> void:
 	_flash.visible = true
 	_flash.scale = Vector3.ONE * 0.6
 	_flash_mat.albedo_color = Color(1.0, 1.0, 1.0, 0.9)
-	_ring.visible = true
-	_ring.scale = Vector3.ONE * 0.7
-	_ring_mat.albedo_color = Color(0.7, 0.9, 1.0, 0.8)
-	_motes.visible = true
-	_motes.scale = Vector3.ONE * 0.45
-	_motes.rotation.y = -_shards.rotation.y
-	_mote_mat.albedo_color = Color(1.0, 0.85, 0.4, 0.85)
+	if _ring != null:
+		_ring.visible = true
+		_ring.scale = Vector3.ONE * 0.7
+		_ring_mat.albedo_color = Color(0.7, 0.9, 1.0, 0.8)
+	if _motes != null:
+		_motes.visible = true
+		_motes.scale = Vector3.ONE * 0.45
+		_motes.rotation.y = -_shards.rotation.y
+		_mote_mat.albedo_color = Color(1.0, 0.85, 0.4, 0.85)
 	_burst_tween = create_tween()
 	_burst_tween.set_parallel(true)
 	_burst_tween.tween_property(_burst, "scale", Vector3.ONE * 2.1, 0.32) \
@@ -322,19 +379,23 @@ func _play_burst() -> void:
 	_burst_tween.tween_property(_flash, "scale", Vector3.ONE * 2.3, 0.22) \
 		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_burst_tween.tween_property(_flash_mat, "albedo_color:a", 0.0, 0.22)
-	_burst_tween.tween_property(_ring, "scale", Vector3.ONE * 3.1, 0.45) \
-		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	_burst_tween.tween_property(_ring_mat, "albedo_color:a", 0.0, 0.45)
-	_burst_tween.tween_property(_motes, "scale", Vector3.ONE * 1.8, 0.5) \
-		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	_burst_tween.tween_property(_motes, "rotation:y", _motes.rotation.y - 1.7, 0.5)
-	_burst_tween.tween_property(_mote_mat, "albedo_color:a", 0.0, 0.5)
+	if _ring != null:
+		_burst_tween.tween_property(_ring, "scale", Vector3.ONE * 3.1, 0.45) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		_burst_tween.tween_property(_ring_mat, "albedo_color:a", 0.0, 0.45)
+	if _motes != null:
+		_burst_tween.tween_property(_motes, "scale", Vector3.ONE * 1.8, 0.5) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		_burst_tween.tween_property(_motes, "rotation:y", _motes.rotation.y - 1.7, 0.5)
+		_burst_tween.tween_property(_mote_mat, "albedo_color:a", 0.0, 0.5)
 	_burst_tween.chain().tween_callback(func() -> void:
 		_burst.visible = false
 		_shards.visible = false
 		_flash.visible = false
-		_ring.visible = false
-		_motes.visible = false)
+		if _ring != null:
+			_ring.visible = false
+		if _motes != null:
+			_motes.visible = false)
 
 
 ## --- Shared visual resources (built once, shared by all boxes) -----------
@@ -422,10 +483,14 @@ static func _get_box_material() -> Material:
 		if _box_mat_contrast == null:
 			_box_mat_contrast = StandardMaterial3D.new()
 			_box_mat_contrast.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-			_box_mat_contrast.albedo_color = Color(1.0, 0.85, 0.1, 0.62)
+			_box_mat_contrast.albedo_color = Color(1.0, 0.85, 0.1, 0.72)
 			_box_mat_contrast.emission_enabled = true
 			_box_mat_contrast.emission = Color(1.0, 0.7, 0.05)
-			_box_mat_contrast.emission_energy_multiplier = 1.4
+			_box_mat_contrast.emission_energy_multiplier = 1.8
+			# Grow-pass rim: pushing the shell slightly outward along its
+			# normals hardens the silhouette edge against any backdrop.
+			_box_mat_contrast.grow = true
+			_box_mat_contrast.grow_amount = 0.015
 		return _box_mat_contrast
 	if _box_mat != null:
 		return _box_mat
@@ -464,6 +529,30 @@ static func _get_glyph_material() -> StandardMaterial3D:
 	mat.render_priority = -1
 	_glyph_mat = mat
 	return mat
+
+
+static func _get_prize_glow_mesh() -> QuadMesh:
+	if _prize_glow_mesh == null:
+		_prize_glow_mesh = QuadMesh.new()
+		_prize_glow_mesh.size = Vector2(0.72, 0.72)
+	return _prize_glow_mesh
+
+
+## Warm additive prize glow behind the glyph. Drawn before the glyph and the
+## shell (render_priority) so it reads as light inside the ice. Shared by all
+## boxes; animated by node scale only, never by material writes.
+static func _get_prize_glow_material() -> StandardMaterial3D:
+	if _prize_glow_mat == null:
+		_prize_glow_mat = StandardMaterial3D.new()
+		_prize_glow_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_prize_glow_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_prize_glow_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		_prize_glow_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		_prize_glow_mat.billboard_keep_scale = true
+		_prize_glow_mat.albedo_texture = VisualLibrary.soft_radial_texture(32, 0.8)
+		_prize_glow_mat.albedo_color = Color(1.0, 0.82, 0.42, 0.5)
+		_prize_glow_mat.render_priority = -2
+	return _prize_glow_mat
 
 
 static func _get_burst_base_material() -> StandardMaterial3D:

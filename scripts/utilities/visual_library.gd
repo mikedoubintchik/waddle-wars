@@ -15,6 +15,7 @@ const SPARKLE_SHADER: Shader = preload("res://assets/shaders/sparkle_pickup.gdsh
 static var _materials: Dictionary = {}
 static var _meshes: Dictionary = {}
 static var _textures: Dictionary = {}
+static var _shapes: Dictionary = {}
 static var _detail_level_cache: float = -1.0
 
 
@@ -40,6 +41,40 @@ static func shader_detail_level() -> float:
 
 static func _resolve_detail(detail: float) -> float:
 	return detail if detail >= 0.0 else shader_detail_level()
+
+
+## Drops the cached quality-derived values so the next query re-reads the
+## (possibly changed) preset. Called by SettingsManager whenever
+## display/quality_preset changes — user edit or the web auto-governor.
+static func reset_quality_cache() -> void:
+	_detail_level_cache = -1.0
+
+
+## Decorative-dressing cull distance multiplier per quality preset.
+## 0.0 = never cull (the "high" contract: zero visual regression on desktop).
+static func dressing_range_scale() -> float:
+	if GameConfig.is_headless():
+		return 0.0
+	match String(SettingsManager.get_setting("display", "quality_preset")):
+		"low":
+			return 0.7
+		"medium":
+			return 1.0
+		_:
+			return 0.0
+
+
+## Applies VisibilityRange distance culling with a self-fade to decorative
+## geometry. No-op on the high preset (and headless), so desktop visuals are
+## untouched; on medium/low, dressing beyond base_distance (scaled per preset)
+## dither-fades out and stops costing vertex/raster work on phones.
+static func apply_dressing_range(gi: GeometryInstance3D, base_distance: float = 200.0) -> void:
+	var scale := dressing_range_scale()
+	if scale <= 0.0:
+		return
+	gi.visibility_range_end = base_distance * scale
+	gi.visibility_range_end_margin = base_distance * scale * 0.15
+	gi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 
 
 ## --- Shader materials --------------------------------------------------------
@@ -131,14 +166,71 @@ static func sparkle_material(base: Color, glow: Color) -> ShaderMaterial:
 
 ## Matte rock; multiplies baked per-face vertex colors (snow caps, shading)
 ## into the base tint. Meshes without vertex colors render plain base.
-static func rock_material(base: Color) -> StandardMaterial3D:
-	var key := "rock_%s" % base.to_html(false)
+## Optional roughness/metallic replace the ".duplicate() then tweak" pattern:
+## every (base, roughness, metallic) combination is cached and shared, so
+## identical-looking surfaces never spawn extra material instances.
+static func rock_material(base: Color, roughness: float = 0.95, metallic: float = 0.0) -> StandardMaterial3D:
+	var key := "rock_%s_%.2f_%.2f" % [base.to_html(false), roughness, metallic]
 	if _materials.has(key):
 		return _materials[key]
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = base
-	mat.roughness = 0.95
+	mat.roughness = roughness
+	mat.metallic = metallic
 	mat.vertex_color_use_as_albedo = true
+	_materials[key] = mat
+	return mat
+
+
+## Cached parameter-tweaked copy of a cached library shader material. Replaces
+## the "library_material().duplicate() then set params" pattern that minted a
+## unique material (and a first-sight WebGL program state) per call site — the
+## same base + same overrides now always return ONE shared instance.
+## base must itself be a cached library material (stable instance id).
+static func shader_variant(base: ShaderMaterial, overrides: Dictionary) -> ShaderMaterial:
+	var param_keys: Array = overrides.keys()
+	param_keys.sort()
+	var key := "variant_%d" % base.get_instance_id()
+	for param: Variant in param_keys:
+		key += "_%s=%s" % [param, overrides[param]]
+	if _materials.has(key):
+		return _materials[key]
+	var mat := base.duplicate() as ShaderMaterial
+	for param: Variant in param_keys:
+		mat.set_shader_parameter(param, overrides[param])
+	_materials[key] = mat
+	return mat
+
+
+## Cached emissive prop material (checkpoint posts, glow markers).
+static func emissive_material(albedo: Color, emission: Color, energy: float = 1.0, roughness: float = 1.0) -> StandardMaterial3D:
+	var key := "emissive_%s_%s_%.2f_%.2f" % [albedo.to_html(false), emission.to_html(false), energy, roughness]
+	if _materials.has(key):
+		return _materials[key]
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = albedo
+	mat.roughness = roughness
+	mat.emission_enabled = true
+	mat.emission = emission
+	mat.emission_energy_multiplier = energy
+	_materials[key] = mat
+	return mat
+
+
+## Cached unshaded soft-radial billboard material (cloud puffs, snow flakes,
+## glows). keep_scale = true lets one shared unit mesh be sized per instance
+## via node scale instead of a unique mesh per puff.
+static func billboard_puff_material(color: Color, tex_size: int = 32, inner_alpha: float = 0.9, keep_scale: bool = false) -> StandardMaterial3D:
+	var key := "puff_%s_%d_%.2f_%d" % [color.to_html(), tex_size, inner_alpha, int(keep_scale)]
+	if _materials.has(key):
+		return _materials[key]
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.albedo_texture = soft_radial_texture(tex_size, inner_alpha)
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	mat.billboard_keep_scale = keep_scale
 	_materials[key] = mat
 	return mat
 

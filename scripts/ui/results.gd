@@ -420,8 +420,57 @@ func _build_buttons(parent: Control) -> void:
 	else:
 		_add_button(hbox, "Race Again", func() -> void:
 			SceneRouter.go_to(Game.SCENE_RACE))
+	_add_share_button(hbox)
 	_add_button(hbox, "Main Menu", func() -> void:
 		SceneRouter.go_to(Game.SCENE_MAIN_MENU))
+
+
+## Share copy for the finished run, or "" when there is nothing worth
+## bragging about (tutorial, missing result handoff).
+func _share_text() -> String:
+	match Game.mode:
+		Game.Mode.TUTORIAL:
+			return ""
+		Game.Mode.ENDLESS:
+			var score := int(Game.last_endless_result.get("score", 0))
+			if score <= 0:
+				return ""
+			return ShareManager.compose_race_text("endless", "", 0, str(score))
+		Game.Mode.TIME_TRIAL:
+			if Game.last_race_results.is_empty():
+				return ""
+			var row: Dictionary = Game.last_race_results[0]
+			return ShareManager.compose_race_text(
+				"time_trial", CoursesDB.display_name(Game.course_id), 0,
+				RaceHUD.format_time(float(row.get("time", 0.0))))
+		_:
+			var player_row: Dictionary = {}
+			for row: Dictionary in Game.last_race_results:
+				if bool(row.get("is_player", false)):
+					player_row = row
+			if player_row.is_empty():
+				return ""
+			var time_text := "" if bool(player_row.get("dnf", false)) \
+				else RaceHUD.format_time(float(player_row.get("time", 0.0)))
+			var mode_tag := "grand_prix" if Game.mode == Game.Mode.GRAND_PRIX else "race"
+			return ShareManager.compose_race_text(
+				mode_tag, CoursesDB.display_name(Game.course_id),
+				int(player_row.get("position", 0)), time_text)
+
+
+## Share sits between the primary continue action and Main Menu. The native
+## share sheet must open from inside the press (browser user gesture), so the
+## handler calls ShareManager directly; the clipboard path toasts "Copied!".
+func _add_share_button(parent: Control) -> void:
+	var text := _share_text()
+	if text.is_empty():
+		return
+	var button := ShareManager.make_share_button("Share", Vector2(220, 56), 26)
+	UITheme.hook_sounds(button)
+	button.pressed.connect(func() -> void:
+		ShareManager.share_with_toast(self, text))
+	parent.add_child(button)
+	_buttons.append(button)
 
 
 func _make_panel(parent: Control) -> PanelContainer:

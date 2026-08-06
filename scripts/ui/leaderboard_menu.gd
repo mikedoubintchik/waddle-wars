@@ -76,10 +76,21 @@ func _ready() -> void:
 
 	_build_auth_row(vbox)
 
-	var back := UITheme.make_button("Back", Vector2(240, 56), 26)
+	var button_row := HBoxContainer.new()
+	button_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	button_row.add_theme_constant_override("separation", 16)
+	vbox.add_child(button_row)
+	# navigator.share needs the press's user gesture, so share runs directly
+	# in the handler; the clipboard fallback confirms with a toast.
+	var challenge := ShareManager.make_share_button("Challenge Friends", Vector2(300, 56), 24)
+	UITheme.hook_sounds(challenge)
+	challenge.pressed.connect(func() -> void:
+		ShareManager.share_with_toast(self, ShareManager.compose_challenge_text()))
+	button_row.add_child(challenge)
+	var back := UITheme.make_button("Back", Vector2(200, 56), 26)
 	UITheme.hook_sounds(back)
 	back.pressed.connect(_go_back)
-	vbox.add_child(back)
+	button_row.add_child(back)
 
 	UITheme.attach_swipe_back(self, _go_back)
 	var entrance_items: Array[Control] = [title, tabs, panel]

@@ -473,6 +473,12 @@ func _build() -> void:
 			strip.add_child(pair)
 		_root.add_child(_controls_hint)
 
+	# Course minimap (top-right card under the item slot; hides itself on
+	# tiny viewports and when gameplay/show_minimap is off).
+	var minimap := RaceMinimap.new()
+	_root.add_child(minimap)
+	minimap.setup(manager, hud_scale)
+
 
 ## Endless mode: time label doubles as score/distance/storm readout.
 var _endless_mode: bool = false
