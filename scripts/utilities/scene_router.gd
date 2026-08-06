@@ -13,10 +13,15 @@ var _toast_layer: CanvasLayer
 var _busy: bool = false
 var _mute_layer: CanvasLayer
 var _mute_toast: Label = null
+var _perf: PerfTicker = null
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# Profiling only: a frame-time line every couple of seconds, labelled with
+	# the current scene, so in-game performance can be read off the console
+	# instead of inferred from a browser task manager.
+	_perf = PerfTicker.attach(self)
 	_overlay_layer = CanvasLayer.new()
 	_overlay_layer.layer = 100
 	add_child(_overlay_layer)
@@ -90,6 +95,8 @@ func _change_now(scene_path: String) -> void:
 	(func() -> void: get_tree().paused = false).call_deferred()
 	_busy = false
 	scene_changed.emit(scene_path)
+	if _perf != null:
+		_perf.set_scene_label(scene_path.get_file().get_basename())
 	if not GameConfig.is_headless():
 		_fade_out_when_scene_drawn()
 
