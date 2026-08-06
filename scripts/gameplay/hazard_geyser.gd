@@ -93,6 +93,13 @@ float value_noise(vec2 p) {
 	return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
 
+// v_obj is read in fragment(), so it MUST be written here. Without this the
+// GLES3 backend fails to link the shader ("Input of fragment shader 'm_v_obj'
+// not written by vertex shader") and the mesh renders unshaded.
+void vertex() {
+	v_obj = VERTEX;
+}
+
 void fragment() {
 	float h = clamp(v_obj.y / 6.0 + 0.5, 0.0, 1.0);
 	float ang = atan(v_obj.z, v_obj.x);
@@ -127,6 +134,13 @@ float value_noise(vec2 p) {
 	float c = hash21(i + vec2(0.0, 1.0));
 	float d = hash21(i + vec2(1.0, 1.0));
 	return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+// v_obj is read in fragment(), so it MUST be written here. Without this the
+// GLES3 backend fails to link the shader ("Input of fragment shader 'm_v_obj'
+// not written by vertex shader") and the mesh renders unshaded.
+void vertex() {
+	v_obj = VERTEX;
 }
 
 void fragment() {

@@ -239,9 +239,11 @@ static func _get_fish_mesh() -> ArrayMesh:
 	_add_fin(st, Vector3(0.17, 0.0, 0.0), Vector3(0.46, 0.23, 0.0), Vector3(0.30, 0.03, 0.0))
 	_add_fin(st, Vector3(0.17, 0.0, 0.0), Vector3(0.30, -0.03, 0.0), Vector3(0.46, -0.23, 0.0))
 	_add_fin(st, Vector3(-0.07, 0.08, 0.0), Vector3(0.04, 0.32, 0.0), Vector3(0.13, 0.08, 0.0))
-	_add_fin(st, Vector3(-0.06, -0.02, 0.06), Vector3(0.06, -0.11, 0.18), Vector3(0.02, -0.01, 0.07))
-	_add_fin(st, Vector3(-0.06, -0.02, -0.06), Vector3(0.02, -0.01, -0.07), Vector3(0.06, -0.11, -0.18))
-	_add_fin(st, Vector3(0.04, -0.11, 0.0), Vector3(0.14, -0.23, 0.0), Vector3(0.16, -0.08, 0.0))
+	# Pectorals and the anal fin stay small: blown up to match the tail they
+	# turn the fish into a radial orange starburst when seen head- or tail-on.
+	_add_fin(st, Vector3(-0.06, -0.02, 0.06), Vector3(0.06, -0.09, 0.13), Vector3(0.02, -0.01, 0.07))
+	_add_fin(st, Vector3(-0.06, -0.02, -0.06), Vector3(0.02, -0.01, -0.07), Vector3(0.06, -0.09, -0.13))
+	_add_fin(st, Vector3(0.04, -0.11, 0.0), Vector3(0.12, -0.18, 0.0), Vector3(0.15, -0.08, 0.0))
 	st.generate_normals()
 	st.commit(mesh)
 	# Surface 2: eye dots, one per side near the nose. Glossy black spheres --
