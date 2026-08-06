@@ -220,7 +220,10 @@ func _collect(node: Node) -> void:
 					_warm_material(instance.get_surface_override_material(i))
 		elif node is GPUParticles3D:
 			var particles := node as GPUParticles3D
-			for pass_index: int in 4:
+			# Only the passes the emitter actually declares: reading draw_pass_2 on
+			# a one-pass emitter is an out-of-bounds error per node per warm pass,
+			# which floods the browser console badly enough to hang devtools.
+			for pass_index: int in mini(particles.draw_passes, 4):
 				_warm_surfaces(particles.get("draw_pass_%d" % (pass_index + 1)) as Mesh)
 			if _extended:
 				_warm_particle_process(particles)
