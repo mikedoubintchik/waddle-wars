@@ -314,6 +314,51 @@ func _build_endless(parent: Control) -> void:
 			label.text = cell
 			label.add_theme_font_size_override("font_size", 26)
 			grid.add_child(label)
+	_build_online_section(parent, "endless", "endless", int(result.get("score", 0)))
+
+
+## Optional global leaderboard hook. Signed in: auto-post and show rank.
+## Signed out on web: offer Clerk sign-in, then post. Desktop: stay quiet —
+## boards are still viewable from the main menu.
+func _build_online_section(parent: Control, mode: String, course: String, value: int) -> void:
+	if GameConfig.is_headless() or value <= 0:
+		return
+	var label := UITheme.sub_label("", 24)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var submit := func() -> void:
+		label.text = "Posting to global leaderboard…"
+		LeaderboardClient.submit_score(mode, course, value,
+			func(ok: bool, data: Dictionary) -> void:
+				if not is_instance_valid(label):
+					return
+				if not ok:
+					label.text = "Couldn't reach the leaderboard."
+					return
+				var rank := int(data.get("rank", 0))
+				if bool(data.get("improved", false)):
+					label.text = "★ Global rank #%d — new personal best posted!" % rank
+				else:
+					label.text = "Global rank #%d (your best: %s)" % [
+						rank, LeaderboardClient.format_value(mode, int(data.get("best", value)))])
+	if LeaderboardClient.signed_in:
+		parent.add_child(label)
+		submit.call()
+	elif LeaderboardClient.can_sign_in():
+		label.text = "Sign in to post your score to the global leaderboard"
+		parent.add_child(label)
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		parent.add_child(row)
+		var button := UITheme.make_button("Sign In", Vector2(240, 52), 22)
+		UITheme.hook_sounds(button)
+		button.pressed.connect(LeaderboardClient.sign_in)
+		row.add_child(button)
+		LeaderboardClient.auth_changed.connect(func() -> void:
+			if LeaderboardClient.signed_in and is_instance_valid(label):
+				if is_instance_valid(button):
+					button.visible = false
+				submit.call(),
+			CONNECT_ONE_SHOT)
 
 
 func _build_time_trial(parent: Control) -> void:
@@ -325,6 +370,7 @@ func _build_time_trial(parent: Control) -> void:
 	var best := Progression.best_time(Game.course_id)
 	if best > 0.0:
 		_title(parent, "Best: %s" % RaceHUD.format_time(best), 26, Color(0.7, 0.82, 0.95))
+	_build_online_section(parent, "time", Game.course_id, int(round(float(row.get("time", 0.0)) * 1000.0)))
 
 
 func _build_tutorial(parent: Control) -> void:

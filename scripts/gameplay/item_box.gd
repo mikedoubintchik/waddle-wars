@@ -47,6 +47,13 @@ var _rng := RandomNumberGenerator.new()
 
 
 func _ready() -> void:
+	# Time Trial promises "No items, pure skill": boxes never spawn there.
+	# Physics process is disabled first since it can run once before the
+	# deferred free and would touch the never-built _visual.
+	if Game.mode == Game.Mode.TIME_TRIAL:
+		set_physics_process(false)
+		queue_free()
+		return
 	collision_layer = GameConfig.LAYER_PICKUPS
 	collision_mask = GameConfig.LAYER_RACERS
 	_rng.randomize()

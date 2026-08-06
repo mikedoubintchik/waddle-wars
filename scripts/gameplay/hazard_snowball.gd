@@ -10,11 +10,14 @@ var lateral: float = 0.0
 var speed: float = 14.0
 var radius: float = 1.7
 
+const ROLL_SFX_INTERVAL: float = 1.1
+
 var _offset: float = 0.0
 var _visual: MeshInstance3D
 var _area: Area3D
 var _respawn_wait: float = 0.0
 var _hit_cooldown: Dictionary = {}
+var _roll_sfx_timer: float = 0.0
 
 
 func configure(p_guide: PathGuide, p_start: float, p_end: float, p_lateral: float, p_speed: float = 14.0) -> void:
@@ -69,6 +72,12 @@ func _physics_process(delta: float) -> void:
 		return
 	global_position = guide.point_at(_offset, lateral, radius * 0.95)
 	_visual.rotate_x(-speed * delta / radius)
+	# Throttled low rumble while rolling: the audible telegraph promised in
+	# the class doc, matching the seal/geyser positional-audio pattern.
+	_roll_sfx_timer -= delta
+	if _roll_sfx_timer <= 0.0:
+		_roll_sfx_timer = ROLL_SFX_INTERVAL
+		AudioManager.play_sfx_3d("sfx_slide", global_position, 0.5, -4.0)
 
 
 func _on_hit(body: Node3D) -> void:
@@ -79,6 +88,10 @@ func _on_hit(body: Node3D) -> void:
 	if int(_hit_cooldown.get(racer.racer_key, 0)) > now:
 		return
 	_hit_cooldown[racer.racer_key] = now + 3000
+	# Heavy thud layered under apply_stun's sfx_impact; pitched well below
+	# the thrown-snowball version so the big hazard reads bigger. The 3s
+	# per-racer cooldown above throttles it.
+	AudioManager.play_sfx_3d("sfx_snowball_hit", global_position, 0.7, -2.0)
 	if racer.apply_stun("snowball_hazard") and racer.is_player:
 		var camera := get_viewport().get_camera_3d()
 		if camera != null and camera.get_parent() is ChaseCamera:

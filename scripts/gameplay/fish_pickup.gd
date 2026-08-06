@@ -14,7 +14,7 @@ static var _ring_mat_contrast: StandardMaterial3D = null
 var value: int = 1
 var collected: bool = false
 var _bob_time: float = 0.0
-var _base_y: float = 0.0
+var _spin: float = 0.0
 var _magnet_target: Racer = null
 var _visual: MeshInstance3D = null
 
@@ -39,7 +39,6 @@ func _ready() -> void:
 	ring.material_override = _get_ring_material()
 	ring.position.y = -0.16
 	_visual.add_child(ring)
-	_base_y = position.y
 	_bob_time = randf() * TAU
 	body_entered.connect(_on_body_entered)
 
@@ -173,10 +172,12 @@ func _physics_process(delta: float) -> void:
 			return
 		global_position += to_target.normalized() * 22.0 * delta
 	else:
-		position.y = _base_y + sin(_bob_time * 2.4) * 0.15
-		rotation.y += delta * 0.9
+		# Bob/spin only the visual child so the Area3D transform stays static
+		# (no broadphase re-sync every tick; same pattern as item_box.gd).
+		_spin += delta * 0.9
+		_visual.position.y = sin(_bob_time * 2.4) * 0.15
 		# Gentle swim wiggle: yaw sine on the visual so the fish looks alive.
-		_visual.rotation.y = sin(_bob_time * 5.2) * 0.3
+		_visual.rotation.y = _spin + sin(_bob_time * 5.2) * 0.3
 
 
 func attract_to(racer: Racer) -> void:

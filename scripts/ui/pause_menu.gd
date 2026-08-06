@@ -5,6 +5,8 @@ extends CanvasLayer
 var _panel: Control = null
 var _paused: bool = false
 var _buttons: Array[Button] = []
+var _quit_button: Button = null
+var _quit_armed: bool = false
 
 
 func _ready() -> void:
@@ -14,6 +16,10 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	# Never leave the tree paused if the menu is torn down mid-pause (e.g. the
+	# race scene is freed by a scene swap).
+	if _paused:
+		get_tree().paused = false
 	if Input.joy_connection_changed.is_connected(_on_joy_connection_changed):
 		Input.joy_connection_changed.disconnect(_on_joy_connection_changed)
 
@@ -38,6 +44,10 @@ func toggle() -> void:
 
 
 func _open() -> void:
+	# Refuse to open during a scene transition: SceneRouter unpauses only at
+	# transition start, so pausing mid-fade would soft-lock the next scene.
+	if _paused or SceneRouter.is_busy():
+		return
 	_paused = true
 	get_tree().paused = true
 	AudioManager.ui_click()
@@ -98,9 +108,8 @@ func _open() -> void:
 		slider.value_changed.connect(func(value: float) -> void:
 			SettingsManager.set_setting("audio", key, value))
 		row.add_child(slider)
-	_add_button(vbox, "Quit to Menu", func() -> void:
-		get_tree().paused = false
-		Game.quit_race_to_menu())
+	_quit_armed = false
+	_quit_button = _add_button(vbox, "Quit to Menu", _on_quit_pressed)
 	# Edge swipe resumes, mirroring the Resume button for touch players.
 	UITheme.attach_swipe_back(_panel, _close)
 	# Unified fade+rise entrance; the PauseMenu layer processes while the
@@ -111,12 +120,24 @@ func _open() -> void:
 		_buttons[0].grab_focus()
 
 
-func _add_button(parent: Control, text: String, action: Callable) -> void:
+func _add_button(parent: Control, text: String, action: Callable) -> Button:
 	var button := UITheme.make_button(text, Vector2(280, 52), 26)
 	UITheme.hook_sounds(button)
 	button.pressed.connect(action)
 	parent.add_child(button)
 	_buttons.append(button)
+	return button
+
+
+func _on_quit_pressed() -> void:
+	# Quitting mid-Grand-Prix abandons all standings; require a second press.
+	if Game.mode == Game.Mode.GRAND_PRIX and not _quit_armed:
+		_quit_armed = true
+		if _quit_button != null:
+			_quit_button.text = "Really Quit? GP is lost"
+		return
+	get_tree().paused = false
+	Game.quit_race_to_menu()
 
 
 func _close() -> void:
@@ -125,6 +146,8 @@ func _close() -> void:
 	if _panel != null:
 		_panel.queue_free()
 		_panel = null
+	_quit_button = null
+	_quit_armed = false
 
 
 func _notification(what: int) -> void:

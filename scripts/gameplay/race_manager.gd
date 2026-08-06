@@ -127,7 +127,7 @@ func _physics_process(delta: float) -> void:
 			_countdown_value -= 1
 			if _countdown_value > 0:
 				countdown_tick.emit(_countdown_value)
-				AudioManager.play_sfx("sfx_countdown", 1.0 if _countdown_value > 1 else 1.0)
+				AudioManager.play_sfx("sfx_countdown", 1.0 if _countdown_value > 1 else 1.25)
 				_countdown_timer = 1.0
 			else:
 				countdown_tick.emit(0)
@@ -186,14 +186,16 @@ func _update_rubberband() -> void:
 	if single_racer_mode:
 		return
 	var strength := float(DifficultyDB.get_item(Game.difficulty_id).get("rubberband", 0.12))
-	var player_progress := player.total_progress if player != null else 0.0
+	# Gap in continuous course metres: total_progress jumps 10000 per
+	# checkpoint, which saturated the /600 envelope at one checkpoint apart.
+	var player_progress := player.progress if player != null else 0.0
 	for racer: Racer in racers:
 		if racer.is_player or racer.state == Racer.State.FINISHED:
 			continue
 		var base := float(DifficultyDB.get_item(Game.difficulty_id).get("speed_scale", 0.95))
 		var personality := PersonalitiesDB.get_item(racer.racer_key)
 		base *= 0.94 + 0.08 * float(personality.get("skill", 0.6))
-		var gap := player_progress - racer.total_progress
+		var gap := player_progress - racer.progress
 		var adjust := clampf(gap / 600.0, -1.0, 1.0) * strength
 		racer.speed_scale = clampf(base + adjust, 0.78, 1.14)
 

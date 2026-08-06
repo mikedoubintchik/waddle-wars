@@ -11,6 +11,7 @@ const SCENE_RACE: String = "res://scenes/gameplay/race.tscn"
 const SCENE_RESULTS: String = "res://scenes/menus/results.tscn"
 const SCENE_CUSTOMIZE: String = "res://scenes/menus/customize.tscn"
 const SCENE_ACHIEVEMENTS: String = "res://scenes/menus/achievements.tscn"
+const SCENE_LEADERBOARD: String = "res://scenes/menus/leaderboard.tscn"
 const SCENE_SETTINGS: String = "res://scenes/menus/settings.tscn"
 const SCENE_CREDITS: String = "res://scenes/menus/credits.tscn"
 
@@ -23,6 +24,7 @@ var difficulty_id: String = "competitive"
 ## Grand Prix state.
 var gp_round: int = 0
 var gp_points: Dictionary = {}  # racer_key ("player" or personality id) -> points
+var gp_times: Dictionary = {}  # racer_key -> accumulated race seconds (standings tiebreak)
 
 ## Result handoff. Race scene fills this, results scene reads it.
 ## Array of {key, name, is_player, position, time, fish, dnf}
@@ -45,11 +47,16 @@ func start_grand_prix(p_difficulty: String) -> void:
 	difficulty_id = p_difficulty
 	gp_round = 0
 	gp_points = {}
+	gp_times = {}
 	course_id = CoursesDB.GRAND_PRIX_ORDER[0]
 	SceneRouter.go_to(SCENE_RACE)
 
 
 func advance_grand_prix() -> bool:
+	# Double-click guard: go_to drops calls while transitioning, but gp_round
+	# must not increment for a dropped call or a fast second press skips a round.
+	if SceneRouter.is_busy():
+		return true
 	gp_round += 1
 	if gp_round >= CoursesDB.GRAND_PRIX_ORDER.size():
 		return false
@@ -84,9 +91,17 @@ func gp_standings() -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	for key: Variant in gp_points.keys():
 		var display := "You" if key == "player" else String(PersonalitiesDB.get_item(key).get("name", key))
-		rows.append({"key": key, "name": display, "points": int(gp_points[key])})
+		rows.append({
+			"key": key, "name": display, "points": int(gp_points[key]),
+			"time": float(gp_times.get(key, 0.0)),
+		})
+	# sort_custom is unstable; break points ties by total race time, then name.
 	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return int(a["points"]) > int(b["points"]))
+		if int(a["points"]) != int(b["points"]):
+			return int(a["points"]) > int(b["points"])
+		if float(a["time"]) != float(b["time"]):
+			return float(a["time"]) < float(b["time"])
+		return String(a["name"]) < String(b["name"]))
 	return rows
 
 
@@ -105,6 +120,7 @@ func finish_race(results: Array[Dictionary]) -> void:
 			var pos := int(row.get("position", 8))
 			var pts := GP_POINTS[clampi(pos - 1, 0, GP_POINTS.size() - 1)]
 			gp_points[key] = int(gp_points.get(key, 0)) + pts
+			gp_times[key] = float(gp_times.get(key, 0.0)) + float(row.get("time", 0.0))
 
 	_grant_race_rewards(player_row)
 	SceneRouter.go_to(SCENE_RESULTS)

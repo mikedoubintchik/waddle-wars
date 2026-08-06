@@ -84,6 +84,13 @@ const ICON_TROPHY: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64
 <path d="M24 14 L27 22 L24 30" stroke="#fff2c0" stroke-width="3" fill="none" opacity="0.8"/>
 </svg>"""
 
+const ICON_PODIUM: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<rect x="6" y="34" width="17" height="22" fill="#c9d2dc" stroke="#8d99a6" stroke-width="2"/>
+<rect x="23" y="24" width="18" height="32" fill="#f5c542" stroke="#c98f1b" stroke-width="2"/>
+<rect x="41" y="40" width="17" height="16" fill="#cd8f5a" stroke="#96683f" stroke-width="2"/>
+<path d="M32 8 L34.4 13.4 L40 14 L35.8 17.8 L37 23.4 L32 20.5 L27 23.4 L28.2 17.8 L24 14 L29.6 13.4 Z" fill="#f5c542" stroke="#c98f1b" stroke-width="1.5"/>
+</svg>"""
+
 const ICON_GEAR: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
 <g stroke="#9fc4e0" stroke-width="7" stroke-linecap="round" fill="none">
 <path d="M32 8 V16 M32 48 V56 M8 32 H16 M48 32 H56 M15 15 L21 21 M43 43 L49 49 M49 15 L43 21 M21 43 L15 49"/>

@@ -92,6 +92,11 @@ var _finish_slowdown: float = 1.0
 var _collision_shape: CollisionShape3D = null
 var _capsule: CapsuleShape3D = null
 var _crouched: bool = false
+var _swim_stroke_timer: float = 0.0
+# Cached ray queries: rebuilt params + exclude array every tick per racer
+# showed up in profiling, so these are created once and only from/to mutate.
+var _surface_query: PhysicsRayQueryParameters3D = null
+var _ceiling_query: PhysicsRayQueryParameters3D = null
 var guide_cache: Dictionary = {}  # used by CourseBase for cached lookups
 
 
@@ -108,6 +113,8 @@ func _ready() -> void:
 	_collision_shape.shape = _capsule
 	_collision_shape.position.y = 0.55
 	add_child(_collision_shape)
+	_surface_query = PhysicsRayQueryParameters3D.create(Vector3.ZERO, Vector3.ZERO, GameConfig.LAYER_WORLD, [get_rid()])
+	_ceiling_query = PhysicsRayQueryParameters3D.create(Vector3.ZERO, Vector3.ZERO, GameConfig.LAYER_WORLD, [get_rid()])
 	_make_slide_particles()
 
 
@@ -254,13 +261,9 @@ func _detect_surface() -> void:
 		current_surface = SurfacesDB.Surface.WATER
 		return
 	var space := get_world_3d().direct_space_state
-	var query := PhysicsRayQueryParameters3D.create(
-		global_position + Vector3.UP * 0.5,
-		global_position + Vector3.DOWN * 2.5,
-		GameConfig.LAYER_WORLD
-	)
-	query.exclude = [get_rid()]
-	var hit := space.intersect_ray(query)
+	_surface_query.from = global_position + Vector3.UP * 0.5
+	_surface_query.to = global_position + Vector3.DOWN * 2.5
+	var hit := space.intersect_ray(_surface_query)
 	if hit.is_empty():
 		return
 	var collider: Object = hit.get("collider")
@@ -335,8 +338,10 @@ func _tick_ground_air(delta: float) -> void:
 			current_speed = move_toward(current_speed, slide_target, slide_ramp * delta)
 		current_speed = clampf(current_speed, 0.0, SLIDE_MAX_SPEED)
 		# Sliding uphill or into deep snow bleeds speed fast; standing back up
-		# is handled once speed drops below waddle pace.
-		if current_speed < BASE_SPEED * 0.55 * speed_scale:
+		# is handled once speed drops below waddle pace. Same downhill gate as
+		# the ramp above: on ascents the floor must not hold speed, or the <5.0
+		# stall stand-up never fires (QA finding).
+		if downhill_dot >= -0.02 and current_speed < BASE_SPEED * 0.55 * speed_scale:
 			current_speed = move_toward(current_speed, BASE_SPEED * 0.55 * speed_scale, 4.0 * delta)
 	else:
 		# Same combined cap as sliding: surface speed and boost never stack past
@@ -409,6 +414,12 @@ func _tick_swimming(delta: float) -> void:
 	_steer_offset = lerpf(_steer_offset, steer * deg_to_rad(45.0), minf(delta * 6.0, 1.0))
 	_facing_yaw = _wrap_lerp_angle(_facing_yaw, _guide_yaw + _steer_offset, minf(delta * 5.0, 1.0))
 	_velocity_yaw = _wrap_lerp_angle(_velocity_yaw, _facing_yaw, minf(delta * 6.0, 1.0))
+
+	# Periodic stroke audio while actually moving through the water.
+	_swim_stroke_timer -= delta
+	if _swim_stroke_timer <= 0.0 and current_speed > 2.0:
+		_swim_stroke_timer = randf_range(0.55, 0.75)
+		AudioManager.play_sfx_3d("sfx_swim", global_position, randf_range(0.92, 1.08), -8.0)
 
 	# Buoyancy spring toward just below the surface; dive / burst inputs.
 	var target_y := _water_surface_y - 0.35
@@ -720,6 +731,7 @@ func enter_water(area: Area3D, surface_y: float) -> void:
 	if state != State.SWIMMING and state != State.FINISHED and global_position.y < surface_y + 0.3:
 		_set_state(State.SWIMMING)
 		vertical_velocity = minf(vertical_velocity, 0.0)
+		_swim_stroke_timer = randf_range(0.4, 0.6)  # first stroke after the splash, not on top of it
 		AudioManager.play_sfx_3d("sfx_splash", global_position, randf_range(0.9, 1.05))
 		if course != null and course.has_method("spawn_splash"):
 			course.spawn_splash(global_position)
@@ -755,6 +767,10 @@ func respawn_at_checkpoint() -> void:
 	guide_cache = {}  # force fresh global guide search from the new position
 	_invuln_timer = 2.0
 	_recover_timer = RECOVER_TIME
+	# Randomized post-respawn stumble desyncs the next approach from moving
+	# platforms: a fixed respawn->arrival period can resonate with a platform
+	# cycle so every retry meets the same bad phase.
+	_stumble_timer = randf_range(0.2, 1.4)
 	_set_state(State.RECOVERING)
 	respawned.emit(self)
 	AudioManager.play_sfx_3d("sfx_respawn", global_position, 1.0, -6.0)
@@ -801,13 +817,9 @@ func _set_crouched(crouched: bool) -> void:
 
 func _ceiling_blocked() -> bool:
 	var space := get_world_3d().direct_space_state
-	var query := PhysicsRayQueryParameters3D.create(
-		global_position + Vector3.UP * 0.4,
-		global_position + Vector3.UP * 1.35,
-		GameConfig.LAYER_WORLD
-	)
-	query.exclude = [get_rid()]
-	return not space.intersect_ray(query).is_empty()
+	_ceiling_query.from = global_position + Vector3.UP * 0.4
+	_ceiling_query.to = global_position + Vector3.UP * 1.35
+	return not space.intersect_ray(_ceiling_query).is_empty()
 
 
 func _yaw_to_dir(yaw: float) -> Vector3:

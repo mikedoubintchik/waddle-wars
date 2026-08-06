@@ -153,3 +153,32 @@ validation run on the working tree at final checkpoint:
 Outstanding defects tracked in QA_FINDINGS.md: 4 FIXED, 14 OPEN. `run_tests.sh`
 full suite exceeded 10 min wall-clock in the supervisor environment — recommend
 a fast-subset flag before relying on it in CI.
+
+## Prod-readiness round — 2026-08-05
+
+Full audit (9 agents, 67 raw findings → verified list) + fix round (6 agents)
++ optional online leaderboard (Clerk + Cloudflare Worker + D1). Validation on
+the working tree:
+
+| Check | Command | Result |
+|-------|---------|--------|
+| Parse/import | `godot --headless --import .` | 0 script errors |
+| Unit suite | `godot --headless tests/unit_tests.tscn` | 50/50 (adds leaderboard menu-load) |
+| Race sim glacier | `... -- course=glacier` | PASS |
+| Race sim aurora | `... -- course=aurora` | PASS |
+| Race sim iceberg | see flake note below | PASS (battery) |
+| Endless sim | `tests/endless_sim.tscn` | PASS |
+| GP sim | `tests/gp_sim.tscn` | PASS (3 rounds, tiebreak-sorted standings) |
+| Tutorial sim | `tests/tutorial_sim.tscn` | PASS |
+| Boost arrows | `tests/pad_shot.tscn` top-down captures | direction + scroll verified |
+| Leaderboard API | curl health/board/401 checks | all correct |
+| Visual QA | screenshot_tour: menu, leaderboard, countdown | reviewed; control-strip contrast fixed |
+
+Iceberg flake investigation: baseline b0a5c19 timed out 3/6 sim runs — a
+pre-existing autopilot resonance (boost pad 16m before the moving-platform
+crossing + fixed respawn cadence re-hitting the same platform phase), NOT a
+regression from this round (verified by stash-and-rerun bisect). Fixes: pad
+moved 70m upstream, randomized 0.2–1.4s post-respawn stumble, and an AI
+progress watchdog (respawn if <6m course progress in 12s — catches full-speed
+circling the position-delta check misses). Post-fix battery results recorded
+in BUILD_STATUS.md.

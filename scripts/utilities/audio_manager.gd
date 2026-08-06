@@ -87,7 +87,11 @@ func play_music(name_key: String, fade_time: float = 1.2) -> void:
 		var wav := stream as AudioStreamWAV
 		if wav.loop_mode == AudioStreamWAV.LOOP_DISABLED:
 			wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
-			wav.loop_end = wav.data.size() / 4  # 16-bit stereo frames
+			# Frame size depends on the actual format/channel layout — the old
+			# /4 assumed 16-bit stereo and mis-looped mono or 8-bit sources.
+			var bytes_per_sample := 2 if wav.format == AudioStreamWAV.FORMAT_16_BITS else 1
+			var channels := 2 if wav.stereo else 1
+			wav.loop_end = wav.data.size() / (bytes_per_sample * channels)
 	elif stream is AudioStreamOggVorbis:
 		(stream as AudioStreamOggVorbis).loop = true
 	_current_music = name_key

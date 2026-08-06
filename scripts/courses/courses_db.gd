@@ -16,7 +16,7 @@ const ITEMS: Dictionary = {
 		"desc": "A twilight mountain climb under the southern lights, with wind, icicles, and a wild corkscrew descent.",
 		"script": "res://scripts/courses/course_aurora.gd",
 		"theme_color": Color(0.45, 0.9, 0.65),
-		"music": "music_race",
+		"music": "music_aurora",
 		"par_time": 165.0,
 	},
 	"iceberg": {
@@ -24,7 +24,7 @@ const ITEMS: Dictionary = {
 		"desc": "Sunset ocean racing across drifting bergs, swim channels, wave ramps, and very relaxed seals.",
 		"script": "res://scripts/courses/course_iceberg.gd",
 		"theme_color": Color(0.98, 0.62, 0.4),
-		"music": "music_race",
+		"music": "music_iceberg",
 		"par_time": 160.0,
 	},
 }

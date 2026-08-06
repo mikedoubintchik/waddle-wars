@@ -10,6 +10,24 @@ const REMAPPABLE_ACTIONS: PackedStringArray = [
 	"steer_left", "steer_right", "jump", "slide", "shove", "use_item", "pause",
 ]
 
+## Godot 4 JoyButton indices -> Xbox-style labels for the rebind UI.
+const JOY_BUTTON_NAMES: Dictionary = {
+	JOY_BUTTON_A: "A",
+	JOY_BUTTON_B: "B",
+	JOY_BUTTON_X: "X",
+	JOY_BUTTON_Y: "Y",
+	JOY_BUTTON_BACK: "Select",
+	JOY_BUTTON_START: "Start",
+	JOY_BUTTON_LEFT_STICK: "L3",
+	JOY_BUTTON_RIGHT_STICK: "R3",
+	JOY_BUTTON_LEFT_SHOULDER: "LB",
+	JOY_BUTTON_RIGHT_SHOULDER: "RB",
+	JOY_BUTTON_DPAD_UP: "D-Pad Up",
+	JOY_BUTTON_DPAD_DOWN: "D-Pad Down",
+	JOY_BUTTON_DPAD_LEFT: "D-Pad Left",
+	JOY_BUTTON_DPAD_RIGHT: "D-Pad Right",
+}
+
 var settings: Dictionary = {}
 var _default_bindings: Dictionary = {}
 
@@ -140,8 +158,14 @@ func describe_action_binding(action: String, family: String) -> String:
 			return OS.get_keycode_string(DisplayServer.keyboard_get_keycode_from_physical(code)) if not GameConfig.is_headless() else OS.get_keycode_string(code)
 		if family == "joy" and (ev is InputEventJoypadButton or ev is InputEventJoypadMotion):
 			if ev is InputEventJoypadButton:
-				return "Pad %d" % (ev as InputEventJoypadButton).button_index
+				var index := (ev as InputEventJoypadButton).button_index
+				return String(JOY_BUTTON_NAMES.get(index, "Pad %d" % index))
 			var motion := ev as InputEventJoypadMotion
+			# Triggers are axes in Godot 4, not JoyButton entries.
+			if motion.axis == JOY_AXIS_TRIGGER_LEFT and motion.axis_value > 0.0:
+				return "LT"
+			if motion.axis == JOY_AXIS_TRIGGER_RIGHT and motion.axis_value > 0.0:
+				return "RT"
 			return "Axis %d%s" % [motion.axis, "+" if motion.axis_value > 0.0 else "-"]
 	return "—"
 
@@ -327,6 +351,14 @@ func _load_settings() -> void:
 				settings = parsed
 	if settings.is_empty():
 		settings = default_settings()
+		# Phone browsers cannot sustain the desktop 'high' profile. First run
+		# only — once a settings file exists, the user's saved choices win.
+		if is_mobile_web():
+			var display: Dictionary = settings["display"]
+			display["quality_preset"] = "medium"
+			display["shadow_quality"] = "medium"
+			display["particle_quality"] = "medium"
+			display["msaa"] = "2x"
 
 
 func _save_settings() -> void:

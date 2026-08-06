@@ -222,7 +222,10 @@ func build_course() -> void:
 		plat.configure(Vector3(13.0, 0.8, 11.5), Vector3.RIGHT, sweep, plat_periods[i], 0.0, plat_phases[i])
 		plat.position = Vector3(0.0, 7.6, -643.0 - 10.0 * float(i))
 		add_child(plat)
-	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(0, 8, -640)) - 16.0)
+	# 70m upstream so the boost expires well before the platform jump — at
+	# -16m it launched full-speed racers onto a bad platform phase, and a
+	# respawned racer re-hit the pad on the same cycle (resonant stuck loop).
+	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(0, 8, -640)) - 70.0)
 
 	# --- Tilting-slab causeway (section 6) ----------------------------------
 	add_hint(_offset_near(Vector3(-8, 6, -1185)) - 2.0, "jump")

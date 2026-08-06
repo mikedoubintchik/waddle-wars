@@ -1,2 +1,4 @@
 build/
 .godot/
+leaderboard/.wrangler/
+qa_shots/

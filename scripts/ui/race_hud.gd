@@ -46,6 +46,7 @@ var _speed_bar: ProgressBar
 var _progress_bar: ProgressBar
 var _center_label: Label
 var _checkpoint_label: Label
+var _controls_hint: PanelContainer = null
 var _root: Control
 
 
@@ -54,6 +55,7 @@ func setup(p_manager: RaceManager, p_player: Racer) -> void:
 	player = p_player
 	_build()
 	manager.countdown_tick.connect(_on_countdown)
+	manager.race_started.connect(_fade_controls_hint)
 	manager.positions_updated.connect(_on_positions)
 	manager.message.connect(show_message)
 	player.fish_collected.connect(_on_fish)
@@ -190,18 +192,19 @@ func _build() -> void:
 	pos_box.add_theme_constant_override("separation", 6)
 	pos_panel.add_child(pos_box)
 	_position_label = Label.new()
-	_position_label.text = "8"
 	_position_label.add_theme_font_size_override("font_size", int(76 * hud_scale))
 	_position_label.add_theme_color_override("font_color", Color(1, 1, 1))
 	_position_label.add_theme_constant_override("outline_size", 8)
 	_position_label.add_theme_color_override("font_outline_color", OUTLINE_NAVY)
 	pos_box.add_child(_position_label)
 	_position_suffix = Label.new()
-	_position_suffix.text = "th / 8"
 	_position_suffix.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_position_suffix.add_theme_font_size_override("font_size", int(30 * hud_scale))
 	_position_suffix.add_theme_color_override("font_color", Color(ACCENT_ICE, 0.95))
 	pos_box.add_child(_position_suffix)
+	# Seed with the real grid slot so the countdown shows actual data instead
+	# of placeholders (Time Trial reads 1st / 1).
+	_set_position_display(maxi(manager.racers.find(player) + 1, 1), maxi(manager.racers.size(), 1))
 
 	# Time pill (top center).
 	var time_panel := PanelContainer.new()
@@ -213,6 +216,7 @@ func _build() -> void:
 	time_panel.add_theme_stylebox_override("panel", _panel_style(18.0, 18.0, 5.0))
 	_root.add_child(time_panel)
 	_time_label = Label.new()
+	_time_label.text = format_time(0.0)
 	_time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_time_label.add_theme_font_size_override("font_size", int(34 * hud_scale))
 	_time_label.add_theme_color_override("font_color", Color(1, 1, 1))
@@ -407,6 +411,54 @@ func _build() -> void:
 		esc_hint.add_child(pause_label)
 		_root.add_child(esc_hint)
 
+	# Keyboard onboarding (bottom center): compact keycap strip with the live
+	# race bindings, shown through the countdown and faded shortly after GO.
+	# Touch devices get the gesture overlay instead.
+	if not UITheme.is_touch() and bool(SettingsManager.get_setting("gameplay", "tutorial_prompts")):
+		# Dark chip behind the strip: over bright snow the bare labels washed
+		# out (screenshot QA).
+		_controls_hint = PanelContainer.new()
+		_controls_hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+		_controls_hint.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		_controls_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		_controls_hint.offset_left = 0
+		_controls_hint.offset_right = 0
+		_controls_hint.offset_bottom = -96
+		_controls_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_controls_hint.modulate.a = 0.92
+		var strip_style := UITheme.make_panel_style(Color(0.05, 0.09, 0.16, 0.78))
+		strip_style.content_margin_left = 16.0
+		strip_style.content_margin_right = 16.0
+		strip_style.content_margin_top = 8.0
+		strip_style.content_margin_bottom = 8.0
+		_controls_hint.add_theme_stylebox_override("panel", strip_style)
+		var strip := HBoxContainer.new()
+		strip.add_theme_constant_override("separation", 16)
+		strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_controls_hint.add_child(strip)
+		for hint: Array in [
+			[["steer_left", "steer_right"], "Steer"],
+			[["jump"], "Jump"],
+			[["slide"], "Slide"],
+			[["shove"], "Shove"],
+			[["use_item"], "Item"],
+		]:
+			var pair := HBoxContainer.new()
+			pair.add_theme_constant_override("separation", 4)
+			pair.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			for action: String in hint[0]:
+				var key := SettingsManager.describe_action_binding(action, "key")
+				pair.add_child(_make_keycap(key if key != "—" else "?", int(14 * hud_scale)))
+			var verb := Label.new()
+			verb.text = String(hint[1])
+			verb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			verb.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			verb.add_theme_font_size_override("font_size", int(14 * hud_scale))
+			verb.add_theme_color_override("font_color", Color(0.92, 0.96, 1.0))
+			pair.add_child(verb)
+			strip.add_child(pair)
+		_root.add_child(_controls_hint)
+
 
 ## Endless mode: time label doubles as score/distance/storm readout.
 var _endless_mode: bool = false
@@ -494,6 +546,19 @@ func _on_countdown(value: int) -> void:
 			_center_label.modulate.a = 1.0)
 
 
+## Fades out the keyboard onboarding strip shortly after the race starts.
+func _fade_controls_hint() -> void:
+	if _controls_hint == null:
+		return
+	var tween := create_tween()
+	tween.tween_interval(2.0)
+	tween.tween_property(_controls_hint, "modulate:a", 0.0, 0.6)
+	tween.tween_callback(func() -> void:
+		if _controls_hint != null:
+			_controls_hint.queue_free()
+			_controls_hint = null)
+
+
 func show_message(text: String) -> void:
 	_center_label.text = text
 	_center_label.modulate = Color(1.0, 0.9, 0.4)
@@ -506,17 +571,21 @@ func show_message(text: String) -> void:
 
 
 func _on_positions(_standings: Array[Racer]) -> void:
-	var pos := player.race_position
+	_set_position_display(player.race_position, manager.racers.size())
+
+
+## Position card ("2nd / 8") with podium colours; also seeds the pre-race grid slot.
+func _set_position_display(pos: int, total: int) -> void:
 	_position_label.text = str(pos)
 	var suffix := "th"
 	match pos:
 		1: suffix = "st"
 		2: suffix = "nd"
 		3: suffix = "rd"
-	_position_suffix.text = "%s / %d" % [suffix, manager.racers.size()]
+	_position_suffix.text = "%s / %d" % [suffix, total]
 	var colors := [Color(1.0, 0.85, 0.2), Color(0.8, 0.85, 0.9), Color(0.8, 0.6, 0.4)]
 	_position_label.add_theme_color_override("font_color",
-		colors[pos - 1] if pos <= 3 else Color(1, 1, 1))
+		colors[pos - 1] if pos >= 1 and pos <= 3 else Color(1, 1, 1))
 
 
 func _on_fish(_racer: Racer, _value: int) -> void:

@@ -1,0 +1,13 @@
+name = "waddle-wars-leaderboard"
+main = "src/worker.js"
+compatibility_date = "2026-08-01"
+account_id = "592217b354c4f0813d17c0818429ef93"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "waddle-wars"
+database_id = "2be032bd-7d5b-4958-a310-7f48607fa2d7"
+
+[vars]
+CLERK_ISSUER = "https://stunning-hen-13.clerk.accounts.dev"

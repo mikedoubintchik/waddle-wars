@@ -94,8 +94,10 @@ func _build() -> void:
 	_add_button("ITEM", Vector2(-80, -80) * s, BUTTON_SIZE_PX * s, false,
 		func() -> void: controller.touch_item(), Callable())
 
-	# Pause: small, top-right, clear of the action cluster.
-	_add_button("II", Vector2(-60, 60) * s, PAUSE_SIZE_PX * s, true,
+	# Pause: small, top-right, kept left of the RaceHUD item panel (which spans
+	# offsets -170..-24 from the right edge and does not scale with touch
+	# scale) so both stay fully visible.
+	_add_button("II", Vector2(-194.0 - PAUSE_SIZE_PX * 0.5 * s, 60.0 * s), PAUSE_SIZE_PX * s, true,
 		_press_pause, Callable())
 
 
@@ -136,12 +138,16 @@ func _add_button(text: String, center: Vector2, size: float, top_anchor: bool,
 	})
 
 
-## One-time translucent overlay teaching the touch gestures. Shown on the
-## first race only; persisted via the gameplay "touch_hints_seen" flag
+## One-time translucent overlay teaching the touch gestures. Gated on the
+## "tutorial_prompts" setting (checked before the seen flag is written, so
+## re-enabling prompts later still shows the hint once). Shown on the first
+## race only; persisted via the gameplay "touch_hints_seen" flag
 ## (get_setting returns null while the flag has never been written, which
 ## reads as "not seen"). Fades out after HINT_VISIBLE_SEC.
 func _maybe_show_gesture_hint() -> void:
 	if GameConfig.is_headless():
+		return
+	if not bool(SettingsManager.get_setting("gameplay", "tutorial_prompts")):
 		return
 	if SettingsManager.get_setting("gameplay", "touch_hints_seen") == true:
 		return

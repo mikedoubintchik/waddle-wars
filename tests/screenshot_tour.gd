@@ -40,6 +40,8 @@ func _ready() -> void:
 			SceneRouter.go_to.call_deferred(Game.SCENE_CUSTOMIZE)
 		"achievements":
 			SceneRouter.go_to.call_deferred(Game.SCENE_ACHIEVEMENTS)
+		"leaderboard":
+			SceneRouter.go_to.call_deferred(Game.SCENE_LEADERBOARD)
 		"settings":
 			SceneRouter.go_to.call_deferred(Game.SCENE_SETTINGS)
 		"results":

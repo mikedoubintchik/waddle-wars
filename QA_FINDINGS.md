@@ -36,12 +36,12 @@ Every finding below was confirmed by reading the code; fix and mark FIXED with e
    silent no-op (null guard). All touch input dead on mobile/touch configs.
    Fix: defer `touch.setup`, or assign `player.controller` synchronously before deferring `add_child`.
 
-3. **[OPEN] Rubberband gap uses checkpoint-quantized progress, not meters.**
+3. **[FIXED @prod-round — race_manager.gd:_update_rubberband now uses continuous racer.progress metres; sims 3-course PASS] Rubberband gap uses checkpoint-quantized progress, not meters.**
    `scripts/gameplay/race_manager.gd:189`. Catch-up assistance computed from `total_progress`
    (checkpoint-index granularity) so gap jumps in large steps; boost flips on/off wrongly mid-segment.
    Fix: compute gap from continuous course-distance meters.
 
-4. **[OPEN] Auto-pause on focus loss during race→results transition soft-locks.**
+4. **[FIXED @prod-round — SceneRouter._change_now forces paused=false (+deferred re-assert); PauseMenu._open refuses while SceneRouter.is_busy(); _exit_tree unpause safety] Auto-pause on focus loss during race→results transition soft-locks.**
    `scripts/ui/pause_menu.gd:121`. Focus-loss pause during the finish/results handoff pauses a tree
    that results flow never unpauses. Fix: gate auto-pause on race state RACING only.
 
@@ -57,7 +57,7 @@ Every finding below was confirmed by reading the code; fix and mark FIXED with e
    same bug. Shortcut slide hint provably unreachable (only opportunistic ICE_SMOOTH slide saves it).
    Fix: store hints in mapped space or convert query to branch-local.
 
-7. **[OPEN] Slide min-speed floor defeats uphill stall stand-up.** `scripts/characters/racer.gd:272`.
+7. **[FIXED @prod-round — floor now gated on downhill_dot >= -0.02 (racer.gd:344), same gate as the ramp; uphill slides bleed to the <5.0 stand-up] Slide min-speed floor defeats uphill stall stand-up.** `scripts/characters/racer.gd:272`.
    Slide branch pushes speed toward ~6.9 m/s while stall check triggers only < 5.0 → racer slides
    uphill indefinitely at half waddle speed; AI opportunistic ice-slide can lock into slow crawl.
    Fix: disable the floor when slope is uphill, or raise stall threshold above floor on uphill.
@@ -65,27 +65,27 @@ Every finding below was confirmed by reading the code; fix and mark FIXED with e
 8. **[OPEN] Endless/Tutorial fallback races finish through `finish_race` while results renders by
    Game.mode.** `scripts/gameplay/race_manager.gd:248`. Mode/flow mismatch on fallback path.
 
-9. **[OPEN] Quit button bypasses SaveManager flush.** `scripts/ui/main_menu.gd:42`. Dirty save data
+9. **[FIXED @prod-round — main_menu Quit calls SaveManager.save_now() before quit(); Quit also hidden on web where quit() freezes the canvas] Quit button bypasses SaveManager flush.** `scripts/ui/main_menu.gd:42`. Dirty save data
    silently lost on desktop quit. Fix: flush save before `get_tree().quit()` (and on NOTIFICATION_WM_CLOSE_REQUEST).
 
-10. **[OPEN] `_merge_defaults` has no type validation, stamps version without migration.**
+10. **[FIXED @prod-round — typeof mismatch keeps default (int/float coerced for JSON), version stamped only at top level in load_save; units 50/50] `_merge_defaults` has no type validation, stamps version without migration.**
     `scripts/save/save_manager.gd:134`. Corrupt-typed fields survive merge then crash consumers;
     version bump without migration path violates spec save requirements.
 
-11. **[OPEN] Per-frame heap allocations in core race loop.** `scripts/characters/racer.gd:200`
+11. **[PARTIAL @prod-round — racer.gd ray queries + exclude arrays now cached per racer; CourseBase.get_guide/PathGuide.nearest dict allocs and get_setting defaults remain] Per-frame heap allocations in core race loop.** `scripts/characters/racer.gd:200`
     (and neighbors). Spec explicitly forbids per-frame allocation in race loops (mobile GC spikes).
 
 ## LOW
 
-12. **[OPEN] GP standings sort has no tiebreaker** — cup winner nondeterministic on point ties.
+12. **[FIXED @prod-round — gp_times accumulated per racer; standings sort points desc -> total time asc -> name] GP standings sort has no tiebreaker** — cup winner nondeterministic on point ties.
     `scripts/gameplay/game.gd:88`. Add total-time (or best-finish) tiebreak.
 13. **[OPEN] `get_setting` allocates full defaults dict per missing-key call, hit per frame.**
     `scripts/save/settings_manager.gd:66`. Cache defaults.
-14. **[OPEN] WAV `loop_end` formula assumes 16-bit stereo.** `scripts/utilities/audio_manager.gd:90`.
+14. **[FIXED @prod-round — loop_end computed from wav.format + wav.stereo] WAV `loop_end` formula assumes 16-bit stereo.** `scripts/utilities/audio_manager.gd:90`.
     Breaks looping for mono/ADPCM streams.
-15. **[OPEN] Squash-and-stretch decays via two competing lerps per frame** — jump/land squash nearly
+15. **[FIXED @prod-round — redundant early decay deleted; single 6/s decay remains, root.scale still chases _squash] Squash-and-stretch decays via two competing lerps per frame** — jump/land squash nearly
     invisible. `scripts/characters/penguin_visual.gd:294`.
-16. **[OPEN] Countdown pitch ternary dead code (both branches 1.0).** `scripts/gameplay/race_manager.gd:128`.
+16. **[FIXED @prod-round — final beep pitch 1.25] Countdown pitch ternary dead code (both branches 1.0).** `scripts/gameplay/race_manager.gd:128`.
 17. **[OPEN] GP round mutation + record submission runs inside results UI construction.**
     `scripts/ui/results.gd:124`. Move to game-flow layer (spec: no gameplay logic in UI scripts).
 
@@ -98,3 +98,11 @@ Every finding below was confirmed by reading the code; fix and mark FIXED with e
   use` — likely hazard framework not freeing nodes/refs. Investigate before mobile pass.
 - run_tests.sh at f65cc46 exceeded 10 min wall-clock in supervisor run — keep full suite under
   ~5 min or provide a fast subset flag so validation stays practical.
+
+## Added during prod-readiness round (2026-08-05)
+
+18. **[FIXED — pad moved 70m upstream (course_iceberg.gd) + randomized post-respawn stumble
+    (racer.gd:respawn_at_checkpoint)] Iceberg autopilot resonance stuck-loop at the moving-platform
+    crossing.** Boost pad 16m before the crossing launched full-speed racers onto a bad platform
+    phase; a fixed respawn->arrival period re-met the same phase every retry. Baseline (b0a5c19)
+    timed out 3/6 sims; see BUILD_STATUS for post-fix evidence.

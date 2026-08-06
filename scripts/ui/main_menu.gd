@@ -54,14 +54,18 @@ func _ready() -> void:
 		Game.start_tutorial())
 	_add_button(vbox, "Customize", UITheme.ICON_PALETTE, func() -> void:
 		SceneRouter.go_to(Game.SCENE_CUSTOMIZE))
+	_add_button(vbox, "Leaderboard", UITheme.ICON_PODIUM, func() -> void:
+		SceneRouter.go_to(Game.SCENE_LEADERBOARD))
 	_add_button(vbox, "Achievements", UITheme.ICON_TROPHY, func() -> void:
 		SceneRouter.go_to(Game.SCENE_ACHIEVEMENTS))
 	_add_button(vbox, "Settings", UITheme.ICON_GEAR, func() -> void:
 		SceneRouter.go_to(Game.SCENE_SETTINGS))
 	_add_button(vbox, "Credits", UITheme.ICON_FILM, func() -> void:
 		SceneRouter.go_to(Game.SCENE_CREDITS))
-	if not GameConfig.is_mobile():
+	# Web exports cannot quit cleanly — get_tree().quit() freezes the canvas.
+	if not GameConfig.is_mobile() and not OS.has_feature("web"):
 		_add_button(vbox, "Quit", UITheme.ICON_DOOR, func() -> void:
+			SaveManager.save_now()
 			get_tree().quit())
 
 	_build_status_chip()

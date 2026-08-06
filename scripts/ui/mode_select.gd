@@ -129,7 +129,7 @@ func _show_mode_step() -> void:
 		SceneRouter.go_to(Game.SCENE_MAIN_MENU)
 	_add_option("Quick Race", "One race, one course, seven rivals.", pick_quick, ICON_QUICK_RACE)
 	_add_option("Grand Prix", "Three races. Points decide the cup.", pick_gp, ICON_GRAND_PRIX)
-	_add_option("Endless Expedition", "Survive an ever-faster obstacle run.  Best: %d" % Progression.endless_high_score(), pick_endless, ICON_ENDLESS)
+	_add_option("Endless Expedition", "Outrun an ever-faster storm.  Best: %d" % Progression.endless_high_score(), pick_endless, ICON_ENDLESS)
 	_add_option("Time Trial", "Race your ghost. No items, pure skill.", pick_tt, ICON_TIME_TRIAL)
 	_add_option("Back", "", go_back, ICON_BACK)
 	_focus_first()

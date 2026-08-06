@@ -273,5 +273,13 @@ func run_endless(race_root: Node3D, powerups: PowerupSystem) -> void:
 	if SettingsManager.touch_controls_enabled():
 		var touch := TouchControls.new()
 		race_root.add_child(touch)
-		touch.setup(manager.player.controller as PlayerController)
+		# Player.setup is deferred by RaceManager, so controller is still null
+		# here; defer the wire-up so it runs after the controller exists
+		# (same pattern as race.gd).
+		_setup_touch_deferred.call_deferred(touch, manager)
 	AudioManager.play_music("music_race")
+
+
+## Runs after RaceManager's deferred player.setup, so the controller exists.
+func _setup_touch_deferred(touch: TouchControls, manager: EndlessManager) -> void:
+	touch.setup(manager.player.controller as PlayerController)

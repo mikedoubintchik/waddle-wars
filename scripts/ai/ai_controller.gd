@@ -25,6 +25,10 @@ var _mistake_steer: float = 0.0
 var _mistake_timer: float = 0.0
 var _stuck_check_timer: float = 3.0
 var _stuck_last_position: Vector3 = Vector3(9999, 9999, 9999)
+# Progress watchdog: the position check misses a racer circling at full speed
+# (moves >4m but gains no course progress — seen looping near the finish).
+var _progress_watch_timer: float = 12.0
+var _progress_watch_last: float = -1.0
 var _slide_zone_until: float = -1.0
 var _shove_eval_timer: float = 0.0
 var _throw_eval_timer: float = 0.0
@@ -70,6 +74,7 @@ func tick(delta: float) -> void:
 	_steer_toward_target(delta)
 	_update_actions()
 	_check_stuck()
+	_check_progress_watchdog(delta)
 
 
 func _update_target() -> void:
@@ -296,3 +301,18 @@ func _check_stuck() -> void:
 		_chosen_branch = -1
 		_branch_considered.clear()  # allow a fresh route decision after recovery
 	_stuck_last_position = racer.global_position
+
+
+func _check_progress_watchdog(delta: float) -> void:
+	_progress_watch_timer -= delta
+	if _progress_watch_timer > 0.0:
+		return
+	_progress_watch_timer = 12.0
+	if racer.state == Racer.State.FINISHED or racer.is_stunned_or_recovering():
+		_progress_watch_last = racer.progress
+		return
+	if _progress_watch_last >= 0.0 and racer.progress - _progress_watch_last < 6.0:
+		racer.respawn_at_checkpoint()
+		_chosen_branch = -1
+		_branch_considered.clear()
+	_progress_watch_last = racer.progress

@@ -42,10 +42,19 @@ func go_to(scene_path: String) -> void:
 	tween.tween_callback(_change_now.bind(scene_path))
 
 
+func is_busy() -> bool:
+	return _busy
+
+
 func _change_now(scene_path: String) -> void:
+	# A pause trigger (Escape, focus loss, controller disconnect) during the
+	# fade would leave the next scene permanently paused; force unpause here
+	# and again after the deferred swap change_scene_to_file performs.
+	get_tree().paused = false
 	var err := get_tree().change_scene_to_file(scene_path)
 	if err != OK:
 		push_error("SceneRouter: failed to change scene to %s (%d)" % [scene_path, err])
+	(func() -> void: get_tree().paused = false).call_deferred()
 	_busy = false
 	scene_changed.emit(scene_path)
 	if not GameConfig.is_headless():

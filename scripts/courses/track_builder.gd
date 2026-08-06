@@ -469,6 +469,16 @@ static func add_overhead_bar(parent: Node3D, guide: PathGuide, offset: float, cl
 	parent.add_child(bar)
 
 
+static var _arrow_material: ShaderMaterial = null
+
+
+static func _boost_arrow_material() -> ShaderMaterial:
+	if _arrow_material == null:
+		_arrow_material = ShaderMaterial.new()
+		_arrow_material.shader = load("res://assets/shaders/boost_arrows.gdshader")
+	return _arrow_material
+
+
 static func add_boost_pad(parent: Node3D, guide: PathGuide, offset: float, lateral: float = 0.0) -> void:
 	var xform := guide.transform_at(offset)
 	var pad := Area3D.new()
@@ -480,6 +490,14 @@ static func add_boost_pad(parent: Node3D, guide: PathGuide, offset: float, later
 	instance.mesh = mesh
 	instance.material_override = surface_material(SurfacesDB.Surface.BOOST)
 	pad.add_child(instance)
+	var arrow_mesh := PlaneMesh.new()
+	arrow_mesh.size = Vector2(3.6, 5.6)
+	var arrows := MeshInstance3D.new()
+	arrows.mesh = arrow_mesh
+	arrows.material_override = _boost_arrow_material()
+	arrows.position = Vector3(0.0, mesh.size.y * 0.5 + 0.03, 0.0)
+	arrows.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	pad.add_child(arrows)
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
 	box.size = Vector3(4.0, 2.0, 6.0)

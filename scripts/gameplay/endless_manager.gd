@@ -18,6 +18,19 @@ var _near_miss_cooldown: float = 0.0
 var _ended: bool = false
 
 
+func _ready() -> void:
+	race_started.connect(_show_storm_hint)
+
+
+## Onboarding: the fail condition is invisible until the storm arrives, so
+## call it out at run start — delayed a beat so the GO! banner (same HUD
+## center label) finishes first.
+func _show_storm_hint() -> void:
+	get_tree().create_timer(1.0).timeout.connect(func() -> void:
+		if hud != null and not _ended:
+			hud.show_message("Outrun the storm!"))
+
+
 func _physics_process(delta: float) -> void:
 	super._physics_process(delta)
 	if not started or _ended:

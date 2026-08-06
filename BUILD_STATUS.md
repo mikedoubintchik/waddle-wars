@@ -1,9 +1,20 @@
 # Waddle Wars — Build Status
 
-Last updated: 2026-07-21 03:12 (local).
+Last updated: 2026-08-05 (prod-readiness round).
 This file records verified reality with evidence, not intentions.
 
-## Overall status: COMPLETE — all GAME_SPEC acceptance criteria satisfied
+## Overall status: SHIPPING — playable and deployed, with a short known-issues list
+
+The game is feature-complete against GAME_SPEC and deployed as a web build at
+https://mikedoubintchik.github.io/waddle-wars/ (gl_compatibility, no-threads
+WASM, GitHub Pages) plus desktop exports. "COMPLETE" was previously overstated:
+QA_FINDINGS.md items were open. As of the 2026-08-05 prod round, 14 of those
+are FIXED/PARTIAL with evidence (see QA_FINDINGS.md); still OPEN: #5 silent
+glacier fallback, #8 endless/tutorial finish-flow mismatch, #13 get_setting
+defaults alloc, #17 GP mutation inside results UI, and the non-racer half
+of #11 (course_base/path_guide per-frame dicts). Known limitations: no
+localization keys (English-only), no confirmation dialogs except GP-abandon
+(two-press confirm in pause menu).
 
 Full automated suite: **ALL PASSED** (`./run_tests.sh`, exit 0, 2026-07-21 03:01):
 unit_tests (49/49), menu_load_test, race_sim glacier/aurora/iceberg,
@@ -50,6 +61,10 @@ Desktop exports built and boot-tested. Screenshot review at 4 resolutions.
 
 ## Export status
 
+- Web (primary): `build/web/` deployed to GitHub Pages via orphan gh-pages
+  branch — iOS audio unlock, Clerk sign-in (optional), OG/twitter share meta,
+  share.png card, IndexedDB saves. Online leaderboard: Cloudflare Worker + D1
+  (leaderboard/, deployed at waddle-wars-leaderboard.ninjaconsultingllc.workers.dev).
 - Windows Desktop: `build/waddle-wars-windows.exe` (115MB, embedded PCK) — built.
 - macOS: `build/waddle-wars-macos.zip` (65MB) — built; exported app boot-tested (exit 0). Unsigned (no Developer ID on machine).
 - Linux: `build/waddle-wars-linux.x86_64` (79MB) — built.
@@ -59,7 +74,6 @@ Desktop exports built and boot-tested. Screenshot review at 4 resolutions.
 ## Known non-critical limitations
 
 - Trail cosmetics don't show in the customize preview panel (render in-race).
-- Controls screen shows raw gamepad indices ("Pad 0") for pad bindings.
 - Music stored as WAV (~13MB); regenerate/convert via tools/generate_audio.py if size matters.
 - Race pace: autopilot finishes ~1.7–3.4 min depending on course/difficulty; human first-timers land in the 2–4 min spec window via hazards/recoveries.
 
@@ -88,3 +102,31 @@ Final state validated on the working tree:
 See git log — checkpoint commits from skeleton → core slice → hazards →
 courses → modes → UI/audio integration → test suite → polish → exports →
 supervisor QA + fixes.
+
+## Prod-readiness round (2026-08-05)
+
+Scope: animated boost-pad arrows; 9-agent production audit (67 raw findings,
+synthesized+verified) followed by a 6-agent fix round; optional online
+leaderboard (Clerk + Cloudflare Worker + D1); per-course music variants.
+
+Fixed this round (see QA_FINDINGS.md for per-item evidence): web Quit freeze
+(blocker), pause/focus soft-lock during scene fades, Endless touch dead-wire
+regression, Time Trial item boxes (now suppressed), mobile-web quality profile
+(.web overrides + first-run medium defaults), OG/twitter share meta + share
+image, keyboard onboarding strip during countdown, touch pause/item-slot
+overlap, README front door rewrite, GP tiebreak, save-merge typing,
+rubberband continuous metres, uphill slide floor, racer ray-query caching,
+pickup Area3D static colliders, swim stroke sfx, wind/snowball hazard audio,
+squash single-decay, countdown final-beep pitch, joypad button names, WAV
+loop_end format-aware, tests/* excluded from exports, endless storm hint,
+iceberg platform-crossing resonance (pad 70m upstream + randomized respawn
+stumble).
+
+Validation evidence (2026-08-05): headless import 0 script errors; units
+50/50 (incl. new leaderboard menu-load); race sims PASS glacier/aurora;
+endless_sim, gp_sim, tutorial_sim PASS; iceberg pre-fix flake measured 3/6
+TIMEOUT at baseline b0a5c19 (autopilot resonance, pre-existing); post-fix:
+7/8 after pad-move + respawn stumble, then 10/10 PASS after adding the AI
+progress watchdog (respawn when <6m course progress in 12s); boost-arrow direction verified via tests/pad_shot.tscn
+top-down captures; leaderboard Worker endpoints smoke-tested (health,
+empty board, 401 on missing/garbage token).

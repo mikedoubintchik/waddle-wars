@@ -57,6 +57,7 @@ func load_save() -> void:
 	if loaded.is_empty():
 		loaded = _read_json(SAVE_BACKUP_PATH)
 	data = _merge_defaults(default_save(), loaded)
+	data["version"] = GameConfig.SAVE_VERSION
 	save_loaded.emit()
 
 
@@ -131,13 +132,19 @@ func _read_json(path: String) -> Dictionary:
 
 ## Deep-merges loaded data over defaults so missing optional fields never
 ## erase valid progress and new versions gain new keys automatically.
+## Type-mismatched entries (corrupt or hand-edited saves) keep the default.
 func _merge_defaults(defaults: Dictionary, loaded: Dictionary) -> Dictionary:
 	var result := defaults.duplicate(true)
 	for key: Variant in loaded.keys():
 		var value: Variant = loaded[key]
-		if result.has(key) and result[key] is Dictionary and value is Dictionary:
-			result[key] = _merge_defaults(result[key], value)
+		var default_value: Variant = result.get(key)
+		if default_value is Dictionary and value is Dictionary:
+			result[key] = _merge_defaults(default_value, value)
+		elif default_value is int and value is float:
+			# JSON parses every number as float; restore the int default's type.
+			result[key] = int(value)
+		elif default_value != null and typeof(value) != typeof(default_value):
+			pass  # Keep the default.
 		else:
 			result[key] = value
-	result["version"] = GameConfig.SAVE_VERSION
 	return result

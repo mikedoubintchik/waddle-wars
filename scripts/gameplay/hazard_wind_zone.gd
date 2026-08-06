@@ -3,11 +3,14 @@ extends Area3D
 ## Strong side-wind region: pushes racers laterally while inside. Visualized
 ## with streaking particles so the push direction is readable.
 
+const WHOOSH_INTERVAL: float = 2.6
+
 var push_direction: Vector3 = Vector3.RIGHT
 var strength: float = 5.0
 var zone_size: Vector3 = Vector3(16.0, 8.0, 40.0)
 
 var _inside: Array[Racer] = []
+var _whoosh_timer: float = 0.0
 
 
 func configure(p_direction: Vector3, p_strength: float, p_size: Vector3) -> void:
@@ -19,6 +22,8 @@ func configure(p_direction: Vector3, p_strength: float, p_size: Vector3) -> void
 func _ready() -> void:
 	collision_layer = GameConfig.LAYER_TRIGGERS
 	collision_mask = GameConfig.LAYER_RACERS
+	# Random start phase so multiple zones on a course never whoosh in sync.
+	_whoosh_timer = randf() * WHOOSH_INTERVAL
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
 	box.size = zone_size
@@ -59,7 +64,13 @@ func _ready() -> void:
 		add_child(particles)
 
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
+	# Periodic low whoosh telegraphs the zone like seal/geyser audio; 3D
+	# falloff keeps it local and the interval keeps it from spamming.
+	_whoosh_timer -= delta
+	if _whoosh_timer <= 0.0:
+		_whoosh_timer = WHOOSH_INTERVAL
+		AudioManager.play_sfx_3d("sfx_slide", global_position, 0.65, -6.0)
 	for racer: Racer in _inside:
 		if is_instance_valid(racer) and racer.state != Racer.State.FINISHED:
 			racer.apply_wind(push_direction * strength)

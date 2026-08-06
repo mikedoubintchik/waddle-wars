@@ -141,7 +141,6 @@ var _base_pos: Vector2 = Vector2.ZERO   # smoothed _root x/y before waddle offse
 var _head_rot: Vector3 = Vector3.ZERO   # smoothed head rotation before waddle counter-terms
 var _waddle: float = 0.0                # RUN-gait weight; eases the waddle in/out on pose changes
 var _squash: float = 1.0
-var _squash_target: float = 1.0
 # Low-passed applied gait values (~14/s): the waddle oscillators are pure
 # sines, but filtering the final applied values guarantees C1-smooth motion
 # across pose/speed changes — nothing ever snaps.
@@ -971,7 +970,6 @@ func tick(delta: float, speed_ratio: float) -> void:
 		return
 	_time += delta * (0.6 + anim_speed)
 	_pose_blend = minf(_pose_blend + delta * 5.0, 1.0)
-	_squash = lerpf(_squash, _squash_target, minf(delta * 10.0, 1.0))
 
 	var target_tilt := Vector3.ZERO
 	var target_y := 0.0

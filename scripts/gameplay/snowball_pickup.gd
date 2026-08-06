@@ -8,6 +8,7 @@ extends Area3D
 
 const RESPAWN_TIME: float = 6.0
 const GROUP_NAME: StringName = &"snowball_pickups"
+const VISUAL_BASE_Y: float = 0.32
 
 static var _ball_mesh: SphereMesh = null
 static var _ball_mat: StandardMaterial3D = null
@@ -19,7 +20,6 @@ var _visual: MeshInstance3D = null
 var _sparkle: MeshInstance3D = null
 var _active: bool = true
 var _bob_time: float = 0.0
-var _base_y: float = 0.0
 
 
 func _ready() -> void:
@@ -35,7 +35,7 @@ func _ready() -> void:
 	_visual = MeshInstance3D.new()
 	_visual.mesh = _get_mesh()
 	_visual.material_override = _get_material()
-	_visual.position.y = 0.32
+	_visual.position.y = VISUAL_BASE_Y
 	add_child(_visual)
 	# Slight sparkle: one soft billboard glint riding the ball's shoulder.
 	# Purely decorative, so skipped headless.
@@ -45,7 +45,6 @@ func _ready() -> void:
 		_sparkle.material_override = _get_sparkle_material()
 		_sparkle.position = Vector3(0.14, 0.24, 0.0)
 		_visual.add_child(_sparkle)
-	_base_y = position.y
 	_bob_time = randf() * TAU
 	body_entered.connect(_on_body_entered)
 
@@ -106,7 +105,9 @@ func _physics_process(delta: float) -> void:
 	if not _active:
 		return
 	_bob_time += delta
-	position.y = _base_y + sin(_bob_time * 2.2) * 0.1
+	# Bob only the visual child so the Area3D transform stays static
+	# (no broadphase re-sync every tick; same pattern as item_box.gd).
+	_visual.position.y = VISUAL_BASE_Y + sin(_bob_time * 2.2) * 0.1
 	_visual.rotation.y += delta * 1.3
 	if _sparkle != null:
 		# Gentle glint breathing; slow enough to stay reduced-flashing safe.

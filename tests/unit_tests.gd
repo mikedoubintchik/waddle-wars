@@ -15,6 +15,7 @@ const MENU_SCENES: PackedStringArray = [
 	"res://scenes/menus/customize.tscn",
 	"res://scenes/menus/achievements.tscn",
 	"res://scenes/menus/credits.tscn",
+	"res://scenes/menus/leaderboard.tscn",
 ]
 
 var _passes: int = 0

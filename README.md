@@ -1,43 +1,39 @@
 # Waddle Wars
 
+**▶ [Play it now in your browser](https://mikedoubintchik.github.io/waddle-wars/)** — free, no install, no sign-up, works on phones.
+
 A polished, family-friendly 3D party racing game starring competitive penguins.
 Race seven chaotic AI rivals across Antarctic obstacle courses: waddle, belly
 slide, hop, swim, shove, and out-item everybody to the finish line.
 
-All art, audio, and code are original and generated procedurally — no external
-assets, no runtime dependencies, fully functional offline.
+![screenshot](web/share.png)
 
-## Requirements
-
-- **Godot Engine 4.7.1** (exactly; the project uses the Mobile renderer)
-- Desktop: Windows / macOS / Linux, any GPU with Vulkan or Metal support
-- Optional: gamepad; touchscreen supported on mobile-style devices
-
-## Opening and running
-
-```bash
-# Open in the editor
-godot -e --path /path/to/waddle-wars
-
-# Run the game directly
-godot --path /path/to/waddle-wars
-```
-
-The main scene is `res://scenes/ui/main.tscn` (boot splash → title).
+- **3 handcrafted courses** plus an ever-harder **Endless Expedition**
+- **Quick Race, Grand Prix, Time Trial** (with ghost), and a playable tutorial
+- **8 real penguin species** to unlock, plus hats and trail cosmetics
+- Seven AI rivals with distinct personalities and racing styles
+- **Optional online leaderboard** — sign-in is optional; everything works signed out
+- Touch controls — plays great on phones and tablets
+- All art, audio, and code are original and generated procedurally — no external
+  assets, no runtime dependencies, fully functional offline
 
 ## Controls
 
+Running is automatic — your penguin always moves forward. You handle steering,
+hops, slides, and mischief.
+
 | Action | Keyboard | Gamepad | Touch |
 |---|---|---|---|
-| Steer | A/D or ←/→ | Left stick / D-pad | Drag left zone |
-| Hop | Space | South button (A/✕) | JUMP button |
-| Belly slide | Ctrl, S, or ↓ (hold) | East button / LT | SLIDE button (hold) |
+| Steer | A/D or ←/→ | Left stick | Drag horizontally anywhere |
+| Hop | Space | South button (A/✕) | Swipe up |
+| Belly slide | Ctrl, S, or ↓ (hold) | East button / LT (hold) | Swipe down and hold |
 | Flipper shove | E | West button | SHOVE button |
 | Use item | Q | North button / RT | ITEM button |
-| Pause | Esc | Start | II button |
+| Pause | Esc | Start | II button (top-right) |
 
 Keyboard and gamepad bindings are remappable in Settings → Controls.
-Slide supports hold or toggle mode (Settings → Gameplay).
+Slide supports hold or toggle mode, and touch button size/opacity are
+adjustable (Settings → Gameplay).
 
 ## Game modes
 
@@ -52,6 +48,29 @@ Slide supports hold or toggle mode (Settings → Gameplay).
 1. **Glacier Gauntlet** — bright glacier, ice-cave slalom, low slide tunnel, cracking-ice shortcut, rolling snowballs, big final slide.
 2. **Aurora Ascent** — twilight climb under the aurora, wind ridges, falling icicles, ridge shortcut, geysers, corkscrew descent.
 3. **Iceberg Bay** — sunset ocean, moving/tilting bergs, swim channels, wave ramps, sliding seals.
+
+---
+
+# Development
+
+## Requirements
+
+- **Godot Engine 4.7.1** (exactly; the project uses the Mobile renderer, with
+  gl_compatibility for the web export)
+- Desktop: Windows / macOS / Linux, any GPU with Vulkan or Metal support
+- Optional: gamepad; touchscreen supported on mobile-style devices
+
+## Opening and running
+
+```bash
+# Open in the editor
+godot -e --path /path/to/waddle-wars
+
+# Run the game directly
+godot --path /path/to/waddle-wars
+```
+
+The main scene is `res://scenes/ui/main.tscn` (boot splash → title).
 
 ## Running the automated tests
 
@@ -78,16 +97,20 @@ seed 42). Godot re-imports them on next launch.
 
 ## Exporting
 
-Export presets for Windows, macOS, Linux, and Android are configured in
+Export presets for Web, Windows, macOS, Linux, and Android are configured in
 `export_presets.cfg`. Install export templates via **Editor → Manage Export
 Templates**, then:
 
 ```bash
+godot --headless --export-release "Web" build/web/index.html
 godot --headless --export-release "Windows Desktop" build/waddle-wars-windows.exe
 godot --headless --export-release "macOS" build/waddle-wars-macos.zip
 godot --headless --export-release "Linux" build/waddle-wars-linux.x86_64
 ```
 
+- **Web**: the exported build in `build/web/` is what gets deployed to GitHub
+  Pages. When deploying, also copy `web/share.png` next to the exported
+  `index.html` — the `og:image` social-preview tag expects it at the site root.
 - **Android**: install Android build tools + a debug keystore, set them in Editor
   Settings, then export the `Android` preset. The project already uses the
   Mobile renderer, landscape orientation, touch controls, and `user://` saves.
@@ -99,10 +122,11 @@ godot --headless --export-release "Linux" build/waddle-wars-linux.x86_64
 
 ```
 autoload/            (via project.godot: GameConfig, SaveManager, SettingsManager,
-                      AudioManager, Progression, Game, SceneRouter)
+                      AudioManager, Progression, Game, SceneRouter, LeaderboardClient)
 assets/audio/        generated WAV sfx + music
 assets/icons/        icon.svg (original logo/icon)
 data/settings/       audio bus layout
+leaderboard/         Cloudflare Worker for the optional online leaderboard
 scenes/              thin .tscn wrappers; all UI/gameplay built in code
 scripts/ai/          AI controller, difficulty + personality tables
 scripts/camera/      chase camera
@@ -116,6 +140,7 @@ scripts/save/        save manager, settings manager
 scripts/ui/          all menu screens, HUD, pause
 tests/               headless test scenes + race simulation
 tools/               generate_audio.py
+web/                 static web assets (share.png social image; .gdignore'd)
 ```
 
 ## Save data
@@ -139,5 +164,6 @@ Stored under `user://` (platform-standard location, e.g.
 
 - Export template installation and platform signing (Android keystore, iOS
   certificates) are machine-specific setup and not bundled.
-- Music loops are generated WAV (larger on disk than OGG); regenerate or
-  convert if package size matters.
+- Music ships as OGG (converted from the generator's WAV output with
+  `ffmpeg -i music_x.wav -q:a 4 music_x.ogg`); re-run the conversion after
+  regenerating audio.
