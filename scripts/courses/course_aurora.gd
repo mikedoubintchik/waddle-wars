@@ -281,6 +281,14 @@ func build_course() -> void:
 	add_fish_line(spiral_arc + 35.0, 12, 6.0, 0.0)
 	add_fish_line(_arc_near(Vector3(80, -7.0, -985)) + 12.0, 8, 5.0, 0.0)
 
+	# Twilight snowfield first: the peak rings, crystal spires, rock mesas and
+	# berg ring all seat themselves on it, so it must exist before the dressing
+	# runs. Darker, richer twilight snowfield: deep blue-violet albedo with
+	# sparkle raised so the plain reads as star-frosted night snow instead of a
+	# pale grey wash lifting the whole lower frame.
+	add_ground_plane(-32.0, Color(0.06, 0.08, 0.16), 4000.0,
+		VisualLibrary.snow_material(Color(0.36, 0.42, 0.74), 0.95))
+
 	_decorate()
 	_build_aurora()
 	_build_stars()
@@ -320,13 +328,7 @@ func build_course() -> void:
 		"berg_color": Color(0.34, 0.42, 0.66),
 		"berg_count": 12,
 		"berg_distance": 800.0,
-		"berg_y": -31.0,
 	})
-	# Darker, richer twilight snowfield: deep blue-violet albedo with sparkle
-	# raised so the plain reads as star-frosted night snow instead of a pale
-	# grey wash lifting the whole lower frame.
-	add_ground_plane(-32.0, Color(0.06, 0.08, 0.16), 4000.0,
-		VisualLibrary.snow_material(Color(0.36, 0.42, 0.74), 0.95))
 
 
 ## True arc-length offset, the space point_at/transform_at expect.

@@ -40,11 +40,11 @@ func build_course() -> void:
 	setup_main(pts)
 	finalize()
 
-	# Slalom gates.
+	# Slalom gates (poles planted on the deck rather than resting exactly on it).
 	for gate: Array in [[80.0, -4.0], [110.0, 4.0], [140.0, -4.0]]:
 		var xform := main_guide.transform_at(float(gate[0]))
-		TrackBuilder.add_flag(self, xform.origin + xform.basis.x * (float(gate[1]) - 2.5), Color(0.3, 0.8, 0.4))
-		TrackBuilder.add_flag(self, xform.origin + xform.basis.x * (float(gate[1]) + 2.5), Color(0.3, 0.8, 0.4))
+		TrackBuilder.add_flag(self, seat_dressing(xform, float(gate[1]) - 2.5, 3.0), Color(0.3, 0.8, 0.4))
+		TrackBuilder.add_flag(self, seat_dressing(xform, float(gate[1]) + 2.5, 3.0), Color(0.3, 0.8, 0.4))
 
 	# Jump bars: low walls to hop over (thin, forgiving).
 	var jump_offset := _offset_near(Vector3(0, 17, -210))
@@ -81,12 +81,21 @@ func build_course() -> void:
 	add_fish_line(_offset_near(Vector3(0, 8, -600)), 8, 5.0, 0.0)
 	add_hint(_offset_near(Vector3(0, 8, -600)) - 10.0, "slide", _offset_near(Vector3(0, 6, -660)))
 
+	# Ice sheet below the schoolyard ridge. Laid down before the dressing runs
+	# so every far-field prop can seat itself on it (see CourseBase.ground_plane_y).
+	add_ground_plane(-10.0, Color(0.9, 0.94, 0.99), 4000.0,
+		VisualLibrary.snow_material(Color(0.9, 0.94, 0.99), 0.4))
+
 	# Friendly scenery.
 	var rng2 := RandomNumberGenerator.new()
 	rng2.seed = 7
 	for i: int in 8:
-		var xform := main_guide.transform_at(rng2.randf_range(20.0, main_guide.length - 40.0))
-		TrackBuilder.add_spectator(self, xform.origin + xform.basis.x * (11.0 * (1.0 if i % 2 == 0 else -1.0)), xform.origin, rng2)
+		var offset := rng2.randf_range(20.0, main_guide.length - 40.0)
+		var xform := main_guide.transform_at(offset)
+		var side := 1.0 if i % 2 == 0 else -1.0
+		var lateral := (track_edge_lateral(main_guide, offset, side, 10.0) + 1.4) * side
+		TrackBuilder.add_spectator(self, seat_dressing(xform, lateral, 1.6, GROUND_SHOULDER, 0.05),
+			xform.origin, rng2)
 	_decorate()
 	# Warm, friendly schoolyard grade: brighter and gentler than the race
 	# courses — pastel morning sky, a soft golden sun, low contrast, light
@@ -115,10 +124,7 @@ func build_course() -> void:
 		"berg_color": Color(0.82, 0.9, 0.98),
 		"berg_count": 8,
 		"berg_distance": 700.0,
-		"berg_y": -10.0,
 	})
-	add_ground_plane(-10.0, Color(0.9, 0.94, 0.99), 4000.0,
-		VisualLibrary.snow_material(Color(0.9, 0.94, 0.99), 0.4))
 
 
 func _offset_near(point: Vector3) -> float:
@@ -188,6 +194,9 @@ func _station_list() -> Array:
 ## gold finials, and a row of hanging pennants alternating the station accent
 ## with white. Pennants use per-instance MultiMesh colors, so all seven arches
 ## cost four draw calls total. The crossbar sits ~5m up — far above any jump.
+## The span is measured off the real deck edge rather than the authored
+## half-span, and the whole arch rides the surface height under its feet, so a
+## station never plants its poles in mid-air past a narrowing track.
 func _decorate_stations() -> void:
 	var pole_transforms: Array[Transform3D] = []
 	var bar_transforms: Array[Transform3D] = []
@@ -199,23 +208,30 @@ func _decorate_stations() -> void:
 		var half := float(station[1])
 		var accent: Color = station[2]
 		var xform := main_guide.transform_at(offset)
+		# Foot span: outside the racing floor on the wider of the two sides so
+		# the arch stays symmetric. Falls back to the authored half-span.
+		var span := maxf(track_edge_lateral(main_guide, offset, -1.0, half),
+			track_edge_lateral(main_guide, offset, 1.0, half)) + 1.0
+		# Sink/lift the whole arch onto the surface its feet stand on.
+		var lift := dressing_ground(xform, span) - xform.origin.y - 0.15
+		var base := xform.origin + xform.basis.y * lift
 		for side: float in [-1.0, 1.0]:
-			var foot := xform.origin + xform.basis.x * ((half + 1.0) * side)
+			var foot := base + xform.basis.x * (span * side)
 			pole_transforms.append(Transform3D(xform.basis, foot + xform.basis.y * 2.0))
 			finial_transforms.append(Transform3D(xform.basis, foot + xform.basis.y * 5.6))
 		bar_transforms.append(Transform3D(
-			xform.basis * Basis.from_scale(Vector3((half + 1.0) * 2.0 + 0.6, 1.0, 1.0)),
-			xform.origin + xform.basis.y * 5.05))
+			xform.basis * Basis.from_scale(Vector3(span * 2.0 + 0.6, 1.0, 1.0)),
+			base + xform.basis.y * 5.05))
 		var count := maxi(int((half * 2.0 - 1.0) / 0.75), 5)
 		for k: int in count:
 			var t := (float(k) + 0.5) / float(count) - 0.5
-			var lateral := t * (half * 2.0 - 0.6)
+			var lateral := t * (span * 2.0 - 0.6)
 			var sway := rng.randf_range(-0.12, 0.12)
 			var pennant_basis := xform.basis * Basis(Vector3(0, 0, 1), PI) \
 				* Basis(Vector3(0, 1, 0), sway) \
 				* Basis.from_scale(Vector3(rng.randf_range(0.9, 1.1), rng.randf_range(0.9, 1.1), 1.0))
 			pennant_transforms.append(Transform3D(pennant_basis,
-				xform.origin + xform.basis.x * lateral + xform.basis.y * 4.62))
+				base + xform.basis.x * lateral + xform.basis.y * 4.62))
 			pennant_colors.append(accent if k % 2 == 0 else Color(0.97, 0.98, 1.0))
 	var pole_mesh := CylinderMesh.new()
 	pole_mesh.top_radius = 0.08
@@ -243,7 +259,10 @@ func _decorate_stations() -> void:
 
 ## Soft drift banks hugging both track edges (plus occasional larger banks
 ## further out for depth): the schoolyard reads as groomed snow, not a bare
-## ribbon in the void. One multimesh.
+## ribbon in the void. Laterals are measured off the real deck edge and every
+## mound is seated on the surface under it — the old constants sat on the deck
+## where the track is 18m wide and floated 4m past it where it narrows to 14.
+## One multimesh.
 func _decorate_drifts(density: float) -> void:
 	var transforms: Array[Transform3D] = []
 	var step := 16.0 / density
@@ -251,17 +270,21 @@ func _decorate_drifts(density: float) -> void:
 	var side := 1.0
 	while offset < main_guide.length - 20.0:
 		var xform := main_guide.transform_at(offset)
-		var lateral := (9.5 + rng.randf_range(0.0, 3.5)) * side
+		var edge := track_edge_lateral(main_guide, offset, side, 9.0)
+		var lateral := (edge + rng.randf_range(0.6, 3.2)) * side
 		var r := rng.randf_range(1.5, 3.2)
 		var drift_basis := Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(Vector3(
 			r * rng.randf_range(1.3, 2.0), r * rng.randf_range(0.5, 0.75), r * rng.randf_range(0.75, 1.0)))
-		transforms.append(Transform3D(drift_basis, xform.origin + xform.basis.x * lateral + Vector3.DOWN * 0.45))
+		# Low mounds hide their own footprint, so they get a generous shoulder.
+		transforms.append(Transform3D(drift_basis,
+			seat_dressing(xform, lateral, drift_basis.get_scale().y, 5.0, 0.14)))
 		if rng.randf() > 0.65:
 			var far_r := rng.randf_range(2.2, 4.2)
 			var far_basis := Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(Vector3(
 				far_r * rng.randf_range(1.2, 1.8), far_r * 0.55, far_r * rng.randf_range(0.7, 0.9)))
+			var far_lateral := lateral + rng.randf_range(1.4, 4.4) * side
 			transforms.append(Transform3D(far_basis,
-				xform.origin + xform.basis.x * (lateral + rng.randf_range(4.0, 9.0) * side) + Vector3.DOWN * 1.3))
+				seat_dressing(xform, far_lateral, far_basis.get_scale().y, 6.0, 0.15)))
 		side = -side
 		offset += step
 	_add_multimesh(VisualLibrary.snow_drift_mesh(), transforms,
@@ -277,13 +300,15 @@ func _decorate_crystals(density: float) -> void:
 	for _i: int in count:
 		var offset := rng.randf_range(30.0, main_guide.length - 50.0)
 		var xform := main_guide.transform_at(offset)
-		var lateral := rng.randf_range(10.0, 15.0) * (1.0 if rng.randf() > 0.5 else -1.0)
+		var margin := rng.randf_range(1.0, 4.0)
+		var side := 1.0 if rng.randf() > 0.5 else -1.0
+		var lateral := (track_edge_lateral(main_guide, offset, side, 9.0) + margin) * side
 		var height := rng.randf_range(1.4, 3.6)
 		var aspect := rng.randf_range(0.55, 0.85)
 		var crystal_basis := Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(Vector3(
 			height * aspect, height * rng.randf_range(0.85, 1.1), height * aspect))
 		transforms.append(Transform3D(crystal_basis,
-			xform.origin + xform.basis.x * lateral + Vector3.DOWN * 0.5))
+			seat_dressing(xform, lateral, crystal_basis.get_scale().y, GROUND_SHOULDER, 0.12)))
 	var crystal_mat := VisualLibrary.rock_material(Color(0.7, 0.87, 1.0)).duplicate() as StandardMaterial3D
 	crystal_mat.roughness = 0.12
 	crystal_mat.metallic = 0.05
@@ -300,14 +325,16 @@ func _decorate_boulders(density: float) -> void:
 		var offset := rng.randf_range(50.0, main_guide.length - 60.0)
 		var xform := main_guide.transform_at(offset)
 		var side := 1.0 if rng.randf() > 0.5 else -1.0
-		var pos := xform.origin + xform.basis.x * (rng.randf_range(10.5, 16.0) * side) \
-			+ Vector3.DOWN * rng.randf_range(0.8, 1.4)
+		var lateral := (track_edge_lateral(main_guide, offset, side, 9.0) + rng.randf_range(1.0, 5.0)) * side
+		# Extra bed depth on top of the standard embed: calved blocks settle.
+		var sink := rng.randf_range(0.2, 0.6)
 		var s := rng.randf_range(1.0, 2.2)
 		var boulder_basis := Basis.from_euler(Vector3(
 			rng.randf_range(-0.3, 0.3), rng.randf() * TAU, rng.randf_range(-0.3, 0.3))) \
 			* Basis.from_scale(Vector3(
 				s * rng.randf_range(0.85, 1.25), s * rng.randf_range(0.5, 0.8), s * rng.randf_range(0.85, 1.25)))
-		transforms.append(Transform3D(boulder_basis, pos))
+		transforms.append(Transform3D(boulder_basis,
+			seat_dressing(xform, lateral, boulder_basis.get_scale().y, 4.5, 0.1) + Vector3.DOWN * sink))
 	_add_multimesh(VisualLibrary.berg_mesh(23), transforms,
 		TrackBuilder.surface_material(SurfacesDB.Surface.ICE_SMOOTH), "IceBoulders")
 

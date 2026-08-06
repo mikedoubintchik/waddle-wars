@@ -94,6 +94,13 @@ func build_course() -> void:
 			add_snowball_row(offset + 30.0)  # no rng draws: seed determinism kept
 		offset += 170.0
 
+	# Ice sheet first: the peaks, horizon bands and spires all seat themselves
+	# on it, so it has to exist before _decorate() runs.
+	var lowest := INF
+	for point: Vector3 in main_guide.points:
+		lowest = minf(lowest, point.y)
+	add_ground_plane(lowest - 18.0, Color(0.88, 0.93, 0.98))
+
 	_decorate()
 	build_environment({
 		"sky_top": Color(0.2, 0.5, 0.86),
@@ -105,10 +112,6 @@ func build_course() -> void:
 		"fog_density": 0.0018,
 		"snow": true,
 	})
-	var lowest := INF
-	for point: Vector3 in main_guide.points:
-		lowest = minf(lowest, point.y)
-	add_ground_plane(lowest - 18.0, Color(0.88, 0.93, 0.98))
 
 
 func _build_segment(kind: String, intensity: float) -> void:
@@ -244,15 +247,26 @@ func _decorate() -> void:
 	elif quality == "low":
 		density = 0.5
 
+	# Route markers just outside the racing floor. Segment widths swing from 11m
+	# to 20m along the expedition, so a constant 12-16m lateral planted flags on
+	# the deck through the wide spans and 5m out over thin air through the
+	# narrow ones; both the lateral and the height come off the deck now.
 	var offset := 80.0
 	var side := 1.0
 	while offset < main_guide.length - 80.0:
 		var xform := main_guide.transform_at(offset)
-		var lateral := (12.0 + rng.randf_range(0.0, 4.0)) * side
+		var edge := track_edge_lateral(main_guide, offset, side, 9.0)
+		var lateral := (edge + rng.randf_range(0.8, 2.6)) * side
 		if rng.randf() > 0.5:
-			TrackBuilder.add_flag(self, xform.origin + xform.basis.x * lateral, Color(0.9, 0.3, 0.3) if side > 0 else Color(0.25, 0.5, 0.9))
+			TrackBuilder.add_flag(self, seat_dressing(xform, lateral, 3.0),
+				Color(0.9, 0.3, 0.3) if side > 0 else Color(0.25, 0.5, 0.9))
 		else:
-			TrackBuilder.add_rock(self, xform.origin + xform.basis.x * (lateral + 4.0) + Vector3.DOWN, rng.randf_range(0.8, 1.6), rng)
+			var rock_scale := rng.randf_range(0.8, 1.6)
+			# add_rock lifts its sphere by 0.3 * scale off the position it is
+			# given, so hand it the seated surface point directly.
+			TrackBuilder.add_rock(self,
+				seat_dressing(xform, lateral + 1.6 * side, rock_scale, 4.5, 0.12),
+				rock_scale, rng)
 		side = -side
 		offset += 90.0
 
@@ -261,15 +275,23 @@ func _decorate() -> void:
 	_decorate_snowbanks(density)
 	_decorate_boulders(density)
 
-	# Expedition send-off and welcome crowds.
+	# Expedition send-off and welcome crowds, standing on the shoulder.
 	for i: int in maxi(int(10.0 * density), 4):
-		var near_start := main_guide.transform_at(rng.randf_range(10.0, 80.0))
-		var lat := (11.5 + rng.randf_range(0.0, 5.0)) * (1.0 if i % 2 == 0 else -1.0)
-		TrackBuilder.add_spectator(self, near_start.origin + near_start.basis.x * lat, near_start.origin, rng)
+		var start_arc := rng.randf_range(10.0, 80.0)
+		var near_start := main_guide.transform_at(start_arc)
+		var start_side := 1.0 if i % 2 == 0 else -1.0
+		var lat := (track_edge_lateral(main_guide, start_arc, start_side, 10.0)
+			+ rng.randf_range(0.7, 4.0)) * start_side
+		TrackBuilder.add_spectator(self, seat_dressing(near_start, lat, 1.6, GROUND_SHOULDER, 0.05),
+			near_start.origin, rng)
 	for i: int in maxi(int(7.0 * density), 3):
-		var near_finish := main_guide.transform_at(finish_offset - rng.randf_range(5.0, 60.0))
-		var lat := (11.5 + rng.randf_range(0.0, 5.0)) * (1.0 if i % 2 == 0 else -1.0)
-		TrackBuilder.add_spectator(self, near_finish.origin + near_finish.basis.x * lat, near_finish.origin, rng)
+		var finish_arc := finish_offset - rng.randf_range(5.0, 60.0)
+		var near_finish := main_guide.transform_at(finish_arc)
+		var finish_side := 1.0 if i % 2 == 0 else -1.0
+		var lat := (track_edge_lateral(main_guide, finish_arc, finish_side, 10.0)
+			+ rng.randf_range(0.7, 4.0)) * finish_side
+		TrackBuilder.add_spectator(self, seat_dressing(near_finish, lat, 1.6, GROUND_SHOULDER, 0.05),
+			near_finish.origin, rng)
 
 
 ## Two silhouette rings anchored along the wandering guide (never a fixed
@@ -300,10 +322,9 @@ func _place_peak(mat: Material, lat_min: float, lat_max: float, w_min: float, w_
 		peak.mesh = VisualLibrary.berg_mesh(rng.randi())
 		peak.material_override = mat
 		peak.scale = Vector3(width * rng.randf_range(0.9, 1.4), rng.randf_range(h_min, h_max), width)
-		var lowest := INF
-		for point: Vector3 in main_guide.points:
-			lowest = minf(lowest, point.y)
-		peak.position = Vector3(pos.x, lowest - 18.0, pos.z)
+		# Footed on the ice sheet itself (berg_mesh starts at local y = 0),
+		# sunk a slice so the base ring never reads as a floating rim.
+		peak.position = Vector3(pos.x, ground_plane_y() - ground_embed(peak.scale.y, 0.02), pos.z)
 		peak.rotation.y = rng.randf() * TAU
 		peak.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(peak)
@@ -325,9 +346,8 @@ func _decorate_horizon_bands() -> void:
 		q = 0.7
 	elif quality == "low":
 		q = 0.4
-	var lowest := INF
-	for point: Vector3 in main_guide.points:
-		lowest = minf(lowest, point.y)
+	# One shared ground reference for the whole skyline: the ice sheet.
+	var sheet_y := ground_plane_y()
 	var third := main_guide.length / 3.0
 	var bands: Array[Dictionary] = [
 		{"span": Vector2(0.0, third), "mesh_seed": 31, "count": 10,
@@ -358,7 +378,8 @@ func _decorate_horizon_bands() -> void:
 					continue
 				var peak_basis := Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(
 					Vector3(width * rng.randf_range(0.9, 1.4), rng.randf_range(h_range.x, h_range.y), width))
-				transforms.append(Transform3D(peak_basis, Vector3(pos.x, lowest - 20.0, pos.z)))
+				transforms.append(Transform3D(peak_basis,
+					Vector3(pos.x, sheet_y - ground_embed(peak_basis.get_scale().y, 0.02), pos.z)))
 				break
 		_add_multimesh(VisualLibrary.berg_mesh(int(band["mesh_seed"])), transforms,
 			VisualLibrary.rock_material(tint), "HorizonBand_%d" % b_i, 2400.0)
@@ -376,7 +397,10 @@ func _decorate_horizon_bands() -> void:
 			var h := rng.randf_range(24.0, 46.0)
 			var spire_basis := Basis(Vector3.UP, rng.randf() * TAU) \
 				* Basis.from_scale(Vector3(h * 0.5, h, h * 0.5))
-			spire_transforms.append(Transform3D(spire_basis, Vector3(pos.x, lowest - 16.0, pos.z)))
+			# Was 2m ABOVE the ice sheet: a ring of 24-46m spires hanging clear
+			# of the ground they were meant to be growing out of.
+			spire_transforms.append(Transform3D(spire_basis,
+				Vector3(pos.x, sheet_y - ground_embed(h, 0.05), pos.z)))
 			break
 	_add_multimesh(VisualLibrary.ice_crystal_mesh(), spire_transforms,
 		VisualLibrary.rock_material(Color(0.6, 0.76, 0.94), 0.35), "HorizonSpires", 1600.0)
@@ -391,12 +415,14 @@ func _decorate_snowbanks(density: float) -> void:
 	var side := 1.0
 	while offset < main_guide.length - 30.0:
 		var xform := main_guide.transform_at(offset)
-		var lateral := (13.0 + rng.randf_range(0.0, 5.5)) * side
+		var edge := track_edge_lateral(main_guide, offset, side, 9.0)
+		var lateral := (edge + rng.randf_range(0.7, 4.5)) * side
 		var r := rng.randf_range(1.5, 3.4)
 		var bank_basis := Basis(Vector3.UP, rng.randf() * TAU) \
 			* Basis.from_scale(Vector3(
 				r * rng.randf_range(1.4, 2.2), r * rng.randf_range(0.5, 0.8), r * rng.randf_range(0.7, 1.0)))
-		transforms.append(Transform3D(bank_basis, xform.origin + xform.basis.x * lateral + Vector3.DOWN * 0.4))
+		transforms.append(Transform3D(bank_basis,
+			seat_dressing(xform, lateral, bank_basis.get_scale().y, 5.0, 0.14)))
 		side = -side
 		offset += step
 	_add_multimesh(VisualLibrary.snow_drift_mesh(), transforms,
@@ -411,14 +437,17 @@ func _decorate_boulders(density: float) -> void:
 	for _i: int in int(18.0 * density):
 		var offset := rng.randf_range(60.0, main_guide.length - 70.0)
 		var xform := main_guide.transform_at(offset)
-		var lateral := rng.randf_range(12.0, 20.0) * (1.0 if rng.randf() > 0.5 else -1.0)
+		var margin := rng.randf_range(1.0, 5.0)
+		var side := 1.0 if rng.randf() > 0.5 else -1.0
+		var lateral := (track_edge_lateral(main_guide, offset, side, 9.0) + margin) * side
 		var s := rng.randf_range(0.9, 2.3)
 		var boulder_basis := Basis.from_euler(Vector3(
 			rng.randf_range(-0.35, 0.35), rng.randf() * TAU, rng.randf_range(-0.35, 0.35))) \
 			* Basis.from_scale(Vector3(
 				s * rng.randf_range(0.85, 1.3), s * rng.randf_range(0.5, 0.85), s * rng.randf_range(0.85, 1.3)))
 		transforms.append(Transform3D(boulder_basis,
-			xform.origin + xform.basis.x * lateral + Vector3.DOWN * rng.randf_range(0.4, 0.9)))
+			seat_dressing(xform, lateral, boulder_basis.get_scale().y, 4.5, 0.12)
+			+ Vector3.DOWN * rng.randf_range(0.1, 0.4)))
 	_add_multimesh(VisualLibrary.berg_mesh(11), transforms,
 		TrackBuilder.surface_material(SurfacesDB.Surface.ICE_SMOOTH), "IceBoulders")
 

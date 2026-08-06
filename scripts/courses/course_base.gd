@@ -89,13 +89,16 @@ func _build_checkpoints() -> void:
 		var xform := main_guide.transform_at(offset)
 		checkpoint_offsets.append(offset)
 		checkpoint_transforms.append(Transform3D(xform.basis, xform.origin + Vector3.UP * 0.5))
-		# Visual: two slim glowing posts at the track edges.
+		# Visual: two slim glowing posts just outside the racing floor, planted
+		# on whatever surface is under them (a constant 9m lateral straddled the
+		# deck edge, so posts hung in mid-air wherever the track narrows).
 		if not GameConfig.is_headless() and checkpoint_offsets.size() % 2 == 0:
 			for side: float in [-1.0, 1.0]:
+				var lateral := (track_edge_lateral(main_guide, offset, side, 9.0) + 0.6) * side
 				var post := MeshInstance3D.new()
 				post.mesh = post_mesh
 				post.material_override = post_mat
-				post.position = xform.origin + xform.basis.x * (9.0 * side) + Vector3.UP * 1.2
+				post.position = seat_dressing(xform, lateral, 2.4) + Vector3.UP * 1.2
 				VisualLibrary.apply_dressing_range(post)
 				add_child(post)
 		offset += CHECKPOINT_INTERVAL
@@ -134,10 +137,13 @@ func _build_finish_line() -> void:
 	post_mesh.height = 7.0
 	var post_mat := TrackBuilder.prop_material(Color(0.85, 0.3, 0.3))
 	for side: float in [-1.0, 1.0]:
+		# Feet just outside the racing floor and planted on it, so the banner
+		# never straddles the deck edge with its posts hanging over the drop.
+		var lateral := (track_edge_lateral(main_guide, finish_offset, side, 10.0) + 0.9) * side
 		var post := MeshInstance3D.new()
 		post.mesh = post_mesh
 		post.material_override = post_mat
-		post.position = xform.origin + xform.basis.x * (11.0 * side) + Vector3.UP * 3.5
+		post.position = seat_dressing(xform, lateral, 7.0) + Vector3.UP * 3.5
 		add_child(post)
 	var bar := MeshInstance3D.new()
 	var bar_mesh := BoxMesh.new()
@@ -164,6 +170,200 @@ func _build_kill_floor() -> void:
 	for point: Vector3 in main_guide.points:
 		lowest = minf(lowest, point.y)
 	kill_y = lowest - 22.0
+
+
+## --- Build-time ground probing ----------------------------------------------
+## BUILD TIME ONLY. Every helper below fires physics raycasts against the
+## static course colliders; they belong in build_course/_decorate and must
+## never run per frame.
+##
+## Why it works here: physics is single-threaded, and PhysicsServer3D only
+## refuses a space-state query from a NON-main thread, so the main-thread
+## _ready -> build_course path may query freely. add_child() propagates
+## ENTER_TREE synchronously, so a track's StaticBody3D/CollisionShape3D pair
+## is registered in the broadphase the instant setup_main()/add_branch()
+## returns — the deck is queryable long before _decorate() runs.
+##
+## Because that is an engine-behaviour assumption, ground_probe_ready() proves
+## it with one control ray straight down through the start of the racing line.
+## If the space is not queryable (or the build is headless, where dressing is
+## skipped anyway) every helper degrades to "no information" and hands back the
+## caller's authored placement, so a course still builds exactly as authored —
+## no silent mass-teleport of dressing to the sea floor. If that ever trips in
+## practice, the fix is a deferred one-shot re-seat pass after the first
+## physics frame, not a per-frame query.
+
+## Metres above the deck a downward probe starts: high enough to clear the
+## small DOWN offsets dressing is authored with, low enough to pass under
+## overhead bars (clearance 1.05m) and track walls (1.5m tall).
+const GROUND_PROBE_START: float = 0.4
+
+## How far back toward the centreline a prop that overhangs the ribbon may be
+## re-probed before it counts as standing over open water.
+const GROUND_SHOULDER: float = 3.5
+
+## Downward search range for trackside probes. Bounded on purpose: a prop
+## beside an upper switchback must not seat itself on the deck 30m below it
+## (that would drop dressing onto a racing floor).
+const GROUND_MAX_DROP: float = 7.0
+
+## Y of the ocean / ice-sheet plane, set by add_ground_plane(). -INF = unset.
+var base_ground_y: float = -INF
+
+var _space_state: PhysicsDirectSpaceState3D = null
+var _ray_params: PhysicsRayQueryParameters3D = null
+var _probe_state: int = 0  # 0 = untested, 1 = usable, -1 = unavailable
+var _edge_cache: Dictionary = {}
+
+
+## True once the static course geometry can be raycast. Cached after the first
+## call; see the block comment above for the failure contract.
+func ground_probe_ready() -> bool:
+	if _probe_state != 0:
+		return _probe_state > 0
+	_probe_state = -1
+	if GameConfig.is_headless() or main_guide == null or not is_inside_tree():
+		return false
+	var world := get_world_3d()
+	if world == null:
+		return false
+	var state := world.direct_space_state
+	if state == null:
+		return false
+	_space_state = state
+	_ray_params = PhysicsRayQueryParameters3D.new()
+	_ray_params.collision_mask = GameConfig.LAYER_WORLD
+	_ray_params.collide_with_areas = false
+	_ray_params.collide_with_bodies = true
+	var probe := main_guide.position_at(minf(20.0, main_guide.length * 0.5))
+	if _raw_ground(probe.x, probe.z, probe.y + 1.0, 12.0) == -INF:
+		return false
+	_probe_state = 1
+	return true
+
+
+## Raw downward cast: world Y of the first UP-facing static surface under
+## (x, z) below from_y, or -INF. Hits on near-vertical faces (track walls,
+## berm flanks) are skipped and the cast resumes just below them, so a probe
+## grazing a wall still reports the floor it guards.
+func _raw_ground(x: float, z: float, from_y: float, depth: float) -> float:
+	var bottom := from_y - depth
+	var start_y := from_y
+	for _pass: int in 3:
+		_ray_params.from = Vector3(x, start_y, z)
+		_ray_params.to = Vector3(x, bottom, z)
+		var hit := _space_state.intersect_ray(_ray_params)
+		if hit.is_empty():
+			return -INF
+		var point: Vector3 = hit["position"]
+		if absf((hit["normal"] as Vector3).y) > 0.3:
+			return point.y
+		start_y = point.y - 0.05
+		if start_y <= bottom:
+			return -INF
+	return -INF
+
+
+## Y of the ocean / ice-sheet plane this course sits over: whatever
+## add_ground_plane() laid down, or a sane default below the lowest track
+## point when a course ships no plane at all.
+func ground_plane_y() -> float:
+	if base_ground_y > -INF:
+		return base_ground_y
+	var low := INF
+	if main_guide != null:
+		for point: Vector3 in main_guide.points:
+			low = minf(low, point.y)
+	return (low - 24.0) if low < INF else -24.0
+
+
+## BUILD TIME ONLY. Y of the static course surface directly beneath world_pos,
+## searched downward from just above it. Falls back to the ocean/base plane
+## when the point stands over open water, and to the caller's own height when
+## probing is unavailable.
+func ground_height_at(world_pos: Vector3, probe_up: float = GROUND_PROBE_START, probe_down: float = 1200.0) -> float:
+	if not ground_probe_ready():
+		return world_pos.y
+	var y := _raw_ground(world_pos.x, world_pos.z, world_pos.y + probe_up, probe_down + probe_up)
+	return y if y != -INF else ground_plane_y()
+
+
+## BUILD TIME ONLY. Surface height a trackside prop standing `lateral` metres
+## off the centreline of `xform` should rest on. Probes straight down from just
+## above the deck; if the prop overhangs the ribbon the probe walks back toward
+## the centreline in 1m steps (up to `shoulder`) so edge dressing keeps hugging
+## the track instead of dropping into the sea. Anything further out than that
+## genuinely is over open water and gets the base plane.
+func dressing_ground(xform: Transform3D, lateral: float, shoulder: float = GROUND_SHOULDER,
+		max_drop: float = GROUND_MAX_DROP) -> float:
+	if not ground_probe_ready():
+		return xform.origin.y
+	var from_y := xform.origin.y + GROUND_PROBE_START
+	var depth := max_drop + GROUND_PROBE_START
+	var inward := -1.0 if lateral > 0.0 else 1.0
+	var reach := shoulder if not is_zero_approx(lateral) else 0.0
+	var step := 0.0
+	while step <= reach + 0.001:
+		var p := xform.origin + xform.basis.x * (lateral + inward * step)
+		var y := _raw_ground(p.x, p.z, from_y, depth)
+		if y != -INF:
+			return y
+		step += 1.0
+	return ground_plane_y()
+
+
+## Sink for a prop `height` metres tall: 5-15% of its height so the silhouette
+## reads planted instead of balanced. Capped so a 200m peak buries 2m, not 20.
+static func ground_embed(height: float, fraction: float = 0.09) -> float:
+	return clampf(absf(height) * fraction, 0.05, 2.0)
+
+
+## BUILD TIME ONLY. World position for a base-origin dressing mesh (the
+## VisualLibrary drift/crystal/berg meshes and every unit mesh in the course
+## scripts start at local y = 0) standing `lateral` off the centreline: X/Z
+## from the deck frame, Y from the surface under it, sunk ground_embed().
+func seat_dressing(xform: Transform3D, lateral: float, height: float,
+		shoulder: float = GROUND_SHOULDER, embed_fraction: float = 0.09) -> Vector3:
+	var pos := xform.origin + xform.basis.x * lateral
+	pos.y = dressing_ground(xform, lateral, shoulder) - ground_embed(height, embed_fraction)
+	return pos
+
+
+## BUILD TIME ONLY. Lateral distance from the centreline of `guide` at `offset`
+## to the outer edge of the solid racing floor on `side` (-1 left, +1 right).
+## Trackside dressing places itself relative to THIS rather than a constant, so
+## props sit just outside the racing floor on every span instead of landing on
+## the deck where the track is wide and hanging in thin air where it is narrow.
+## Bisection over downward raycasts (8 casts, ~0.2m precision), cached per
+## metre of offset. Returns `fallback` when the deck cannot be probed — including
+## over gap spans, which have no floor to measure.
+func track_edge_lateral(guide: PathGuide, offset: float, side: float,
+		fallback: float = 9.0, limit: float = 24.0) -> float:
+	if guide == null or not ground_probe_ready():
+		return fallback
+	var sign_side := 1.0 if side >= 0.0 else -1.0
+	var key := "%d_%d_%d" % [guide.get_instance_id(), int(roundf(offset)), int(sign_side)]
+	if _edge_cache.has(key):
+		return float(_edge_cache[key])
+	var xform := guide.transform_at(offset)
+	var from_y := xform.origin.y + GROUND_PROBE_START
+	var depth := GROUND_MAX_DROP + GROUND_PROBE_START
+	var centre := xform.origin
+	if _raw_ground(centre.x, centre.z, from_y, depth) == -INF:
+		_edge_cache[key] = fallback
+		return fallback
+	var dir := xform.basis.x * sign_side
+	var lo := 0.0
+	var hi := limit
+	for _i: int in 7:
+		var mid := (lo + hi) * 0.5
+		var p := centre + dir * mid
+		if _raw_ground(p.x, p.z, from_y, depth) != -INF:
+			lo = mid
+		else:
+			hi = mid
+	_edge_cache[key] = lo
+	return lo
 
 
 ## --- Racer guide queries ----------------------------------------------------
@@ -487,20 +687,20 @@ func _add_clouds(color: Color) -> void:
 
 
 ## Ring of low-poly iceberg silhouettes near the horizon for depth layering.
+## The ring stands ON the ice sheet: the old default (lowest track point - 6)
+## was a guess that left bergs hanging metres above the plane on any course
+## whose track bottoms out well above its ocean level. berg_y still overrides.
 func _add_distant_bergs(params: Dictionary) -> void:
 	var count := int(params.get("berg_count", 10))
 	var distance := float(params.get("berg_distance", 650.0))
 	var color: Color = params.get("berg_color", Color(0.78, 0.87, 0.96))
 	var center := Vector3.ZERO
-	var lowest := 0.0
 	if main_guide != null and main_guide.points.size() > 0:
 		var sum := Vector3.ZERO
-		lowest = INF
 		for point: Vector3 in main_guide.points:
 			sum += point
-			lowest = minf(lowest, point.y)
 		center = sum / float(main_guide.points.size())
-	var base_y := float(params.get("berg_y", lowest - 6.0))
+	var base_y := float(params.get("berg_y", ground_plane_y()))
 	var mat := VisualLibrary.rock_material(color)
 	for i: int in count:
 		var angle := TAU * float(i) / float(count) + rng.randf_range(-0.18, 0.18)
@@ -509,7 +709,10 @@ func _add_distant_bergs(params: Dictionary) -> void:
 		berg.material_override = mat
 		var s := rng.randf_range(28.0, 70.0)
 		berg.scale = Vector3(s * rng.randf_range(0.8, 1.3), s * rng.randf_range(0.55, 0.9), s)
-		berg.position = Vector3(center.x + cos(angle) * distance, base_y, center.z + sin(angle) * distance)
+		# berg_mesh starts at local y = 0, so the scaled Y is the berg height:
+		# sink a slice of it so the waterline reads planted, not balanced.
+		berg.position = Vector3(center.x + cos(angle) * distance,
+			base_y - ground_embed(berg.scale.y, 0.06), center.z + sin(angle) * distance)
 		berg.rotation.y = rng.randf() * TAU
 		# Horizon dressing: only the far side of the berg ring fades on low.
 		VisualLibrary.apply_dressing_range(berg, 1200.0)
@@ -669,7 +872,13 @@ func add_snowball_row(offset: float, count: int = 3, guide: PathGuide = null) ->
 ## Optional material overrides the flat color — e.g.
 ## VisualLibrary.water_material(...) for ocean or snow_material(...) for
 ## an ice sheet (pass subdivided = true with water so waves displace).
+## Also records the plane height as this course's base ground level, which is
+## what every far-field dressing helper seats itself on — so call this BEFORE
+## _decorate()/build_environment() rather than as the last line of a build.
+## Visual only by design: giving the plane a collider would change where
+## racers land and what the kill floor means.
 func add_ground_plane(y: float, color: Color, size: float = 4000.0, material: Material = null, subdivided: bool = false) -> void:
+	base_ground_y = y
 	var plane := MeshInstance3D.new()
 	var mesh := PlaneMesh.new()
 	mesh.size = Vector2(size, size)

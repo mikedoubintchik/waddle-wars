@@ -160,6 +160,12 @@ func build_course() -> void:
 	add_fish_line(_offset_near(Vector3(-16, 18, -1290)), 12, 5.5, 0.0)
 
 	_retint_track_walls()
+	# Frozen lake sheet first: the mountains, lake cracks and sun-glint bands
+	# all seat themselves on it, so it has to exist before _decorate() runs.
+	# Sparkle raised so the distant ice sheet reads as sunlit glitter, backing
+	# the additive sun-glint bands placed by _decorate_sun_glint().
+	add_ground_plane(-24.0, Color(0.78, 0.86, 0.97), 4000.0,
+		VisualLibrary.snow_material(Color(0.78, 0.86, 0.97), 0.5))
 	_decorate()
 	# Sunny alpine postcard in late-morning light: rich cobalt sky deepening
 	# overhead, a warm lower sun raking long shadows off drifts, sastrugi and
@@ -189,10 +195,6 @@ func build_course() -> void:
 		"clouds": true,
 		"cloud_color": Color(1.0, 0.96, 0.87, 0.82),
 	})
-	# Sparkle raised so the distant ice sheet reads as sunlit glitter, backing
-	# the additive sun-glint bands placed by _decorate_sun_glint().
-	add_ground_plane(-24.0, Color(0.78, 0.86, 0.97), 4000.0,
-		VisualLibrary.snow_material(Color(0.78, 0.86, 0.97), 0.5))
 
 
 ## TrackBuilder ships edge walls as a pale translucent blue and skirts as a
@@ -322,7 +324,11 @@ func _icicle_transform(pos: Vector3, height: float) -> Transform3D:
 
 
 ## Route flags every ~70m alternating sides: pole multimesh + red/blue pennant
-## multimeshes (saturated race colors against the snow).
+## multimeshes (saturated race colors against the snow). Laterals are measured
+## off the real deck edge and the pole feet are planted on the surface under
+## them: the track runs 11m wide through the tunnel and 22m wide through the
+## opening hills, so a constant 10-13m lateral used to plant flags on the
+## racing floor in one place and 7m out over the drop in another.
 func _decorate_flags() -> void:
 	var pole_transforms: Array[Transform3D] = []
 	var red_transforms: Array[Transform3D] = []
@@ -331,8 +337,8 @@ func _decorate_flags() -> void:
 	var side := 1.0
 	while offset < main_guide.length - 60.0:
 		var xform := main_guide.transform_at(offset)
-		var lateral := (10.0 + rng.randf_range(0.0, 3.0)) * side
-		var base := xform.origin + xform.basis.x * lateral
+		var lateral := (track_edge_lateral(main_guide, offset, side, 9.0) + rng.randf_range(0.7, 2.6)) * side
+		var base := seat_dressing(xform, lateral, 3.0)
 		var yaw := Basis(Vector3.UP, rng.randf() * TAU)
 		pole_transforms.append(Transform3D(yaw, base + Vector3.UP * 1.5))
 		var flag_basis := yaw * Basis(Vector3(0, 0, 1), deg_to_rad(-90.0))
@@ -353,8 +359,9 @@ func _decorate_flags() -> void:
 	for cluster_offset: float in cluster_offsets:
 		var cluster_xform := main_guide.transform_at(cluster_offset)
 		for side_sign: float in [-1.0, 1.0]:
-			var lateral := (10.6 + rng.randf_range(0.0, 1.8)) * side_sign
-			var base := cluster_xform.origin + cluster_xform.basis.x * lateral
+			var lateral := (track_edge_lateral(main_guide, cluster_offset, side_sign, 9.6)
+				+ rng.randf_range(0.8, 2.6)) * side_sign
+			var base := seat_dressing(cluster_xform, lateral, 3.0)
 			var yaw := Basis(Vector3.UP, rng.randf() * TAU)
 			pole_transforms.append(Transform3D(yaw, base + Vector3.UP * 1.5))
 			var flag_basis := yaw * Basis(Vector3(0, 0, 1), deg_to_rad(-90.0))
@@ -397,20 +404,29 @@ func _decorate_cave(crystal_transforms: Array[Transform3D], icicle_transforms: A
 	gate_mat.rim_enabled = true
 	gate_mat.rim = 0.35
 	arch_gate.material_override = gate_mat
-	arch_gate.transform = Transform3D(gate_xform.basis, gate_xform.origin + Vector3.DOWN * 1.2)
+	# Feet buried deeper than the mesh's own flare: they land ~12m out, well
+	# past the 6m-half cave deck, so a shallow set left two thick stumps
+	# hanging over the drop. At -3.2 they sit below the track-edge sight line
+	# and the crown still clears 8m over the gateway.
+	arch_gate.transform = Transform3D(gate_xform.basis, gate_xform.origin + Vector3.DOWN * 3.2)
 	add_child(arch_gate)
 	# Icicle fringe under the arch crown (well above racer height).
 	for _i: int in 6:
 		var hang := gate_xform.origin + gate_xform.basis.x * rng.randf_range(-4.5, 4.5) \
 			+ Vector3.UP * rng.randf_range(8.2, 10.2) + gate_xform.basis.z * rng.randf_range(-1.2, 1.2)
 		icicle_transforms.append(_icicle_transform(hang, rng.randf_range(1.3, 2.3)))
-	# Towering monolith crystals flanking the gateway feet.
+	# Towering monolith crystals flanking the gateway feet, rooted on the
+	# shoulder instead of hovering at a constant 11-13.5m over a 12m-wide deck.
+	var gate_offset := cave_start - 6.0
+	var back_xform := main_guide.transform_at(gate_offset + 6.0)
 	for side_sign: float in [-1.0, 1.0]:
 		crystal_transforms.append(_crystal_transform(
-			gate_xform.origin + gate_xform.basis.x * (11.0 * side_sign) + Vector3.DOWN * 0.5,
+			seat_dressing(gate_xform,
+				(track_edge_lateral(main_guide, gate_offset, side_sign, 8.0) + 1.2) * side_sign, 7.5, 4.0, 0.1),
 			rng.randf_range(6.0, 9.0)))
 		crystal_transforms.append(_crystal_transform(
-			gate_xform.origin + gate_xform.basis.x * (13.5 * side_sign) - gate_xform.basis.z * 6.0 + Vector3.DOWN * 0.8,
+			seat_dressing(back_xform,
+				(track_edge_lateral(main_guide, gate_offset + 6.0, side_sign, 8.0) + 3.2) * side_sign, 4.7, 4.5, 0.1),
 			rng.randf_range(3.5, 6.0)))
 
 	# Slalom interior: smooth high-segment ice arches (no low-poly banding).
@@ -430,7 +446,9 @@ func _decorate_cave(crystal_transforms: Array[Transform3D], icicle_transforms: A
 		add_child(arch)
 		for side_sign: float in [-1.0, 1.0]:
 			crystal_transforms.append(_crystal_transform(
-				xform.origin + xform.basis.x * (8.5 * side_sign) + Vector3.DOWN * 0.5,
+				seat_dressing(xform,
+					(track_edge_lateral(main_guide, cave_offset, side_sign, 6.0) + 1.0) * side_sign,
+					5.7, 4.0, 0.1),
 				rng.randf_range(3.5, 8.0)))
 		cave_offset += 22.0
 	var tunnel_offset := _offset_near(Vector3(0, 50.3, -620))
@@ -438,7 +456,9 @@ func _decorate_cave(crystal_transforms: Array[Transform3D], icicle_transforms: A
 		var xform2 := main_guide.transform_at(bar_offset)
 		for side_sign: float in [-1.0, 1.0]:
 			crystal_transforms.append(_crystal_transform(
-				xform2.origin + xform2.basis.x * (7.5 * side_sign),
+				seat_dressing(xform2,
+					(track_edge_lateral(main_guide, bar_offset, side_sign, 5.5) + 1.0) * side_sign,
+					4.5, 4.0, 0.1),
 				rng.randf_range(3.0, 6.0)))
 	# Icicles fringe the undersides of the two slide bars: they whip past
 	# overhead as racers belly-slide through, selling the low clearance.
@@ -506,7 +526,9 @@ func _ice_arch_mesh(seed_value: int) -> ArrayMesh:
 
 
 ## Snow-capped rocks (two multimeshes: boulder + cap) and extra crystals
-## scattered along the whole route.
+## scattered along the whole route. The old 13-26m band put every one of these
+## between 2m and 20m past the deck edge with nothing underneath: they are now
+## bedded on the shoulder, which is the only ground off this ribbon.
 func _decorate_scatter(density: float, crystal_transforms: Array[Transform3D]) -> void:
 	var rock_transforms: Array[Transform3D] = []
 	var cap_transforms: Array[Transform3D] = []
@@ -514,14 +536,18 @@ func _decorate_scatter(density: float, crystal_transforms: Array[Transform3D]) -
 	for _i: int in count:
 		var offset := rng.randf_range(40.0, main_guide.length - 60.0)
 		var xform := main_guide.transform_at(offset)
-		var lateral := rng.randf_range(13.0, 26.0) * (1.0 if rng.randf() > 0.5 else -1.0)
-		var pos := xform.origin + xform.basis.x * lateral + Vector3.DOWN * 1.0
+		var margin := rng.randf_range(0.8, 5.0)
+		var side := 1.0 if rng.randf() > 0.5 else -1.0
+		var lateral := (track_edge_lateral(main_guide, offset, side, 9.0) + margin) * side
+		var pos := seat_dressing(xform, lateral, 1.6, 4.5, 0.12)
 		if rng.randf() > 0.4:
 			var s := rng.randf_range(0.7, 1.8)
 			var squash := Vector3(rng.randf_range(0.8, 1.4), rng.randf_range(0.6, 1.0), rng.randf_range(0.8, 1.4)) * s
 			var rock_basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(squash)
-			rock_transforms.append(Transform3D(rock_basis, pos + Vector3.UP * 0.3 * s))
-			cap_transforms.append(Transform3D(rock_basis, pos + Vector3.UP * 0.75 * s))
+			# Sphere meshes are centre-origin: half the squashed height plus a
+			# bite of bed depth puts the boulder's waist at the surface.
+			rock_transforms.append(Transform3D(rock_basis, pos + Vector3.UP * (squash.y * 0.42)))
+			cap_transforms.append(Transform3D(rock_basis, pos + Vector3.UP * (squash.y * 0.42 + 0.45 * s)))
 		else:
 			crystal_transforms.append(_crystal_transform(pos, rng.randf_range(2.0, 5.5)))
 	var rock_mesh := SphereMesh.new()
@@ -550,19 +576,23 @@ func _decorate_snowbanks(density: float) -> void:
 	var side := 1.0
 	while offset < main_guide.length - 24.0:
 		var xform := main_guide.transform_at(offset)
-		var lateral := (13.5 + rng.randf_range(0.0, 5.0)) * side
+		var edge := track_edge_lateral(main_guide, offset, side, 9.0)
+		var lateral := (edge + rng.randf_range(0.6, 4.0)) * side
 		var r := rng.randf_range(1.6, 3.6)
 		var bank_basis := Basis(Vector3.UP, wind_yaw + rng.randf_range(-0.25, 0.25)) \
 			* Basis.from_scale(Vector3(
 				r * rng.randf_range(1.5, 2.3), r * rng.randf_range(0.5, 0.8), r * rng.randf_range(0.7, 0.95)))
-		transforms.append(Transform3D(bank_basis, xform.origin + xform.basis.x * lateral + Vector3.DOWN * 0.4))
+		# Low mounds hide their own footprint, so the shoulder reach is generous.
+		transforms.append(Transform3D(bank_basis,
+			seat_dressing(xform, lateral, bank_basis.get_scale().y, 5.0, 0.14)))
 		if rng.randf() > 0.6:
 			var far_r := rng.randf_range(2.5, 5.0)
 			var far_basis := Basis(Vector3.UP, wind_yaw + rng.randf_range(-0.35, 0.35)) \
 				* Basis.from_scale(Vector3(
 					far_r * rng.randf_range(1.4, 2.0), far_r * 0.55, far_r * rng.randf_range(0.7, 0.9)))
+			var far_lateral := lateral + rng.randf_range(1.5, 5.0) * side
 			transforms.append(Transform3D(far_basis,
-				xform.origin + xform.basis.x * (lateral + rng.randf_range(6.0, 14.0) * side) + Vector3.DOWN * 1.2))
+				seat_dressing(xform, far_lateral, far_basis.get_scale().y, 6.5, 0.15)))
 		side = -side
 		offset += step
 	# Drifts piled AGAINST the track walls: low, long tails of blown snow
@@ -583,13 +613,14 @@ func _decorate_snowbanks(density: float) -> void:
 		var run_offset := float(run[0])
 		var run_side := 1.0
 		while run_offset < float(run[1]):
-			var pos := main_guide.point_at(run_offset,
-				float(run[2]) * run_side + rng.randf_range(-0.2, 0.3), -0.3)
+			var run_xform := main_guide.transform_at(run_offset)
+			var run_lateral := float(run[2]) * run_side + rng.randf_range(-0.2, 0.3)
 			var drift_basis := Basis(Vector3.UP,
 				main_guide.yaw_at(run_offset) + rng.randf_range(-0.1, 0.1)) \
 				* Basis.from_scale(Vector3(rng.randf_range(0.8, 1.3),
 					rng.randf_range(0.35, 0.65), rng.randf_range(2.6, 4.8)))
-			transforms.append(Transform3D(drift_basis, pos))
+			transforms.append(Transform3D(drift_basis,
+				seat_dressing(run_xform, run_lateral, drift_basis.get_scale().y, 3.0, 0.15)))
 			run_side = -run_side
 			run_offset += rng.randf_range(7.0, 11.0) / maxf(density, 0.5)
 	_add_multimesh(VisualLibrary.snow_drift_mesh(), transforms,
@@ -606,17 +637,21 @@ func _decorate_sastrugi(density: float) -> void:
 	for _i: int in strip_count:
 		var strip_offset := rng.randf_range(50.0, main_guide.length - 80.0)
 		var side := 1.0 if rng.randf() > 0.5 else -1.0
-		var base_lateral := rng.randf_range(9.0, 13.5) * side
+		# Strips start at the deck edge and march outward across the shoulder
+		# (0.9m apart rather than 1.7m, so a 7-ridge strip still lands on ground
+		# instead of trailing 10m into open air).
+		var base_lateral := (track_edge_lateral(main_guide, strip_offset, side, 9.0)
+			+ rng.randf_range(0.4, 1.6)) * side
 		var ridges := rng.randi_range(4, 7)
 		for k: int in ridges:
-			var pos := main_guide.point_at(
-				strip_offset + rng.randf_range(-4.0, 4.0),
-				base_lateral + float(k) * 1.7 * side + rng.randf_range(-0.5, 0.5),
-				-0.22)
+			var ridge_offset := strip_offset + rng.randf_range(-4.0, 4.0)
+			var ridge_lateral := base_lateral + float(k) * 0.9 * side + rng.randf_range(-0.5, 0.5)
 			var ridge_basis := Basis(Vector3.UP, wind_yaw + rng.randf_range(-0.12, 0.12)) \
 				* Basis.from_scale(Vector3(
 					rng.randf_range(2.6, 5.5), rng.randf_range(0.22, 0.42), rng.randf_range(0.55, 0.95)))
-			transforms.append(Transform3D(ridge_basis, pos))
+			transforms.append(Transform3D(ridge_basis,
+				seat_dressing(main_guide.transform_at(ridge_offset), ridge_lateral,
+					ridge_basis.get_scale().y, 5.0, 0.15)))
 	_add_multimesh(_sastrugi_mesh(), transforms,
 		VisualLibrary.rock_material(Color(1.0, 1.0, 1.0)), "Sastrugi")
 
@@ -653,21 +688,27 @@ func _sastrugi_mesh() -> ArrayMesh:
 func _decorate_walkways() -> void:
 	var plank_transforms: Array[Transform3D] = []
 	var post_transforms: Array[Transform3D] = []
+	# Boardwalk decks ride 0.5m over whatever surface their posts stand in, so
+	# both follow the shoulder instead of a fixed height off the centreline.
 	var offset := 4.0
 	while offset < 52.0:
 		var xform := main_guide.transform_at(offset)
 		for side: float in [-1.0, 1.0]:
-			plank_transforms.append(Transform3D(xform.basis, xform.origin + xform.basis.x * (11.0 * side) + Vector3.UP * 0.5))
+			var lateral := (track_edge_lateral(main_guide, offset, side, 9.0) + 1.8) * side
+			var ground := seat_dressing(xform, lateral, 1.5, 4.0, 0.0)
+			plank_transforms.append(Transform3D(xform.basis, ground + Vector3.UP * 0.5))
 			if int(offset) % 12 < 6:
-				post_transforms.append(Transform3D(xform.basis, xform.origin + xform.basis.x * (11.0 * side) + Vector3.DOWN * 0.2))
+				post_transforms.append(Transform3D(xform.basis, ground + Vector3.DOWN * 0.2))
 		offset += 6.0
 	var walkway_start := _offset_near(Vector3(22, 48, -690))
 	var walkway_offset := walkway_start
 	while walkway_offset < walkway_start + 120.0:
 		var xform2 := main_guide.transform_at(walkway_offset)
-		plank_transforms.append(Transform3D(xform2.basis, xform2.origin + xform2.basis.x * 9.5 + Vector3.UP * 0.6))
+		var lateral2 := track_edge_lateral(main_guide, walkway_offset, 1.0, 8.5) + 1.4
+		var ground2 := seat_dressing(xform2, lateral2, 1.5, 4.0, 0.0)
+		plank_transforms.append(Transform3D(xform2.basis, ground2 + Vector3.UP * 0.6))
 		if rng.randf() > 0.5:
-			post_transforms.append(Transform3D(xform2.basis, xform2.origin + xform2.basis.x * 9.5 + Vector3.DOWN * 0.15))
+			post_transforms.append(Transform3D(xform2.basis, ground2 + Vector3.DOWN * 0.15))
 		walkway_offset += 6.0
 	var plank_mesh := BoxMesh.new()
 	plank_mesh.size = Vector3(2.4, 0.2, 5.5)
@@ -686,20 +727,31 @@ func _decorate_walkways() -> void:
 func _decorate_spectators(density: float) -> void:
 	var start_count := maxi(int(16.0 * density), 6)
 	for i: int in start_count:
-		var near_start := main_guide.transform_at(rng.randf_range(10.0, 90.0))
-		var lateral := (11.5 + rng.randf_range(0.0, 6.5)) * (1.0 if i % 2 == 0 else -1.0)
-		TrackBuilder.add_spectator(self, near_start.origin + near_start.basis.x * lateral, near_start.origin, rng)
+		var start_arc := rng.randf_range(10.0, 90.0)
+		var near_start := main_guide.transform_at(start_arc)
+		var start_side := 1.0 if i % 2 == 0 else -1.0
+		var lateral := (track_edge_lateral(main_guide, start_arc, start_side, 9.0)
+			+ rng.randf_range(0.7, 5.0)) * start_side
+		TrackBuilder.add_spectator(self, seat_dressing(near_start, lateral, 1.6, GROUND_SHOULDER, 0.05),
+			near_start.origin, rng)
 	var finish_count := maxi(int(14.0 * density), 6)
 	for i: int in finish_count:
-		var near_finish := main_guide.transform_at(finish_offset - rng.randf_range(5.0, 70.0))
-		var lateral := (11.5 + rng.randf_range(0.0, 6.5)) * (1.0 if i % 2 == 0 else -1.0)
-		TrackBuilder.add_spectator(self, near_finish.origin + near_finish.basis.x * lateral, near_finish.origin, rng)
+		var finish_arc := finish_offset - rng.randf_range(5.0, 70.0)
+		var near_finish := main_guide.transform_at(finish_arc)
+		var finish_side := 1.0 if i % 2 == 0 else -1.0
+		var lateral := (track_edge_lateral(main_guide, finish_arc, finish_side, 9.0)
+			+ rng.randf_range(0.7, 5.0)) * finish_side
+		TrackBuilder.add_spectator(self, seat_dressing(near_finish, lateral, 1.6, GROUND_SHOULDER, 0.05),
+			near_finish.origin, rng)
 	var overlook := _offset_near(Vector3(38, 46, -740))
 	var overlook_count := maxi(int(7.0 * density), 3)
 	for _i: int in overlook_count:
-		var xform := main_guide.transform_at(overlook + rng.randf_range(-25.0, 25.0))
-		var pos := xform.origin - xform.basis.x * (12.0 + rng.randf_range(0.0, 3.0))
-		TrackBuilder.add_spectator(self, pos, xform.origin, rng)
+		var overlook_arc := overlook + rng.randf_range(-25.0, 25.0)
+		var xform := main_guide.transform_at(overlook_arc)
+		var overlook_lateral := -(track_edge_lateral(main_guide, overlook_arc, -1.0, 8.0)
+			+ rng.randf_range(0.8, 3.8))
+		TrackBuilder.add_spectator(self, seat_dressing(xform, overlook_lateral, 1.6, GROUND_SHOULDER, 0.05),
+			xform.origin, rng)
 
 
 ## --- Cliffs, crevasse cracks, fog, glint ------------------------------------
@@ -730,7 +782,18 @@ func _decorate_cliffs(density: float) -> void:
 
 ## Chains cliff slabs along the guide so runs follow track curvature instead
 ## of clipping across it. Each slab faces the track from its side.
+##
+## Slabs are FOOTED, not floated: the crest stays where it was authored and the
+## base is stretched down toward the frozen lake instead of stopping 3.5m under
+## the deck with open sky beneath it. Growth is capped at CLIFF_MAX_STRETCH so
+## the baked striation bands never smear into ribbons on the high stretches —
+## where the cap bites, the foot still ends tens of metres below the deck and
+## stays behind the track-edge sight line.
+const CLIFF_MAX_STRETCH: float = 3.0
+
+
 func _add_cliff_run(buckets: Array, start_offset: float, end_offset: float, side: float, base_height: float, step: float) -> void:
+	var sheet_y := ground_plane_y()
 	var offset := start_offset
 	while offset < end_offset:
 		var xform := main_guide.transform_at(offset)
@@ -738,11 +801,19 @@ func _add_cliff_run(buckets: Array, start_offset: float, end_offset: float, side
 		var pos := xform.origin + xform.basis.x * lateral + Vector3.DOWN * 3.5
 		var toward := -xform.basis.x * side
 		var yaw := atan2(toward.x, toward.z)
-		var cliff_basis := Basis(Vector3.UP, yaw + rng.randf_range(-0.08, 0.08)) * Basis.from_scale(Vector3(
-			rng.randf_range(19.0, 25.0),
-			base_height * rng.randf_range(0.85, 1.3),
-			rng.randf_range(4.5, 7.0)))
-		(buckets[rng.randi_range(0, 2)] as Array).append(Transform3D(cliff_basis, pos))
+		# Draws stay in their original order (jitter, width, height, depth,
+		# bucket); only what is done with the height changed.
+		var yaw_jitter := rng.randf_range(-0.08, 0.08)
+		var slab_width := rng.randf_range(19.0, 25.0)
+		var authored_height := base_height * rng.randf_range(0.85, 1.3)
+		var slab_depth := rng.randf_range(4.5, 7.0)
+		var crest_y := pos.y + authored_height
+		var footed_height := clampf(crest_y - (sheet_y - 1.5),
+			authored_height, authored_height * CLIFF_MAX_STRETCH)
+		var cliff_basis := Basis(Vector3.UP, yaw + yaw_jitter) \
+			* Basis.from_scale(Vector3(slab_width, footed_height, slab_depth))
+		(buckets[rng.randi_range(0, 2)] as Array).append(
+			Transform3D(cliff_basis, Vector3(pos.x, crest_y - footed_height, pos.z)))
 		offset += step
 
 
@@ -796,6 +867,7 @@ func _cliff_mesh(seed_value: int) -> ArrayMesh:
 ## shadows off, distance-culled on the low/medium presets.
 func _decorate_icefall() -> void:
 	var wall_start := _offset_near(Vector3(4, 54, -90)) + 6.0
+	var sheet_y := ground_plane_y()
 	var transforms: Array[Transform3D] = []
 	var offset := wall_start
 	for _i: int in 5:
@@ -804,9 +876,20 @@ func _decorate_icefall() -> void:
 		var pos := xform.origin + xform.basis.x * lateral + Vector3.DOWN * 5.0
 		var toward := -xform.basis.x
 		var yaw := atan2(toward.x, toward.z)
-		var fall_basis := Basis(Vector3.UP, yaw + rng.randf_range(-0.06, 0.06)) * Basis.from_scale(Vector3(
-			rng.randf_range(17.0, 22.0), rng.randf_range(15.0, 20.0), rng.randf_range(4.0, 6.0)))
-		transforms.append(Transform3D(fall_basis, pos))
+		var yaw_jitter := rng.randf_range(-0.06, 0.06)
+		var fall_width := rng.randf_range(17.0, 22.0)
+		var authored_height := rng.randf_range(15.0, 20.0)
+		var fall_depth := rng.randf_range(4.0, 6.0)
+		# Same treatment as the cliff runs: keep the crown lip where it was
+		# authored and pour the cascade down to the lake rather than ending it
+		# in mid-air 5m under the deck (capped so the melt-columns keep their
+		# proportions).
+		var crest_y := pos.y + authored_height
+		var footed_height := clampf(crest_y - (sheet_y - 1.5),
+			authored_height, authored_height * CLIFF_MAX_STRETCH)
+		var fall_basis := Basis(Vector3.UP, yaw + yaw_jitter) \
+			* Basis.from_scale(Vector3(fall_width, footed_height, fall_depth))
+		transforms.append(Transform3D(fall_basis, Vector3(pos.x, crest_y - footed_height, pos.z)))
 		offset += 19.0
 	_add_multimesh(_icefall_mesh(6161), transforms,
 		VisualLibrary.rock_material(Color(1.0, 1.0, 1.0), 0.3), "FrozenFalls", false, 480.0)
@@ -885,7 +968,12 @@ func _decorate_birds() -> void:
 	for f: int in flock_count:
 		var pivot := Node3D.new()
 		pivot.name = "BirdFlock_%d" % f
-		pivot.position = anchors[f]
+		# Genuinely sky dressing, so it must never sit at deck height where a
+		# dark sliver 100m off the line reads as a floating rock: hold each
+		# flock at least 30m clear of the nearest stretch of track.
+		var anchor := anchors[f]
+		var near := main_guide.position_at(float(main_guide.nearest(anchor, -1)["offset"]))
+		pivot.position = Vector3(anchor.x, maxf(anchor.y, near.y + 30.0), anchor.z)
 		add_child(pivot)
 		for _b: int in 4:
 			var bird := MeshInstance3D.new()
@@ -916,13 +1004,16 @@ func _decorate_boulders(density: float) -> void:
 		var offset := rng.randf_range(60.0, main_guide.length - 70.0)
 		var xform := main_guide.transform_at(offset)
 		var side := 1.0 if rng.randf() > 0.5 else -1.0
-		var lateral := rng.randf_range(12.0, 22.0) * side
-		var pos := xform.origin + xform.basis.x * lateral + Vector3.DOWN * rng.randf_range(0.4, 0.9)
+		var lateral := (track_edge_lateral(main_guide, offset, side, 9.0)
+			+ rng.randf_range(0.8, 4.5)) * side
+		var sink := rng.randf_range(0.1, 0.4)
 		var s := rng.randf_range(0.9, 2.6)
 		var boulder_basis := Basis.from_euler(Vector3(
 			rng.randf_range(-0.35, 0.35), rng.randf() * TAU, rng.randf_range(-0.35, 0.35))) \
 			* Basis.from_scale(Vector3(
 				s * rng.randf_range(0.85, 1.3), s * rng.randf_range(0.5, 0.85), s * rng.randf_range(0.85, 1.3)))
+		var pos := seat_dressing(xform, lateral, boulder_basis.get_scale().y, 4.5, 0.12) \
+			+ Vector3.DOWN * sink
 		transforms.append(Transform3D(boulder_basis, pos))
 		# Calving debris: a smaller shard shed beside ~40% of blocks.
 		if rng.randf() > 0.6:
@@ -930,8 +1021,9 @@ func _decorate_boulders(density: float) -> void:
 			var shard_basis := Basis.from_euler(Vector3(
 				rng.randf_range(-0.5, 0.5), rng.randf() * TAU, rng.randf_range(-0.5, 0.5))) \
 				* Basis.from_scale(Vector3(shard_s, shard_s * 0.7, shard_s))
+			var shard_lateral := lateral + rng.randf_range(1.0, 2.4) * side
 			transforms.append(Transform3D(shard_basis,
-				pos + xform.basis.x * (rng.randf_range(1.5, 3.0) * side) + Vector3.DOWN * 0.2))
+				seat_dressing(xform, shard_lateral, shard_s * 0.7, 5.0, 0.12) + Vector3.DOWN * 0.15))
 	_add_multimesh(VisualLibrary.berg_mesh(11), transforms,
 		TrackBuilder.surface_material(SurfacesDB.Surface.ICE_SMOOTH), "IceBoulders", false)
 
@@ -1073,7 +1165,10 @@ func _add_lake_crack_patch(transforms: Array[Transform3D], pos: Vector3) -> void
 		var crack_basis := Basis(Vector3.UP, patch_yaw + rng.randf_range(-0.7, 0.7)) \
 			* Basis.from_scale(Vector3(rng.randf_range(7.0, 13.0), 1.0, rng.randf_range(40.0, 85.0)))
 		var jitter := Vector3(rng.randf_range(-18.0, 18.0), 0.0, rng.randf_range(-18.0, 18.0))
-		transforms.append(Transform3D(crack_basis, Vector3(pos.x, -23.5, pos.z) + jitter))
+		# Flush with the sheet itself (was a hand-picked -23.5 that left the
+		# fissures hovering half a metre over the ice they fracture).
+		transforms.append(Transform3D(crack_basis,
+			Vector3(pos.x, ground_plane_y() + 0.05, pos.z) + jitter))
 
 
 ## Low drifting ground-fog wisps in the crevasse field, the valley floor and
@@ -1130,6 +1225,7 @@ func _decorate_sun_glint() -> void:
 		Vector3(0.0, 0.0, -560.0) + sun_dir * 470.0,
 		Vector3(-80.0, 0.0, -1790.0),
 	]
+	var sheet_y := ground_plane_y()
 	for pos: Vector3 in placements:
 		var band := MeshInstance3D.new()
 		var plane := PlaneMesh.new()
@@ -1137,7 +1233,9 @@ func _decorate_sun_glint() -> void:
 		band.mesh = plane
 		band.material_override = glint_mat
 		band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		band.position = Vector3(pos.x, -23.4, pos.z)
+		# Lying ON the sheet: 0.1m of separation is enough to beat z-fighting
+		# without the band reading as a slab hovering over the ice.
+		band.position = Vector3(pos.x, sheet_y + 0.1, pos.z)
 		band.rotation.y = atan2(sun_dir.x, sun_dir.z)
 		add_child(band)
 
@@ -1155,7 +1253,10 @@ static func _cquad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vecto
 ## ring is pre-hazed toward the horizon tint for atmospheric layering.
 
 func _decorate_mountains() -> void:
-	var center := Vector3(0.0, -24.0, -700.0)
+	# Rooted on the frozen lake plane rather than a hand-copied -24: the two
+	# would silently drift apart if the sheet height is ever retuned, leaving a
+	# whole skyline hanging above (or sunk into) the ice.
+	var center := Vector3(0.0, ground_plane_y(), -700.0)
 	for i: int in 10:
 		_place_mountain(1000 + i, center, 300.0, 470.0, 130.0, 220.0, 0.08)
 	for i: int in 11:
@@ -1188,7 +1289,9 @@ func _place_mountain(seed_value: int, center: Vector3, dist_min: float, dist_max
 		instance.material_override = VisualLibrary.rock_material(Color(1.0, 1.0, 1.0))
 		instance.scale = Vector3(footprint, height, footprint)
 		instance.rotation.y = rng.randf() * TAU
-		instance.position = pos
+		# Base ring sits at local y = 0: sink it a little so the open underside
+		# is never visible along a grazing sightline across the sheet.
+		instance.position = pos + Vector3.DOWN * ground_embed(height, 0.01)
 		instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(instance)
 		return

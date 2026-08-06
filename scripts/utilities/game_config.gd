@@ -23,12 +23,41 @@ const GROUP_CHECKPOINTS: StringName = &"checkpoints"
 const RACER_COUNT: int = 8
 
 
+## Cached is_web_chrome() probe: -1 unknown, 0 no, 1 yes.
+static var _web_chrome: int = -1
+
+
 static func is_headless() -> bool:
 	return DisplayServer.get_name() == "headless"
 
 
 static func is_mobile() -> bool:
 	return OS.has_feature("mobile")
+
+
+## True only for a web export running in a browser that reports itself as
+## Chrome (Edge ships "Edg", Opera ships "OPR", Safari never says "Chrome").
+##
+## Chrome does not talk to the GPU directly on macOS: WebGL2 goes through
+## ANGLE and out to Metal, and translating + linking a shader program there
+## costs milliseconds where Safari's native GL path costs microseconds. The
+## same course that plays clean in Safari stutters in Chrome purely on
+## first-sight program links and per-draw-call driver overhead, so a few
+## subsystems (ShaderWarmup, VisualLibrary dressing culling) spend extra
+## budget up front or trim the far field when this is true.
+##
+## Probed once through JavaScriptBridge and cached; always false on desktop,
+## on native mobile, and headless — the eval never runs off web.
+static func is_web_chrome() -> bool:
+	if _web_chrome >= 0:
+		return _web_chrome == 1
+	_web_chrome = 0
+	if OS.has_feature("web") and not is_headless():
+		var probe: Variant = JavaScriptBridge.eval("navigator.userAgent || ''", true)
+		var agent := String(probe) if probe != null else ""
+		if agent.contains("Chrome") and not agent.contains("Edg") and not agent.contains("OPR"):
+			_web_chrome = 1
+	return _web_chrome == 1
 
 
 static func has_touchscreen() -> bool:

@@ -26,9 +26,11 @@ func _ready() -> void:
 
 	if Game.mode == Game.Mode.ENDLESS and course.has_method("run_endless"):
 		course.call("run_endless", self, powerups)
+		ShaderWarmup.warm(self)
 		return
 	if Game.mode == Game.Mode.TUTORIAL and course.has_method("run_tutorial"):
 		course.call("run_tutorial", self, powerups)
+		ShaderWarmup.warm(self)
 		return
 
 	Game.used_item_this_race = false
@@ -91,6 +93,15 @@ func _ready() -> void:
 
 	var music := String(CoursesDB.get_item(course_id).get("music", "music_race"))
 	AudioManager.play_music(music)
+
+	# Course geometry, props, HUD and the chase camera all exist now, and the
+	# racers are queued on the deferred flush — the last moment before anything
+	# is playable and the last moment SceneRouter's opaque overlay is still up.
+	# ShaderWarmup links every first-sight GPU program here so Chrome's
+	# ANGLE -> Metal path cannot stall a frame mid-race on a material it has
+	# never drawn. It runs for two or three frames and frees itself; headless
+	# sims skip it entirely.
+	ShaderWarmup.warm(self)
 
 
 ## Runs after RaceManager's deferred player.setup, so the controller exists.
