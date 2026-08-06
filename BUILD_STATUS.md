@@ -74,7 +74,11 @@ Desktop exports built and boot-tested. Screenshot review at 4 resolutions.
 ## Known non-critical limitations
 
 - Trail cosmetics don't show in the customize preview panel (render in-race).
-- Music stored as WAV (~13MB); regenerate/convert via tools/generate_audio.py if size matters.
+- Music stored as OGG, written directly by tools/generate_audio.py (~1.9MB for
+  five tracks). The generator used to leave a WAV beside each OGG, which was a
+  real hazard: AudioManager keys its library on basename, so whichever file the
+  directory listed first won and a regenerate could silently swap the game onto
+  a 4MB WAV. Fixed -- the intermediate WAV is deleted after encoding.
 - Race pace: autopilot finishes ~1.7–3.4 min depending on course/difficulty; human first-timers land in the 2–4 min spec window via hazards/recoveries.
 
 ## Supervisor final validation (post-cutoff, 2026-07-24)

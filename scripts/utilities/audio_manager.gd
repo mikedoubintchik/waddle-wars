@@ -83,6 +83,13 @@ func preload_stream(name_key: String) -> void:
 	_get_stream(name_key)
 
 
+## The cached stream for a key, or null. For callers that need their own
+## player rather than the shared pools -- a continuous positional loop, for
+## instance, which a one-shot pool cannot hold.
+func get_stream(name_key: String) -> AudioStream:
+	return _get_stream(name_key)
+
+
 ## --- Music ----------------------------------------------------------------
 
 func play_music(name_key: String, fade_time: float = 1.2) -> void:

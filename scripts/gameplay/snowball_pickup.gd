@@ -24,13 +24,21 @@ extends Area3D
 ## scales back in with ItemBox's back-eased overshoot instead of popping.
 ##
 ## Accessibility: reads through SHAPE (pyramid stack) + PATTERN (glitter,
-## twin sparkle billboards) + BRIGHTNESS (ground halo ring), never hue
-## alone. "accessibility/high_contrast_pickups" swaps the stack and halo to
-## the same bright-gold emissive language as FishPickup / ItemBox.
+## twin sparkle billboards) + BRIGHTNESS (deep cool undersides against sunlit
+## crowns, warm ground disc), never hue alone.
+## "accessibility/high_contrast_pickups" swaps the stack and marker to the
+## same bright-gold emissive language as FishPickup / ItemBox.
 
 const RESPAWN_TIME: float = 6.0
 const GROUP_NAME: StringName = &"snowball_pickups"
-const VISUAL_BASE_Y: float = 0.32
+const VISUAL_BASE_Y: float = 0.36
+
+## White snow on white snow is the worst readability case in the game, so the
+## stack is drawn larger than the ammo it represents and leans hard on FORM
+## shading (deep cool undersides against sunlit crowns) plus a warm ground
+## disc, rather than on being brighter than its surroundings — which is not
+## possible on a snowfield.
+const VISUAL_SCALE: float = 1.3
 
 ## Packed-snow shader: white clumped surface with faint cool shadow in the
 ## grain dips, sparse per-cell glitter facets (random normal perturbation
@@ -61,10 +69,14 @@ void fragment() {
 	// pressed lumps; the dips read as tiny shadowed pores.
 	float clump = sin(v_obj.x * 43.0 + sin(v_obj.y * 31.0) * 2.0)
 			* sin(v_obj.y * 37.0 + v_obj.z * 29.0);
-	// Cool occlusion toward the underside, sunlit white toward the sky.
+	// Cool occlusion toward the underside, sunlit white toward the sky. The
+	// underside is pushed much deeper than physically plausible on purpose:
+	// on a snowfield the only thing that separates a snowball from the ground
+	// behind it is its own form shading, so the terminator has to be strong.
 	float up = clamp(v_nrm.y * 0.5 + 0.5, 0.0, 1.0);
-	vec3 col = mix(vec3(0.72, 0.80, 0.92), vec3(0.965, 0.985, 1.0), up);
-	col -= vec3(0.045, 0.03, 0.005) * clump;
+	up = smoothstep(0.12, 0.88, up);
+	vec3 col = mix(vec3(0.30, 0.44, 0.66), vec3(0.99, 0.995, 1.0), up);
+	col -= vec3(0.06, 0.04, 0.005) * clump;
 	// Glitter: sparse cells, each with a randomly tilted micro-facet that
 	// fires when it aligns with the view — sparkles crawl as camera or ball
 	// moves, never strobing in place (reduced-flashing safe).
@@ -84,7 +96,7 @@ static var _snow_mat: ShaderMaterial = null
 static var _ball_mat_contrast: StandardMaterial3D = null
 static var _sparkle_mesh: QuadMesh = null
 static var _sparkle_mat: StandardMaterial3D = null
-static var _halo_mesh: TorusMesh = null
+static var _halo_mesh: QuadMesh = null
 static var _halo_mat: StandardMaterial3D = null
 static var _halo_mat_contrast: StandardMaterial3D = null
 static var _collect_flash_mesh: QuadMesh = null
@@ -121,16 +133,18 @@ func _ready() -> void:
 	_visual.mesh = _get_mesh()
 	_visual.material_override = _get_material()
 	_visual.position.y = VISUAL_BASE_Y
+	_visual.scale = Vector3.ONE * VISUAL_SCALE
 	_visual.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_visual)
-	# Ground halo ring: brightness anchor in the pickup lane (same language
-	# as FishPickup's underlay and ItemBox's halo, gold in high-contrast
-	# mode). Attached to self so it does not spin with the stack.
+	# Warm ground disc: the only thing on a white stack that is not white, and
+	# therefore what actually finds the pickup for the player at speed (same
+	# language as FishPickup's underlay and ItemBox's marker, gold in
+	# high-contrast mode). Attached to self so it does not spin with the stack.
 	_halo = MeshInstance3D.new()
 	_halo.mesh = _get_halo_mesh()
 	_halo.material_override = _get_halo_material()
 	_halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_halo.position.y = 0.05
+	_halo.position.y = 0.06
 	add_child(_halo)
 	# Twin sparkle glints riding the stack: one on the top ball's shoulder,
 	# a smaller one on a base ball, breathing in counter-phase. Purely
@@ -202,8 +216,10 @@ static func _get_mesh() -> ArrayMesh:
 	var ball := SphereMesh.new()
 	ball.radius = 1.0
 	ball.height = 2.0
-	ball.radial_segments = 14
-	ball.rings = 8
+	# Modest tessellation: a snowball row can put a dozen stacks on screen, and
+	# the packed-snow shader carries the surface detail, not the silhouette.
+	ball.radial_segments = 12
+	ball.rings = 6
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var lobes: Array[Transform3D] = [
@@ -318,31 +334,38 @@ static func _get_sparkle_material() -> StandardMaterial3D:
 	return _sparkle_mat
 
 
-static func _get_halo_mesh() -> TorusMesh:
+## Flat 2-triangle ground disc, replacing the old 288-triangle torus ring.
+static func _get_halo_mesh() -> QuadMesh:
 	if _halo_mesh == null:
-		_halo_mesh = TorusMesh.new()
-		_halo_mesh.inner_radius = 0.34
-		_halo_mesh.outer_radius = 0.46
-		_halo_mesh.rings = 24
-		_halo_mesh.ring_segments = 6
+		_halo_mesh = QuadMesh.new()
+		_halo_mesh.size = Vector2(1.5, 1.5)
+		_halo_mesh.orientation = PlaneMesh.FACE_Y
 	return _halo_mesh
 
 
+## Alpha-blended warm wash rather than an additive bloom: additive light
+## disappears over sunlit snow, whereas this tints bright snow toward amber
+## AND lifts dark night snow, so the marker reads on every course.
 static func _get_halo_material() -> StandardMaterial3D:
 	var high_contrast := bool(SettingsManager.get_setting("accessibility", "high_contrast_pickups"))
 	if high_contrast:
 		if _halo_mat_contrast == null:
-			_halo_mat_contrast = StandardMaterial3D.new()
-			_halo_mat_contrast.albedo_color = Color(1.0, 0.85, 0.2, 0.55)
-			_halo_mat_contrast.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-			_halo_mat_contrast.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			_halo_mat_contrast = _make_disc_material(Color(1.0, 0.82, 0.15, 0.75))
 		return _halo_mat_contrast
 	if _halo_mat == null:
-		_halo_mat = StandardMaterial3D.new()
-		_halo_mat.albedo_color = Color(0.55, 0.9, 1.0, 0.3)
-		_halo_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		_halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_halo_mat = _make_disc_material(Color(0.98, 0.52, 0.16, 0.6))
 	return _halo_mat
+
+
+static func _make_disc_material(tint: Color) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = tint
+	mat.albedo_texture = VisualLibrary.soft_radial_texture(32, 0.95)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.render_priority = -3
+	return mat
 
 
 static func _get_collect_flash_mesh() -> QuadMesh:
@@ -453,17 +476,17 @@ func _play_collect_burst() -> void:
 	_burst_tween.set_parallel(true)
 	_flash.visible = true
 	_flash.scale = Vector3.ONE * 0.5
-	_flash_mat.albedo_color = Color(0.95, 0.98, 1.0, 0.85)
-	_burst_tween.tween_property(_flash, "scale", Vector3.ONE * 1.6, 0.24) \
+	_flash_mat.albedo_color = Color(1.0, 0.94, 0.78, 0.95)
+	_burst_tween.tween_property(_flash, "scale", Vector3.ONE * 2.2, 0.26) \
 		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	_burst_tween.tween_property(_flash_mat, "albedo_color:a", 0.0, 0.24)
+	_burst_tween.tween_property(_flash_mat, "albedo_color:a", 0.0, 0.26)
 	if _chunks != null:
 		_chunks.visible = true
 		_chunks.position = Vector3(0.0, VISUAL_BASE_Y, 0.0)
 		_chunks.rotation.y = randf() * TAU
 		_chunks.scale = Vector3.ONE * 0.4
-		_chunk_mat.albedo_color = Color(0.95, 0.98, 1.0, 0.9)
-		_burst_tween.tween_property(_chunks, "scale", Vector3.ONE * 1.4, 0.36) \
+		_chunk_mat.albedo_color = Color(0.95, 0.98, 1.0, 0.95)
+		_burst_tween.tween_property(_chunks, "scale", Vector3.ONE * 1.9, 0.36) \
 			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		_burst_tween.tween_property(_chunks, "rotation:y", _chunks.rotation.y + 0.8, 0.36)
 		_burst_tween.tween_property(_chunks, "position:y", VISUAL_BASE_Y - 0.28, 0.36) \
@@ -482,5 +505,5 @@ func _play_respawn() -> void:
 		_respawn_tween.kill()
 	_visual.scale = Vector3.ONE * 0.2
 	_respawn_tween = create_tween()
-	_respawn_tween.tween_property(_visual, "scale", Vector3.ONE, 0.35) \
+	_respawn_tween.tween_property(_visual, "scale", Vector3.ONE * VISUAL_SCALE, 0.35) \
 		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)

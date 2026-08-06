@@ -169,6 +169,7 @@ Stored under `user://` (platform-standard location, e.g.
 
 - Export template installation and platform signing (Android keystore, iOS
   certificates) are machine-specific setup and not bundled.
-- Music ships as OGG (converted from the generator's WAV output with
-  `ffmpeg -i music_x.wav -q:a 4 music_x.ogg`); re-run the conversion after
-  regenerating audio.
+- Music ships as OGG, encoded directly by `tools/generate_audio.py` -- no
+  manual conversion step. That does make ffmpeg a hard dependency for the music
+  tracks: without it the generator writes WAVs and warns loudly, and the game,
+  which looks up `music_*.ogg`, would find no music.

@@ -127,6 +127,7 @@ var _platform_prev_origin: Vector3 = Vector3.ZERO
 var _platform_velocity: Vector3 = Vector3.ZERO
 var _platform_carry_timer: float = 0.0  # keeps inherited momentum after leaving
 var _slide_particles: GPUParticles3D = null
+var _slide_audio: AudioStreamPlayer3D = null
 var _bubble_particles: GPUParticles3D = null
 var _finish_slowdown: float = 1.0
 var _collision_shape: CollisionShape3D = null
@@ -156,6 +157,7 @@ func _ready() -> void:
 	_surface_query = PhysicsRayQueryParameters3D.create(Vector3.ZERO, Vector3.ZERO, GameConfig.LAYER_WORLD, [get_rid()])
 	_ceiling_query = PhysicsRayQueryParameters3D.create(Vector3.ZERO, Vector3.ZERO, GameConfig.LAYER_WORLD, [get_rid()])
 	_make_slide_particles()
+	_make_slide_audio()
 
 
 func setup(key: String, name_text: String, player: bool, visual_config: Dictionary, p_controller: RacerController, p_course: Node3D) -> void:
@@ -179,6 +181,29 @@ func setup(key: String, name_text: String, player: bool, visual_config: Dictiona
 	_velocity_yaw = rotation.y
 	_prev_facing_yaw = rotation.y
 	last_checkpoint_transform = global_transform
+
+
+## Looping scrape emitter, owned by the racer so it follows in 3D and so eight
+## racers cannot exhaust the shared one-shot SFX pool between them.
+func _make_slide_audio() -> void:
+	if GameConfig.is_headless() or not AudioManager.has_sound("sfx_slide"):
+		return
+	var stream := AudioManager.get_stream("sfx_slide")
+	if stream == null:
+		return
+	if stream is AudioStreamWAV:
+		var wav := stream as AudioStreamWAV
+		if wav.loop_mode == AudioStreamWAV.LOOP_DISABLED:
+			wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+			var bytes_per_sample := 2 if wav.format == AudioStreamWAV.FORMAT_16_BITS else 1
+			var channels := 2 if wav.stereo else 1
+			wav.loop_end = wav.data.size() / (bytes_per_sample * channels)
+	_slide_audio = AudioStreamPlayer3D.new()
+	_slide_audio.stream = stream
+	_slide_audio.bus = &"SFX"
+	_slide_audio.max_distance = 60.0
+	_slide_audio.volume_db = -16.0
+	add_child(_slide_audio)
 
 
 func _make_slide_particles() -> void:
@@ -352,7 +377,6 @@ func _tick_ground_air(delta: float) -> void:
 		if wants_slide:
 			if state != State.SLIDING:
 				_set_state(State.SLIDING)
-				AudioManager.play_sfx_3d("sfx_slide", global_position, randf_range(0.95, 1.05), -6.0)
 		elif _boost_timer > 0.0:
 			_set_state(State.BOOSTED)
 		else:
@@ -460,7 +484,30 @@ func _tick_ground_air(delta: float) -> void:
 	_apply_velocity()
 	_was_on_floor = on_floor
 	_update_slide_spray(on_floor)
+	_update_slide_loop(on_floor)
 	_set_crouched(state == State.SLIDING or state == State.SWIMMING)
+
+
+## Continuous belly-slide scrape.
+##
+## This used to be a one-shot fired on entering the slide state, so any slide
+## longer than the sample went silent while the penguin was visibly still
+## scraping along the ice -- the single most-heard sound in the game, missing
+## for most of its duration. It is now a looping emitter owned by the racer,
+## with pitch and volume tracking speed so a fast slide is heard as a fast one.
+func _update_slide_loop(on_floor: bool) -> void:
+	if _slide_audio == null:
+		return
+	var active := state == State.SLIDING and on_floor and current_speed > SPRAY_MIN_SPEED
+	if not active:
+		if _slide_audio.playing:
+			_slide_audio.stop()
+		return
+	var ratio := clampf(current_speed / SLIDE_MAX_SPEED, 0.0, 1.0)
+	_slide_audio.pitch_scale = 0.86 + ratio * 0.34
+	_slide_audio.volume_db = lerpf(-16.0, -5.0, ratio)
+	if not _slide_audio.playing:
+		_slide_audio.play()
 
 
 ## Spray volume tracks how hard the racer is actually working the surface.
