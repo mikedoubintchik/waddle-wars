@@ -105,6 +105,7 @@ func _build_preview(parent: HBoxContainer) -> void:
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	viewport.msaa_3d = Viewport.MSAA_2X
 	container.add_child(viewport)
+	UITheme.crisp_subviewport(viewport, self)
 
 	# Soft daytime gradient sky instead of a flat blue fill.
 	var sky_material := ProceduralSkyMaterial.new()

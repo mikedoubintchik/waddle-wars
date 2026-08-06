@@ -7,6 +7,7 @@ const FADE_TIME: float = 0.35
 
 var _overlay_layer: CanvasLayer
 var _fade_rect: ColorRect
+var _loading_label: Label
 var _toast_layer: CanvasLayer
 var _busy: bool = false
 
@@ -22,6 +23,17 @@ func _ready() -> void:
 	_fade_rect.modulate.a = 0.0
 	_fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_overlay_layer.add_child(_fade_rect)
+	_loading_label = Label.new()
+	_loading_label.text = "Loading…"
+	_loading_label.set_anchors_preset(Control.PRESET_CENTER)
+	_loading_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_loading_label.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_loading_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_loading_label.add_theme_font_size_override("font_size", 30)
+	_loading_label.add_theme_color_override("font_color", Color(0.72, 0.82, 0.95))
+	_loading_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_loading_label.modulate.a = 0.0
+	_fade_rect.add_child(_loading_label)
 	_toast_layer = CanvasLayer.new()
 	_toast_layer.layer = 99
 	add_child(_toast_layer)
@@ -37,6 +49,9 @@ func go_to(scene_path: String) -> void:
 		_change_now(scene_path)
 		return
 	_fade_rect.mouse_filter = Control.MOUSE_FILTER_STOP
+	# Loading text rides the fade so heavy scene builds (course generation,
+	# first-run WebGL shader compiles) never leave an unlabeled blank screen.
+	_loading_label.modulate.a = 1.0
 	var tween := create_tween()
 	tween.tween_property(_fade_rect, "modulate:a", 1.0, FADE_TIME)
 	tween.tween_callback(_change_now.bind(scene_path))
@@ -58,11 +73,20 @@ func _change_now(scene_path: String) -> void:
 	_busy = false
 	scene_changed.emit(scene_path)
 	if not GameConfig.is_headless():
-		var tween := create_tween()
-		tween.tween_interval(0.05)
-		tween.tween_property(_fade_rect, "modulate:a", 0.0, FADE_TIME)
-		tween.tween_callback(func() -> void:
-			_fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE)
+		_fade_out_when_scene_drawn()
+
+
+## Holds the overlay until the incoming scene has actually presented a few
+## frames — on web the first draws stall on shader compilation, and fading
+## out immediately exposed seconds of half-built sky ("blue screen").
+func _fade_out_when_scene_drawn() -> void:
+	for i: int in 3:
+		await RenderingServer.frame_post_draw
+	var tween := create_tween()
+	tween.tween_property(_fade_rect, "modulate:a", 0.0, FADE_TIME)
+	tween.parallel().tween_property(_loading_label, "modulate:a", 0.0, FADE_TIME * 0.6)
+	tween.tween_callback(func() -> void:
+		_fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE)
 
 
 func _on_achievement_unlocked(id: String) -> void:

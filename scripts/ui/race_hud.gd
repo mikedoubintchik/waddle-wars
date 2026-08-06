@@ -565,7 +565,8 @@ func _fade_controls_hint() -> void:
 	if _controls_hint == null:
 		return
 	var tween := create_tween()
-	tween.tween_interval(2.0)
+	# 2s proved too short — players still reading it at GO missed it entirely.
+	tween.tween_interval(8.0)
 	tween.tween_property(_controls_hint, "modulate:a", 0.0, 0.6)
 	tween.tween_callback(func() -> void:
 		if _controls_hint != null:

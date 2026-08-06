@@ -84,6 +84,7 @@ func _build_diorama() -> void:
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	viewport.msaa_3d = Viewport.MSAA_2X
 	container.add_child(viewport)
+	UITheme.crisp_subviewport(viewport, self)
 
 	_build_environment(viewport)
 	_build_ocean(viewport)

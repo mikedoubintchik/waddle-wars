@@ -124,6 +124,35 @@ static func is_touch() -> bool:
 	return DisplayServer.is_touchscreen_available()
 
 
+## SubViewportContainer.stretch sizes its SubViewport in *logical* (design
+## 1920x1080) pixels; on hi-dpi and large windows the canvas transform then
+## upscales the texture, so menu 3D dioramas rendered blocky. Supersample the
+## 3D pass by the actual canvas scale (bilinear downscale back to the texture)
+## so the diorama is effectively native-resolution. Tracks window resizes.
+static func crisp_subviewport(viewport: SubViewport, host: Node) -> void:
+	if GameConfig.is_headless():
+		return
+	viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+	var apply := func() -> void:
+		if not is_instance_valid(viewport) or not is_instance_valid(host):
+			return
+		var win := host.get_window()
+		if win == null:
+			return
+		var logical := host.get_viewport().get_visible_rect().size
+		if logical.y <= 0.0:
+			return
+		var scale := maxf(
+			float(win.size.x) / logical.x, float(win.size.y) / logical.y)
+		viewport.scaling_3d_scale = clampf(scale, 1.0, 2.0)
+	apply.call()
+	host.get_window().size_changed.connect(apply)
+	host.tree_exiting.connect(func() -> void:
+		var win := host.get_window()
+		if win != null and win.size_changed.is_connected(apply):
+			win.size_changed.disconnect(apply))
+
+
 ## List/row separation helper: authored value on desktop, at least
 ## TOUCH_SPACING on touch devices so rows never crowd fingertips.
 static func spacing(base: int) -> int:

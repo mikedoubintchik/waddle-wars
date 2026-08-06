@@ -237,6 +237,7 @@ func _build_podium(parent: Control, standings: Array[Dictionary]) -> void:
 	viewport.own_world_3d = true
 	viewport.transparent_bg = true
 	viewport_container.add_child(viewport)
+	UITheme.crisp_subviewport(viewport, self)
 	parent.add_child(viewport_container)
 
 	var world := Node3D.new()
