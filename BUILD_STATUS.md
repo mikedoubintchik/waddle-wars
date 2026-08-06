@@ -276,6 +276,23 @@ grounding, Chrome shader warm-up, dancing-penguin loaders, touch slide
 steering, M-mute, drawn item icons, minimap rivals — is committed on main and
 staged on the gh-pages branch, waiting only on a successful publish.
 
+### Correction (2026-08-06, later): the push failures were ours
+
+The Pages *build* failures above were real and GitHub-side. The `git push`
+rejections were not. Every push was refused for its own reason:
+
+    remote: error: File leaderboard/node_modules/@cloudflare/workerd-darwin-arm64/bin/workerd
+    is 109.26 MB; this exceeds GitHub's file size limit of 100.00 MB
+    remote: error: GH001: Large files detected.
+
+The Cloudflare deploy path commit carried 1558 node_modules files with it,
+including that binary. "pre-receive hook declined" during an active outage
+read as more of the same outage; it was not, and it would have kept failing
+after the outage cleared. Fixed by untracking node_modules (reproducible with
+npm install, now in .gitignore) and running `git filter-repo --invert-paths
+--path leaderboard/node_modules` over the ten unpushed commits. The remote was
+still at a1a5014, so no published history was rewritten.
+
 `.github/workflows/deploy-pages.yml` (dispatch-triggered, fired by
 tools/deploy_web.sh) publishes the gh-pages contents through the Pages
 artifact API. Switch `build_type` between "workflow" and "legacy" with
