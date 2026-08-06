@@ -197,3 +197,34 @@ Physics regression handled: iceberg sim flaked 1/9 (triple AI DNF at the
 platform crossing) after the physics pass; fixed by making platform carry
 player-only and halving AI-vs-AI bump impulses (AI target selection doesn't
 model inherited drift). Post-fix battery results in TESTING.md.
+
+## Round 3 (2026-08-06, playtest batch 3)
+
+Shipped (commit 0026ca2): AI difficulty buff (competitive/emperor) plus
+pace-projected finish times replacing mass DNF — a janky low-FPS browser run
+can no longer wipe the field; new frozen `tutorial_demo` AI profile for the
+Waddle School autopilot; control strip holds 30s and the full control
+reference now also appears in the pause menu; Course/Boost progress-bar
+labels; "Finish Race" button once the player is done while AI still race;
+menu touch-scaling system so phone menus fill the screen; Settings redesigned
+into sections with visible values and per-section reset; Ninja Consulting
+credit link; water shader realism (multi-octave normals, fresnel sky
+reflection, crest foam).
+
+Deploy note: gh-pages was recreated as a single orphan commit — repeated
+"Page build failed" errors were tied to the accumulated branch history.
+
+Held back (see wip/README.md + wip/round3-heldback.patch): ultra-physics
+contact pass, compound hazard motion, dressing grounding, Chrome shader
+warm-up. Each regressed the sim suite; rework individually with its own
+battery.
+
+Root causes found this round (both pre-existing in the part-2 build, which
+never reached players because its Pages deploy failed): (1) the physics
+contact pass made racers grind along low hurdle bars instead of hopping —
+jump hints stop being returned once progress passes them, so a stalled racer
+never re-triggers a jump; (2) the buffed competitive profile, reused by the
+tutorial autopilot, overshot the lesson obstacles.
+
+Validation (2026-08-06): units 50/50; race sims PASS on all nine
+course x difficulty combinations; endless, GP, tutorial (3/3) PASS.

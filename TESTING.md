@@ -195,3 +195,11 @@ moved 70m upstream, randomized 0.2–1.4s post-respawn stumble, and an AI
 progress watchdog (respawn if <6m course progress in 12s — catches full-speed
 circling the position-delta check misses). Post-fix battery results recorded
 in BUILD_STATUS.md.
+
+2026-08-06 round 3: units 50/50; race_sim PASS for glacier/aurora/iceberg x
+chill/competitive/emperor (9/9); endless_sim, gp_sim PASS; tutorial_sim 3/3
+PASS. Bisect method that found the regressions: parallel git worktrees at the
+suspect commit, each with one subsystem disabled, running tutorial_sim and
+race_sim side by side. tutorial_sim's TIMEOUT diagnostic (player progress /
+position / state) is what localised the hurdle stall — keep it.
+
