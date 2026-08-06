@@ -305,7 +305,7 @@ func build_course() -> void:
 		"sun_angle_max": 5.0,
 		"sun_curve": 0.12,
 		"sky_energy": 0.9,
-		"exposure": 1.12,
+		"exposure": 1.02,
 		"fog_color": Color(0.09, 0.12, 0.26),
 		"fog_density": 0.0015,
 		"fog_height": 2.0,
@@ -321,8 +321,11 @@ func build_course() -> void:
 		"berg_distance": 800.0,
 		"berg_y": -31.0,
 	})
-	add_ground_plane(-32.0, Color(0.09, 0.12, 0.2), 4000.0,
-		VisualLibrary.snow_material(Color(0.52, 0.58, 0.85), 0.85))
+	# Darker, richer twilight snowfield: deep blue-violet albedo with sparkle
+	# raised so the plain reads as star-frosted night snow instead of a pale
+	# grey wash lifting the whole lower frame.
+	add_ground_plane(-32.0, Color(0.06, 0.08, 0.16), 4000.0,
+		VisualLibrary.snow_material(Color(0.36, 0.42, 0.74), 0.95))
 
 
 ## True arc-length offset, the space point_at/transform_at expect.
@@ -579,6 +582,22 @@ func _decorate() -> void:
 		peak.rotation.y = rng.randf() * TAU
 		peak.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(peak)
+	# Second, farther silhouette ring: taller, darker massifs sunk toward the
+	# horizon glow. Two depth layers give the ridge-behind-ridge recession of
+	# real twilight ranges instead of one flat paper cutout ring.
+	var far_peak_mat := VisualLibrary.rock_material(Color(0.17, 0.21, 0.4))
+	for i: int in 11:
+		var angle := TAU * float(i) / 11.0 + rng.randf_range(-0.2, 0.2)
+		var dist := rng.randf_range(700.0, 980.0)
+		var peak := MeshInstance3D.new()
+		peak.mesh = VisualLibrary.berg_mesh(rng.randi())
+		peak.material_override = far_peak_mat
+		var width := rng.randf_range(140.0, 240.0)
+		peak.scale = Vector3(width * rng.randf_range(0.9, 1.4), rng.randf_range(110.0, 190.0), width)
+		peak.position = Vector3(20.0 + sin(angle) * dist, -32.0, -520.0 + cos(angle) * dist)
+		peak.rotation.y = rng.randf() * TAU
+		peak.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(peak)
 
 	# Snowdrift mounds fill the course flanks so the slopes never read empty.
 	var drift_mesh := VisualLibrary.snow_drift_mesh()
@@ -607,6 +626,11 @@ func _decorate() -> void:
 		else:
 			_add_glow_crystal(xform2.origin + xform2.basis.x * lateral2 + Vector3.DOWN * 1.0,
 				rng.randf_range(2.0, 5.5), Color(0.55, 0.8, 1.0) if rng.randf() > 0.5 else Color(0.7, 0.5, 1.0))
+
+	# Dense filler crystal field: small static shards in aurora green/violet
+	# catching the sky light along the whole route (the pulsing hero crystals
+	# above stay individual; this field is pure density at two draw calls).
+	_add_crystal_field()
 
 	# Landmark crystal monoliths: one on the outside of each hairpin apex
 	# (all three apexes bulge away from x=0 and run -Z, so the outward side
@@ -1293,7 +1317,7 @@ func _build_stars() -> void:
 	if GameConfig.is_headless():
 		return
 	var center := Vector3(20.0, 20.0, -520.0)
-	var count := 540
+	var count := 840
 	var quad := QuadMesh.new()
 	quad.size = Vector2(1.0, 1.0)
 	var star_material := StandardMaterial3D.new()
@@ -1312,17 +1336,30 @@ func _build_stars() -> void:
 	multimesh.use_colors = true
 	multimesh.mesh = quad
 	multimesh.instance_count = count
+	# Milky-Way band: the last ~third of the field is drawn toward a fixed
+	# great circle through the dome (dir flattened against the band plane), a
+	# dense dust of small dim stars — the way a real dark-sky night carries a
+	# visible galactic lane, not a uniform scatter.
+	var band_normal := Vector3(0.62, 0.3, 0.72).normalized()
+	var band_from := count * 2 / 3
 	for i: int in count:
 		var azimuth := rng.randf() * TAU
 		var altitude := rng.randf_range(0.1, 1.5)
 		var dir := Vector3(cos(azimuth) * cos(altitude), sin(altitude), sin(azimuth) * cos(altitude))
+		var in_band := i >= band_from
+		if in_band:
+			dir = (dir - band_normal * dir.dot(band_normal) * rng.randf_range(0.82, 0.97)).normalized()
+			if dir.y < 0.08:
+				dir = (dir + Vector3.UP * (0.08 - dir.y) * 2.0).normalized()
 		# Power-law magnitude: a dim crowd with a sparse bright minority, the
 		# way a real star field reads (uniform sizes look like printed dots).
 		var mag := pow(rng.randf(), 2.4)
+		if in_band:
+			mag *= 0.45  # band stars: dense but individually faint dust
 		var s := 2.0 + mag * 6.5
 		multimesh.set_instance_transform(i,
 			Transform3D(Basis.from_scale(Vector3(s, s, s)), center + dir * 1150.0))
-		var height_fade := clampf((altitude - 0.05) / 1.2, 0.0, 1.0)
+		var height_fade := clampf((dir.y * 1.2 - 0.05) / 1.1, 0.0, 1.0)
 		var alpha := (0.22 + 0.72 * mag) * (0.3 + 0.7 * height_fade)
 		# ~1 in 6 stars carries a warm K-class tint; the rest stay blue-white.
 		var col := Color(0.85 + rng.randf() * 0.15, 0.9 + rng.randf() * 0.1, 1.0)
@@ -1631,6 +1668,72 @@ func _crystal_material(tint: Color, variant: int = 0) -> ShaderMaterial:
 	mat.set_shader_parameter("roughness_value", 0.18)
 	_crystal_mats[key] = mat
 	return mat
+
+
+## Two MultiMeshes (aurora-green and violet) of small tilted ice shards
+## flanking the whole route: a faint emissive tint well under the glow
+## threshold plus a rim term reads as the curtain light caught in trackside
+## ice. ~48 instances for two draw calls; shadows off.
+func _add_crystal_field() -> void:
+	var green_transforms: Array[Transform3D] = []
+	var violet_transforms: Array[Transform3D] = []
+	var quality := String(SettingsManager.get_setting("display", "particle_quality"))
+	var per_step := 1.0 if quality == "high" else 0.7
+	var offset := 50.0
+	while offset < main_guide.length - 60.0:
+		for side: float in [-1.0, 1.0]:
+			if rng.randf() > per_step * 0.8:
+				continue
+			var xform := main_guide.transform_at(offset + rng.randf_range(-8.0, 8.0))
+			var lateral := rng.randf_range(11.5, 24.0) * side
+			var h := rng.randf_range(1.1, 2.8)
+			var tilt_dir := rng.randf() * TAU
+			var shard_basis := Basis(Vector3(cos(tilt_dir), 0.0, sin(tilt_dir)), rng.randf_range(-0.2, 0.2)) \
+				* Basis(Vector3.UP, rng.randf() * TAU) \
+				* Basis.from_scale(Vector3(h * rng.randf_range(0.5, 0.8), h, h * rng.randf_range(0.5, 0.8)))
+			var pos := xform.origin + xform.basis.x * lateral + Vector3.DOWN * 0.6
+			if rng.randf() > 0.5:
+				green_transforms.append(Transform3D(shard_basis, pos))
+			else:
+				violet_transforms.append(Transform3D(shard_basis, pos))
+		offset += 34.0
+	_add_multimesh(VisualLibrary.ice_crystal_mesh(), green_transforms,
+		_field_crystal_material(Color(0.24, 0.72, 0.46)), "CrystalFieldGreen")
+	_add_multimesh(VisualLibrary.ice_crystal_mesh(), violet_transforms,
+		_field_crystal_material(Color(0.5, 0.36, 0.78)), "CrystalFieldViolet")
+
+
+## Static crystal-field material: dark glassy shard with a faint colored
+## emissive lift (never blooms) and a rim so silhouettes catch the sky.
+func _field_crystal_material(glow: Color) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.2, 0.3, 0.44)
+	mat.roughness = 0.14
+	mat.metallic = 0.08
+	mat.emission_enabled = true
+	mat.emission = glow
+	mat.emission_energy_multiplier = 0.42
+	mat.rim_enabled = true
+	mat.rim = 0.55
+	mat.rim_tint = 0.3
+	return mat
+
+
+func _add_multimesh(mesh: Mesh, transforms: Array[Transform3D], material: Material, name_hint: String) -> void:
+	if transforms.is_empty():
+		return
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = mesh
+	mm.instance_count = transforms.size()
+	for i: int in transforms.size():
+		mm.set_instance_transform(i, transforms[i])
+	var instance := MultiMeshInstance3D.new()
+	instance.name = name_hint
+	instance.multimesh = mm
+	instance.material_override = material
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(instance)
 
 
 var _ridge_clamp_start := 0.0

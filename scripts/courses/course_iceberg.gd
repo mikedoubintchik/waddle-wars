@@ -29,7 +29,7 @@ const CHANNEL_SHALLOW: Color = Color(0.5, 0.84, 0.8)
 ## subtle so the sunrise mood survives).
 const TRACK_SNOW_TINT: Color = Color(0.92, 0.96, 1.0)
 const TRACK_ICE_TINT: Color = Color(0.4, 0.72, 1.0)
-const TRACK_RICE_TINT: Color = Color(0.5, 0.74, 0.96)
+const TRACK_RICE_TINT: Color = Color(0.66, 0.82, 0.97)
 ## Azure ice for the big horizon bergs — must read as ICE, not rock, even
 ## under the warm sun.
 const HORIZON_BERG_TINT: Color = Color(0.62, 0.8, 0.96)
@@ -55,6 +55,7 @@ var _buoy_lamps: Array[Dictionary] = []  # {mat, phase, period, lit} blinking to
 var _spinners: Array[Dictionary] = []  # {node, speed} slow yaw (seabird flocks)
 var _drift_foam: MeshInstance3D = null  # near-track foam patches, drift in _process
 var _drift_origin: Vector3 = Vector3.ZERO
+var _wet_band_mat: StandardMaterial3D = null  # shared glossy spray-wet band
 var _hero_centers: Array[Vector3] = []  # sculpted hero-berg spots (seabird anchors)
 var _water_lines: Array[Array] = []  # swim channel point arrays, kept for edge foam
 var _foam_st: SurfaceTool = null  # batches every foam quad into one mesh/draw call
@@ -232,7 +233,7 @@ func build_course() -> void:
 	var slab_phases: Array[float] = [0.0, 0.4, 0.8, 1.2]
 	for i: int in 4:
 		var slab := HazardPlatform.new()
-		slab.configure(Vector3(11.0, 0.8, 9.5), Vector3.RIGHT, 0.0, 4.0, 9.0, slab_phases[i])
+		slab.configure(Vector3(11.0, 0.8, 9.5), Vector3.RIGHT, 0.0, 4.0, 13.0, slab_phases[i])
 		slab.position = Vector3(-8.0, 5.6, -1188.0 - 9.0 * float(i))
 		add_child(slab)
 
@@ -332,12 +333,12 @@ func build_course() -> void:
 		"ground_color": Color(0.12, 0.24, 0.34),
 		"sun_angle_deg": -13.0,
 		"sun_yaw_deg": SUN_YAW_DEG,
-		"sun_color": Color(1.0, 0.76, 0.52),
+		"sun_color": Color(1.0, 0.82, 0.62),
 		"sun_energy": 1.25,
 		"sun_angle_max": 30.0,
 		"sun_curve": 0.14,
 		"sky_energy": 1.1,
-		"exposure": 1.08,
+		"exposure": 0.98,
 		"fog_color": Color(0.98, 0.68, 0.5),
 		"fog_density": 0.0018,
 		"fog_height": 1.5,
@@ -602,6 +603,7 @@ func _decorate() -> void:
 		_add_seabirds()
 		_add_drift_foam()
 		_add_brash_ice()
+		_add_floes()
 		_add_sun_glint()
 
 	# Foam bands hugging the swim channel edges, then one batched commit for
@@ -618,6 +620,23 @@ func _decorate() -> void:
 ## water (screenshot defect). Floor runs are identified structurally: each is
 ## a MeshInstance3D immediately followed by its StaticBody3D carrying the
 ## "surface" meta — walls and skirts have no such body, so they are skipped.
+## Sunset-grazing sun turns the snow shader's sastrugi/micro-bump normal
+## relief into hard violet self-shadow dimples across the whole ribbon
+## (screenshot defect). Same snow shader, but nearly flat normals here.
+static var _flat_snow_mat: ShaderMaterial = null
+
+
+static func _flat_lit_snow() -> ShaderMaterial:
+	if _flat_snow_mat == null:
+		_flat_snow_mat = VisualLibrary.snow_material(TRACK_SNOW_TINT, 0.55).duplicate() as ShaderMaterial
+		_flat_snow_mat.set_shader_parameter("sastrugi_strength", 0.12)
+		_flat_snow_mat.set_shader_parameter("normal_strength", 0.1)
+		_flat_snow_mat.set_shader_parameter("detail_strength", 0.22)
+		_flat_snow_mat.set_shader_parameter("cavity_strength", 0.0)
+		_flat_snow_mat.set_shader_parameter("micro_bump_strength", 0.0)
+	return _flat_snow_mat
+
+
 func _cool_track_materials() -> void:
 	# Wet-sheen variants (cache-safe duplicates): any ice run whose lowest
 	# vertex sits under WET_SHEEN_Y skims the sea — swim approaches, wave
@@ -629,7 +648,7 @@ func _cool_track_materials() -> void:
 	wet_ice.set_shader_parameter("roughness_base", 0.03)
 	wet_ice.set_shader_parameter("roughness_variation", 0.08)
 	wet_ice.set_shader_parameter("specular_amount", 0.78)
-	var wet_rice := VisualLibrary.ice_material(TRACK_RICE_TINT, 0.3).duplicate() as ShaderMaterial
+	var wet_rice := VisualLibrary.ice_material(TRACK_RICE_TINT, 0.5).duplicate() as ShaderMaterial
 	wet_rice.set_shader_parameter("roughness_base", 0.12)
 	wet_rice.set_shader_parameter("roughness_variation", 0.14)
 	wet_rice.set_shader_parameter("specular_amount", 0.7)
@@ -646,13 +665,13 @@ func _cool_track_materials() -> void:
 			var surface := int(body.get_meta("surface"))
 			var wet := floor_mesh.mesh.get_aabb().position.y + floor_mesh.position.y < WET_SHEEN_Y
 			if surface == SNOW:
-				floor_mesh.material_override = VisualLibrary.snow_material(TRACK_SNOW_TINT, 0.55)
+				floor_mesh.material_override = _flat_lit_snow()
 			elif surface == ICE:
 				floor_mesh.material_override = wet_ice if wet \
 					else VisualLibrary.ice_material(TRACK_ICE_TINT, 0.85)
 			elif surface == RICE:
 				floor_mesh.material_override = wet_rice if wet \
-					else VisualLibrary.ice_material(TRACK_RICE_TINT, 0.3)
+					else VisualLibrary.ice_material(TRACK_RICE_TINT, 0.5)
 
 
 ## Horizon berg clusters, placed relative to the main guide (never the course
@@ -699,6 +718,24 @@ func _add_horizon_bergs() -> void:
 				OCEAN_Y - s * 0.06, center.z + rng.randf_range(-80.0, 80.0))
 			berg.rotation.y = rng.randf() * TAU
 			add_child(berg)
+	# Ultra-far mega-berg layer: a second, deeper skyline ring at 900-1250m.
+	# The sunrise fog (density 0.0018) dissolves these into pale warm ghosts,
+	# giving the horizon two recession layers instead of one cutout ring.
+	var far_mat := VisualLibrary.ice_material(Color(0.56, 0.7, 0.88), 0.25)
+	var far_count := 5 if low_detail else 8
+	for i: int in far_count:
+		var xf := main_guide.transform_at(main_guide.length * (float(i) + 0.5) / float(far_count))
+		var side := 1.0 if i % 2 == 0 else -1.0
+		var mega := MeshInstance3D.new()
+		mega.mesh = VisualLibrary.berg_mesh(rng.randi_range(0, 7))
+		mega.material_override = far_mat
+		mega.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var ms := rng.randf_range(60.0, 105.0)
+		mega.scale = Vector3(ms * rng.randf_range(1.0, 1.6), ms * rng.randf_range(0.45, 0.7), ms)
+		var mpos := xf.origin + xf.basis.x * (rng.randf_range(900.0, 1250.0) * side)
+		mega.position = Vector3(mpos.x, OCEAN_Y - ms * 0.05, mpos.z)
+		mega.rotation.y = rng.randf() * TAU
+		add_child(mega)
 
 
 ## Course-aligned high-density swell sheet at the true ocean height. Covers
@@ -1126,6 +1163,32 @@ func _add_waterline_notch(center: Vector3, mesh_seed: int, rot: Vector3, sx: flo
 	notch.position = Vector3(center.x, OCEAN_Y - 0.4, center.z)
 	notch.rotation = rot
 	add_child(notch)
+	# Spray-wet sheen band riding just ABOVE the waterline: swell and spray
+	# keep the first meter of ice above the sea dark and glassy on every real
+	# berg. Same seeded silhouette, slightly less inflated than the notch so
+	# the dark undercut still reads below it, glossy so the low sun streaks it.
+	var wet := MeshInstance3D.new()
+	wet.mesh = VisualLibrary.berg_mesh(mesh_seed)
+	wet.material_override = _wet_band_material()
+	wet.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	wet.scale = Vector3(sx * 1.035, band_h * 0.8, sz * 1.035)
+	wet.position = Vector3(center.x, OCEAN_Y - 0.4 + band_h * 0.72, center.z)
+	wet.rotation = rot
+	add_child(wet)
+
+
+## Shared glossy wet-band material: darkened teal-blue ice with a tight
+## specular so the sunrise drags a highlight along every waterline.
+func _wet_band_material() -> StandardMaterial3D:
+	if _wet_band_mat == null:
+		_wet_band_mat = StandardMaterial3D.new()
+		_wet_band_mat.albedo_color = Color(0.3, 0.5, 0.6)
+		_wet_band_mat.roughness = 0.06
+		_wet_band_mat.metallic = 0.15
+		_wet_band_mat.rim_enabled = true
+		_wet_band_mat.rim = 0.4
+		_wet_band_mat.rim_tint = 0.2
+	return _wet_band_mat
 
 
 ## Natural ice arch: two inward-leaning pillar bergs bridged by a lying-berg
@@ -1329,6 +1392,53 @@ func _add_brash_ice() -> void:
 	add_child(mmi)
 	_bobbers.append({"node": mmi, "base_y": 0.0, "phase": rng.randf() * TAU,
 		"amp": 0.09, "speed": 0.55})
+
+
+## Drifting pancake floes: flat angular ice plates scattered across the open
+## water beyond the brash band (lateral 34-120m), the loose mid-distance pack
+## every real berg bay carries. Squashed 7-sided cylinders in pale ice, tiny
+## tilts so edges catch the low sun. One MultiMesh riding the swell via a
+## single _bobbers write per frame; shadows off.
+func _add_floes() -> void:
+	var low_detail := String(SettingsManager.get_setting("display", "particle_quality")) == "low"
+	var floe_mesh := CylinderMesh.new()
+	floe_mesh.top_radius = 1.0
+	floe_mesh.bottom_radius = 1.12
+	floe_mesh.height = 0.32
+	floe_mesh.radial_segments = 7
+	floe_mesh.rings = 0
+	var xforms: Array[Transform3D] = []
+	var step := 64.0 if low_detail else 40.0
+	var o := 40.0
+	while o < main_guide.length - 40.0:
+		var xf := main_guide.transform_at(o)
+		for side: float in [-1.0, 1.0]:
+			for _k: int in rng.randi_range(1, 2):
+				if rng.randf() < 0.35:
+					continue
+				var lat := rng.randf_range(34.0, 120.0) * side
+				var pos := xf.origin + xf.basis.x * lat + xf.basis.z * rng.randf_range(-16.0, 16.0)
+				var b := Basis.from_euler(Vector3(rng.randf_range(-0.05, 0.05),
+					rng.randf() * TAU, rng.randf_range(-0.05, 0.05))) \
+					* Basis.from_scale(Vector3(rng.randf_range(1.4, 4.2), 1.0, rng.randf_range(1.4, 4.2)))
+				xforms.append(Transform3D(b, Vector3(pos.x, OCEAN_Y + 0.3, pos.z)))
+		o += step
+	if xforms.is_empty():
+		return
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = floe_mesh
+	mm.instance_count = xforms.size()
+	for i: int in xforms.size():
+		mm.set_instance_transform(i, xforms[i])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.name = "PancakeFloes"
+	mmi.multimesh = mm
+	mmi.material_override = VisualLibrary.ice_material(Color(0.9, 0.95, 1.0), 0.3)
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mmi)
+	_bobbers.append({"node": mmi, "base_y": 0.0, "phase": rng.randf() * TAU,
+		"amp": 0.07, "speed": 0.45})
 
 
 ## Sparse foam patches on the near-track water: small clustered quads batched

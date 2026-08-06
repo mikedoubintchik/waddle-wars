@@ -15,6 +15,8 @@ const FISH_ICON_SVG := """<svg xmlns="http://www.w3.org/2000/svg" width="60" hei
 
 var _buttons: Array[Button] = []
 var _fish_label: Label
+var _auth_chip_label: Label = null
+var _auth_chip_button: Button = null
 
 
 func _ready() -> void:
@@ -135,6 +137,41 @@ func _build_status_chip() -> void:
 	level_label.text = "Lv %d" % Progression.get_level()
 	row.add_child(level_label)
 	Progression.fish_changed.connect(_on_fish_changed)
+	# Web: offer sign-in right on the menu — it backs up progress to the cloud
+	# and unlocks leaderboard posting. Chip widens to fit.
+	if LeaderboardClient.can_sign_in():
+		chip.offset_left = -560.0
+		_auth_chip_label = Label.new()
+		_auth_chip_label.add_theme_font_size_override("font_size", 20)
+		_auth_chip_label.add_theme_color_override("font_color", Color(0.75, 0.85, 0.95))
+		_auth_chip_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(_auth_chip_label)
+		_auth_chip_button = UITheme.make_button("Sign In", Vector2(150, 44), 20)
+		UITheme.hook_sounds(_auth_chip_button)
+		_auth_chip_button.pressed.connect(func() -> void:
+			if LeaderboardClient.signed_in:
+				LeaderboardClient.sign_out()
+			else:
+				_auth_chip_button.text = "Opening…"
+				LeaderboardClient.sign_in())
+		row.add_child(_auth_chip_button)
+		_refresh_auth_chip()
+		LeaderboardClient.auth_changed.connect(_refresh_auth_chip)
+		# A restored cloud save changes fish/level: reload the menu to reflect it.
+		LeaderboardClient.cloud_save_restored.connect(func() -> void:
+			if is_inside_tree():
+				SceneRouter.go_to(Game.SCENE_MAIN_MENU))
+
+
+func _refresh_auth_chip() -> void:
+	if _auth_chip_button == null:
+		return
+	if LeaderboardClient.signed_in:
+		_auth_chip_label.text = LeaderboardClient.display_name
+		_auth_chip_button.text = "Sign Out"
+	else:
+		_auth_chip_label.text = "Save progress online"
+		_auth_chip_button.text = "Sign In"
 
 
 func _on_fish_changed(total: int) -> void:

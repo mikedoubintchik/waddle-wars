@@ -86,6 +86,22 @@ func save_now() -> void:
 	if err != OK:
 		push_warning("SaveManager: atomic rename failed (%d)" % err)
 	save_written.emit()
+	# Cloud sync is optional and web-only; the client no-ops when signed out.
+	# Looked up dynamically: SaveManager autoloads before LeaderboardClient,
+	# so early saves run while the client does not exist yet.
+	var lb := get_node_or_null("/root/LeaderboardClient")
+	if lb != null:
+		lb.notify_save_written()
+
+
+## Replace local progress with a cloud save blob (validated through the same
+## defaults merge as disk loads) and persist it. Called by LeaderboardClient
+## when a signed-in player's local save is pristine and a cloud copy exists.
+func adopt_cloud_save(cloud_data: Dictionary) -> void:
+	data = _merge_defaults(default_save(), cloud_data)
+	data["version"] = GameConfig.SAVE_VERSION
+	save_now()
+	save_loaded.emit()
 
 
 func get_value(key: String, default_value: Variant = null) -> Variant:

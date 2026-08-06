@@ -411,10 +411,10 @@ func _build() -> void:
 		esc_hint.add_child(pause_label)
 		_root.add_child(esc_hint)
 
-	# Keyboard onboarding (bottom center): compact keycap strip with the live
-	# race bindings, shown through the countdown and faded shortly after GO.
-	# Touch devices get the gesture overlay instead.
-	if not UITheme.is_touch() and bool(SettingsManager.get_setting("gameplay", "tutorial_prompts")):
+	# Onboarding strip (bottom center): shown through the countdown and faded
+	# shortly after GO. Keyboard players get live keycap bindings; touch
+	# players get the gesture + button cheat sheet (SHOVE/ITEM explained).
+	if bool(SettingsManager.get_setting("gameplay", "tutorial_prompts")):
 		# Dark chip behind the strip: over bright snow the bare labels washed
 		# out (screenshot QA).
 		_controls_hint = PanelContainer.new()
@@ -436,19 +436,33 @@ func _build() -> void:
 		strip.add_theme_constant_override("separation", 16)
 		strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_controls_hint.add_child(strip)
-		for hint: Array in [
-			[["steer_left", "steer_right"], "Steer"],
-			[["jump"], "Jump"],
-			[["slide"], "Slide"],
-			[["shove"], "Shove"],
-			[["use_item"], "Item"],
-		]:
+		var hints: Array = []
+		if UITheme.is_touch():
+			hints = [
+				[["Drag ↔"], "Steer"],
+				[["Swipe ↑"], "Jump"],
+				[["Hold ↓"], "Slide"],
+				[["SHOVE"], "Bump rivals"],
+				[["ITEM"], "Use pickup"],
+			]
+		else:
+			hints = [
+				[["steer_left", "steer_right"], "Steer"],
+				[["jump"], "Jump"],
+				[["slide"], "Slide"],
+				[["shove"], "Shove"],
+				[["use_item"], "Item"],
+			]
+		for hint: Array in hints:
 			var pair := HBoxContainer.new()
 			pair.add_theme_constant_override("separation", 4)
 			pair.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			for action: String in hint[0]:
-				var key := SettingsManager.describe_action_binding(action, "key")
-				pair.add_child(_make_keycap(key if key != "—" else "?", int(14 * hud_scale)))
+				var cap := action
+				if not UITheme.is_touch():
+					var key := SettingsManager.describe_action_binding(action, "key")
+					cap = key if key != "—" else "?"
+				pair.add_child(_make_keycap(cap, int(14 * hud_scale)))
 			var verb := Label.new()
 			verb.text = String(hint[1])
 			verb.mouse_filter = Control.MOUSE_FILTER_IGNORE

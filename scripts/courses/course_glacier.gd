@@ -173,12 +173,12 @@ func build_course() -> void:
 		"sun_angle_deg": -38.0,
 		"sun_yaw_deg": -35.0,
 		"sun_energy": 1.85,
-		"sun_color": Color(1.0, 0.9, 0.72),
+		"sun_color": Color(1.0, 0.94, 0.82),
 		"sun_angle_max": 22.0,
 		"sun_curve": 0.12,
 		"sky_energy": 1.0,
 		"ambient_energy": 0.82,
-		"exposure": 1.0,
+		"exposure": 0.94,
 		"fog_color": Color(0.7, 0.84, 0.98),
 		"fog_density": 0.0012,
 		"fog_height": -8.0,
@@ -249,6 +249,8 @@ func _decorate() -> void:
 	_decorate_spectators(density)
 	_decorate_mountains()
 	_decorate_cliffs(density)
+	_decorate_boulders(density)
+	_decorate_cave_glints(density)
 	_decorate_crevasse_cracks()
 	_decorate_lake_cracks()
 	_decorate_fog(density)
@@ -264,7 +266,7 @@ func _decorate() -> void:
 	_add_multimesh(VisualLibrary.ice_crystal_mesh(), icicle_transforms, crystal_mat, "Icicles")
 
 
-func _add_multimesh(mesh: Mesh, transforms: Array[Transform3D], material: Material, name_hint: String) -> void:
+func _add_multimesh(mesh: Mesh, transforms: Array[Transform3D], material: Material, name_hint: String, shadows: bool = true) -> void:
 	if transforms.is_empty():
 		return
 	var mm := MultiMesh.new()
@@ -277,6 +279,8 @@ func _add_multimesh(mesh: Mesh, transforms: Array[Transform3D], material: Materi
 	instance.name = name_hint
 	instance.multimesh = mm
 	instance.material_override = material
+	if not shadows:
+		instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(instance)
 
 
@@ -490,7 +494,7 @@ func _ice_arch_mesh(seed_value: int) -> ArrayMesh:
 func _decorate_scatter(density: float, crystal_transforms: Array[Transform3D]) -> void:
 	var rock_transforms: Array[Transform3D] = []
 	var cap_transforms: Array[Transform3D] = []
-	var count := int(30.0 * density)
+	var count := int(38.0 * density)
 	for _i: int in count:
 		var offset := rng.randf_range(40.0, main_guide.length - 60.0)
 		var xform := main_guide.transform_at(offset)
@@ -545,6 +549,33 @@ func _decorate_snowbanks(density: float) -> void:
 				xform.origin + xform.basis.x * (lateral + rng.randf_range(6.0, 14.0) * side) + Vector3.DOWN * 1.2))
 		side = -side
 		offset += step
+	# Drifts piled AGAINST the track walls: low, long tails of blown snow
+	# hugging the wall base on spans whose authored width is constant (so the
+	# lateral clears the racing floor exactly). Elongated along the track —
+	# wind rakes snow down the wall line, not across it. Same multimesh.
+	var cave_start := _offset_near(Vector3(8, 49, -460))
+	var cave_end := _offset_near(Vector3(0, 52.5, -565))
+	var tunnel := _offset_near(Vector3(0, 50.3, -620))
+	var wall_runs: Array = [
+		[6.0, 52.0, 9.9],            # start plateau, width 18
+		[cave_start + 4.0, cave_end - 4.0, 6.8],   # cave slalom, width 12
+		[tunnel - 24.0, tunnel + 18.0, 6.3],       # low tunnel, width 11
+		[_offset_near(Vector3(-10, 33, -1220)) - 8.0,
+			_offset_near(Vector3(-8, 4, -1360)), 9.9],  # final downhill, width 18
+	]
+	for run: Array in wall_runs:
+		var run_offset := float(run[0])
+		var run_side := 1.0
+		while run_offset < float(run[1]):
+			var pos := main_guide.point_at(run_offset,
+				float(run[2]) * run_side + rng.randf_range(-0.2, 0.3), -0.3)
+			var drift_basis := Basis(Vector3.UP,
+				main_guide.yaw_at(run_offset) + rng.randf_range(-0.1, 0.1)) \
+				* Basis.from_scale(Vector3(rng.randf_range(0.8, 1.3),
+					rng.randf_range(0.35, 0.65), rng.randf_range(2.6, 4.8)))
+			transforms.append(Transform3D(drift_basis, pos))
+			run_side = -run_side
+			run_offset += rng.randf_range(7.0, 11.0) / maxf(density, 0.5)
 	_add_multimesh(VisualLibrary.snow_drift_mesh(), transforms,
 		VisualLibrary.rock_material(Color(1.0, 1.0, 1.0)), "Snowbanks")
 
@@ -740,6 +771,73 @@ func _cliff_mesh(seed_value: int) -> ArrayMesh:
 	return st.commit()
 
 
+## Scattered ice boulders: calved glacial blocks wearing the full smooth-ice
+## track shader (crack veins, deep tint, sun streak — the shader skips its
+## frost border on non-track meshes via the UV2.y gate), tumbled at random
+## tilts just off both edges with occasional satellite shards. One shared
+## seeded berg silhouette -> one MultiMesh draw call; shadows stay on the big
+## course lights only (these cast none).
+func _decorate_boulders(density: float) -> void:
+	var transforms: Array[Transform3D] = []
+	var count := int(22.0 * density)
+	for _i: int in count:
+		var offset := rng.randf_range(60.0, main_guide.length - 70.0)
+		var xform := main_guide.transform_at(offset)
+		var side := 1.0 if rng.randf() > 0.5 else -1.0
+		var lateral := rng.randf_range(12.0, 22.0) * side
+		var pos := xform.origin + xform.basis.x * lateral + Vector3.DOWN * rng.randf_range(0.4, 0.9)
+		var s := rng.randf_range(0.9, 2.6)
+		var boulder_basis := Basis.from_euler(Vector3(
+			rng.randf_range(-0.35, 0.35), rng.randf() * TAU, rng.randf_range(-0.35, 0.35))) \
+			* Basis.from_scale(Vector3(
+				s * rng.randf_range(0.85, 1.3), s * rng.randf_range(0.5, 0.85), s * rng.randf_range(0.85, 1.3)))
+		transforms.append(Transform3D(boulder_basis, pos))
+		# Calving debris: a smaller shard shed beside ~40% of blocks.
+		if rng.randf() > 0.6:
+			var shard_s := s * rng.randf_range(0.3, 0.5)
+			var shard_basis := Basis.from_euler(Vector3(
+				rng.randf_range(-0.5, 0.5), rng.randf() * TAU, rng.randf_range(-0.5, 0.5))) \
+				* Basis.from_scale(Vector3(shard_s, shard_s * 0.7, shard_s))
+			transforms.append(Transform3D(shard_basis,
+				pos + xform.basis.x * (rng.randf_range(1.5, 3.0) * side) + Vector3.DOWN * 0.2))
+	_add_multimesh(VisualLibrary.berg_mesh(11), transforms,
+		TrackBuilder.surface_material(SurfacesDB.Surface.ICE_SMOOTH), "IceBoulders", false)
+
+
+## Blue ice-cave glints: cold light caught deep in the cave walls — soft
+## additive billboards clustered through the gateway, the slalom arches and
+## the low tunnel at varying heights, the way real blue ice fires point
+## highlights as the view angle sweeps past. Alpha stays under the glow
+## threshold: cold pinpricks, not a lightshow. One MultiMesh, one draw call.
+func _decorate_cave_glints(density: float) -> void:
+	var cave_start := _offset_near(Vector3(8, 49, -460))
+	var tunnel_offset := _offset_near(Vector3(0, 50.3, -620))
+	var transforms: Array[Transform3D] = []
+	var offset := cave_start - 10.0
+	while offset < tunnel_offset + 26.0:
+		var xform := main_guide.transform_at(offset)
+		for side_sign: float in [-1.0, 1.0]:
+			if rng.randf() < 0.3:
+				continue
+			var s := rng.randf_range(0.45, 1.3)
+			var pos := xform.origin + xform.basis.x * (rng.randf_range(6.4, 9.6) * side_sign) \
+				+ Vector3.UP * rng.randf_range(0.5, 5.5)
+			transforms.append(Transform3D(Basis.from_scale(Vector3(s, s, s)), pos))
+		offset += 6.5 / maxf(density, 0.5)
+	var glint_mat := StandardMaterial3D.new()
+	glint_mat.albedo_color = Color(0.45, 0.75, 1.0, 0.5)
+	glint_mat.albedo_texture = VisualLibrary.soft_radial_texture(32, 0.9)
+	glint_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	glint_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glint_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	glint_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	glint_mat.billboard_keep_scale = true
+	glint_mat.disable_receive_shadows = true
+	var glint_quad := QuadMesh.new()
+	glint_quad.size = Vector2(1.0, 1.0)
+	_add_multimesh(glint_quad, transforms, glint_mat, "CaveGlints", false)
+
+
 ## Crevasse cracks flush with the ice near the cracking-ice shortcut: dark
 ## jagged strips with a cold blue emission tint (below the bloom threshold —
 ## a glow tint, not a lightshow), telling the thin-ice story before and after
@@ -926,10 +1024,15 @@ static func _cquad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vecto
 
 func _decorate_mountains() -> void:
 	var center := Vector3(0.0, -24.0, -700.0)
-	for i: int in 9:
+	for i: int in 10:
 		_place_mountain(1000 + i, center, 300.0, 470.0, 130.0, 220.0, 0.08)
-	for i: int in 9:
+	for i: int in 11:
 		_place_mountain(2000 + i, center, 560.0, 790.0, 200.0, 330.0, 0.42)
+	# Third, near-horizon ring: taller massifs almost dissolved into the sky
+	# tint. Three stacked haze bands (0.08 / 0.42 / 0.74) give the receding
+	# ridge-behind-ridge layering of real alpine distance.
+	for i: int in 9:
+		_place_mountain(3000 + i, center, 860.0, 1180.0, 260.0, 430.0, 0.74)
 
 
 func _place_mountain(seed_value: int, center: Vector3, dist_min: float, dist_max: float, h_min: float, h_max: float, haze: float) -> void:

@@ -635,6 +635,10 @@ func apply_stun(source: String = "") -> bool:
 func apply_boost(duration: float, mult: float = 1.45) -> void:
 	_boost_timer = maxf(_boost_timer, duration)
 	boost_mult = clampf(maxf(boost_mult, mult), 1.0, BOOST_MAX_MULT)
+	# Pads must feel instant: snap straight to near-boosted pace instead of
+	# waiting for the accel ramp to climb there (playtest feedback).
+	var top := BASE_SPEED * minf(mult, BOOST_SLIDE_TOP_MULT if state == State.SLIDING else BOOST_TOP_SPEED_MULT) * speed_scale
+	current_speed = maxf(current_speed, top * 0.92)
 	if state == State.WADDLING:
 		_set_state(State.BOOSTED)
 

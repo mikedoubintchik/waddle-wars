@@ -351,7 +351,9 @@ func _build_online_section(parent: Control, mode: String, course: String, value:
 		parent.add_child(row)
 		var button := UITheme.make_button("Sign In", Vector2(240, 52), 22)
 		UITheme.hook_sounds(button)
-		button.pressed.connect(LeaderboardClient.sign_in)
+		button.pressed.connect(func() -> void:
+			button.text = "Opening…"
+			LeaderboardClient.sign_in())
 		row.add_child(button)
 		LeaderboardClient.auth_changed.connect(func() -> void:
 			if LeaderboardClient.signed_in and is_instance_valid(label):

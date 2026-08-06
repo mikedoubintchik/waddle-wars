@@ -5,41 +5,80 @@ extends RefCounted
 ## trimesh shapes with surface metadata for the racer's surface detection.
 
 const SAMPLE: float = 3.0
+## Metres over which the frosted white end-border of an ice run fades out
+## (encoded per-vertex into UV2.x for the ice shader's accessibility outline).
+const FROST_END_RANGE: float = 2.5
+
+const ICE_SHADER: Shader = preload("res://assets/shaders/ice.gdshader")
+const ICE_WALL_SHADER: Shader = preload("res://assets/shaders/ice_wall.gdshader")
+const BOOST_PAD_SHADER: Shader = preload("res://assets/shaders/boost_pad.gdshader")
 
 static var _surface_materials: Dictionary = {}
 
 
-static func surface_material(surface: SurfacesDB.Surface) -> StandardMaterial3D:
+static func surface_material(surface: SurfacesDB.Surface) -> Material:
 	if _surface_materials.has(surface):
 		return _surface_materials[surface]
-	var mat := StandardMaterial3D.new()
+	var mat: Material
 	match surface:
 		SurfacesDB.Surface.PACKED_SNOW:
-			mat.albedo_color = Color(0.93, 0.96, 1.0)
-			mat.roughness = 0.95
+			var snow_mat := StandardMaterial3D.new()
+			snow_mat.albedo_color = Color(0.93, 0.96, 1.0)
+			snow_mat.roughness = 0.95
+			mat = snow_mat
 		SurfacesDB.Surface.DEEP_SNOW:
-			mat.albedo_color = Color(0.99, 0.99, 1.0)
-			mat.roughness = 1.0
+			var deep_mat := StandardMaterial3D.new()
+			deep_mat.albedo_color = Color(0.99, 0.99, 1.0)
+			deep_mat.roughness = 1.0
+			mat = deep_mat
 		SurfacesDB.Surface.ICE_SMOOTH:
-			mat.albedo_color = Color(0.42, 0.68, 0.94)
-			mat.roughness = 0.08
-			mat.metallic = 0.25
-			mat.rim_enabled = true
-			mat.rim = 0.4
+			# Deep glossy blue-cyan glass: voronoi crack veins, toward-camera
+			# sun streak, frosted white edge border (shader outlines patches by
+			# brightness + pattern, so ice reads without relying on hue).
+			var ice_mat := ShaderMaterial.new()
+			ice_mat.shader = ICE_SHADER
+			ice_mat.set_shader_parameter("tint", Color(0.34, 0.71, 0.96))
+			ice_mat.set_shader_parameter("deep_tint", Color(0.03, 0.22, 0.47))
+			ice_mat.set_shader_parameter("clarity", 0.92)
+			ice_mat.set_shader_parameter("roughness_base", 0.05)
+			ice_mat.set_shader_parameter("crack_strength", 0.75)
+			ice_mat.set_shader_parameter("streak_strength", 0.85)
+			ice_mat.set_shader_parameter("detail_level", VisualLibrary.shader_detail_level())
+			mat = ice_mat
 		SurfacesDB.Surface.ICE_ROUGH:
-			mat.albedo_color = Color(0.56, 0.74, 0.9)
-			mat.roughness = 0.45
+			# Frosted matte variant: paler, rougher, fainter cracks/streak so
+			# smooth vs rough ice contrast reads at a glance.
+			var rice_mat := ShaderMaterial.new()
+			rice_mat.shader = ICE_SHADER
+			rice_mat.set_shader_parameter("tint", Color(0.6, 0.77, 0.92))
+			rice_mat.set_shader_parameter("deep_tint", Color(0.18, 0.36, 0.55))
+			rice_mat.set_shader_parameter("clarity", 0.35)
+			rice_mat.set_shader_parameter("roughness_base", 0.4)
+			rice_mat.set_shader_parameter("crack_strength", 0.5)
+			rice_mat.set_shader_parameter("streak_strength", 0.25)
+			rice_mat.set_shader_parameter("detail_level", VisualLibrary.shader_detail_level())
+			mat = rice_mat
 		SurfacesDB.Surface.BOOST:
-			mat.albedo_color = Color(1.0, 0.72, 0.2)
-			mat.roughness = 0.3
-			mat.emission_enabled = true
-			mat.emission = Color(1.0, 0.55, 0.1)
-			mat.emission_energy_multiplier = 1.1
+			# Pulsing amber deck with hazard-striped border (see
+			# boost_pad.gdshader) — pattern + brightness accessibility.
+			var boost_mat := ShaderMaterial.new()
+			boost_mat.shader = BOOST_PAD_SHADER
+			boost_mat.set_shader_parameter("contrast_boost", _contrast_boost())
+			mat = boost_mat
 		_:
-			mat.albedo_color = Color(0.9, 0.94, 1.0)
-			mat.roughness = 0.9
+			var plain_mat := StandardMaterial3D.new()
+			plain_mat.albedo_color = Color(0.9, 0.94, 1.0)
+			plain_mat.roughness = 0.9
+			mat = plain_mat
 	_surface_materials[surface] = mat
 	return mat
+
+
+## 1.0 when "accessibility/high_contrast_pickups" is on. Boost pad shaders
+## brighten their cores/outlines from this; re-applied on every add_boost_pad
+## so cached materials track setting changes between races.
+static func _contrast_boost() -> float:
+	return 1.0 if bool(SettingsManager.get_setting("accessibility", "high_contrast_pickups")) else 0.0
 
 
 ## Builds a Curve3D through the given positions with smooth auto tangents.
@@ -133,7 +172,8 @@ static func _emit_floor_run(root: Node3D, left: PackedVector3Array, right: Packe
 			break
 		var u0 := float(i) * 0.25
 		var u1 := float(i + 1) * 0.25
-		_quad(st, left[i], right[i], right[i + 1], left[i + 1], u0, u1)
+		_floor_quad(st, left[i], right[i], right[i + 1], left[i + 1], u0, u1,
+				_frost_end_proximity(i, start, end), _frost_end_proximity(i + 1, start, end))
 	st.generate_normals()
 	var mesh := st.commit()
 	var instance := MeshInstance3D.new()
@@ -163,22 +203,18 @@ static func _emit_walls(root: Node3D, left: PackedVector3Array, right: PackedVec
 		any = true
 		var a := left[i] if is_left else right[i]
 		var b := left[i + 1] if is_left else right[i + 1]
-		if is_left:
-			_quad(st, a, a + height, b + height, b, 0.0, 1.0)
-		else:
-			_quad(st, a + height, a, b, b + height, 0.0, 1.0)
+		_wall_quad(st, a, a + height, b + height, b, not is_left)
 	if not any:
 		return
 	st.generate_normals()
 	var mesh := st.commit()
 	var instance := MeshInstance3D.new()
 	instance.mesh = mesh
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.45, 0.65, 0.88, 0.8)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.roughness = 0.2
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	instance.material_override = mat
+	# Glacial barrier shader: strata pattern + fresnel rim + bright frosted
+	# crest lip, so the wall boundary reads by brightness/pattern (visual only;
+	# collision below is unchanged).
+	instance.material_override = _wall_material()
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(instance)
 	var body := StaticBody3D.new()
 	body.collision_layer = GameConfig.LAYER_WORLD
@@ -189,28 +225,95 @@ static func _emit_walls(root: Node3D, left: PackedVector3Array, right: PackedVec
 	root.add_child(body)
 
 
+static var _wall_material_cache: ShaderMaterial = null
+
+
+static func _wall_material() -> ShaderMaterial:
+	if _wall_material_cache == null:
+		_wall_material_cache = ShaderMaterial.new()
+		_wall_material_cache.shader = ICE_WALL_SHADER
+	return _wall_material_cache
+
+
+## Wall quad with UV.x = 0 at the base and 1 at the crest on BOTH track sides
+## (the ice_wall shader's frost lip keys off UV.x, so it must never invert);
+## flip reverses the triangle winding so the visible face looks into the track.
+static func _wall_quad(st: SurfaceTool, base0: Vector3, top0: Vector3, top1: Vector3, base1: Vector3, flip: bool) -> void:
+	if flip:
+		_wall_vert(st, top0, 1.0, 0.0); _wall_vert(st, top1, 1.0, 1.0); _wall_vert(st, base1, 0.0, 1.0)
+		_wall_vert(st, top0, 1.0, 0.0); _wall_vert(st, base1, 0.0, 1.0); _wall_vert(st, base0, 0.0, 0.0)
+	else:
+		_wall_vert(st, base0, 0.0, 0.0); _wall_vert(st, base1, 0.0, 1.0); _wall_vert(st, top1, 1.0, 1.0)
+		_wall_vert(st, base0, 0.0, 0.0); _wall_vert(st, top1, 1.0, 1.0); _wall_vert(st, top0, 1.0, 0.0)
+
+
+static func _wall_vert(st: SurfaceTool, v: Vector3, height_uv: float, along_uv: float) -> void:
+	st.set_uv(Vector2(height_uv, along_uv))
+	st.add_vertex(v)
+
+
 ## Visual-only side skirts so the track reads as thick ice, not paper.
+## Vertex colors grade from a bright sunlit lip at the track edge down to deep
+## glacial blue where light dies — a grayscale-safe thickness cue that matches
+## the ice shader's depth language, for zero shader cost.
 static func _emit_skirt(root: Node3D, left: PackedVector3Array, right: PackedVector3Array, gaps: Array[bool] = []) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var drop := Vector3.DOWN * 10.0
 	var out := 2.0
+	var lip_col := Color(0.88, 0.93, 1.0)
+	var deep_col := Color(0.15, 0.34, 0.52)
 	for i: int in left.size() - 1:
 		if not gaps.is_empty() and (gaps[i] or gaps[i + 1]):
 			continue
 		var dir_l := (left[i] - right[i]).normalized() * out
 		var dir_l2 := (left[i + 1] - right[i + 1]).normalized() * out
-		_quad(st, left[i], left[i] + dir_l + drop, left[i + 1] + dir_l2 + drop, left[i + 1], 0.0, 1.0)
-		_quad(st, right[i] - dir_l + drop, right[i], right[i + 1], right[i + 1] - dir_l2 + drop, 0.0, 1.0)
+		_color_quad(st, left[i], left[i] + dir_l + drop, left[i + 1] + dir_l2 + drop, left[i + 1],
+				lip_col, deep_col, deep_col, lip_col)
+		_color_quad(st, right[i] - dir_l + drop, right[i], right[i + 1], right[i + 1] - dir_l2 + drop,
+				deep_col, lip_col, lip_col, deep_col)
 	st.generate_normals()
 	var instance := MeshInstance3D.new()
 	instance.mesh = st.commit()
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.42, 0.6, 0.8)
-	mat.roughness = 0.7
+	mat.albedo_color = Color.WHITE
+	mat.vertex_color_use_as_albedo = true
+	mat.roughness = 0.6
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	instance.material_override = mat
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(instance)
+
+
+## 0..1 proximity of a sample row to its surface run's start/end boundary,
+## fading over FROST_END_RANGE metres. Rows outside the run (the one-sample
+## seam overlap) clamp to 1 so the frost band sits exactly on the boundary.
+static func _frost_end_proximity(row: int, start: int, end: int) -> float:
+	var dist_m := minf(float(row - start), float(end - row)) * SAMPLE
+	return clampf(1.0 - dist_m / FROST_END_RANGE, 0.0, 1.0)
+
+
+## Floor variant of _quad: also writes UV2 = (end-frost proximity, 1.0).
+## UV2.y == 1 flags "track floor" for the ice shader's frosted edge border;
+## meshes that never set UV2 read (0,0) and stay frost-free.
+static func _floor_quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, u0: float, u1: float, e0: float, e1: float) -> void:
+	st.set_uv(Vector2(0, u0)); st.set_uv2(Vector2(e0, 1.0)); st.add_vertex(a)
+	st.set_uv(Vector2(0, u1)); st.set_uv2(Vector2(e1, 1.0)); st.add_vertex(d)
+	st.set_uv(Vector2(1, u1)); st.set_uv2(Vector2(e1, 1.0)); st.add_vertex(c)
+	st.set_uv(Vector2(0, u0)); st.set_uv2(Vector2(e0, 1.0)); st.add_vertex(a)
+	st.set_uv(Vector2(1, u1)); st.set_uv2(Vector2(e1, 1.0)); st.add_vertex(c)
+	st.set_uv(Vector2(1, u0)); st.set_uv2(Vector2(e0, 1.0)); st.add_vertex(b)
+
+
+## _quad with per-corner vertex colors (same corner order and winding); used by
+## the skirt's depth gradient. Pair with vertex_color_use_as_albedo materials.
+static func _color_quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, ca: Color, cb: Color, cc: Color, cd: Color) -> void:
+	st.set_color(ca); st.add_vertex(a)
+	st.set_color(cd); st.add_vertex(d)
+	st.set_color(cc); st.add_vertex(c)
+	st.set_color(ca); st.add_vertex(a)
+	st.set_color(cc); st.add_vertex(c)
+	st.set_color(cb); st.add_vertex(b)
 
 
 ## Emits a quad from corners given counter-clockwise when viewed from the
@@ -470,6 +573,8 @@ static func add_overhead_bar(parent: Node3D, guide: PathGuide, offset: float, cl
 
 
 static var _arrow_material: ShaderMaterial = null
+static var _pad_rim_mesh: ArrayMesh = null
+static var _pad_rim_material: StandardMaterial3D = null
 
 
 static func _boost_arrow_material() -> ShaderMaterial:
@@ -477,6 +582,66 @@ static func _boost_arrow_material() -> ShaderMaterial:
 		_arrow_material = ShaderMaterial.new()
 		_arrow_material.shader = load("res://assets/shaders/boost_arrows.gdshader")
 	return _arrow_material
+
+
+## Raised curb frame around the boost pad deck: a physical SHAPE cue that
+## catches real light and shadow, so pads still read if every color/emission
+## cue fails (grayscale, extreme glare, any color-vision condition).
+## Rings: inner deck lip -> raised crest -> outer skirt tucked into the track.
+## Visual only — sized around the 4x0.15x6 deck without touching the deck mesh
+## or the Area3D trigger box.
+static func _boost_rim_mesh() -> ArrayMesh:
+	if _pad_rim_mesh != null:
+		return _pad_rim_mesh
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# (half_x, y, half_z) per ring; vertex colors grade lip -> bright crest ->
+	# shadowed outer base so the curb reads as raised relief from any angle.
+	var rings: Array[Vector3] = [
+		Vector3(2.0, 0.075, 3.0),
+		Vector3(2.14, 0.17, 3.14),
+		Vector3(2.3, -0.12, 3.3),
+	]
+	var ring_cols: Array[Color] = [
+		Color(0.86, 0.92, 1.0),
+		Color(0.98, 0.99, 1.0),
+		Color(0.6, 0.72, 0.88),
+	]
+	for r: int in rings.size() - 1:
+		var pa := _rect_corners(rings[r])
+		var pb := _rect_corners(rings[r + 1])
+		for i: int in 4:
+			var j := (i + 1) % 4
+			_color_quad(st, pa[i], pa[j], pb[j], pb[i],
+					ring_cols[r], ring_cols[r], ring_cols[r + 1], ring_cols[r + 1])
+	st.generate_normals()
+	_pad_rim_mesh = st.commit()
+	return _pad_rim_mesh
+
+
+## (half_x, y, half_z) -> the 4 rectangle corners at that height, CCW from above.
+static func _rect_corners(ext: Vector3) -> Array[Vector3]:
+	var pts: Array[Vector3] = [
+		Vector3(ext.x, ext.y, ext.z),
+		Vector3(-ext.x, ext.y, ext.z),
+		Vector3(-ext.x, ext.y, -ext.z),
+		Vector3(ext.x, ext.y, -ext.z),
+	]
+	return pts
+
+
+static func _boost_rim_material() -> StandardMaterial3D:
+	if _pad_rim_material == null:
+		_pad_rim_material = StandardMaterial3D.new()
+		_pad_rim_material.albedo_color = Color.WHITE
+		_pad_rim_material.vertex_color_use_as_albedo = true
+		_pad_rim_material.roughness = 0.45
+		_pad_rim_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		# Faint constant ice-white glow keeps the frame legible at night.
+		_pad_rim_material.emission_enabled = true
+		_pad_rim_material.emission = Color(0.85, 0.92, 1.0)
+		_pad_rim_material.emission_energy_multiplier = 0.18
+	return _pad_rim_material
 
 
 static func add_boost_pad(parent: Node3D, guide: PathGuide, offset: float, lateral: float = 0.0) -> void:
@@ -498,6 +663,16 @@ static func add_boost_pad(parent: Node3D, guide: PathGuide, offset: float, later
 	arrows.position = Vector3(0.0, mesh.size.y * 0.5 + 0.03, 0.0)
 	arrows.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	pad.add_child(arrows)
+	var rim := MeshInstance3D.new()
+	rim.mesh = _boost_rim_mesh()
+	rim.material_override = _boost_rim_material()
+	rim.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	pad.add_child(rim)
+	# Refresh accessibility contrast on the cached pad shaders so toggling the
+	# setting applies to the next course build without an app restart.
+	var contrast := _contrast_boost()
+	(instance.material_override as ShaderMaterial).set_shader_parameter("contrast_boost", contrast)
+	_boost_arrow_material().set_shader_parameter("contrast_boost", contrast)
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
 	box.size = Vector3(4.0, 2.0, 6.0)

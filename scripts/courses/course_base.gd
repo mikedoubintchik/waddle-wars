@@ -291,6 +291,18 @@ func start_grid_transform(slot: int) -> Transform3D:
 ##   perspective: far geometry blends toward the sky itself), fog_sky_affect
 ##   (default 0.2), shadow_blur (softer sun shadow edge; defaults 1.0 on the
 ##   "low" shadow preset, 1.75 otherwise).
+## Grade + glow (all optional): glow_intensity (default 0.5), contrast
+##   (default 1.07) and saturation (default 1.06) — a mild global grade that
+##   sells crisp polar air; ignored by renderers without adjustment support.
+## Light rig (optional): fill_energy (default 0.18, 0 disables) + fill_color —
+##   a cool unshadowed sky-fill directional from the anti-sun direction, so
+##   shadow sides read as blue sky bounce instead of flat ambient (specular
+##   zeroed: ice keeps a single sun glint). Skipped on the low quality preset.
+##   fog_sun_scatter (default 0.06) warms haze toward the sun for a gentle
+##   forward-scatter halo.
+## When fog_height is omitted, a default altitude falloff is derived from the
+##   lowest point of the main line: thin haze pools below the track instead of
+##   tinting the air uniformly at every height.
 func build_environment(params: Dictionary) -> void:
 	var world_env := WorldEnvironment.new()
 	var env := Environment.new()
@@ -307,10 +319,12 @@ func build_environment(params: Dictionary) -> void:
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = float(params.get("ambient_energy", 1.0))
+	# Slightly restrained default ambient: shadows keep some depth so the sun
+	# actually models form. Courses that tuned ambient_energy are untouched.
+	env.ambient_light_energy = float(params.get("ambient_energy", 0.92))
 	env.ambient_light_sky_contribution = float(params.get("sky_contribution", 1.0))
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = float(params.get("exposure", 1.05))
+	env.tonemap_exposure = float(params.get("exposure", 0.96))
 	env.tonemap_white = 6.0
 	env.fog_enabled = true
 	# Atmospheric perspective: real distance haze drifts toward the horizon/sky
@@ -324,9 +338,28 @@ func build_environment(params: Dictionary) -> void:
 	# skip it; no cost when fog is thin.
 	env.fog_aerial_perspective = clampf(float(params.get("fog_aerial", 0.5)), 0.0, 1.0)
 	env.fog_sky_affect = float(params.get("fog_sky_affect", 0.2))
+	# Forward-scatter: haze picks up a whisper of sun color looking sunward,
+	# so the air glows warm toward the light instead of one uniform tint.
+	env.fog_sun_scatter = float(params.get("fog_sun_scatter", 0.06))
 	if params.has("fog_height"):
 		env.fog_height = float(params["fog_height"])
 		env.fog_height_density = float(params.get("fog_height_density", 0.08))
+	elif main_guide != null and main_guide.points.size() > 0:
+		# Default altitude falloff: thin haze pooling just below the lowest
+		# stretch of track — real fog sits in the valleys, not evenly at every
+		# height. Courses that tuned their own height fog are untouched.
+		var low := INF
+		for point: Vector3 in main_guide.points:
+			low = minf(low, point.y)
+		env.fog_height = low - 1.5
+		env.fog_height_density = 0.025
+	# Mild global grade: a touch more contrast and saturation sells crisp
+	# polar air (harmlessly ignored where adjustments are unsupported, e.g.
+	# older gl_compatibility web builds).
+	if not GameConfig.is_headless():
+		env.adjustment_enabled = true
+		env.adjustment_contrast = float(params.get("contrast", 1.05))
+		env.adjustment_saturation = float(params.get("saturation", 1.06))
 	var particle_quality := String(SettingsManager.get_setting("display", "particle_quality"))
 	if bool(params.get("glow", true)) and particle_quality != "low" and not GameConfig.is_headless():
 		# High HDR threshold: only emissive peaks (boost pads, pickups, aurora)
@@ -334,13 +367,20 @@ func build_environment(params: Dictionary) -> void:
 		env.glow_enabled = true
 		env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
 		env.glow_hdr_threshold = float(params.get("glow_threshold", 1.1))
-		env.glow_intensity = 0.45
+		env.glow_intensity = float(params.get("glow_intensity", 0.5))
 		env.glow_bloom = 0.0
+		# Gentle wide halo: keep the default mid mip levels but add a faint
+		# widest-level tail, so emissive peaks (aurora heart, boost pads) bleed
+		# a soft atmospheric corona instead of a tight hot ring. Same blur
+		# chain either way — no extra cost.
+		env.set_glow_level(6, 0.3)
 	world_env.environment = env
 	add_child(world_env)
 
 	var sun := DirectionalLight3D.new()
-	sun.light_color = params.get("sun_color", Color(1.0, 0.98, 0.92))
+	# Warmer default key light: low polar sun always carries a golden cast;
+	# courses with an authored sun_color (moonlight, sunrise) are untouched.
+	sun.light_color = params.get("sun_color", Color(1.0, 0.965, 0.91))
 	sun.light_energy = float(params.get("sun_energy", 1.2))
 	sun.rotation_degrees = Vector3(float(params.get("sun_angle_deg", -48.0)), float(params.get("sun_yaw_deg", -30.0)), 0.0)
 	var shadow_quality := String(SettingsManager.get_setting("display", "shadow_quality"))
@@ -362,6 +402,22 @@ func build_environment(params: Dictionary) -> void:
 			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 			sun.directional_shadow_blend_splits = true
 	add_child(sun)
+
+	# Cool sky-fill from the anti-sun direction: polar shadow sides are lit by
+	# blue sky bounce, never black — one unshadowed directional models that
+	# for near-zero cost. Specular zeroed so ice and water keep a single sun
+	# glint (a second specular sun reads instantly fake). Skipped on the low
+	# quality preset where every per-pixel light matters.
+	var fill_energy := float(params.get("fill_energy", 0.12))
+	if fill_energy > 0.0 and particle_quality != "low" and not GameConfig.is_headless():
+		var fill := DirectionalLight3D.new()
+		var sky_top: Color = params.get("sky_top", Color(0.25, 0.55, 0.85))
+		fill.light_color = params.get("fill_color", sky_top.lerp(Color(0.62, 0.74, 0.95), 0.5))
+		fill.light_energy = fill_energy
+		fill.light_specular = 0.0
+		fill.shadow_enabled = false
+		fill.rotation_degrees = Vector3(-36.0, float(params.get("sun_yaw_deg", -30.0)) + 180.0, 0.0)
+		add_child(fill)
 
 	if bool(params.get("snow", false)) and not GameConfig.is_headless():
 		_add_snowfall()
@@ -397,6 +453,9 @@ func _add_clouds(color: Color) -> void:
 			quad.size = Vector2(size, size * 0.55)
 			puff.mesh = quad
 			puff.material_override = cloud_mat
+			# Translucent quads still cast shadows by default — with a low sun
+			# they paint huge blue blobs across the track.
+			puff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			puff.position = Vector3(
 				rng.randf_range(-30.0, 30.0),
 				rng.randf_range(-8.0, 8.0),

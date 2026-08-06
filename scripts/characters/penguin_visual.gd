@@ -6,7 +6,7 @@ extends Node3D
 ## species plumage — dark dorsal, white ventral with a curved side boundary,
 ## per-species markings (ear patches, gentoo headphone band, chinstrap white
 ## face) — baked into per-vertex colors, so every variant shares one cheap
-## StandardMaterial3D. Small accessories (eye rings, chin strap, crests) are
+## feather ShaderMaterial. Small accessories (eye rings, chin strap, crests) are
 ## a handful of primitive meshes. Meshes are built once per species+palette
 ## and cached statically; nothing allocates per frame.
 ##
@@ -113,6 +113,7 @@ const SPECIES: Dictionary = {
 static var _material_cache: Dictionary = {}
 static var _mesh_cache: Dictionary = {}
 static var _species_by_dorsal: Dictionary = {}  # canonical dorsal html -> id
+static var _bill_shader: Shader = null  # shared by all bill materials
 
 var pose: Pose = Pose.IDLE
 var anim_speed: float = 1.0
@@ -209,23 +210,112 @@ static func get_body_material(color: Color, roughness: float = 0.68, rim: float 
 
 
 ## Shared feather material for all vertex-colored penguin meshes (body,
-## flippers, feet). Albedo stays white; the baked vertex colors carry the
-## palette, so one material covers every variant.
-static func _get_plumage_material() -> StandardMaterial3D:
+## flippers, feet). The baked vertex colors carry the palette, so one material
+## covers every variant. On top of the baked colors the shader layers
+## procedural feather micro-detail: fine barb striations crossed with
+## feather-row scallops modulating albedo and roughness (fading out over
+## 6-16 m, same pattern as the snow detail shader), a view-grazing structural
+## iridescence on the dark dorsal only (the green-blue-violet oily sheen of
+## real penguin plumage), a matte belly, and the same weak albedo-tinted rim
+## the old StandardMaterial3D had (a strong white rim washed racers gray under
+## the bright glacier ambient). WebGL2/gl_compatibility-safe: pure math, no
+## screen or depth reads, and object-space detail so nothing swims when the
+## body animates.
+static func _get_plumage_material() -> Material:
 	var key := "penguin_plumage_vtx"
 	if _material_cache.has(key):
 		return _material_cache[key]
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color.WHITE
-	mat.vertex_color_use_as_albedo = true
-	mat.metallic = 0.0
-	mat.roughness = 0.62
-	mat.rim_enabled = true
-	mat.rim = 0.10
-	# Slightly whiter rim than get_body_material: reads as the cool feather
-	# sheen on backlit plumage without lifting overall value (a strong white
-	# rim washed the racers gray under the bright glacier ambient).
-	mat.rim_tint = 0.6
+	var shader := Shader.new()
+	shader.code = """
+shader_type spatial;
+
+varying vec3 v_obj;
+
+void vertex() {
+	v_obj = VERTEX;
+}
+
+void fragment() {
+	vec3 base = COLOR.rgb;
+	float lum = dot(base, vec3(0.299, 0.587, 0.114));
+	// 1 on the dark dorsal feathers, 0 on the white belly.
+	float dark_m = 1.0 - smoothstep(0.18, 0.55, lum);
+	// Micro-detail fades with view distance so far racers stay clean.
+	float detail = 1.0 - smoothstep(6.0, 16.0, length(VERTEX));
+	// Feather micro-grain: fine barbs crossed with coarser feather rows.
+	float barbs = sin(v_obj.x * 340.0 + v_obj.y * 110.0) * sin(v_obj.z * 300.0 - v_obj.y * 70.0);
+	float rows = sin(v_obj.y * 96.0 + sin(v_obj.x * 34.0 + v_obj.z * 27.0) * 2.2);
+	float grain = (barbs * 0.55 + rows * 0.45) * detail;
+	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+	float fres = pow(1.0 - ndv, 3.0);
+	// Structural iridescence: thin-film-style green->blue->violet sweep
+	// across the grazing angle, dark feathers only, kept faint so the dorsal
+	// still reads dark at race distance.
+	vec3 irid = vec3(
+		0.30 + 0.30 * sin(fres * 9.0 + 1.8),
+		0.50 + 0.30 * sin(fres * 9.0 + 3.6),
+		0.70 + 0.25 * sin(fres * 9.0 + 5.2));
+	ALBEDO = base * (1.0 + grain * 0.045);
+	// Weak albedo-tinted rim + the iridescent sheen live in EMISSION so they
+	// read under any light direction; both stay far below bloom threshold.
+	EMISSION = (irid * dark_m * 0.10 + mix(vec3(1.0), base, 0.7) * 0.05) * fres;
+	// Dorsal feathers carry a satin sheen; the belly stays matte.
+	ROUGHNESS = mix(0.72, 0.50 + grain * 0.08, dark_m);
+	SPECULAR = mix(0.38, 0.52, dark_m);
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = shader
+	_material_cache[key] = mat
+	return mat
+
+
+## Bill keratin material: glossy sheath with a warm subsurface flush at the
+## base where the bill meets the face (light bleeding through thin keratin),
+## fading out toward the tip. grad_lo/grad_hi bound the flush in mesh-local Y
+## (a CylinderMesh runs -height/2 at the base to +height/2 at the tip).
+## Cached per color pair + gradient; the Shader object itself is shared.
+static func _get_bill_material(base: Color, warm: Color, grad_lo: float, grad_hi: float, gloss: float) -> Material:
+	var key := "bill_%s_%s_%.3f_%.3f_%.2f" % [base.to_html(false), warm.to_html(false), grad_lo, grad_hi, gloss]
+	if _material_cache.has(key):
+		return _material_cache[key]
+	if _bill_shader == null:
+		_bill_shader = Shader.new()
+		_bill_shader.code = """
+shader_type spatial;
+
+uniform vec4 base_color : source_color = vec4(0.1, 0.1, 0.12, 1.0);
+uniform vec4 warm_color : source_color = vec4(0.9, 0.5, 0.4, 1.0);
+uniform float grad_lo = -0.08;
+uniform float grad_hi = -0.01;
+uniform float gloss = 0.22;
+
+varying float v_y;
+
+void vertex() {
+	v_y = VERTEX.y;
+}
+
+void fragment() {
+	// Subsurface warm flush at the bill base, gone by mid-length.
+	float warm = 1.0 - smoothstep(grad_lo, grad_hi, v_y);
+	vec3 col = mix(base_color.rgb, warm_color.rgb, warm * 0.55);
+	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+	float fres = pow(1.0 - ndv, 4.0);
+	ALBEDO = col;
+	// Faint light bleed at the flush + wet keratin edge sheen.
+	EMISSION = warm_color.rgb * warm * 0.03 + col * fres * 0.10;
+	ROUGHNESS = gloss;
+	SPECULAR = 0.62;
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = _bill_shader
+	mat.set_shader_parameter("base_color", base)
+	mat.set_shader_parameter("warm_color", warm)
+	mat.set_shader_parameter("grad_lo", grad_lo)
+	mat.set_shader_parameter("grad_hi", grad_hi)
+	mat.set_shader_parameter("gloss", gloss)
 	_material_cache[key] = mat
 	return mat
 
@@ -267,6 +357,15 @@ func _mesh(parent: Node3D, mesh: Mesh, color: Color, pos: Vector3 = Vector3.ZERO
 	instance.scale = scl
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	parent.add_child(instance)
+	return instance
+
+
+## _mesh variant for tiny detail props (eye parts, catchlights, crest quills):
+## their shadows are invisible at gameplay scale, so casting is disabled to
+## keep the shadow pass cheap across 8 racers.
+func _prop(parent: Node3D, mesh: Mesh, color: Color, pos: Vector3 = Vector3.ZERO, rot: Vector3 = Vector3.ZERO, scl: Vector3 = Vector3.ONE, mat: Material = null) -> MeshInstance3D:
+	var instance := _mesh(parent, mesh, color, pos, rot, scl, mat)
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return instance
 
 
@@ -408,6 +507,11 @@ static func _plumage_at(y: float, theta_deg: float, pos: Vector3, dorsal: Color,
 			pm = maxf(pm, (1.0 - smoothstep(0.2, 1.0, sqrt(du2 * du2 + dv2 * dv2))) * 0.55)
 			if pm > 0.0:
 				col = col.lerp(patch, pm * 0.9)
+				# Bright saturated core with a long soft falloff: the real
+				# emperor patch glows at its center and feathers open toward
+				# the chest wash instead of ending in a painted edge.
+				var core := 1.0 - smoothstep(0.0, 0.55, sqrt(du * du + dv * dv))
+				col = col.lerp(patch.lightened(0.22), core * 0.40)
 		"king":
 			# Slimmer teardrop: tight ellipse behind the eye tapering forward
 			# and down toward the throat, more saturated than emperor.
@@ -419,6 +523,13 @@ static func _plumage_at(y: float, theta_deg: float, pos: Vector3, dorsal: Color,
 			pm = maxf(pm, (1.0 - smoothstep(0.15, 1.0, sqrt(du2 * du2 + dv2 * dv2))) * 0.85)
 			if pm > 0.0:
 				col = col.lerp(patch, pm * 0.95)
+			# Real kings carry a crisp near-black hairline separating the
+			# orange patch from the surrounding plumage — invisible against
+			# the dark cap, a sharp defining line where it meets the throat.
+			var d_edge := sqrt(du * du + dv * dv)
+			var border := smoothstep(0.82, 1.04, d_edge) * (1.0 - smoothstep(1.04, 1.38, d_edge))
+			if border > 0.0:
+				col = col.lerp(Color(0.05, 0.05, 0.07), border * 0.5)
 	if bool(sp.get("headphone", false)):
 		# Gentoo: white band from above each eye bridging over the crown.
 		# The theta window widens with height so the two side patches merge
@@ -431,6 +542,22 @@ static func _plumage_at(y: float, theta_deg: float, pos: Vector3, dorsal: Color,
 		var band := wy * wt
 		if band > 0.0:
 			col = col.lerp(ventral, band)
+		# Crown speckling: sparse white flecks scattered over the dark crown
+		# above the band — the gentoo's second field mark after the patch.
+		if y > 0.90 and band < 0.35:
+			var spk := clampf((sin(pos.x * 210.0 + pos.z * 170.0) \
+				* sin(pos.z * 190.0 - pos.x * 140.0 + y * 90.0) - 0.82) / 0.18, 0.0, 1.0)
+			col = col.lerp(ventral.darkened(0.08), spk * 0.55)
+	# Baked ambient-occlusion fakes: a soft contact band where the flipper
+	# root and shoulder mound meet the torso (theta ~92 deg, y ~0.585 matches
+	# the pivot at x 0.24 / y 0.60), and a faint grounding gradient under the
+	# belly skirt. Applied before grain so the darkening stays feathered.
+	var du_f := (theta_deg - 92.0) / 24.0
+	var dv_f := (y - 0.585) / 0.09
+	var ao := exp(-(du_f * du_f + dv_f * dv_f)) * 0.16
+	ao += (1.0 - smoothstep(0.035, 0.17, y)) * 0.10
+	if ao > 0.003:
+		col = col.darkened(minf(ao, 0.24))
 	return _grain(col, pos)
 
 
@@ -488,10 +615,12 @@ static func _build_body_mesh(species_id: String, dorsal: Color, ventral: Color, 
 
 
 ## Flat tapered flipper blade: elliptical cross-section tube along -Y with a
-## dark outer face (+X), white inner face and darkened leading/trailing edges.
-## The left side reuses this mesh rotated PI around Y (section is Z-symmetric).
-static func _build_flipper_mesh(dorsal: Color, ventral: Color) -> ArrayMesh:
-	var key := "pflip_%s_%s" % [dorsal.to_html(false), ventral.to_html(false)]
+## dark outer face (+X), white inner face, a darkened leading edge and a pale
+## trailing-edge border (the signature white rim of real penguin flippers).
+## The left side reuses this mesh rotated PI around Y; that yaw swaps the Z
+## edges, so flip mirrors the edge tinting (geometry stays Z-symmetric).
+static func _build_flipper_mesh(dorsal: Color, ventral: Color, flip: float = 1.0) -> ArrayMesh:
+	var key := "pflip_%s_%s_%d" % [dorsal.to_html(false), ventral.to_html(false), int(signf(flip))]
 	if _mesh_cache.has(key):
 		return _mesh_cache[key]
 	var rows := 14
@@ -516,7 +645,14 @@ static func _build_flipper_mesh(dorsal: Color, ventral: Color) -> ArrayMesh:
 			ring.append(pos)
 			var facing := cos(phi)  # +1 outer face, -1 inner face
 			var c := inner.lerp(dorsal, smoothstep(-0.45, 0.45, facing))
-			c = c.lerp(dorsal, (1.0 - absf(facing)) * 0.3)  # dark blade edges
+			var edge_k := 1.0 - absf(facing)
+			# lead > 0 is the forward (-Z world) edge once flip mirrors the
+			# left blade: dark leading edge, pale trailing-edge border.
+			var lead := sin(phi) * flip
+			if lead > 0.0:
+				c = c.lerp(dorsal.darkened(0.25), edge_k * 0.45)
+			else:
+				c = c.lerp(ventral, edge_k * 0.5)
 			col.append(_grain(c, pos + Vector3(0.7, 0.0, 0.0)))
 		rings.append(ring)
 		colors.append(col)
@@ -680,10 +816,26 @@ func setup(config: Dictionary) -> void:
 	catchlight.height = 0.017
 	catchlight.radial_segments = 8
 	catchlight.rings = 4
+	# Cornea bulge: a glossy near-black pupil sphere proud of the iris ball,
+	# rimmed by a thin dark limbal ring — up close the eye reads as a wet
+	# dome instead of a painted dot.
+	var pupil_mesh := SphereMesh.new()
+	pupil_mesh.radius = 0.019
+	pupil_mesh.height = 0.038
+	pupil_mesh.radial_segments = 14
+	pupil_mesh.rings = 8
+	var limbal_mesh := TorusMesh.new()
+	limbal_mesh.inner_radius = 0.014
+	limbal_mesh.outer_radius = 0.021
+	limbal_mesh.rings = 16
+	limbal_mesh.ring_segments = 8
 	# Iris color is per species (rockhopper/macaroni have red-brown eyes).
 	var eye_color := sp.get("eye_color", Color(0.10, 0.07, 0.06)) as Color
-	var eye_mat := get_material(eye_color, 0.0, 0.12)
+	var eye_mat := get_material(eye_color, 0.0, 0.07)
 	var gleam_mat := get_material(Color(1.0, 1.0, 1.0), 0.0, 0.2, true)
+	var pupil_mat := get_material(Color(0.02, 0.016, 0.014), 0.0, 0.04)
+	var limbal_mat := get_material(Color(0.05, 0.035, 0.025), 0.0, 0.30)
+	var glint_mat := get_material(Color(0.85, 0.90, 0.98), 0.0, 0.08)
 	# Eye sockets: flattened matte feather patches behind each eyeball so the
 	# eyes sit recessed in the head instead of reading as stickers. Dark-faced
 	# species get a near-black surround; the chinstrap's white face gets a
@@ -717,8 +869,12 @@ func setup(config: Dictionary) -> void:
 	_face_anchor.add_child(_eye_r)
 	for eye: Node3D in [_eye_l, _eye_r]:
 		_mesh(eye, socket_mesh, socket_color, Vector3(0, 0, 0.006), Vector3.ZERO, Vector3(1.15, 1.0, 0.5), socket_mat)
-		_mesh(eye, eye_mesh, Color.BLACK, Vector3.ZERO, Vector3.ZERO, Vector3.ONE, eye_mat)
-		_mesh(eye, catchlight, Color.WHITE, Vector3(0.008, 0.010, -0.024), Vector3.ZERO, Vector3.ONE, gleam_mat)
+		_prop(eye, eye_mesh, Color.BLACK, Vector3.ZERO, Vector3.ZERO, Vector3.ONE, eye_mat)
+		_prop(eye, pupil_mesh, Color.BLACK, Vector3(0, 0.002, -0.014), Vector3.ZERO, Vector3.ONE, pupil_mat)
+		_prop(eye, limbal_mesh, Color.BLACK, Vector3(0, 0.002, -0.026), Vector3(deg_to_rad(90), 0, 0), Vector3.ONE, limbal_mat)
+		_prop(eye, catchlight, Color.WHITE, Vector3(0.008, 0.010, -0.024), Vector3.ZERO, Vector3.ONE, gleam_mat)
+		# Secondary soft glint opposite the main catchlight sells the wet dome.
+		_prop(eye, catchlight, Color.WHITE, Vector3(-0.009, -0.007, -0.0225), Vector3.ZERO, Vector3(0.55, 0.55, 0.55), glint_mat)
 		if ring_mesh != null:
 			# Torus axis is +Y; pitch it 90 deg so the ring faces along the
 			# eye's outward -Z and hugs the head surface around the eyeball.
@@ -745,12 +901,19 @@ func setup(config: Dictionary) -> void:
 	var bill_girth := float(sp.get("bill_girth", 1.0))
 	var bill_dark := sp.get("bill_color", Color(0.14, 0.13, 0.16)) as Color
 	var bill_pink := sp.get("mandible_color", Color(0.93, 0.45, 0.38)) as Color
-	var bill_mat := get_material(bill_dark, 0.0, 0.35)
-	var mandible_mat := get_material(bill_pink, 0.0, 0.4)
+	# Glossy keratin with a warm subsurface flush at the base (derived from
+	# the mandible color, so dark-billed adelies stay near-black while
+	# orange-billed species pick up a live salmon glow at the gape).
+	var bill_h := 0.20 * bill_len
+	var mand_h := 0.15 * bill_len
+	var bill_warm := bill_pink.lerp(Color(0.92, 0.55, 0.42), 0.35)
+	var bill_mat := _get_bill_material(bill_dark, bill_warm, -0.35 * bill_h, -0.05 * bill_h, 0.20)
+	var hook_mat := get_material(bill_dark, 0.0, 0.22)
+	var mandible_mat := _get_bill_material(bill_pink, bill_pink.lerp(Color(0.85, 0.38, 0.30), 0.5), -0.35 * mand_h, -0.05 * mand_h, 0.24)
 	var bill_mesh := CylinderMesh.new()
-	bill_mesh.top_radius = 0.008
+	bill_mesh.top_radius = 0.005  # sharper tip than the old 0.008 blunt cut
 	bill_mesh.bottom_radius = 0.050 * bill_girth
-	bill_mesh.height = 0.20 * bill_len
+	bill_mesh.height = bill_h
 	bill_mesh.radial_segments = 24
 	_beak = _mesh(_face_anchor, bill_mesh, bill_dark, Vector3(0, -0.005, -0.058 + 0.10 * (1.0 - bill_len)), Vector3(deg_to_rad(-95), 0, 0), Vector3(1.1, 1.0, 0.62), bill_mat)
 	if bool(sp.get("bill_hook", false)):
@@ -759,11 +922,11 @@ func setup(config: Dictionary) -> void:
 		hook_mesh.bottom_radius = 0.018
 		hook_mesh.height = 0.05
 		hook_mesh.radial_segments = 12
-		_mesh(_face_anchor, hook_mesh, bill_dark, Vector3(0, -0.022, -0.148 + 0.20 * (1.0 - bill_len)), Vector3(deg_to_rad(-118), 0, 0), Vector3(0.85, 1.0, 0.7), bill_mat)
+		_mesh(_face_anchor, hook_mesh, bill_dark, Vector3(0, -0.022, -0.148 + 0.20 * (1.0 - bill_len)), Vector3(deg_to_rad(-118), 0, 0), Vector3(0.85, 1.0, 0.7), hook_mat)
 	var mandible_mesh := CylinderMesh.new()
-	mandible_mesh.top_radius = 0.006
+	mandible_mesh.top_radius = 0.0045
 	mandible_mesh.bottom_radius = 0.040 * bill_girth
-	mandible_mesh.height = 0.15 * bill_len
+	mandible_mesh.height = mand_h
 	mandible_mesh.radial_segments = 20
 	_beak_lower = _mesh(_face_anchor, mandible_mesh, bill_pink, Vector3(0, -0.035, -0.045 + 0.075 * (1.0 - bill_len)), Vector3(deg_to_rad(-100), 0, 0), Vector3(0.9, 1.0, 0.5), mandible_mat)
 
@@ -790,31 +953,51 @@ func setup(config: Dictionary) -> void:
 	_foot_l = _mesh(_root, foot_mesh, Color.WHITE, Vector3(-FOOT_X, FOOT_Y, FOOT_Z), Vector3(0, deg_to_rad(14), 0), foot_scale, plumage)
 	_foot_r = _mesh(_root, foot_mesh, Color.WHITE, Vector3(FOOT_X, FOOT_Y, FOOT_Z), Vector3(0, deg_to_rad(-14), 0), foot_scale, plumage)
 
-	# Crested species: quill fans built from tapered cylinders.
+	# Crested species: quill fans built from tapered cylinders. Two quill
+	# gauges + a shadowed color variant make the fans read as layered feather
+	# strands instead of three matched spikes; quill shadows are off (_prop) —
+	# invisible at gameplay scale, and they cost a shadow-pass draw each.
 	var crest_style := String(sp.get("crest", ""))
 	if crest_style != "":
 		var crest_color := _saturate(config.get("crest_color", sp.get("crest_color", Color(0.98, 0.82, 0.2))) as Color)
 		var crest_mat := get_body_material(crest_color, 0.6, 0.10)
+		var crest_deep := get_body_material(crest_color.darkened(0.22), 0.64, 0.08)
 		var quill := CylinderMesh.new()
 		quill.top_radius = 0.0
 		quill.bottom_radius = 0.016
 		quill.height = 0.18
 		quill.radial_segments = 8
+		var quill_fine := CylinderMesh.new()
+		quill_fine.top_radius = 0.0
+		quill_fine.bottom_radius = 0.009
+		quill_fine.height = 0.16
+		quill_fine.radial_segments = 6
 		match crest_style:
 			"rockhopper":
-				# Spiky yellow fans flaring up-and-out above each brow.
+				# Spiky yellow fans flaring up-and-out above each brow, backed
+				# by finer shadowed strands, plus the rockhopper's short black
+				# occipital crest spiking off the crown (hidden under hats).
+				var crown_mat := get_body_material(body_color, 0.68, 0.08)
 				for side: float in [-1.0, 1.0]:
-					_mesh(_head_anchor, quill, crest_color, Vector3(0.105 * side, 0.095, -0.045), Vector3(deg_to_rad(-14), 0, deg_to_rad(46.0 * side)), Vector3(1.0, 1.0, 1.0), crest_mat)
-					_mesh(_head_anchor, quill, crest_color, Vector3(0.115 * side, 0.085, -0.02), Vector3(deg_to_rad(2), 0, deg_to_rad(58.0 * side)), Vector3(0.9, 0.85, 0.9), crest_mat)
-					_mesh(_head_anchor, quill, crest_color, Vector3(0.095 * side, 0.105, -0.062), Vector3(deg_to_rad(-30), 0, deg_to_rad(34.0 * side)), Vector3(0.8, 0.8, 0.8), crest_mat)
+					_prop(_head_anchor, quill, crest_color, Vector3(0.105 * side, 0.095, -0.045), Vector3(deg_to_rad(-14), 0, deg_to_rad(46.0 * side)), Vector3(1.0, 1.0, 1.0), crest_mat)
+					_prop(_head_anchor, quill, crest_color, Vector3(0.115 * side, 0.085, -0.02), Vector3(deg_to_rad(2), 0, deg_to_rad(58.0 * side)), Vector3(0.9, 0.85, 0.9), crest_mat)
+					_prop(_head_anchor, quill, crest_color, Vector3(0.095 * side, 0.105, -0.062), Vector3(deg_to_rad(-30), 0, deg_to_rad(34.0 * side)), Vector3(0.8, 0.8, 0.8), crest_mat)
+					_prop(_head_anchor, quill_fine, crest_color, Vector3(0.120 * side, 0.075, -0.005), Vector3(deg_to_rad(12), 0, deg_to_rad(66.0 * side)), Vector3(1.0, 0.9, 1.0), crest_deep)
+					_prop(_head_anchor, quill_fine, crest_color, Vector3(0.088 * side, 0.112, -0.075), Vector3(deg_to_rad(-40), 0, deg_to_rad(26.0 * side)), Vector3(1.0, 0.85, 1.0), crest_mat)
+					_prop(_head_anchor, quill_fine, crest_color, Vector3(0.108 * side, 0.098, -0.035), Vector3(deg_to_rad(-6), 0, deg_to_rad(52.0 * side)), Vector3(1.0, 1.05, 1.0), crest_deep)
+					_prop(_head_anchor, quill_fine, body_color, Vector3(0.045 * side, 0.128, -0.030), Vector3(deg_to_rad(-14), 0, deg_to_rad(14.0 * side)), Vector3(1.0, 0.75, 1.0), crown_mat)
+				_prop(_head_anchor, quill_fine, body_color, Vector3(0.0, 0.135, -0.020), Vector3(deg_to_rad(-8), 0, 0), Vector3(1.0, 0.8, 1.0), crown_mat)
 			"macaroni":
 				# Orange-gold quills meeting at the center forehead and
-				# drooping outward past horizontal over each eye.
+				# drooping outward past horizontal over each eye, with finer
+				# shadowed strands filling the droop.
 				for side: float in [-1.0, 1.0]:
-					_mesh(_head_anchor, quill, crest_color, Vector3(0.020 * side, 0.115, -0.130), Vector3(deg_to_rad(-30), 0, deg_to_rad(50.0 * side)), Vector3(0.8, 0.85, 0.8), crest_mat)
-					_mesh(_head_anchor, quill, crest_color, Vector3(0.032 * side, 0.105, -0.112), Vector3(deg_to_rad(-20), 0, deg_to_rad(70.0 * side)), Vector3(0.9, 1.1, 0.9), crest_mat)
-					_mesh(_head_anchor, quill, crest_color, Vector3(0.055 * side, 0.095, -0.092), Vector3(deg_to_rad(-8), 0, deg_to_rad(84.0 * side)), Vector3(1.0, 1.15, 1.0), crest_mat)
-					_mesh(_head_anchor, quill, crest_color, Vector3(0.080 * side, 0.085, -0.070), Vector3(deg_to_rad(4), 0, deg_to_rad(96.0 * side)), Vector3(0.95, 1.0, 0.95), crest_mat)
+					_prop(_head_anchor, quill, crest_color, Vector3(0.020 * side, 0.115, -0.130), Vector3(deg_to_rad(-30), 0, deg_to_rad(50.0 * side)), Vector3(0.8, 0.85, 0.8), crest_mat)
+					_prop(_head_anchor, quill, crest_color, Vector3(0.032 * side, 0.105, -0.112), Vector3(deg_to_rad(-20), 0, deg_to_rad(70.0 * side)), Vector3(0.9, 1.1, 0.9), crest_mat)
+					_prop(_head_anchor, quill, crest_color, Vector3(0.055 * side, 0.095, -0.092), Vector3(deg_to_rad(-8), 0, deg_to_rad(84.0 * side)), Vector3(1.0, 1.15, 1.0), crest_mat)
+					_prop(_head_anchor, quill, crest_color, Vector3(0.080 * side, 0.085, -0.070), Vector3(deg_to_rad(4), 0, deg_to_rad(96.0 * side)), Vector3(0.95, 1.0, 0.95), crest_mat)
+					_prop(_head_anchor, quill_fine, crest_color, Vector3(0.068 * side, 0.088, -0.082), Vector3(deg_to_rad(-2), 0, deg_to_rad(104.0 * side)), Vector3(1.0, 1.1, 1.0), crest_deep)
+					_prop(_head_anchor, quill_fine, crest_color, Vector3(0.042 * side, 0.100, -0.100), Vector3(deg_to_rad(-14), 0, deg_to_rad(88.0 * side)), Vector3(1.0, 1.2, 1.0), crest_deep)
 
 	_hat_anchor = Node3D.new()
 	_hat_anchor.position = Vector3(0, 0.13, -0.005)
@@ -842,8 +1025,9 @@ func _make_flipper(body_color: Color, belly_color: Color, side: float) -> Node3D
 	shoulder_mesh.rings = 8
 	_mesh(pivot, shoulder_mesh, body_color, Vector3(0.015 * side, -0.015, 0), Vector3.ZERO, Vector3(0.75, 0.95, 0.9), get_body_material(body_color))
 	# Blade: shared two-tone mesh; the left side is the same mesh yawed PI so
-	# its dark face points outward (the cross-section is Z-symmetric).
-	var blade := _mesh(pivot, _build_flipper_mesh(body_color, belly_color), Color.WHITE, Vector3(0.012 * side, -0.02, 0), Vector3.ZERO, Vector3.ONE, _get_plumage_material())
+	# its dark face points outward (the cross-section is Z-symmetric; the
+	# per-side flip keeps the pale trailing-edge border facing backward).
+	var blade := _mesh(pivot, _build_flipper_mesh(body_color, belly_color, side), Color.WHITE, Vector3(0.012 * side, -0.02, 0), Vector3.ZERO, Vector3.ONE, _get_plumage_material())
 	if side < 0.0:
 		blade.rotation.y = PI
 	# Match tick()'s rest targets (l: -16, r: +16) so static frames (previews,

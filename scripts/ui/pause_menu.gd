@@ -7,6 +7,7 @@ var _paused: bool = false
 var _buttons: Array[Button] = []
 var _quit_button: Button = null
 var _quit_armed: bool = false
+var _mute_button_ref: Button = null
 
 
 func _ready() -> void:
@@ -108,6 +109,11 @@ func _open() -> void:
 		slider.value_changed.connect(func(value: float) -> void:
 			SettingsManager.set_setting("audio", key, value))
 		row.add_child(slider)
+	var mute_button := _add_button(vbox, "Mute All" if not bool(SettingsManager.get_setting("audio", "muted")) else "Unmute", func() -> void:
+		var now_muted := not bool(SettingsManager.get_setting("audio", "muted"))
+		SettingsManager.set_setting("audio", "muted", now_muted)
+		(_mute_button_ref as Button).text = "Unmute" if now_muted else "Mute All")
+	_mute_button_ref = mute_button
 	_quit_armed = false
 	_quit_button = _add_button(vbox, "Quit to Menu", _on_quit_pressed)
 	# Edge swipe resumes, mirroring the Resume button for touch players.

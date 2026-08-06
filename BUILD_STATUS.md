@@ -130,3 +130,33 @@ TIMEOUT at baseline b0a5c19 (autopilot resonance, pre-existing); post-fix:
 progress watchdog (respawn when <6m course progress in 12s); boost-arrow direction verified via tests/pad_shot.tscn
 top-down captures; leaderboard Worker endpoints smoke-tested (health,
 empty board, 401 on missing/garbage token).
+
+## Fidelity + playtest-fix round (2026-08-06)
+
+Scope: 7-agent "100x realism" fidelity pass (seals rebuilt as realistic
+lathe-body animals with wet-skin shader + whiskers; penguin feather/
+iridescence/bill/eye detail; snow/ice/boost/water/aurora shader upgrades;
+all hazards; pickups incl. 3-ball snowball stacks + item-box glints; course
+dressing: glacier boulders/cave glints, aurora starfield/crystals, iceberg
+floes/hero bergs). Plus playtest fixes: two-press fish-purchase confirm;
+instant boost on pad entry; causeway tilt intensified (9→13°, 15° reverted
+after Marina DNF); accessibility pass (high_contrast_pickups now covers
+pads/platforms/hazards/item boxes, shape+brightness cues); vanity domain
+waddlewars.ninjaconsulting.ai (DNS CNAME + Pages custom domain + HTTPS +
+301 from github.io); race-pause Mute All toggle; touch shove/steer hint
+strip during countdown; gamer-name entry in leaderboard (POST /api/profile,
+sanitized 2-20 chars); main-menu sign-in chip + cloud save sync (pristine
+local adopts cloud, else local pushes; debounced 8s); web leaderboard
+transport replaced with __ww_api page-fetch bridge (Godot web HTTPRequest
+unreliable on phone); Clerk lazy-load + dpr cap 2 (phone perf); global +
+per-course exposure/warmth grade (overexposure fix); iceberg violet blob
+artifact fixed via _flat_lit_snow() per-course material (snow normal-map
+self-shadowing under -13° sun).
+
+Validation evidence (2026-08-06): headless import 0 script errors; units
+50/50; race sims PASS glacier/aurora/iceberg×2 (13° tilt battery also 3/3);
+endless_sim, gp_sim, tutorial_sim PASS. Visual QA via qa_shots/fidelity/
+series (v8-glacier, v10-iceberg clean of blob artifacts, aurora/seal/penguin
+close-ups). Known-open: leaderboard/sign-in bridge rewrite not yet
+re-verified on user's phone; Clerk keys are TEST instance (swap before
+serious traffic); LICENSE choice pending user.

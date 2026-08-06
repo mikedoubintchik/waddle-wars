@@ -1,9 +1,108 @@
 class_name FishPickup
 extends Area3D
 ## Collectible fish: score pickup, cosmetic currency, magnet-attractable.
-## Visual: stylized fish (fusiform body, forked tail, dorsal + pectoral fins,
-## eye dots) built once as a shared ArrayMesh with per-surface materials so
-## every instance reuses the same mesh and material resources.
+## Visual: stylized forage fish built once as a shared ArrayMesh — a lathed
+## fusiform body (blunt head, deep mid-body, narrow caudal peduncle,
+## laterally compressed), forked tail + dorsal/pectoral/anal fins, eye dots
+## with corneal glints. The body and fin surfaces use inline spatial shaders:
+## silvery countershaded iridescence with gill/operculum detail, plus a
+## world-position-phased vertex swim stroke so every fish waves its tail on
+## its own beat (no instance uniforms — gl_compatibility safe).
+
+## Body shader: countershading (slate dorsal -> mirror-silver belly), scale
+## shimmer bands + sparse view-angle scale glitter, wavy lateral line, dorsal
+## speckle rows, gill arc + bright operculum plate, pearlescent belly sheen,
+## thin-film iridescence in the fresnel band, and a tail-weighted lateral
+## swim sway in the vertex stage phased by world position. Pure math, no
+## textures.
+const BODY_SHADER_CODE := """shader_type spatial;
+render_mode diffuse_burley, specular_schlick_ggx;
+
+varying vec3 v_obj;
+
+float hash31(vec3 p) {
+	return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+}
+
+void vertex() {
+	v_obj = VERTEX;
+	// Swim stroke: lateral sway grows toward the tail; phase comes from the
+	// instance's world origin so a school never wiggles in lockstep.
+	float phase = MODEL_MATRIX[3].x * 1.7 + MODEL_MATRIX[3].z * 2.3;
+	VERTEX.z += sin(TIME * 5.0 + phase + VERTEX.x * 6.0) * 0.045 * smoothstep(-0.16, 0.34, VERTEX.x);
+}
+
+void fragment() {
+	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+	float fres = pow(1.0 - ndv, 2.5);
+	// Countershading: slate dorsal -> mirror-silver belly.
+	float topness = smoothstep(-0.06, 0.09, v_obj.y);
+	vec3 dorsal = vec3(0.16, 0.23, 0.33);
+	vec3 silver = vec3(0.88, 0.93, 0.97);
+	vec3 col = mix(silver, dorsal, topness);
+	// Scale shimmer: fine cross-bands modulate tone and roughness so the
+	// specular response breaks up like overlapping scales.
+	float scales = sin(v_obj.x * 72.0) * sin(v_obj.y * 55.0 + v_obj.z * 38.0);
+	col += vec3(scales * 0.025);
+	// Gill arc + bright operculum plate on the cheek (head region only).
+	float head = 1.0 - smoothstep(-0.07, -0.02, v_obj.x);
+	float gill = (1.0 - smoothstep(0.007, 0.020, abs(length(vec2(v_obj.x + 0.17, v_obj.y * 0.8)) - 0.10))) * head;
+	col *= 1.0 - gill * 0.38;
+	float cheek = (1.0 - smoothstep(0.045, 0.105, length(vec2(v_obj.x + 0.20, v_obj.y * 0.9)))) * head;
+	col = mix(col, silver, cheek * 0.45);
+	// Lateral line: the wavy sensory seam along the mid-flank, operculum to
+	// caudal peduncle — the single strongest "real fish" silhouette cue.
+	float mid = smoothstep(-0.20, -0.12, v_obj.x) * (1.0 - smoothstep(0.14, 0.20, v_obj.x));
+	float lat = (1.0 - smoothstep(0.004, 0.014, abs(v_obj.y - 0.008 - sin(v_obj.x * 14.0) * 0.006))) * mid;
+	col *= 1.0 - lat * 0.22;
+	// Dorsal speckle rows (sardine-style), upper flank only.
+	float spots = step(0.87, hash31(floor(vec3(v_obj.x * 46.0, v_obj.y * 30.0, sign(v_obj.z))))) * smoothstep(0.02, 0.06, v_obj.y);
+	col = mix(col, dorsal * 0.7, spots * 0.5);
+	// Pearlescent belly sheen: warm mother-of-pearl in the grazing band on
+	// the silver underside.
+	col = mix(col, vec3(0.99, 0.93, 0.90), (1.0 - topness) * fres * 0.25);
+	// Scale glitter: sparse per-cell micro-facets flash as the view sweeps
+	// (crawls with motion, never strobes in place).
+	vec3 cell = floor(v_obj * vec3(90.0, 70.0, 70.0));
+	vec3 jitter = vec3(hash31(cell), hash31(cell + 1.3), hash31(cell + 2.6)) - 0.5;
+	vec3 gn = normalize(NORMAL + jitter * 0.9);
+	float glitter = pow(clamp(dot(gn, VIEW), 0.0, 1.0), 48.0) * step(0.5, hash31(cell + 4.1));
+	// Thin-film iridescence riding the fresnel band (herring-flank rainbow).
+	vec3 irid = 0.5 + 0.5 * cos(6.28318 * (fres * 1.1 + v_obj.x * 2.0 + vec3(0.0, 0.33, 0.66)));
+	ALBEDO = col;
+	METALLIC = 0.75;
+	ROUGHNESS = clamp(0.24 + scales * 0.06, 0.05, 1.0);
+	SPECULAR = 0.6;
+	// Mild self-emission keeps the pickup readable in shadowed track dips.
+	EMISSION = irid * fres * 0.30 + col * 0.16 + vec3(1.0) * glitter * 0.5;
+}
+"""
+
+## Fin shader: same swim sway (phase-matched to the body so the tail wags
+## with the peduncle), warm membrane with fin-ray striations + rim glow.
+const FIN_SHADER_CODE := """shader_type spatial;
+render_mode cull_disabled, diffuse_burley, specular_schlick_ggx;
+
+varying vec3 v_obj;
+
+void vertex() {
+	v_obj = VERTEX;
+	float phase = MODEL_MATRIX[3].x * 1.7 + MODEL_MATRIX[3].z * 2.3;
+	VERTEX.z += sin(TIME * 5.0 + phase + VERTEX.x * 6.0) * 0.045 * smoothstep(-0.16, 0.34, VERTEX.x);
+}
+
+void fragment() {
+	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+	float fres = pow(1.0 - ndv, 2.0);
+	// Fin-ray striations: brighter membrane between darker structural rays.
+	float rays = 0.5 + 0.5 * sin(v_obj.y * 46.0 + v_obj.z * 46.0 + v_obj.x * 18.0);
+	vec3 col = mix(vec3(1.0, 0.40, 0.10), vec3(1.0, 0.63, 0.24), rays);
+	ALBEDO = col;
+	ROUGHNESS = 0.38;
+	SPECULAR = 0.4;
+	EMISSION = col * (0.22 + fres * 0.5);
+}
+"""
 
 static var _fish_mesh: ArrayMesh = null
 static var _fish_mat_contrast: StandardMaterial3D = null
@@ -47,22 +146,38 @@ static func _get_fish_mesh() -> ArrayMesh:
 	if _fish_mesh != null:
 		return _fish_mesh
 	var mesh := ArrayMesh.new()
-	# Surface 0: fusiform body -- sphere lathe squashed into a torpedo
-	# (nose at -X, tail root at +X). Normals regenerated after the
-	# non-uniform scale so the ellipsoid shades correctly.
+	# Surface 0: fusiform body lathe -- nose at -X, caudal peduncle at +X.
+	# Radius profile peaks ~38% along the body (blunt head, tapering tail),
+	# depth > width (laterally compressed), slight belly drop at mid-body.
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var body := SphereMesh.new()
-	body.radius = 0.5
-	body.height = 1.0
-	body.radial_segments = 16
-	body.rings = 8
-	st.append_from(body, 0, Transform3D(Basis.from_scale(Vector3(0.44, 0.24, 0.15)), Vector3.ZERO))
-	st.deindex()
+	var rings := 14
+	var segs := 12
+	var ring_pts: Array[PackedVector3Array] = []
+	for i: int in rings + 1:
+		var t := float(i) / float(rings)
+		var x := lerpf(-0.24, 0.20, t)
+		var r := maxf(0.135 * pow(maxf(sin(PI * pow(t, 0.72)), 0.0), 0.85), 0.004)
+		var yc := -0.012 * sin(PI * t)
+		var pts := PackedVector3Array()
+		for j: int in segs:
+			var a := TAU * float(j) / float(segs)
+			pts.append(Vector3(x, yc + cos(a) * r, sin(a) * r * 0.58))
+		ring_pts.append(pts)
+	for i: int in rings:
+		for j: int in segs:
+			var jn := (j + 1) % segs
+			var a := ring_pts[i][j]
+			var b := ring_pts[i][jn]
+			var c := ring_pts[i + 1][jn]
+			var d := ring_pts[i + 1][j]
+			_add_body_tri(st, a, b, c)
+			_add_body_tri(st, a, c, d)
 	st.generate_normals()
 	st.commit(mesh)
-	# Surface 1: fins -- forked caudal tail (two lobes), dorsal fin, and a
-	# pectoral pair. Flat blades, double-sided via the fin material.
+	# Surface 1: fins -- forked caudal tail (two lobes), dorsal fin, pectoral
+	# pair, and a small anal fin. Flat blades, double-sided via the fin
+	# shader's cull_disabled; the shader's vertex sway wags the tail lobes.
 	st = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	_add_fin(st, Vector3(0.18, 0.0, 0.0), Vector3(0.40, 0.16, 0.0), Vector3(0.28, 0.03, 0.0))
@@ -70,6 +185,7 @@ static func _get_fish_mesh() -> ArrayMesh:
 	_add_fin(st, Vector3(-0.06, 0.09, 0.0), Vector3(0.04, 0.26, 0.0), Vector3(0.12, 0.08, 0.0))
 	_add_fin(st, Vector3(-0.06, -0.02, 0.06), Vector3(0.05, -0.09, 0.15), Vector3(0.02, -0.01, 0.07))
 	_add_fin(st, Vector3(-0.06, -0.02, -0.06), Vector3(0.02, -0.01, -0.07), Vector3(0.05, -0.09, -0.15))
+	_add_fin(st, Vector3(0.04, -0.11, 0.0), Vector3(0.13, -0.19, 0.0), Vector3(0.15, -0.08, 0.0))
 	st.generate_normals()
 	st.commit(mesh)
 	# Surface 2: eye dots, one per side near the nose.
@@ -83,32 +199,61 @@ static func _get_fish_mesh() -> ArrayMesh:
 	st.append_from(eye, 0, Transform3D(Basis(), Vector3(-0.13, 0.03, 0.052)))
 	st.append_from(eye, 0, Transform3D(Basis(), Vector3(-0.13, 0.03, -0.052)))
 	st.commit(mesh)
+	# Surface 3: corneal glints -- tiny bright spheres proud of each eye.
+	st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var glint := SphereMesh.new()
+	glint.radius = 0.012
+	glint.height = 0.024
+	glint.radial_segments = 6
+	glint.rings = 3
+	st.append_from(glint, 0, Transform3D(Basis(), Vector3(-0.138, 0.045, 0.077)))
+	st.append_from(glint, 0, Transform3D(Basis(), Vector3(-0.138, 0.045, -0.077)))
+	st.commit(mesh)
 	# Shared per-surface materials (stored on the shared mesh, so all
 	# instances reuse them; high-contrast mode overrides via material_override).
-	var body_mat := StandardMaterial3D.new()
-	body_mat.albedo_color = Color(0.45, 0.62, 0.78)
-	body_mat.metallic = 0.55
-	body_mat.roughness = 0.28
-	body_mat.emission_enabled = true
-	body_mat.emission = Color(0.1, 0.18, 0.28)
-	body_mat.emission_energy_multiplier = 0.5
+	var body_shader := Shader.new()
+	body_shader.code = BODY_SHADER_CODE
+	var body_mat := ShaderMaterial.new()
+	body_mat.shader = body_shader
 	mesh.surface_set_material(0, body_mat)
-	var fin_mat := StandardMaterial3D.new()
-	fin_mat.albedo_color = Color(1.0, 0.45, 0.12)
-	fin_mat.metallic = 0.1
-	fin_mat.roughness = 0.4
-	fin_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	fin_mat.emission_enabled = true
-	fin_mat.emission = Color(0.9, 0.3, 0.05)
-	fin_mat.emission_energy_multiplier = 0.45
+	var fin_shader := Shader.new()
+	fin_shader.code = FIN_SHADER_CODE
+	var fin_mat := ShaderMaterial.new()
+	fin_mat.shader = fin_shader
 	mesh.surface_set_material(1, fin_mat)
 	var eye_mat := StandardMaterial3D.new()
 	eye_mat.albedo_color = Color(0.05, 0.06, 0.08)
 	eye_mat.metallic = 0.0
 	eye_mat.roughness = 0.2
 	mesh.surface_set_material(2, eye_mat)
+	var glint_mat := StandardMaterial3D.new()
+	glint_mat.albedo_color = Color(1.0, 1.0, 1.0)
+	glint_mat.emission_enabled = true
+	glint_mat.emission = Color(1.0, 1.0, 1.0)
+	glint_mat.emission_energy_multiplier = 1.2
+	glint_mat.roughness = 0.1
+	mesh.surface_set_material(3, glint_mat)
 	_fish_mesh = mesh
 	return _fish_mesh
+
+
+## Adds one lathe triangle, auto-orienting to Godot's clockwise front-face
+## winding using the radial outward direction (same rule as ItemBox faces).
+static func _add_body_tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3) -> void:
+	var centroid := (a + b + c) / 3.0
+	var outward := Vector3(0.0, centroid.y, centroid.z)
+	if outward.length_squared() < 0.000001:
+		outward = Vector3.UP
+	var normal := (b - a).cross(c - a)
+	if normal.dot(outward) > 0.0:
+		st.add_vertex(a)
+		st.add_vertex(c)
+		st.add_vertex(b)
+	else:
+		st.add_vertex(a)
+		st.add_vertex(b)
+		st.add_vertex(c)
 
 
 static func _add_fin(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3) -> void:
@@ -119,8 +264,8 @@ static func _add_fin(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3) -> voi
 
 static func _get_material() -> StandardMaterial3D:
 	# Returns a whole-fish override for high-contrast accessibility mode
-	# (bright gold emissive silhouette), or null so the mesh's per-surface
-	# fish materials show normally.
+	# (bright gold emissive silhouette; also freezes the shader swim sway for
+	# a steadier read), or null so the mesh's per-surface materials show.
 	var high_contrast := bool(SettingsManager.get_setting("accessibility", "high_contrast_pickups"))
 	if not high_contrast:
 		return null
@@ -176,8 +321,11 @@ func _physics_process(delta: float) -> void:
 		# (no broadphase re-sync every tick; same pattern as item_box.gd).
 		_spin += delta * 0.9
 		_visual.position.y = sin(_bob_time * 2.4) * 0.15
-		# Gentle swim wiggle: yaw sine on the visual so the fish looks alive.
+		# Gentle swim wiggle: yaw sine on the visual so the fish looks alive
+		# (the fine tail wag rides in the body/fin shaders' vertex sway),
+		# plus a small counter-phase roll — real fish bank into each stroke.
 		_visual.rotation.y = _spin + sin(_bob_time * 5.2) * 0.3
+		_visual.rotation.z = sin(_bob_time * 5.2 + 1.1) * 0.07
 
 
 func attract_to(racer: Racer) -> void:

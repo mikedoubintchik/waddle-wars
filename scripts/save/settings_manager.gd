@@ -71,6 +71,9 @@ static func default_settings() -> Dictionary:
 			"pause_on_disconnect": true,
 			"audio_visual_cues": false,
 		},
+		"online": {
+			"display_name": "",  # optional leaderboard name (server-sanitized)
+		},
 		"controls": {},  # action -> array of serialized input events
 	}
 

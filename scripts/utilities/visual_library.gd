@@ -74,6 +74,9 @@ static func ice_material(tint: Color, clarity: float = 0.7, detail: float = -1.0
 	mat.set_shader_parameter("deep_tint", Color(tint.r * 0.25, tint.g * 0.45, tint.b * 0.62))
 	mat.set_shader_parameter("clarity", clarity)
 	mat.set_shader_parameter("roughness_base", lerpf(0.4, 0.06, clarity))
+	# Cloudy (low-clarity) ice hides its interior: fade the parallax depth
+	# patches out, or they read as dark blobs on pale frosted runs.
+	mat.set_shader_parameter("depth_strength", lerpf(0.08, 0.3, clarity))
 	mat.set_shader_parameter("detail_level", d)
 	_materials[key] = mat
 	return mat

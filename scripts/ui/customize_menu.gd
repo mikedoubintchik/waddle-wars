@@ -326,15 +326,32 @@ func _show_item_desc(text: String) -> void:
 		_desc_label.text = text
 
 
+var _pending_buy_id: String = ""
+
+
 func _on_item_pressed(id: String) -> void:
-	var category := String(CosmeticsDB.get_item(id).get("category", _current_category))
+	var info := CosmeticsDB.get_item(id)
+	var category := String(info.get("category", _current_category))
 	if Progression.is_cosmetic_unlocked(id):
+		_pending_buy_id = ""
 		AudioManager.ui_click()
 		if Progression.get_equipped(category) == id and category != "body":
 			Progression.equip(category, "")
 		else:
 			Progression.equip(category, id)
 		return
+	# Spending fish is irreversible — require a second press to confirm.
+	if _pending_buy_id != id:
+		_pending_buy_id = id
+		AudioManager.ui_click()
+		var cost := int(info.get("cost", 0))
+		if Progression.get_fish() < cost:
+			_show_item_desc("Not enough fish — %s costs %d." % [String(info.get("name", id)), cost])
+			_pending_buy_id = ""
+		else:
+			_show_item_desc("Buy %s for %d fish? Select again to confirm." % [String(info.get("name", id)), cost])
+		return
+	_pending_buy_id = ""
 	if Progression.try_unlock_cosmetic(id):
 		Progression.equip(category, id)
 	else:

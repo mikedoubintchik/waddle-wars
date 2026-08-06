@@ -228,7 +228,22 @@ func _build_segment(kind: String, intensity: float) -> void:
 				add_fish_line(o + 20.0, 8, 5.0, 0.0, 1.5))
 
 
+## Glacier-family dressing density: route flags/rocks, wind-blown snowbank
+## drifts and calved ice boulders lining the whole expedition (MultiMesh, one
+## draw call each), spectators bookending start and finish, and two layered
+## silhouette rings of craggy peaks following the wandering corridor instead
+## of the old bare cone ring. Runs after every gameplay rng draw, so seeded
+## segment layouts stay byte-identical. Skipped headless (visual only).
 func _decorate() -> void:
+	if GameConfig.is_headless():
+		return
+	var quality := String(SettingsManager.get_setting("display", "particle_quality"))
+	var density := 1.0
+	if quality == "medium":
+		density = 0.75
+	elif quality == "low":
+		density = 0.5
+
 	var offset := 80.0
 	var side := 1.0
 	while offset < main_guide.length - 80.0:
@@ -240,19 +255,116 @@ func _decorate() -> void:
 			TrackBuilder.add_rock(self, xform.origin + xform.basis.x * (lateral + 4.0) + Vector3.DOWN, rng.randf_range(0.8, 1.6), rng)
 		side = -side
 		offset += 90.0
-	for i: int in 12:
-		var angle := TAU * float(i) / 12.0
-		var dist := rng.randf_range(350.0, 550.0)
-		var mountain := MeshInstance3D.new()
-		var cone := CylinderMesh.new()
-		cone.top_radius = 0.0
-		cone.bottom_radius = rng.randf_range(70.0, 120.0)
-		cone.height = rng.randf_range(140.0, 260.0)
-		cone.radial_segments = 7
-		mountain.mesh = cone
-		mountain.material_override = TrackBuilder.prop_material(Color(0.8, 0.87, 0.95), 0.9)
-		mountain.position = Vector3(sin(angle) * dist, 40.0, -1500.0 + cos(angle) * dist * 1.6)
-		add_child(mountain)
+
+	_decorate_mountains()
+	_decorate_snowbanks(density)
+	_decorate_boulders(density)
+
+	# Expedition send-off and welcome crowds.
+	for i: int in maxi(int(10.0 * density), 4):
+		var near_start := main_guide.transform_at(rng.randf_range(10.0, 80.0))
+		var lat := (11.5 + rng.randf_range(0.0, 5.0)) * (1.0 if i % 2 == 0 else -1.0)
+		TrackBuilder.add_spectator(self, near_start.origin + near_start.basis.x * lat, near_start.origin, rng)
+	for i: int in maxi(int(7.0 * density), 3):
+		var near_finish := main_guide.transform_at(finish_offset - rng.randf_range(5.0, 60.0))
+		var lat := (11.5 + rng.randf_range(0.0, 5.0)) * (1.0 if i % 2 == 0 else -1.0)
+		TrackBuilder.add_spectator(self, near_finish.origin + near_finish.basis.x * lat, near_finish.origin, rng)
+
+
+## Two silhouette rings anchored along the wandering guide (never a fixed
+## world ring — the seeded course can drift anywhere): a near ring of craggy
+## faceted peaks and a far, paler hazed ring behind it. Rejection sampling
+## keeps every peak clear of the racing line; shadows off (backdrop only).
+func _decorate_mountains() -> void:
+	var near_mat := VisualLibrary.rock_material(Color(1.0, 1.0, 1.0))
+	var far_mat := TrackBuilder.prop_material(Color(0.84, 0.9, 0.98), 0.9)
+	for _i: int in 12:
+		_place_peak(near_mat, 260.0, 470.0, 90.0, 170.0, 120.0, 240.0)
+	for _i: int in 10:
+		_place_peak(far_mat, 560.0, 900.0, 150.0, 260.0, 200.0, 380.0)
+
+
+func _place_peak(mat: Material, lat_min: float, lat_max: float, w_min: float, w_max: float,
+		h_min: float, h_max: float) -> void:
+	for _attempt: int in 8:
+		var anchor := main_guide.transform_at(rng.randf_range(0.0, main_guide.length))
+		var side := 1.0 if rng.randf() > 0.5 else -1.0
+		var width := rng.randf_range(w_min, w_max)
+		var pos := anchor.origin + anchor.basis.x * (rng.randf_range(lat_min, lat_max) * side)
+		# The wandering corridor can loop back near any world point: demand
+		# clearance from the WHOLE guide, not just the anchor span.
+		if float(main_guide.nearest(pos, -1)["distance"]) < width * 1.5 + 40.0:
+			continue
+		var peak := MeshInstance3D.new()
+		peak.mesh = VisualLibrary.berg_mesh(rng.randi())
+		peak.material_override = mat
+		peak.scale = Vector3(width * rng.randf_range(0.9, 1.4), rng.randf_range(h_min, h_max), width)
+		var lowest := INF
+		for point: Vector3 in main_guide.points:
+			lowest = minf(lowest, point.y)
+		peak.position = Vector3(pos.x, lowest - 18.0, pos.z)
+		peak.rotation.y = rng.randf() * TAU
+		peak.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(peak)
+		return
+
+
+## Wind-blown snowbank drifts hugging both track flanks along the whole run —
+## the glacier course's density pattern, one MultiMesh draw call.
+func _decorate_snowbanks(density: float) -> void:
+	var transforms: Array[Transform3D] = []
+	var step := 15.0 / density
+	var offset := 30.0
+	var side := 1.0
+	while offset < main_guide.length - 30.0:
+		var xform := main_guide.transform_at(offset)
+		var lateral := (13.0 + rng.randf_range(0.0, 5.5)) * side
+		var r := rng.randf_range(1.5, 3.4)
+		var bank_basis := Basis(Vector3.UP, rng.randf() * TAU) \
+			* Basis.from_scale(Vector3(
+				r * rng.randf_range(1.4, 2.2), r * rng.randf_range(0.5, 0.8), r * rng.randf_range(0.7, 1.0)))
+		transforms.append(Transform3D(bank_basis, xform.origin + xform.basis.x * lateral + Vector3.DOWN * 0.4))
+		side = -side
+		offset += step
+	_add_multimesh(VisualLibrary.snow_drift_mesh(), transforms,
+		VisualLibrary.rock_material(Color(1.0, 1.0, 1.0)), "Snowbanks")
+
+
+## Calved ice boulders in the smooth-ice track shader (crack veins + sun
+## streak; its frost border is gated off non-track meshes), tumbled just off
+## both edges. One MultiMesh draw call.
+func _decorate_boulders(density: float) -> void:
+	var transforms: Array[Transform3D] = []
+	for _i: int in int(18.0 * density):
+		var offset := rng.randf_range(60.0, main_guide.length - 70.0)
+		var xform := main_guide.transform_at(offset)
+		var lateral := rng.randf_range(12.0, 20.0) * (1.0 if rng.randf() > 0.5 else -1.0)
+		var s := rng.randf_range(0.9, 2.3)
+		var boulder_basis := Basis.from_euler(Vector3(
+			rng.randf_range(-0.35, 0.35), rng.randf() * TAU, rng.randf_range(-0.35, 0.35))) \
+			* Basis.from_scale(Vector3(
+				s * rng.randf_range(0.85, 1.3), s * rng.randf_range(0.5, 0.85), s * rng.randf_range(0.85, 1.3)))
+		transforms.append(Transform3D(boulder_basis,
+			xform.origin + xform.basis.x * lateral + Vector3.DOWN * rng.randf_range(0.4, 0.9)))
+	_add_multimesh(VisualLibrary.berg_mesh(11), transforms,
+		TrackBuilder.surface_material(SurfacesDB.Surface.ICE_SMOOTH), "IceBoulders")
+
+
+func _add_multimesh(mesh: Mesh, transforms: Array[Transform3D], material: Material, name_hint: String) -> void:
+	if transforms.is_empty():
+		return
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = mesh
+	mm.instance_count = transforms.size()
+	for i: int in transforms.size():
+		mm.set_instance_transform(i, transforms[i])
+	var instance := MultiMeshInstance3D.new()
+	instance.name = name_hint
+	instance.multimesh = mm
+	instance.material_override = material
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(instance)
 
 
 ## Entry point used by race.gd for Mode.ENDLESS.

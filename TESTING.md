@@ -174,6 +174,11 @@ the working tree:
 | Leaderboard API | curl health/board/401 checks | all correct |
 | Visual QA | screenshot_tour: menu, leaderboard, countdown | reviewed; control-strip contrast fixed |
 
+2026-08-06 fidelity-round rerun: import 0 errors; units 50/50; sims PASS
+glacier/aurora/iceberg×2/endless/gp/tutorial (SUITE-DONE, exit 0). Iceberg
+causeway tilt at 13° also passed a separate 3/3 battery (15° caused one
+Marina DNF and was reverted).
+
 Iceberg flake investigation: baseline b0a5c19 timed out 3/6 sim runs — a
 pre-existing autopilot resonance (boost pad 16m before the moving-platform
 crossing + fixed respawn cadence re-hitting the same platform phase), NOT a

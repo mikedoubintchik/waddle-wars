@@ -15,6 +15,8 @@ var _list_box: VBoxContainer
 var _status_label: Label
 var _auth_button: Button
 var _auth_label: Label
+var _name_row: HBoxContainer = null
+var _name_edit: LineEdit = null
 var _fetch_serial: int = 0
 
 
@@ -102,8 +104,42 @@ func _build_auth_row(parent: Control) -> void:
 			if LeaderboardClient.signed_in:
 				LeaderboardClient.sign_out()
 			else:
+				_auth_button.text = "Opening…"
 				LeaderboardClient.sign_in())
 		row.add_child(_auth_button)
+	# Signed-in players can pick the name shown on the boards.
+	_name_row = HBoxContainer.new()
+	_name_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_name_row.add_theme_constant_override("separation", 12)
+	_name_row.visible = false
+	parent.add_child(_name_row)
+	var name_label := UITheme.sub_label("Gamer name:", 20)
+	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_name_row.add_child(name_label)
+	_name_edit = LineEdit.new()
+	_name_edit.max_length = 20
+	_name_edit.placeholder_text = "2-20 letters/numbers"
+	_name_edit.custom_minimum_size = Vector2(260, 48)
+	_name_edit.add_theme_font_size_override("font_size", 20)
+	_name_row.add_child(_name_edit)
+	var save_button := UITheme.make_button("Save", Vector2(110, 48), 20)
+	UITheme.hook_sounds(save_button)
+	save_button.pressed.connect(func() -> void:
+		var wanted := _name_edit.text.strip_edges()
+		if wanted.length() < 2:
+			_status_label.text = "Name needs at least 2 characters."
+			return
+		save_button.text = "…"
+		LeaderboardClient.set_display_name(wanted, func(ok: bool, data: Dictionary) -> void:
+			if not is_instance_valid(save_button):
+				return
+			save_button.text = "Save"
+			if ok:
+				_status_label.text = "Name saved: %s" % String(data.get("name", wanted))
+				_select_tab(_tab_index)
+			else:
+				_status_label.text = "Couldn't save name: %s" % String(data.get("error", "error"))))
+	_name_row.add_child(save_button)
 	_refresh_auth_row()
 
 
@@ -113,10 +149,15 @@ func _refresh_auth_row() -> void:
 			_auth_label.text = "Signed in as %s" % LeaderboardClient.display_name
 			_auth_button.text = "Sign Out"
 		else:
-			_auth_label.text = "Sign in to post your times"
-			_auth_button.text = "Sign In"
+			_auth_label.text = "Sign in to post times and back up progress"
+			_auth_button.text = "Opening…" if LeaderboardClient.sign_in_pending else "Sign In"
 	else:
 		_auth_label.text = "Play the web version to post scores"
+	if _name_row != null:
+		_name_row.visible = LeaderboardClient.can_sign_in() and LeaderboardClient.signed_in
+		if _name_row.visible and _name_edit.text.is_empty():
+			var stored := String(SettingsManager.get_setting("online", "display_name"))
+			_name_edit.text = stored if not stored.is_empty() else LeaderboardClient.display_name
 
 
 func _on_auth_changed() -> void:

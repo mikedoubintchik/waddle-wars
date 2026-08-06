@@ -1,6 +1,6 @@
 # Waddle Wars
 
-**▶ [Play it now in your browser](https://mikedoubintchik.github.io/waddle-wars/)** — free, no install, no sign-up, works on phones.
+**▶ [Play it now in your browser](https://waddlewars.ninjaconsulting.ai/)** — free, no install, no sign-up, works on phones.
 
 A polished, family-friendly 3D party racing game starring competitive penguins.
 Race seven chaotic AI rivals across Antarctic obstacle courses: waddle, belly
@@ -109,8 +109,10 @@ godot --headless --export-release "Linux" build/waddle-wars-linux.x86_64
 ```
 
 - **Web**: the exported build in `build/web/` is what gets deployed to GitHub
-  Pages. When deploying, also copy `web/share.png` next to the exported
-  `index.html` — the `og:image` social-preview tag expects it at the site root.
+  Pages (served at https://waddlewars.ninjaconsulting.ai/ via a Cloudflare
+  CNAME). When deploying, also copy `web/share.png` and `web/CNAME` next to the
+  exported `index.html` — the `og:image` tag expects share.png at the site
+  root, and GitHub Pages drops the custom domain if CNAME goes missing.
 - **Android**: install Android build tools + a debug keystore, set them in Editor
   Settings, then export the `Android` preset. The project already uses the
   Mobile renderer, landscape orientation, touch controls, and `user://` saves.

@@ -10,3 +10,16 @@ CREATE TABLE IF NOT EXISTS scores (
   PRIMARY KEY (user_id, mode, course)
 );
 CREATE INDEX IF NOT EXISTS idx_scores_board ON scores (mode, course, value);
+
+-- Optional custom display name (overrides the Clerk-derived one).
+CREATE TABLE IF NOT EXISTS profiles (
+  user_id TEXT PRIMARY KEY,
+  name TEXT NOT NULL
+);
+
+-- Cloud save blobs (whole save.json, small).
+CREATE TABLE IF NOT EXISTS saves (
+  user_id TEXT PRIMARY KEY,
+  data TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
