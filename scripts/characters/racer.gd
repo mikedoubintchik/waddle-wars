@@ -70,6 +70,17 @@ const CAMBER_ACCEL: float = 7.0
 ## racer grips far more of it away.
 const CAMBER_WADDLE_SCALE: float = 0.35
 const BANK_MAX_DEG: float = 15.0  # visual roll into turns
+## Surface conform: how far the body will lean to match the ground it is
+## standing on, as the sine of the angle (0.32 ~= 18.7 degrees, comfortably
+## past TrackBuilder.MAX_BANK_DEG), and how fast it settles there. Slower than
+## the steering lean on purpose -- terrain arrives under you, it is not
+## something you do.
+const SURFACE_CONFORM_SIN: float = 0.32
+const SURFACE_CONFORM_RATE: float = 8.5
+## Weight transfer: radians of body pitch per m/s^2 of acceleration, and the
+## cap. Deliberately small; past this it reads as a wheelie.
+const WEIGHT_PITCH_SCALE: float = 0.010
+const WEIGHT_PITCH_MAX: float = 0.13
 const BANK_YAW_RATE_SCALE: float = 0.32  # rad of roll per rad/s of yaw rate
 const SHOVE_COOLDOWN: float = 1.6
 const SHOVE_RANGE: float = 2.4
@@ -109,6 +120,11 @@ var _camber_velocity: Vector3 = Vector3.ZERO
 var _prev_facing_yaw: float = 0.0
 var _visual_bank: float = 0.0
 var _visual_pitch: float = 0.0
+## Surface-conform lean and weight-transfer pitch, smoothed (see _update_visual).
+var _surface_roll: float = 0.0
+var _surface_pitch: float = 0.0
+var _weight_pitch: float = 0.0
+var _prev_speed: float = 0.0
 var _steer_offset: float = 0.0
 var _guide_yaw: float = 0.0
 var _coyote_timer: float = 0.0
@@ -896,22 +912,58 @@ func _update_visual(delta: float) -> void:
 		if state == State.WADDLING or state == State.BOOSTED or state == State.SLIDING or state == State.AIRBORNE:
 			var bank_max := deg_to_rad(BANK_MAX_DEG)
 			bank_target = clampf(yaw_rate * BANK_YAW_RATE_SCALE, -bank_max, bank_max)
+		# Conform to the surface, THEN add the steering lean on top.
+		#
+		# The roll used to be the steering bank alone, so on a banked corner the
+		# deck rolled up to MAX_BANK_DEG under a penguin that stayed dead level.
+		# The racer looked like it was riding a rail suspended over the track
+		# rather than standing on it -- the single clearest "this is a prototype"
+		# tell left in the movement, and one I introduced when I banked the
+		# corners in the first place. The same applies fore-and-aft: pitch only
+		# followed the ground while belly-sliding, so a penguin waddling down a
+		# hill stayed board-flat while the hill fell away beneath it.
+		var conform_roll := 0.0
+		var conform_pitch := 0.0
+		if is_on_floor():
+			var floor_n := get_floor_normal()
+			var fwd := _yaw_to_dir(_facing_yaw)
+			var right := fwd.cross(Vector3.UP).normalized()
+			# Components of the surface normal in the body's own frame give the
+			# two lean angles directly, and clamping them keeps a freak normal
+			# (a wall graze, a collision corner) from throwing the pose.
+			conform_roll = asin(clampf(floor_n.dot(right), -SURFACE_CONFORM_SIN, SURFACE_CONFORM_SIN))
+			conform_pitch = -asin(clampf(floor_n.dot(fwd), -SURFACE_CONFORM_SIN, SURFACE_CONFORM_SIN))
+		_surface_roll = lerpf(_surface_roll, conform_roll, minf(delta * SURFACE_CONFORM_RATE, 1.0))
+		_surface_pitch = lerpf(_surface_pitch, conform_pitch, minf(delta * SURFACE_CONFORM_RATE, 1.0))
 		_visual_bank = lerpf(_visual_bank, bank_target, minf(delta * 7.0, 1.0))
-		visual.rotation.z = _visual_bank
+		visual.rotation.z = _visual_bank + _surface_roll
+
+		# Weight transfer: the body pitches back as it picks up speed and tips
+		# forward when it scrubs off. Small, but it is most of what separates a
+		# character being accelerated from a character accelerating.
+		var accel := 0.0 if delta <= 0.0 else (current_speed - _prev_speed) / delta
+		_weight_pitch = lerpf(_weight_pitch,
+			clampf(-accel * WEIGHT_PITCH_SCALE, -WEIGHT_PITCH_MAX, WEIGHT_PITCH_MAX),
+			minf(delta * 5.0, 1.0))
+
 		# Slope-aligned pitch while belly sliding, plus a subtle nose-follow
 		# on the jump arc (up on the rise, down on the fall) so descents and
 		# airtime read ballistic instead of board-flat.
 		var pitch_target := 0.0
 		if state == State.SLIDING and is_on_floor():
-			var floor_n := get_floor_normal()
-			var fwd := _yaw_to_dir(_velocity_yaw)
-			var slope_t := fwd - floor_n * fwd.dot(floor_n)
+			var floor_n2 := get_floor_normal()
+			var fwd2 := _yaw_to_dir(_velocity_yaw)
+			var slope_t := fwd2 - floor_n2 * fwd2.dot(floor_n2)
 			if slope_t.length_squared() > 0.001:
 				pitch_target = asin(clampf(slope_t.normalized().y, -0.55, 0.55))
 		elif state == State.AIRBORNE:
 			pitch_target = clampf(vertical_velocity * 0.028, -0.34, 0.26)
 		_visual_pitch = lerpf(_visual_pitch, pitch_target, minf(delta * 6.0, 1.0))
-		visual.rotation.x = _visual_pitch
+		# The slide already aligns itself to the slope, so it does not also take
+		# the generic conform pitch or it would double up.
+		var conform_term := 0.0 if state == State.SLIDING else _surface_pitch
+		visual.rotation.x = _visual_pitch + conform_term + _weight_pitch
+	_prev_speed = current_speed
 	_prev_facing_yaw = _facing_yaw
 	var ratio := current_speed / BASE_SPEED
 	visual.anim_speed = ratio
