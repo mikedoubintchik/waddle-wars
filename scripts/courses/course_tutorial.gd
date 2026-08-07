@@ -113,8 +113,14 @@ func build_course() -> void:
 		"exposure": 0.90,
 		"contrast": 1.02,
 		"saturation": 1.05,
-		"fog_color": Color(0.88, 0.94, 1.0),
-		"fog_density": 0.0016,
+		# Deeper, more saturated haze than the sky, so distance reads as
+		# distance. The old near-white fog at this density left mid and far
+		# terrain sitting at the same value as the sky above them.
+		"fog_color": Color(0.55, 0.7, 0.88),
+		"fog_density": 0.0021,
+		"fog_aerial": 0.3,
+		"fog_sky_affect": 0.08,
+		"fog_horizon_blend": 0.2,
 		"glow_threshold": 1.5,
 		"shadow_distance": 120.0,
 		"snow": false,

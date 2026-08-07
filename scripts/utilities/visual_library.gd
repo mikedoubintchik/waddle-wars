@@ -11,6 +11,7 @@ const ICE_SHADER: Shader = preload("res://assets/shaders/ice.gdshader")
 const WATER_SHADER: Shader = preload("res://assets/shaders/water.gdshader")
 const AURORA_SHADER: Shader = preload("res://assets/shaders/aurora.gdshader")
 const SPARKLE_SHADER: Shader = preload("res://assets/shaders/sparkle_pickup.gdshader")
+const TERRAIN_SHADER: Shader = preload("res://assets/shaders/terrain.gdshader")
 
 static var _materials: Dictionary = {}
 static var _meshes: Dictionary = {}
@@ -194,6 +195,78 @@ static func rock_material(base: Color, roughness: float = 0.95, metallic: float 
 	return mat
 
 
+## Rock / cliff / massif surface with real internal value structure and its own
+## aerial-perspective ramp. Use this instead of rock_material() for anything
+## that is TERRAIN — anything the player reads as landform rather than as a prop.
+##
+## Why it exists: rock_material() is a StandardMaterial3D, so every face of a
+## form wears one albedo and one roughness. On a white course under a white key
+## light that is indistinguishable from an untextured polygon, and at distance
+## the engine fog carries it to the sky colour, which is how the horizon turned
+## into a single pale mass. terrain.gdshader adds world-Y strata, a wall/ledge
+## value split, a slope-gated snow catch, and a distance ramp toward a haze tone
+## that stays DARKER than the sky (fog alone cannot do that without also
+## flattening the near track).
+##
+## structure 0..1 scales the whole internal-detail block (0 skips it entirely).
+## haze 0..1 scales the aerial-perspective ramp (0 skips it). Vertex colors
+## still multiply into the tint, exactly like rock_material, so every mesh that
+## bakes per-face colour keeps working.
+static func terrain_material(tint: Color, structure: float = 1.0, haze: float = 0.0,
+		roughness: float = 0.92) -> ShaderMaterial:
+	var key := "terrain_%s_%.2f_%.2f_%.2f" % [tint.to_html(false), structure, haze, roughness]
+	if _materials.has(key):
+		return _materials[key]
+	var mat := ShaderMaterial.new()
+	mat.shader = TERRAIN_SHADER
+	mat.set_shader_parameter("tint", tint)
+	mat.set_shader_parameter("structure", structure)
+	mat.set_shader_parameter("haze_strength", haze)
+	mat.set_shader_parameter("roughness_value", roughness)
+	_materials[key] = mat
+	return mat
+
+
+## Soft contact shadow laid flat on the ground under a prop. gl_compatibility
+## has no SSAO, so the ambient occlusion that makes an object look like it is ON
+## the ground has to be geometry: without it, correctly seated rocks, crystals
+## and dressing all read as hovering. One shared unshaded alpha quad material
+## plus contact_patch_mesh() means a whole course's contact shadows cost one
+## MultiMesh draw call.
+##
+## Deliberately blue-grey rather than black: the shadow of a rock on sunlit snow
+## is filled by blue sky bounce, and a neutral grey blob is the giveaway.
+static func contact_shadow_material(strength: float = 0.42) -> StandardMaterial3D:
+	var key := "contact_%.2f" % strength
+	if _materials.has(key):
+		return _materials[key]
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.30, 0.40, 0.58, strength)
+	mat.albedo_texture = soft_radial_texture(48, 0.95)
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	# Depth writes off: these lie a few centimetres above the surface and must
+	# never punch a hole in anything drawn after them.
+	mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_materials[key] = mat
+	return mat
+
+
+## Unit ground-facing quad (1 m across, +Y normal, origin at its centre) for
+## contact_shadow_material. Scale it per instance at the MultiMesh transform.
+static func contact_patch_mesh() -> PlaneMesh:
+	var key := "contact_patch"
+	if _meshes.has(key):
+		return _meshes[key]
+	var mesh := PlaneMesh.new()
+	mesh.size = Vector2(1.0, 1.0)
+	mesh.subdivide_width = 0
+	mesh.subdivide_depth = 0
+	_meshes[key] = mesh
+	return mesh
+
+
 ## Cached parameter-tweaked copy of a cached library shader material. Replaces
 ## the "library_material().duplicate() then set params" pattern that minted a
 ## unique material (and a first-sight WebGL program state) per call site — the
@@ -304,6 +377,10 @@ static func ice_crystal_mesh() -> ArrayMesh:
 	]
 	var base_col := Color(0.62, 0.82, 0.95)
 	var tip_col := Color(0.92, 0.98, 1.0)
+	# Contact grounding, baked. gl_compatibility gives no SSAO, so the darkening
+	# where a shard meets the ground has to live in the vertex colours or the
+	# cluster reads as hovering however correctly it is seated.
+	var foot_col := Color(0.3, 0.44, 0.62)
 	for shard: Dictionary in shards:
 		var origin: Vector3 = shard["pos"]
 		var height := float(shard["h"])
@@ -316,7 +393,11 @@ static func ice_crystal_mesh() -> ArrayMesh:
 			var p0 := origin + Vector3(cos(a0) * radius, 0.0, sin(a0) * radius)
 			var p1 := origin + Vector3(cos(a1) * radius, 0.0, sin(a1) * radius)
 			var face_col := base_col.lerp(tip_col, 0.35 + 0.5 * absf(sin(a0 * 2.0)))
-			_tri(st, p0, p1, apex, face_col)
+			# Per-vertex ramp instead of one flat colour per facet: a faceted
+			# shard that is one tone from foot to tip is the low-poly-placeholder
+			# tell, and the gradient costs nothing.
+			var root := foot_col.lerp(face_col, 0.18)
+			_tri3(st, p0, p1, apex, root, root, face_col)
 	st.generate_normals()
 	var mesh := st.commit()
 	_meshes[key] = mesh
@@ -333,9 +414,12 @@ static func snow_drift_mesh() -> ArrayMesh:
 	var sides := 8
 	var radii: Array[float] = [1.0, 0.82, 0.48]
 	var heights: Array[float] = [0.0, 0.32, 0.58]
+	# Ring 0 is the contact ring: a drift that keeps its crest value all the way
+	# down to the snow it sits on has no shadow under it, and with no SSAO on
+	# gl_compatibility that is the whole reason dressing reads as hovering.
 	var colors: Array[Color] = [
-		Color(0.86, 0.91, 0.99),
-		Color(0.94, 0.96, 1.0),
+		Color(0.6, 0.69, 0.88),
+		Color(0.92, 0.95, 1.0),
 		Color(1.0, 1.0, 1.0),
 	]
 	var apex := Vector3(0.0, 0.75, 0.0)
@@ -347,9 +431,10 @@ static func snow_drift_mesh() -> ArrayMesh:
 			var b1 := Vector3(cos(a1) * radii[ring], heights[ring], sin(a1) * radii[ring])
 			var t0 := Vector3(cos(a0) * radii[ring + 1], heights[ring + 1], sin(a0) * radii[ring + 1])
 			var t1 := Vector3(cos(a1) * radii[ring + 1], heights[ring + 1], sin(a1) * radii[ring + 1])
-			var col := colors[ring].lerp(colors[ring + 1], 0.5)
-			_tri(st, b0, t1, t0, col)
-			_tri(st, b0, b1, t1, col)
+			var lo := colors[ring]
+			var hi := colors[ring + 1]
+			_tri3(st, b0, t1, t0, lo, hi, hi)
+			_tri3(st, b0, b1, t1, lo, lo, hi)
 	for i: int in sides:
 		var a0 := TAU * float(i) / float(sides)
 		var a1 := TAU * float(i + 1) / float(sides)
@@ -386,15 +471,20 @@ static func berg_mesh(seed: int) -> ArrayMesh:
 	var peak := Vector3(rng.randf_range(-0.2, 0.2), rng.randf_range(1.2, 1.9), rng.randf_range(-0.2, 0.2))
 	var wall_col := Color(0.68, 0.82, 0.94)
 	var top_col := Color(0.96, 0.98, 1.0)
+	# Waterline / contact foot: bergs and ice blocks are darkest where they meet
+	# the surface they sit in, and that band is what plants them.
+	var foot_col := Color(0.26, 0.42, 0.6)
 	for i: int in sides:
 		var j := (i + 1) % sides
 		var shade := rng.randf_range(0.85, 1.0)
 		var side_col := Color(wall_col.r * shade, wall_col.g * shade, wall_col.b)
-		_tri(st, base_pts[i], mid_pts[j], mid_pts[i], side_col)
-		_tri(st, base_pts[i], base_pts[j], mid_pts[j], side_col)
+		var root_col := foot_col.lerp(side_col, 0.25)
+		_tri3(st, base_pts[i], mid_pts[j], mid_pts[i], root_col, side_col, side_col)
+		_tri3(st, base_pts[i], base_pts[j], mid_pts[j], root_col, root_col, side_col)
 		var cap_shade := rng.randf_range(0.92, 1.0)
 		var cap_col := Color(top_col.r * cap_shade, top_col.g * cap_shade, top_col.b)
-		_tri(st, mid_pts[i], mid_pts[j], peak, cap_col)
+		_tri3(st, mid_pts[i], mid_pts[j], peak, side_col.lerp(cap_col, 0.5),
+			side_col.lerp(cap_col, 0.5), cap_col)
 	st.generate_normals()
 	var mesh := st.commit()
 	_meshes[key] = mesh
@@ -402,11 +492,20 @@ static func berg_mesh(seed: int) -> ArrayMesh:
 
 
 static func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, color: Color) -> void:
-	st.set_color(color)
+	_tri3(st, a, b, c, color, color, color)
+
+
+## Triangle with a colour per corner. Flat facets shaded with ONE tone are the
+## low-poly-placeholder look; a per-vertex ramp (dark at the contact foot,
+## bright at the crest) costs the same vertex data and gives every form real
+## internal value.
+static func _tri3(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
+		ca: Color, cb: Color, cc: Color) -> void:
+	st.set_color(ca)
 	st.add_vertex(a)
-	st.set_color(color)
+	st.set_color(cb)
 	st.add_vertex(b)
-	st.set_color(color)
+	st.set_color(cc)
 	st.add_vertex(c)
 
 

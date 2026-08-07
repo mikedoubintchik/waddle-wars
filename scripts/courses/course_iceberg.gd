@@ -349,8 +349,13 @@ func build_course() -> void:
 		"sun_curve": 0.14,
 		"sky_energy": 1.0,
 		"exposure": 0.93,
-		"fog_color": Color(0.98, 0.68, 0.5),
-		"fog_density": 0.0018,
+		# Warm sunset haze, but pulled down in value so the bergs recede
+		# instead of merging into the sky (see course_glacier for the same
+		# retune and the measurements behind it).
+		"fog_color": Color(0.72, 0.44, 0.36),
+		"fog_density": 0.0023,
+		"fog_aerial": 0.3,
+		"fog_sky_affect": 0.1,
 		"fog_height": 1.5,
 		"fog_height_density": 0.035,
 		"glow_threshold": 1.4,

@@ -76,6 +76,15 @@ func _ready() -> void:
 			Game.last_race_results = rows
 			Game.last_rewards = {"fish": 57, "xp": 145, "unlocks": []}
 			SceneRouter.go_to.call_deferred(Game.SCENE_RESULTS)
+		"race_shield":
+			# Race with the player shielded, so the bubble can be inspected.
+			Game.mode = Game.Mode.QUICK_RACE
+			Game.course_id = _course
+			Game.difficulty_id = "competitive"
+			RaceManager.autopilot_player = true
+			SceneRouter.go_to.call_deferred(Game.SCENE_RACE)
+			var shielder := ShieldOpener.new()
+			get_tree().root.add_child.call_deferred(shielder)
 		"race":
 			Game.mode = Game.Mode.QUICK_RACE
 			Game.course_id = _course
@@ -211,3 +220,28 @@ class CourseStepOpener:
 			if found != null:
 				return found
 		return null
+
+
+## Gives the player racer a shield once the race exists, so the bubble can be
+## inspected without waiting for an item box to hand one out.
+class ShieldOpener:
+	extends Node
+
+	var _elapsed: float = 0.0
+	var _done: bool = false
+
+	func _process(delta: float) -> void:
+		if _done:
+			return
+		_elapsed += delta
+		if _elapsed < 1.0:
+			return
+		for racer: Node in get_tree().get_nodes_in_group(&"racers"):
+			if racer.get("is_player") == true and racer.has_method("give_shield"):
+				racer.call("give_shield")
+				_done = true
+				print("[shot] shield given")
+				return
+		if _elapsed > 25.0:
+			_done = true
+			print("[shot] no player racer found for shield")

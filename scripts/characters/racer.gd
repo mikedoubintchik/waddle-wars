@@ -1104,16 +1104,23 @@ func apply_blizzard_slip(duration: float) -> void:
 const SHIELD_SHADER_CODE := """shader_type spatial;
 render_mode blend_mix, depth_draw_never, cull_disabled, unshaded;
 
-uniform vec4 shell_color : source_color = vec4(0.55, 0.86, 1.0, 1.0);
+uniform vec4 shell_color : source_color = vec4(0.30, 0.78, 1.0, 1.0);
 
 void fragment() {
-	float fres = pow(1.0 - clamp(abs(dot(NORMAL, VIEW)), 0.0, 1.0), 2.6);
+	// Exponent sets how much of the shell is visible. 2.6 confined it to a
+	// sliver that vanished entirely against snow -- the power-up went from
+	// erasing the racer to giving no feedback at all, which is its own bug.
+	float fres = pow(1.0 - clamp(abs(dot(NORMAL, VIEW)), 0.0, 1.0), 1.7);
 	// A slow band travelling up the shell so an active shield reads as powered
 	// rather than as a static bauble.
 	float band = 0.5 + 0.5 * sin(UV.y * 12.0 - TIME * 2.4);
-	float a = clamp(fres * 0.92 + band * fres * 0.35, 0.0, 0.85);
+	// A hard bright line right at the silhouette, so the bubble has an edge
+	// you can find on a white course, over a softer body that stays clear
+	// where the penguin is.
+	float lip = smoothstep(0.72, 0.97, fres);
+	float a = clamp(fres * 0.55 + lip * 0.75 + band * fres * 0.25, 0.0, 0.92);
 	ALBEDO = shell_color.rgb;
-	EMISSION = shell_color.rgb * (0.35 + band * 0.3) * fres;
+	EMISSION = shell_color.rgb * (0.6 + band * 0.5) * (fres + lip * 0.8);
 	ALPHA = a;
 }
 """
