@@ -444,7 +444,7 @@ func _build_board_card(parent: Control) -> PanelContainer:
 		_dancer_holder = CenterContainer.new()
 		_dancer_holder.visible = false
 		_state_box.add_child(_dancer_holder)
-		_status_dancers = PenguinLoader.new(96.0)
+		_status_dancers = PenguinLoader.new(150.0)
 		_dancer_holder.add_child(_status_dancers)
 	# Kept for the fetch caption; parented into whichever state block is live.
 	_status_label = Label.new()

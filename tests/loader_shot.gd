@@ -5,6 +5,8 @@ extends Node
 
 var _out_path: String = "qa_shots/loader.png"
 var _wait: float = 1.2
+var _width: int = 1280
+var _height: int = 720
 var _elapsed: float = 0.0
 var _captured: bool = false
 
@@ -17,7 +19,7 @@ func _ready() -> void:
 		match parts[0]:
 			"out": _out_path = parts[1]
 			"wait": _wait = float(parts[1])
-	DisplayServer.window_set_size(Vector2i(720, 480))
+	DisplayServer.window_set_size(Vector2i(_width, _height))
 
 	var bg := ColorRect.new()
 	bg.color = Color(0.03, 0.06, 0.12)
@@ -30,7 +32,7 @@ func _ready() -> void:
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_theme_constant_override("separation", 10)
 	bg.add_child(box)
-	var dancer := PenguinLoader.new(200.0)
+	var dancer := PenguinLoader.new(260.0)
 	dancer.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	box.add_child(dancer)
 	var label := Label.new()

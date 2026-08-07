@@ -277,8 +277,15 @@ static func crisp_subviewport(viewport: SubViewport, host: Node) -> void:
 		# Trimmed by the platform's 3D render scale for the same reason the main
 		# viewport is: on web, rendering menu dioramas at every device pixel is
 		# what pushes a frame past its budget. UI drawn over them is unaffected.
-		scale *= SettingsManager.render_scale_3d()
-		viewport.scaling_3d_scale = clampf(scale, 0.6, 2.0)
+		# The floor is the platform's own render scale, never lower. Clamping to
+		# a flat 0.6 meant any window narrower than the 1920 design size -- a
+		# 1600px desktop window included -- rendered menu 3D BELOW native and
+		# came out soft. On desktop the floor is 1.0, so a small window still
+		# supersamples to at least native; on web it is whatever the platform
+		# scale allows, which is the whole point of that setting.
+		var platform_scale := SettingsManager.render_scale_3d()
+		viewport.scaling_3d_scale = clampf(
+			scale * platform_scale, minf(platform_scale, 1.0), 2.0)
 	apply.call()
 	host.get_window().size_changed.connect(apply)
 	host.tree_exiting.connect(func() -> void:

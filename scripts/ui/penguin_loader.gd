@@ -24,12 +24,18 @@ extends Control
 
 ## Seconds per hop; the sway and turn are derived from it so the whole dance
 ## reads as one rhythm.
-const CYCLE: float = 0.72
-const HOP_HEIGHT: float = 0.16
-const SWAY_DEG: float = 9.0
-const TURN_DEG: float = 26.0
+const CYCLE: float = 0.52
+const HOP_HEIGHT: float = 0.30
+const SWAY_DEG: float = 15.0
+const TURN_DEG: float = 62.0
+## Side-to-side shuffle, in metres, and the slow drift of the whole routine so
+## the loop never reads as one bar repeating.
+const SHUFFLE: float = 0.16
+const ROUTINE_DRIFT: float = 0.19
+## Every few beats the penguin commits to a full spin instead of a half turn.
+const SPIN_EVERY: int = 8
 
-var penguin_size: float = 132.0  ## Rendered square edge in logical pixels.
+var penguin_size: float = 200.0  ## Rendered square edge in logical pixels.
 
 var _viewport: SubViewport = null
 var _penguin: PenguinVisual = null
@@ -37,9 +43,10 @@ var _pivot: Node3D = null
 var _time: float = 0.0
 var _reduced: bool = false
 var _last_hop: int = -1
+var _spin_from: float = 0.0
 
 
-func _init(p_size: float = 132.0) -> void:
+func _init(p_size: float = 200.0) -> void:
 	penguin_size = maxf(p_size, 48.0)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -76,7 +83,9 @@ func _build() -> void:
 	_viewport.own_world_3d = true
 	_viewport.transparent_bg = true
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	_viewport.msaa_3d = SettingsManager.msaa_3d_mode() as Viewport.MSAA
+	# The loader is a small square of screen showing one hero asset, so it can
+	# afford multisampling even where the game world gives it up.
+	_viewport.msaa_3d = Viewport.MSAA_2X
 	container.add_child(_viewport)
 	UITheme.crisp_subviewport(_viewport, self)
 
@@ -119,10 +128,12 @@ func _build() -> void:
 	var camera := Camera3D.new()
 	_viewport.add_child(camera)
 	camera.current = true
-	camera.fov = 38.0
+	camera.fov = 42.0
 	# Framed so the hop keeps the whole bird — crown to feet — inside the
 	# square at the top of its arc.
-	camera.look_at_from_position(Vector3(0.0, 0.86, -2.25), Vector3(0.0, 0.62, 0.0), Vector3.UP)
+	# Pulled back and raised: the routine now hops higher, shuffles sideways and
+	# spins, so the frame has to hold all of it without cropping his feet.
+	camera.look_at_from_position(Vector3(0.0, 1.02, -2.62), Vector3(0.0, 0.60, 0.0), Vector3.UP)
 
 
 func _process(delta: float) -> void:
@@ -131,17 +142,37 @@ func _process(delta: float) -> void:
 	_time += delta
 	var amp := 0.35 if _reduced else 1.0
 	var phase := _time / CYCLE * TAU
+	var beat := int(_time / (CYCLE * 0.5))
 
 	# Hop: |sin| gives a bounce that sits on the floor between beats rather
-	# than a sine that spends half its time underground.
-	var hop := absf(sin(phase)) * HOP_HEIGHT * amp
-	_pivot.position.y = hop
-	_pivot.rotation.y = sin(phase * 0.5) * deg_to_rad(TURN_DEG) * amp
-	_pivot.rotation.z = sin(phase + PI * 0.25) * deg_to_rad(SWAY_DEG) * amp
+	# than a sine that spends half its time underground. Sharpened with a power
+	# curve so the launch is quick and the hang is brief -- a flat sine reads as
+	# floating, not jumping.
+	var bounce := pow(absf(sin(phase)), 0.72)
+	_pivot.position.y = bounce * HOP_HEIGHT * amp
+	# Shuffle across the floor, at half hop rate so he lands alternate feet.
+	_pivot.position.x = sin(phase * 0.5) * SHUFFLE * amp
+
+	# Turn: mostly a half-turn shimmy, but every SPIN_EVERY beats he commits to
+	# a full rotation. The spin is driven off the beat counter rather than the
+	# raw phase so it always starts on a landing.
+	var spin_cycle := int(beat / SPIN_EVERY)
+	var spinning := (beat % SPIN_EVERY) >= SPIN_EVERY - 2
+	if spinning and not _reduced:
+		var t := fmod(_time, CYCLE * SPIN_EVERY * 0.5) / (CYCLE)
+		_pivot.rotation.y = _spin_from + TAU * clampf(t, 0.0, 1.0)
+	else:
+		_spin_from = float(spin_cycle) * TAU
+		_pivot.rotation.y = sin(phase * 0.5) * deg_to_rad(TURN_DEG) * amp
+
+	# Lean into the shuffle, plus a slow drift so the routine never loops
+	# visibly on itself.
+	_pivot.rotation.z = (sin(phase + PI * 0.25) * deg_to_rad(SWAY_DEG)
+		+ sin(_time * ROUTINE_DRIFT) * deg_to_rad(6.0)) * amp
+	# A little pitch bob out of the hop: nose up on the way, tucked on landing.
+	_pivot.rotation.x = -cos(phase) * deg_to_rad(7.0) * amp
 
 	# Squash on each landing (the moment |sin| returns to zero).
-	if not _reduced and _penguin != null:
-		var beat := int(_time / (CYCLE * 0.5))
-		if beat != _last_hop:
-			_last_hop = beat
-			_penguin.trigger_squash(0.88)
+	if not _reduced and _penguin != null and beat != _last_hop:
+		_last_hop = beat
+		_penguin.trigger_squash(0.82)
