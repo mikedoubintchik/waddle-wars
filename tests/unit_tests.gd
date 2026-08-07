@@ -38,6 +38,7 @@ func _ready() -> void:
 	_test_path_guide()
 	await _test_powerup_activation()
 	await _test_backward_snowball()
+	_test_daily_challenge()
 	await _test_menu_scenes()
 	await _test_touch_controls()
 	print("[unit] DONE: %d passed, %d failed, %d skipped" % [_passes, _failures, _skips])
@@ -414,6 +415,71 @@ func _latest_snowball(arena: Node) -> Snowball:
 		if child is Snowball:
 			found = child as Snowball
 	return found
+
+
+## --- 11c. Daily challenge --------------------------------------------------
+
+## The daily has to be identical for everyone on a given day, has to pay out
+## once and only once, and must only continue a streak across consecutive days.
+func _test_daily_challenge() -> void:
+	var day := DailyChallenge.today_id()
+	var a := DailyChallenge.for_day(day)
+	var b := DailyChallenge.for_day(day)
+	_check("daily_deterministic",
+		a["course"] == b["course"] and a["modifier"] == b["modifier"],
+		"%s/%s vs %s/%s" % [a["course"], a["modifier"], b["course"], b["modifier"]])
+	_check("daily_course_valid", DailyChallenge.COURSES.has(String(a["course"])),
+		"course=%s" % a["course"])
+
+	# Neighbouring days must not walk the rotation in lockstep, which would make
+	# the whole cycle guessable and repeat every three days.
+	var varied := false
+	var seen_courses := {}
+	for i: int in 8:
+		var c := DailyChallenge.for_day(day + i)
+		seen_courses[c["course"]] = true
+		if String(c["course"]) != String(a["course"]):
+			varied = true
+	_check("daily_rotates", varied and seen_courses.size() >= 2,
+		"distinct courses over 8 days=%d" % seen_courses.size())
+
+	# Reward and streak accounting, driven through the real save.
+	var saved_day: Variant = SaveManager.data.get("daily_last_day", -1)
+	var saved_time: Variant = SaveManager.data.get("daily_last_time", 0.0)
+	var saved_streak: Variant = SaveManager.data.get("daily_streak", 0)
+	var saved_fish := Progression.get_fish()
+
+	SaveManager.data["daily_last_day"] = day - 1  # played yesterday
+	SaveManager.data["daily_streak"] = 3
+	var first := DailyChallenge.record_completion(90.0)
+	_check("daily_first_pays", bool(first["first_today"]) and int(first["fish"]) > 0,
+		"fish=%d" % int(first["fish"]))
+	_check("daily_streak_continues", int(first["streak"]) == 4,
+		"streak=%d" % int(first["streak"]))
+
+	var again := DailyChallenge.record_completion(80.0)
+	_check("daily_second_run_pays_nothing", not bool(again["first_today"]) and int(again["fish"]) == 0,
+		"fish=%d" % int(again["fish"]))
+	_check("daily_second_run_records_better_time", bool(again["improved"])
+		and is_equal_approx(DailyChallenge.today_best(), 80.0),
+		"best=%f" % DailyChallenge.today_best())
+
+	var slower := DailyChallenge.record_completion(95.0)
+	_check("daily_slower_run_ignored", not bool(slower["improved"])
+		and is_equal_approx(DailyChallenge.today_best(), 80.0),
+		"best=%f" % DailyChallenge.today_best())
+
+	# A missed day resets rather than continuing.
+	SaveManager.data["daily_last_day"] = day - 3
+	SaveManager.data["daily_streak"] = 9
+	var broken := DailyChallenge.record_completion(70.0)
+	_check("daily_gap_resets_streak", int(broken["streak"]) == 1,
+		"streak=%d" % int(broken["streak"]))
+
+	SaveManager.data["daily_last_day"] = saved_day
+	SaveManager.data["daily_last_time"] = saved_time
+	SaveManager.data["daily_streak"] = saved_streak
+	SaveManager.data["fish"] = saved_fish
 
 
 ## --- 12. Menu scenes load --------------------------------------------------

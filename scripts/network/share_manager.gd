@@ -47,6 +47,25 @@ static func compose_race_text(mode: String, course_name: String, position: int, 
 
 
 ## Leaderboard challenge copy for the "Challenge Friends" button.
+## Share for a completed daily. The link carries the challenge's day number, so
+## whoever opens it races that exact course and field rather than merely reading
+## about it -- the difference between a link and a challenge that can be
+## accepted. The day travels explicitly instead of relying on the recipient's
+## own date, so a result shared near midnight still points at the race it
+## describes.
+static func compose_daily_text(challenge: Dictionary, time_text: String, streak: int) -> String:
+	var title := DailyChallenge.title_for(challenge)
+	var streak_tag := " (%d-day streak 🔥)" % streak if streak > 1 else ""
+	return "🐧 Today's Waddle Wars daily — %s in %s%s. Same course, same field: %s" % [
+		title, time_text, streak_tag, daily_link(int(challenge.get("day", 0))),
+	]
+
+
+## Deep link to a specific day's challenge.
+static func daily_link(day: int) -> String:
+	return "%s/?d=%d" % [SHARE_URL, day]
+
+
 static func compose_challenge_text() -> String:
 	return "Can you beat my crew on the Waddle Wars leaderboard? 🐧 %s" % SHARE_URL
 

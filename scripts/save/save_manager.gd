@@ -47,6 +47,12 @@ static func default_save() -> Dictionary:
 		"tutorial_complete": false,
 		"best_times": {},
 		"endless_high_score": 0,
+		# Daily challenge: the UTC day number last completed, that run's time,
+		# and the consecutive-day streak. See DailyChallenge.
+		"daily_last_day": -1,
+		"daily_last_time": 0.0,
+		"daily_streak": 0,
+		"daily_best_streak": 0,
 		"gp_records": {},
 		"settings_migrated": true,
 	}
