@@ -51,6 +51,13 @@ func _ready() -> void:
 			# scene, which frees the tour and every timer connected to it.
 			var opener := BuyDialogOpener.new()
 			get_tree().root.add_child.call_deferred(opener)
+		"difficulty_select":
+			# Difficulty step, reached through the course picker.
+			Game.mode = Game.Mode.QUICK_RACE
+			SceneRouter.go_to.call_deferred(Game.SCENE_MODE_SELECT)
+			var diff := CourseStepOpener.new()
+			diff.go_to_difficulty = true
+			get_tree().root.add_child.call_deferred(diff)
 		"course_select":
 			# Course-picker step of mode select, so the per-course poster art can
 			# be inspected. Same root-parented opener trick as customize_buy.
@@ -193,6 +200,7 @@ class BuyDialogOpener:
 class CourseStepOpener:
 	extends Node
 
+	var go_to_difficulty: bool = false
 	var _elapsed: float = 0.0
 	var _done: bool = false
 
@@ -210,6 +218,11 @@ class CourseStepOpener:
 			return
 		_done = true
 		screen.call("_show_course_step")
+		if go_to_difficulty:
+			screen.set("_chosen_course", CoursesDB.ORDER[3])
+			screen.call("_show_difficulty_step")
+			print("[shot] advanced to difficulty step")
+			return
 		print("[shot] advanced to course step")
 
 	func _find(node: Node) -> Node:

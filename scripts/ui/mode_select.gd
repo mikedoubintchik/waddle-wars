@@ -375,6 +375,9 @@ func _make_card(parent: Control, min_size: Vector2, action: Callable,
 		primary: bool = false, pad: float = 18.0) -> MarginContainer:
 	var button := Button.new()
 	button.custom_minimum_size = min_size
+	# Backstop for the same class of bug: whatever a future child does with its
+	# minimum size, a card cannot paint outside its own rounded rect.
+	button.clip_contents = true
 	button.focus_mode = Control.FOCUS_ALL
 	button.add_theme_stylebox_override("normal", _card_style(
 		PRIMARY_FILL if primary else Color(0.063, 0.114, 0.204, 0.90),
@@ -897,8 +900,18 @@ func _difficulty_card(parent: Control, tile: Vector2, id: String, tier: int,
 		Color(0.98, 0.995, 1.0) if primary else UITheme.COLOR_TEXT)
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	titles.add_child(name_label)
-	_caption(titles, String(info.get("desc", "")), 13,
+	# Wrap this one. Without a wrap mode a Label reports its FULL text width as
+	# its minimum size, so this tagline made the card's content wider than the
+	# card -- and a Button does not clip, so the tagline, the pip meters and
+	# everything else in the column drew straight out over the card beside it.
+	# Wrapping drops the minimum to the longest single word. Applied here
+	# rather than in _caption() because most captions in this file are
+	# single-line chips that must NOT wrap.
+	var tagline := _caption(titles, String(info.get("desc", "")), 13,
 		Color(0.84, 0.92, 0.99, 0.9) if primary else Color(tint, 0.85))
+	tagline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tagline.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	tagline.max_lines_visible = 2
 
 	_body_text(column, String(DIFFICULTY_PITCH.get(id, "")), 16, 2) \
 		.add_theme_color_override("font_color",
@@ -947,7 +960,9 @@ func _meter(parent: Control, caption: String, value01: float, tint: Color) -> vo
 	box.add_theme_constant_override("separation", _gap(4))
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(box)
-	_caption(box, caption, 12, Color(0.62, 0.74, 0.87))
+	var meter_cap := _caption(box, caption, 12, Color(0.62, 0.74, 0.87))
+	meter_cap.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	meter_cap.clip_text = true
 	var pips := HBoxContainer.new()
 	pips.add_theme_constant_override("separation", roundi(_u(3.0)))
 	pips.mouse_filter = Control.MOUSE_FILTER_IGNORE
