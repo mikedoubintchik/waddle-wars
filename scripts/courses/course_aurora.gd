@@ -636,16 +636,24 @@ func _decorate() -> void:
 		drift.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(drift)
 
-	# Rocks and glow crystals scattered along the route.
+	# Rocks and glow crystals scattered along the route, out on the flanks past
+	# the track walls. Laterals stay where they were on purpose: everything
+	# between the deck edge and the wall is in the wall's own shadow, and
+	# dressing moved in there disappears behind it.
 	for i: int in 26:
 		var offset2 := rng.randf_range(40.0, main_guide.length - 60.0)
 		var xform2 := main_guide.transform_at(offset2)
 		var lateral2 := rng.randf_range(13.0, 26.0) * (1.0 if rng.randf() > 0.5 else -1.0)
+		var flank_pos := xform2.origin + xform2.basis.x * lateral2 + Vector3.DOWN * 1.0
 		if rng.randf() > 0.55:
-			TrackBuilder.add_rock(self, xform2.origin + xform2.basis.x * lateral2 + Vector3.DOWN * 1.0, rng.randf_range(0.7, 1.8), rng)
+			var rock_s := rng.randf_range(0.7, 1.8)
+			TrackBuilder.add_rock(self, flank_pos, rock_s, rng)
+			_add_flank_contact_patch(flank_pos, rock_s * 0.8)
 		else:
-			_add_glow_crystal(xform2.origin + xform2.basis.x * lateral2 + Vector3.DOWN * 1.0,
-				rng.randf_range(2.0, 5.5), Color(0.55, 0.8, 1.0) if rng.randf() > 0.5 else Color(0.7, 0.5, 1.0))
+			var glow_h := rng.randf_range(2.0, 5.5)
+			_add_glow_crystal(flank_pos, glow_h,
+				Color(0.55, 0.8, 1.0) if rng.randf() > 0.5 else Color(0.7, 0.5, 1.0))
+			_add_flank_contact_patch(flank_pos, glow_h * 0.26)
 
 	# Dense filler crystal field: small static shards in aurora green/violet
 	# catching the sky light along the whole route (the pulsing hero crystals
@@ -668,6 +676,50 @@ func _decorate() -> void:
 		_add_glow_crystal(apex_xform.origin + apex_xform.basis.x * (13.0 * out_side) + Vector3.DOWN * 2.0,
 			rng.randf_range(7.0, 10.0), Color(0.45, 1.0, 0.7))
 	_add_glow_crystal(Vector3(80.0, -18.0, -1030.0), 30.0, Color(0.5, 1.0, 0.75))
+
+	# Baked contact shadows, flushed last so every pass above has had its chance
+	# to register one. Moonlight this weak casts almost no readable shadow of
+	# its own, so without a patch at the foot even a correctly bedded rock
+	# floats free of the snow it is standing in.
+	_add_multimesh(VisualLibrary.contact_patch_mesh(), _contact_patches,
+		_contact_material(), "ContactShadows", 240.0)
+
+
+## --- Contact shadows ---------------------------------------------------------
+## gl_compatibility has no SSAO, so the occlusion that plants a prop on the
+## ground has to be geometry: one soft alpha quad per prop, all of them through
+## a single MultiMesh (one draw call for the whole mountain).
+
+var _contact_patches: Array[Transform3D] = []
+
+
+## Polar night: no sun, a low moon and the curtain itself, over snow that reads
+## deep blue-violet. Shade here is nearly black with the sky's violet still in
+## it — glacier's daylight blue-grey would be LIGHTER than this ground and
+## would paint pale discs instead of shadows. Low alpha to match: at this
+## exposure a small darkening is already plenty.
+func _contact_material() -> StandardMaterial3D:
+	var mat := VisualLibrary.contact_shadow_material().duplicate() as StandardMaterial3D
+	mat.albedo_color = Color(0.05, 0.06, 0.17, 0.40)
+	return mat
+
+
+## BUILD TIME ONLY. Registers a contact shadow at the foot of a flank prop.
+## `radius` is the prop's footprint; the patch is drawn a shade wider, because a
+## real ambient-occlusion contact reaches slightly past the silhouette.
+##
+## Anchored to the prop's OWN base rather than to a probed ground height, which
+## is the one course where that is the right call. The flanks here are cliffs,
+## mesas and berms — all visual-only meshes with no collision — so a downward
+## probe sees nothing but the base plane 100m below, and the height the dressing
+## was authored against (a metre under the deck plane) is the best statement
+## anyone can make about where these props meet the mountain. The failure mode
+## is bounded too: if a prop does hang free, its patch hangs with it and reads
+## as the prop's own dark foot instead of as a decal stranded on the ground.
+func _add_flank_contact_patch(pos: Vector3, radius: float) -> void:
+	_contact_patches.append(Transform3D(
+		Basis.from_scale(Vector3(radius * 2.4, 1.0, radius * 2.4)),
+		pos + Vector3.UP * 0.05))
 
 
 ## Thick wind-carved ice berms lining both edges of the whole ridge
@@ -1730,7 +1782,8 @@ func _add_crystal_field() -> void:
 		for side: float in [-1.0, 1.0]:
 			if rng.randf() > per_step * 0.8:
 				continue
-			var xform := main_guide.transform_at(offset + rng.randf_range(-8.0, 8.0))
+			var shard_offset := offset + rng.randf_range(-8.0, 8.0)
+			var xform := main_guide.transform_at(shard_offset)
 			var lateral := rng.randf_range(11.5, 24.0) * side
 			var h := rng.randf_range(1.1, 2.8)
 			var tilt_dir := rng.randf() * TAU
@@ -1738,6 +1791,7 @@ func _add_crystal_field() -> void:
 				* Basis(Vector3.UP, rng.randf() * TAU) \
 				* Basis.from_scale(Vector3(h * rng.randf_range(0.5, 0.8), h, h * rng.randf_range(0.5, 0.8)))
 			var pos := xform.origin + xform.basis.x * lateral + Vector3.DOWN * 0.6
+			_add_flank_contact_patch(pos, h * 0.24)
 			if rng.randf() > 0.5:
 				green_transforms.append(Transform3D(shard_basis, pos))
 			else:

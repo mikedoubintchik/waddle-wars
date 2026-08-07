@@ -489,23 +489,46 @@ func _decorate() -> void:
 		var lateral3 := (11.0 + rng.randf_range(0.0, 4.0)) * (1.0 if i % 2 == 0 else -1.0)
 		TrackBuilder.add_spectator(self, near_finish.origin + near_finish.basis.x * lateral3, near_finish.origin, rng)
 
-	# Berg texture: rocks and crystals just off the racing surface.
+	# Berg texture: rocks and crystals just off the racing surface. Laterals are
+	# measured off the real deck edge rather than the old flat 12-24m: this berg
+	# is a ribbon over open sea, and everything past the edge was standing on
+	# water. Seated on the surface under them, they can also carry a contact
+	# shadow, which is the only occlusion cue this renderer gives them.
 	for i: int in 16:
 		var o := rng.randf_range(120.0, main_guide.length - 80.0)
 		var xf := main_guide.transform_at(o)
-		var lat := rng.randf_range(12.0, 24.0) * (1.0 if rng.randf() > 0.5 else -1.0)
+		var berg_side := 1.0 if rng.randf() > 0.5 else -1.0
+		# Margins stay small: past the 2m skirt this berg is open sea, so
+		# dressing set further out than that is standing on water.
+		var lat := (track_edge_lateral(main_guide, o, berg_side, 8.0)
+			+ rng.randf_range(0.3, 1.3)) * berg_side
 		if rng.randf() > 0.45:
-			TrackBuilder.add_rock(self, xf.origin + xf.basis.x * lat + Vector3.DOWN * 1.0, rng.randf_range(0.8, 2.0), rng)
+			var rock_s := rng.randf_range(0.8, 2.0)
+			var rock_seat := seat_dressing(xf, lat, rock_s, 4.5, 0.12)
+			# add_rock lifts its own centre-origin sphere; the mesh foot still
+			# lands a little under the seat, which is the bedding we want.
+			TrackBuilder.add_rock(self, rock_seat, rock_s, rng)
+			# Tight radius on purpose: this deck is barely wider than the prop
+			# and a generous patch would spill past the lip onto open water.
+			_add_contact_patch(rock_seat, rock_s * 0.55, rock_seat.y + ground_embed(rock_s, 0.12))
 		else:
-			TrackBuilder.add_ice_crystal(self, xf.origin + xf.basis.x * lat + Vector3.DOWN * 0.8, rng.randf_range(2.0, 5.5))
+			var crystal_h := rng.randf_range(2.0, 5.5)
+			var crystal_seat := seat_dressing(xf, lat, crystal_h, 4.5, 0.12)
+			TrackBuilder.add_ice_crystal(self, crystal_seat, crystal_h)
+			_add_contact_patch(crystal_seat, crystal_h * 0.22,
+				crystal_seat.y + ground_embed(crystal_h, 0.12))
 
 	# Crystals flanking both floorless crossings as a visual warning.
 	for edge_z: float in [-640.0, -672.0, -1185.0, -1220.0]:
 		var probe := Vector3(0.0 if edge_z > -1000.0 else -8.0, 8.0 if edge_z > -1000.0 else 6.0, edge_z)
-		var exf := main_guide.transform_at(_arc_near(probe))
+		var earc := _arc_near(probe)
+		var exf := main_guide.transform_at(earc)
 		for s: float in [-1.0, 1.0]:
-			TrackBuilder.add_ice_crystal(self, exf.origin + exf.basis.x * (8.5 * s) + Vector3.DOWN * 0.5,
-				rng.randf_range(2.5, 4.5), Color(1.0, 0.75, 0.45))
+			var warn_lat := (track_edge_lateral(main_guide, earc, s, 8.0) + 0.6) * s
+			var warn_h := rng.randf_range(2.5, 4.5)
+			var warn_seat := seat_dressing(exf, warn_lat, warn_h, 4.5, 0.12)
+			TrackBuilder.add_ice_crystal(self, warn_seat, warn_h, Color(1.0, 0.75, 0.45))
+			_add_contact_patch(warn_seat, warn_h * 0.22, warn_seat.y + ground_embed(warn_h, 0.12))
 
 	# Navigation buoys bobbing on the open water beside the course: red to
 	# port, green to starboard, emissive tops that catch the bloom pass.
@@ -640,6 +663,76 @@ func _decorate() -> void:
 		for line: Array in _water_lines:
 			_channel_foam(line)
 		_commit_foam()
+		_flush_contact_patches()
+
+
+## --- Contact shadows ---------------------------------------------------------
+## gl_compatibility has no SSAO, so the occlusion that plants a prop on the ice
+## has to be geometry: one soft alpha quad per prop, all of them through a
+## single MultiMesh (one draw call).
+##
+## Only dressing that stands on the berg gets one. Everything this course
+## floats — drifting bergs, brash, pancake floes, buoys, whales — is on the
+## water by design and is grounded by its own foam collar instead.
+
+var _contact_patches: Array[Transform3D] = []
+
+
+## Sunrise over sea ice: a very low warm sun with a pink-lilac sky doing most
+## of the filling, so the shade on this berg is a cool violet rather than
+## glacier's flatter blue-grey noon shadow. Kept light — everything here is
+## near-white and a strong patch would read as a hole in the ice.
+func _contact_material() -> StandardMaterial3D:
+	var mat := VisualLibrary.contact_shadow_material().duplicate() as StandardMaterial3D
+	mat.albedo_color = Color(0.34, 0.34, 0.56, 0.32)
+	return mat
+
+
+## BUILD TIME ONLY. Registers a contact shadow under a prop seated at `pos`.
+## `radius` is the prop's ground footprint; the patch is drawn a shade wider,
+## because a real ambient-occlusion contact reaches slightly past the silhouette.
+##
+## `surface_y` is the height of the ground the prop was SEATED on. It is passed
+## in rather than probed here because dressing is sunk below grade by
+## ground_embed (a patch at the prop's own Y would be buried), and because a
+## fresh downward probe under trackside dressing falls straight past the deck's
+## collision edge into the sea. seat_dressing already resolved the right surface
+## by walking back toward the centreline; this reuses that answer.
+##
+## Props that found no ice at all were seated on the ocean plane, and register
+## nothing: a shadow lying on open water is worse than no contact cue.
+func _add_contact_patch(pos: Vector3, radius: float, surface_y: float) -> void:
+	if is_equal_approx(surface_y, ground_plane_y()):
+		return
+	_contact_patches.append(Transform3D(
+		Basis.from_scale(Vector3(radius * 2.4, 1.0, radius * 2.4)),
+		Vector3(pos.x, surface_y + 0.04, pos.z)))
+
+
+func _flush_contact_patches() -> void:
+	if _contact_patches.is_empty():
+		return
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = VisualLibrary.contact_patch_mesh()
+	mm.instance_count = _contact_patches.size()
+	# Re-anchored at the centroid so the distance fade measures from the
+	# dressing itself rather than from world zero.
+	var centroid := Vector3.ZERO
+	for t: Transform3D in _contact_patches:
+		centroid += t.origin
+	centroid /= float(_contact_patches.size())
+	for i: int in _contact_patches.size():
+		mm.set_instance_transform(i, Transform3D(_contact_patches[i].basis,
+			_contact_patches[i].origin - centroid))
+	var instance := MultiMeshInstance3D.new()
+	instance.name = "ContactShadows"
+	instance.multimesh = mm
+	instance.material_override = _contact_material()
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	instance.position = centroid
+	VisualLibrary.apply_dressing_range(instance, 240.0)
+	add_child(instance)
 
 
 ## Re-tint every track floor run toward white-blue (visual only; surface

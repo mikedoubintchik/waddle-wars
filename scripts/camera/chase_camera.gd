@@ -16,6 +16,11 @@ const YAW_CATCHUP_START: float = 1.2  # rad of error where fast catch-up kicks i
 const YAW_CATCHUP_GAIN: float = 4.0  # extra rate per rad beyond the start (respawns)
 ## Peak camera roll into a corner, in degrees. Small on purpose: the frame
 ## should hint at the lean, not tip the horizon over.
+## Floor the camera keeps above the racer's own feet while it is on the ground,
+## so an elevated deck can never come between the two. Low enough that the
+## framing on flat ground is unchanged.
+const MIN_HEIGHT_OVER_TARGET: float = 0.95
+
 const MAX_ROLL_DEG: float = 6.5
 ## Yaw rate (rad/s) that earns full roll. A hard corner sits near 1.6.
 const FULL_ROLL_YAW_RATE: float = 1.8
@@ -145,6 +150,24 @@ func _physics_process(delta: float) -> void:
 	if not hit.is_empty():
 		var floor_y: float = (hit["position"] as Vector3).y
 		_smoothed_pos.y = maxf(_smoothed_pos.y, floor_y + 0.7)
+
+	# ...and never below the deck the RACER is standing on.
+	#
+	# The probe above casts down from the CAMERA, so it only ever finds what is
+	# under the camera. Where the track runs along an elevated plateau, a camera
+	# that has swung out past the edge is over open air: the cast falls all the
+	# way to the frozen lake, the clamp does nothing, and the camera settles
+	# below deck level with the plateau's edge squarely between it and the
+	# player. On the deep-snow climb that meant losing sight of your own
+	# penguin behind a wall of ice. Clamping to the racer's own height cannot
+	# have that blind spot, because the racer is by definition standing on the
+	# surface the camera needs to stay above.
+	#
+	# On-floor only: a jump should still be framed ballistically rather than
+	# dragging the camera up the arc with the racer.
+	if target.is_on_floor():
+		_smoothed_pos.y = maxf(_smoothed_pos.y,
+			target.global_position.y + MIN_HEIGHT_OVER_TARGET)
 
 	global_position = _smoothed_pos
 	if _smoothed_pos.distance_squared_to(_smoothed_look) > 0.01:

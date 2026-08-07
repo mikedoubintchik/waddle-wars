@@ -266,7 +266,9 @@ func _decorate() -> void:
 	_decorate_spectators(density)
 	_decorate_mountains()
 	_decorate_cliffs(density)
-	_decorate_icefall()
+	if OS.get_environment("DBG_NO_ICEFALL") == "":
+		_decorate_icefall()
+	_dbg_camera()
 	_decorate_boulders(density)
 	_decorate_cave_glints(density)
 	_decorate_crevasse_cracks()
@@ -996,31 +998,51 @@ func _wildlife_site_ok(xform: Transform3D, seat: Vector3, lateral: float, side: 
 	return get_world_3d().direct_space_state.intersect_ray(los).is_empty()
 
 
+## TEMPORARY QA harness. DBG_CAM="arc,lateral,lift,ahead" pins a camera on the
+## racing line so a dressing change can be A/B'd from an identical viewpoint
+## instead of from wherever the autopilot happened to be when the shot fired.
+func _dbg_camera() -> void:
+	var spec := OS.get_environment("DBG_CAM")
+	if spec == "":
+		return
+	var f := spec.split(",")
+	if f.size() < 4:
+		return
+	var arc := float(f[0])
+	var xf := main_guide.transform_at(arc)
+	var cam := Camera3D.new()
+	cam.name = "DbgCam"
+	cam.position = xf.origin + xf.basis.x * float(f[1]) + Vector3.UP * float(f[2])
+	cam.look_at_from_position(cam.position,
+		main_guide.transform_at(arc + float(f[3])).origin + Vector3.UP * float(f[2]) * 0.5)
+	cam.far = 4000.0
+	add_child(cam)
+	var timer := Timer.new()
+	timer.wait_time = 0.25
+	timer.autostart = true
+	timer.timeout.connect(func() -> void: cam.make_current())
+	add_child(timer)
+
+
 ## --- Cliffs, crevasse cracks, fog, glint ------------------------------------
 
 ## Towering striated ice cliff walls flanking the cave approach, the deep-snow
-## climb, and the final downhill. Three cached mesh variants instanced through
-## MultiMesh; vertex colors bake the striation, blue ice base band, and snow
-## rim, so the whole feature costs three draw calls.
+## climb, and the final downhill. Five runs, ONE swept ribbon mesh each, so the
+## whole feature costs five draw calls.
+##
+## This used to be a MultiMesh of individually-yawed flat slabs chained along
+## the guide. No amount of overlap, end-capping or back-skinning ever made that
+## read as a cliff: each slab is a separate box with its own crest height and
+## its own yaw, so along a curve the run splays into a row of tombstones, the
+## silhouette stair-steps at every slab boundary, and the seams between them
+## either show sky or show an unlit interior face. A wall is not a set of
+## walls — it has to be ONE surface.
 func _decorate_cliffs(density: float) -> void:
-	var buckets: Array = [[], [], []]
-	# Tighter chaining than the old 16 m. Slabs are only ~25 m wide and are each
-	# yawed to face the track, so along a curve consecutive slabs splay apart and
-	# the run reads as a picket fence with sky between the pales. More overlap is
-	# free (same three draw calls) and closes those gaps.
-	var step := 12.0 / maxf(density, 0.5)
-	var cave_start := _offset_near(Vector3(8, 49, -460))
-	_add_cliff_run(buckets, cave_start - 130.0, cave_start - 12.0, -1.0, 17.0, step)
-	_add_cliff_run(buckets, cave_start - 100.0, cave_start - 24.0, 1.0, 20.0, step)
-	var climb := _offset_near(Vector3(8, 41, -1120))
-	_add_cliff_run(buckets, climb - 55.0, climb + 30.0, 1.0, 15.0, step)
-	var downhill := _offset_near(Vector3(-16, 18, -1290))
-	_add_cliff_run(buckets, downhill - 80.0, downhill + 55.0, -1.0, 19.0, step)
-	_add_cliff_run(buckets, downhill - 40.0, downhill + 90.0, 1.0, 16.0, step)
-	# Terrain shader, not a flat StandardMaterial3D: the slabs are instanced at
-	# wildly different heights, so the strata that give the wall its internal
-	# value have to be driven by WORLD Y (consistent band scale on every slab)
-	# rather than baked into a mesh that then gets stretched 3x.
+	# Terrain shader, not a flat StandardMaterial3D: a 40 m wall wearing one
+	# albedo and one roughness is exactly the untextured-polygon read. The
+	# strata are driven by WORLD Y, so a run that climbs 30 m with the track
+	# keeps one consistent band scale down its whole length instead of
+	# smearing them.
 	var cliff_mat := VisualLibrary.shader_variant(
 		VisualLibrary.terrain_material(Color(1.0, 1.0, 1.0), 1.0, 0.35, 0.45), {
 			"strata_strength": 0.32,
@@ -1031,165 +1053,305 @@ func _decorate_cliffs(density: float) -> void:
 			"haze_start": 120.0,
 			"haze_end": 620.0,
 		})
-	for v: int in 3:
-		var typed: Array[Transform3D] = []
-		for t: Transform3D in buckets[v] as Array:
-			typed.append(t)
-		# Shadow casting off. These are 18.5 m off the racing line and stretched
-		# to 45 m, so they swallowed a large share of the directional shadow
-		# atlas AND self-shadowed each other into a stippled mess on their own
-		# faces. The terrain shader's wall/ledge value split models them far more
-		# cleanly, and the atlas resolution goes back to the racers.
-		_add_multimesh(_cliff_mesh(7000 + v), typed, cliff_mat, "IceCliffs_%d" % v, false)
+	# Ring spacing along the sweep. Fine enough that the crest serration reads
+	# as erosion rather than as a sawtooth; coarse enough that a 130 m run is
+	# about thirty rings and a couple of thousand triangles.
+	var step := CLIFF_SWEEP_STEP / clampf(density, 0.7, 1.0)
+	var cave_start := _offset_near(Vector3(8, 49, -460))
+	_add_cliff_run(cave_start - 130.0, cave_start - 12.0, -1.0, 17.0, step, 7001, cliff_mat)
+	_add_cliff_run(cave_start - 100.0, cave_start - 24.0, 1.0, 20.0, step, 7002, cliff_mat)
+	var climb := _offset_near(Vector3(8, 41, -1120))
+	_add_cliff_run(climb - 55.0, climb + 30.0, 1.0, 15.0, step, 7003, cliff_mat)
+	var downhill := _offset_near(Vector3(-16, 18, -1290))
+	_add_cliff_run(downhill - 80.0, downhill + 55.0, -1.0, 19.0, step, 7004, cliff_mat)
+	_add_cliff_run(downhill - 40.0, downhill + 90.0, 1.0, 16.0, step, 7005, cliff_mat)
 
 
-## Chains cliff slabs along the guide so runs follow track curvature instead
-## of clipping across it. Each slab faces the track from its side.
-##
-## Slabs are FOOTED, not floated: the crest stays where it was authored and the
-## base is stretched down toward the frozen lake instead of stopping 3.5m under
-## the deck with open sky beneath it. Growth is capped at CLIFF_MAX_STRETCH so
-## the baked striation bands never smear into ribbons on the high stretches —
-## where the cap bites, the foot still ends tens of metres below the deck and
-## stays behind the track-edge sight line.
+## Cliff runs are FOOTED, not floated: the crest stays where it is authored and
+## the wall falls away toward the frozen lake instead of stopping a few metres
+## under the deck with open sky beneath it. Growth is capped at
+## CLIFF_MAX_STRETCH x the local crest height so the shader's world-Y striation
+## never has to cover an absurd span; where the cap bites, the foot still ends
+## tens of metres below the deck, well behind the track-edge sight line.
 const CLIFF_MAX_STRETCH: float = 3.0
+## Arc metres between sweep rings at full density.
+const CLIFF_SWEEP_STEP: float = 4.5
+## Points in the closed cross-section (see _cliff_profile).
+const CLIFF_RING: int = 11
 
 
-func _add_cliff_run(buckets: Array, start_offset: float, end_offset: float, side: float, base_height: float, step: float) -> void:
-	var sheet_y := ground_plane_y()
-	var offset := start_offset
-	while offset < end_offset:
-		var xform := main_guide.transform_at(offset)
-		# Tight lateral jitter: a 3.5 m spread staggered consecutive slabs far
-		# enough apart to read as separate pales rather than as one wall face.
-		var lateral := (18.5 + rng.randf_range(0.0, 1.4)) * side
-		var pos := xform.origin + xform.basis.x * lateral + Vector3.DOWN * 3.5
-		var toward := -xform.basis.x * side
-		var yaw := atan2(toward.x, toward.z)
-		# Draws stay in their original order (jitter, width, height, depth,
-		# bucket); only what is done with the height changed.
-		var yaw_jitter := rng.randf_range(-0.05, 0.05)
-		var slab_width := rng.randf_range(23.0, 29.0)
-		var authored_height := base_height * rng.randf_range(0.92, 1.2)
-		var slab_depth := rng.randf_range(4.5, 7.0)
-		var crest_y := pos.y + authored_height
-		var footed_height := clampf(crest_y - (sheet_y - 1.5),
-			authored_height, authored_height * CLIFF_MAX_STRETCH)
-		var cliff_basis := Basis(Vector3.UP, yaw + yaw_jitter) \
-			* Basis.from_scale(Vector3(slab_width, footed_height, slab_depth))
-		(buckets[rng.randi_range(0, 2)] as Array).append(
-			Transform3D(cliff_basis, Vector3(pos.x, crest_y - footed_height, pos.z)))
-		offset += step
-
-
-## Unit-scale striated ice cliff slab: x -0.5..0.5, y 0..~1, front toward +Z.
-## Each column is one continuous front face carrying a FOUR-STOP vertical ramp
-## (shadowed contact foot -> glacial blue -> streaked wall -> snow rim) as
-## per-vertex colour, so the wall grades instead of stacking three flat bands,
-## and a snow-capped shelf runs back from its top edge.
+## One continuous ice wall swept along `main_guide` from `start_offset` to
+## `end_offset`, standing off the centreline on `side` (-1 left, +1 right).
 ##
-## Columns are joined by SLANTED flute connectors, not by dead-perpendicular
-## return planes. The old build put a full-height plane at each column boundary
-## and drew it twice (both windings, coplanar). Viewed along a cliff run — the
-## normal way a run is seen, since runs parallel the racing line — such a plane
-## projects to a sub-pixel sliver of saturated crevice-blue, and a row of them
-## is the column of thin vertical grey/blue hairlines that streaked every cliff
-## in QA. A connector that leans across ~22% of a column width has real screen
-## area at any viewing angle, shades as a flute instead of aliasing as a line,
-## and needs only one winding because its normal always carries +Z.
-## Deterministic per seed.
-func _cliff_mesh(seed_value: int) -> ArrayMesh:
-	var mrng := RandomNumberGenerator.new()
-	mrng.seed = seed_value
+## The sweep samples the guide every `step` metres and lays a closed 8-point
+## cross-section at each sample: an apron toe at the snowline, a face rising
+## and receding to a crest lip, a snow roof running back from the crest, and a
+## back wall and floor closing the volume. Consecutive cross-sections are
+## joined edge for edge, so the surface is continuous by construction — there
+## is no seam anywhere for sky or for an interior face to show through, which
+## is the entire point of the rebuild.
+##
+## Everything that varies does so as a function of ARC LENGTH, through smooth
+## multi-octave sine sums seeded per run: crest height, lateral standoff, wall
+## girth, roof depth and face fluting. That is what keeps it from reading as an
+## extrusion. The crest carries one extra per-ring term so its skyline
+## serrates at ring resolution while the face below it stays smooth — eroded
+## ice, rather than a noisy wall.
+##
+## Wound outward everywhere and drawn with the terrain shader's cull_back, so
+## the volume's inward faces never rasterise: there is no dark interior for a
+## racer to see into. Shadow casting stays off — these are 19 m off the racing
+## line and up to 50 m tall, and they used to swallow most of the directional
+## shadow atlas while self-shadowing into a stippled mess. The shader's
+## wall/ledge value split models them far more cleanly.
+func _add_cliff_run(start_offset: float, end_offset: float, side: float,
+		base_height: float, step: float, seed_value: int, material: Material) -> void:
+	var span := end_offset - start_offset
+	if span <= step * 2.0:
+		return
+	var rings := maxi(4, int(ceil(span / step)) + 1)
+	var seg := span / float(rings - 1)
+	var sheet_y := ground_plane_y()
+	# Phase table, so two runs never undulate in step with each other.
+	var prng := RandomNumberGenerator.new()
+	prng.seed = seed_value
+	var ph := PackedFloat32Array()
+	for _i: int in 12:
+		ph.append(prng.randf() * TAU)
+
+	# Palette carried over unchanged from the slab build, which spent a whole
+	# pass getting it right. Deliberately mid-value and only mildly blue: a
+	# near-white wall albedo clips to paper under this course's 1.38-energy key
+	# light, and a saturated one turns the whole cliff into cobalt panelling,
+	# because these faces are vertical and almost all of their light is sky
+	# ambient off a cobalt zenith. The cliff has to read as a grey-blue MASS
+	# that is darker than the snow around it, with its structure carried by
+	# shading rather than by albedo contrast.
+	var wall := Color(0.63, 0.665, 0.71)
+	var foot := Color(0.19, 0.25, 0.33)     # shadowed contact, desaturated
+	var ice_mid := Color(0.42, 0.5, 0.6)    # glacial blue base band
+	var snow := Color(0.94, 0.96, 1.0)
+
+	var pts: Array[PackedVector3Array] = []
+	var cols: Array[PackedColorArray] = []
+	var outs: Array[PackedVector3Array] = []
+	for i: int in rings:
+		var o := start_offset + seg * float(i)
+		var xf := main_guide.transform_at(o)
+		# Long-wavelength swell in the crest line, a slower meander in the
+		# standoff, a separate girth term for wall thickness and roof depth,
+		# and a short-wavelength flute that pushes the face in and out.
+		var swell := sin(o * 0.055 + ph[0]) * 0.62 + sin(o * 0.131 + ph[1]) * 0.26 \
+				+ sin(o * 0.29 + ph[2]) * 0.12
+		var meander := sin(o * 0.043 + ph[3]) * 0.70 + sin(o * 0.097 + ph[4]) * 0.30
+		var girth := sin(o * 0.081 + ph[5]) * 0.70 + sin(o * 0.19 + ph[6]) * 0.30
+		# Fluting: a smooth in/out breathing of the face plus a per-ring kick,
+		# so consecutive rings sit at slightly different depths and the wall
+		# creases vertically the way weathered ice does. Without the per-ring
+		# term the face is a smooth sheet no matter how much it undulates.
+		var flute := sin(o * 0.71 + ph[7]) * 0.58 + sin(o * 1.29 + ph[8]) * 0.42 \
+				+ (_cliff_hash(i, seed_value + 311) * 2.0 - 1.0) * 0.38
+		# Crest serration. Half of it is a smooth wave; the other half is one
+		# value per ring, which is what gives the skyline a tooth at sweep
+		# resolution instead of a sine curve.
+		var jag := (sin(o * 0.37 + ph[9]) * 0.6 + sin(o * 0.83 + ph[10]) * 0.4) * 0.46 \
+				+ (_cliff_hash(i, seed_value) * 2.0 - 1.0) * 0.54
+		# Where the two snow benches cut across the face. They wander, because a
+		# dead-level ledge running 130 m reads as a machined groove.
+		var ledge := Vector2(
+			0.30 + 0.045 * sin(o * 0.062 + ph[11]),
+			0.60 + 0.045 * sin(o * 0.091 + ph[2]))
+
+		# Both ends die into the snowfield. A run that simply stops leaves a
+		# sheer 20 m end wall standing in open snow.
+		var fade := minf(18.0, span * 0.3)
+		var taper := smoothstep(0.0, fade, o - start_offset) \
+				* smoothstep(0.0, fade, end_offset - o)
+		taper = 0.14 + 0.86 * taper
+
+		var u := xf.basis.x * side              # horizontal, points away from the track
+		var lateral := (19.0 + meander * 2.6) * side
+		var line := xf.origin + xf.basis.x * lateral
+		var base_y := xf.origin.y - 3.5         # snowline the apron toe sits on
+		var h := base_height * (1.0 + 0.30 * swell) * taper
+		var crest_y := base_y + h * (1.0 + 0.16 * jag)
+		var girth_w := 1.0 + 0.30 * girth
+		var roof := 6.4 + 2.0 * girth
+		# Bedded, not planted on the deck: take the lower of the local surface
+		# and the snowline, then keep falling toward the lake.
+		var terrain_y := ground_height_at(Vector3(line.x, xf.origin.y + 2.0, line.z))
+		var foot_y := maxf(sheet_y - 1.5, crest_y - (h + 1.0) * CLIFF_MAX_STRETCH)
+		foot_y = minf(foot_y, minf(base_y, terrain_y) - 2.0)
+
+		var prof := _cliff_profile(base_y, crest_y, foot_y, h, girth_w, roof, flute, ledge)
+		var ring := PackedVector3Array()
+		var out := PackedVector3Array()
+		for j: int in CLIFF_RING:
+			var pr := prof[j]
+			ring.append(Vector3(line.x + u.x * pr.x, pr.y, line.z + u.z * pr.x))
+			# Outward normal of the edge j -> j+1. The cross-section is wound
+			# clockwise in (outward, up), for which (-dy, dx) points out of the
+			# solid; computing it per EDGE rather than from a section centroid
+			# keeps it correct across the concave apron toe.
+			var e := prof[(j + 1) % CLIFF_RING] - pr
+			var ow := u * -e.y + Vector3.UP * e.x
+			out.append(ow.normalized() if ow.length_squared() > 1e-9 else u)
+		pts.append(ring)
+		outs.append(out)
+
+		# Vertical ramp, matched at every shared edge so the wall grades instead
+		# of stacking flat bands: shadowed foot, glacial blue at the snowline,
+		# streaked wall, snow on the two benches, snow rim and roof. The streak
+		# varies along the sweep, which is where the vertical striation comes
+		# from now that there are no columns to carry it.
+		var s := 1.0 + 0.07 * flute + 0.05 * (_cliff_hash(i, seed_value + 977) * 2.0 - 1.0)
+		var face := Color(wall.r * s, wall.g * (0.7 + 0.3 * s), wall.b * (0.85 + 0.15 * s))
+		var band_ice := ice_mid.lerp(face, 0.35)
+		cols.append(PackedColorArray([
+			band_ice,                     #  0 apron toe, at the snowline
+			band_ice.lerp(face, 0.55),    #  1 apron shoulder
+			face,                         #  2 lower face
+			face.lerp(snow, 0.72),        #  3 lower bench
+			face.lerp(snow, 0.06),        #  4 mid face
+			face.lerp(snow, 0.78),        #  5 upper bench
+			face.lerp(snow, 0.18),        #  6 upper face
+			face.lerp(snow, 0.9),         #  7 crest lip
+			snow,                         #  8 roof, back edge
+			foot,                         #  9 back foot
+			foot,                         # 10 skirt foot
+		]))
+
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var cols := 9
-	# Palette is deliberately mid-value and only mildly blue. A near-white wall
-	# albedo clips to paper under this course's 1.38-energy key light, and a
-	# saturated one turns every flute into a cobalt stripe: the cliff has to read
-	# as a grey-blue MASS that is darker than the snow around it, with its
-	# structure carried by shading rather than by albedo contrast.
-	# Near-neutral on purpose. These faces are vertical, so almost all of their
-	# light is sky ambient from a cobalt zenith; anything with a blue albedo on
-	# top of that renders as saturated cobalt panelling.
-	var wall := Color(0.63, 0.665, 0.71)
-	# Contact foot: desaturated shadow rather than the old saturated cobalt.
-	var foot := Color(0.19, 0.25, 0.33)
-	var ice_mid := Color(0.42, 0.5, 0.6)
-	var snow := Color(0.94, 0.96, 1.0)
-	# Half-width of a flute connector, in unit-mesh X: a flute takes ~22% of a
-	# column, not 44%, or the wall reads as a barcode instead of as fluting.
-	var flute := 0.11 / float(cols)
-	var prev_z := 0.0
-	var prev_top := 0.0
-	var prev_face := wall
-	for i: int in cols:
-		var x0 := -0.5 + float(i) / float(cols)
-		var x1 := -0.5 + float(i + 1) / float(cols)
-		var z := mrng.randf_range(0.0, 0.16)
-		var top := mrng.randf_range(0.8, 1.0)
-		# Narrow streak band. A wide one (the old 0.55-1.12) turned neighbouring
-		# columns into hard alternating white/cobalt stripes once the terrain
-		# shader added its own wall shading on top — column-to-column variation
-		# should read as weathering, not as a barcode.
-		var streak := mrng.randf_range(0.84, 1.05)
-		var face := Color(wall.r * streak, wall.g * (0.7 + 0.3 * streak), wall.b * (0.85 + 0.15 * streak))
-		var y_ice := mrng.randf_range(0.14, 0.22)
-		var y_snow := top - mrng.randf_range(0.1, 0.18)
-		var fx0 := x0 + flute
-		var fx1 := x1 - flute
-		var band_ice := ice_mid.lerp(face, 0.35)
-		var rim := face.lerp(snow, 0.85)
-		# Front face, bottom to top, colours matched at every shared edge so the
-		# whole column reads as one graded wall.
-		_cgrad(st, Vector3(fx0, 0.0, z), Vector3(fx1, 0.0, z),
-			Vector3(fx1, y_ice, z), Vector3(fx0, y_ice, z), foot, band_ice)
-		_cgrad(st, Vector3(fx0, y_ice, z), Vector3(fx1, y_ice, z),
-			Vector3(fx1, y_snow, z), Vector3(fx0, y_snow, z), band_ice, face)
-		_cgrad(st, Vector3(fx0, y_snow, z), Vector3(fx1, y_snow, z),
-			Vector3(fx1, top, z), Vector3(fx0, top, z), face, rim)
-		# Snow-capped shelf running back from the rim.
-		_cquad(st, Vector3(fx0, top, z), Vector3(fx1, top, z),
-			Vector3(fx1, top, z - 0.4), Vector3(fx0, top, z - 0.4), snow)
-		if i > 0:
-			# Flute: leans from the previous column's plane to this one's, over
-			# the full height of both so a step between column tops never leaves
-			# a notch to see through.
-			var hi := maxf(top, prev_top)
-			var groove := prev_face.lerp(face, 0.5)
-			# Barely darker than the face it joins: a flute is a SHADING feature.
-			# Painting it dark as well doubles the contrast the geometry already
-			# produces and turns the wall into hard stripes.
-			groove = Color(groove.r * 0.84, groove.g * 0.88, groove.b * 0.93)
-			_cgrad(st, Vector3(x0 - flute, 0.0, prev_z), Vector3(x0 + flute, 0.0, z),
-				Vector3(x0 + flute, hi, z), Vector3(x0 - flute, hi, prev_z),
-				foot.lerp(groove, 0.35), groove)
-			# Snow ledge capping the flute.
-			_cquad(st, Vector3(x0 - flute, hi, prev_z), Vector3(x0 + flute, hi, z),
-				Vector3(x0 + flute, hi, z - 0.4), Vector3(x0 - flute, hi, prev_z - 0.4), snow)
-		# End caps. Without them a slab is a single-sided sheet: a run of them
-		# seen at an angle shows sky straight through every seam, which is what
-		# made a cliff read as a row of stage flats rather than as a mass.
-		if i == 0:
-			# Outward face is -X.
-			_cgrad(st, Vector3(x0, 0.0, z - 0.4), Vector3(x0, 0.0, z),
-				Vector3(x0, top, z), Vector3(x0, top, z - 0.4),
-				foot, face.lerp(snow, 0.3))
-		if i == cols - 1:
-			# Outward face is +X.
-			_cgrad(st, Vector3(x1, 0.0, z), Vector3(x1, 0.0, z - 0.4),
-				Vector3(x1, top, z - 0.4), Vector3(x1, top, z),
-				foot, face.lerp(snow, 0.3))
-		# Back skin (-Z), so a run is opaque from behind as well: the racing
-		# line crosses in front of these, but branches and the cave loop do not.
-		_cgrad(st, Vector3(fx1, 0.0, z - 0.4), Vector3(fx0, 0.0, z - 0.4),
-			Vector3(fx0, top, z - 0.4), Vector3(fx1, top, z - 0.4),
-			foot, face.lerp(snow, 0.25))
-		prev_z = z
-		prev_top = top
-		prev_face = face
-	st.generate_normals()
-	return st.commit()
+	for i: int in rings - 1:
+		for j: int in CLIFF_RING:
+			var k := (j + 1) % CLIFF_RING
+			var ow := outs[i][j] + outs[i + 1][j]
+			_cliff_quad(st, pts[i][j], pts[i][k], pts[i + 1][k], pts[i + 1][j],
+				cols[i][j], cols[i][k], cols[i + 1][k], cols[i + 1][j], ow.normalized())
+	# Caps, so the ends are solid rather than open tubes. Both sit in the
+	# tapered-down tail of the run, buried in the snowfield.
+	var head := (_cliff_centre(pts[0]) - _cliff_centre(pts[1])).normalized()
+	_cliff_cap(st, pts[0], cols[0], head)
+	var tail := (_cliff_centre(pts[rings - 1]) - _cliff_centre(pts[rings - 2])).normalized()
+	_cliff_cap(st, pts[rings - 1], cols[rings - 1], tail)
+
+	var instance := MeshInstance3D.new()
+	instance.name = "IceCliff_%d" % seed_value
+	instance.mesh = st.commit()
+	instance.material_override = material
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(instance)
+
+
+## Closed cliff cross-section in (outward-from-track, world Y), wound CLOCKWISE
+## from the apron toe: up the face to the crest, back along the roof, down the
+## back wall and along the floor. Clockwise is what makes (-dy, dx) the outward
+## edge normal, which is what _add_cliff_run winds every triangle against.
+##
+## The face is not one plane. It steps back at two BENCHES — a near-horizontal
+## tread at `ledge.x` and `ledge.y` of the crest height — because the single
+## biggest reason a swept wall still reads as a flat backdrop is that it has no
+## horizontal structure. A bench tread faces up, so it takes the terrain
+## shader's snow catch as well as a baked snow colour, and the resulting pair
+## of bright lines running the length of the run is what makes the thing read
+## as bedded, weathered ice rather than as a painted flat.
+##
+## `flute` (-1..1) breathes the face in and out along the sweep. It is weighted
+## down as the profile climbs, so the base is deeply fluted and the crest line
+## stays clean; and it is kept off the toe, the benches' back edges and the
+## roof, which want to stay level.
+static func _cliff_profile(base_y: float, crest_y: float, foot_y: float, h: float,
+		girth: float, roof: float, flute: float, ledge: Vector2) -> PackedVector2Array:
+	# Y is strictly increasing from the toe to the crest lip, which is what
+	# guarantees the section cannot self-intersect however far the flute pushes
+	# a point sideways. 0.78 for the top of the face leaves headroom under the
+	# lowest crest the serration can produce (0.84 h).
+	var lo := base_y + h * ledge.x
+	var hi := base_y + h * ledge.y
+	return PackedVector2Array([
+		Vector2(-1.70 * girth, base_y),                              #  0 apron toe
+		Vector2(-0.85 * girth + flute * 0.20, base_y + h * 0.10),    #  1 apron shoulder
+		Vector2(-0.20 * girth + flute * 0.85, lo),                   #  2 lower face
+		Vector2(0.55 * girth + flute * 0.85, lo + h * 0.018),        #  3 lower bench
+		Vector2(0.80 * girth + flute * 0.62, hi),                    #  4 mid face
+		Vector2(1.50 * girth + flute * 0.62, hi + h * 0.016),        #  5 upper bench
+		Vector2(1.70 * girth + flute * 0.38, base_y + h * 0.78),     #  6 upper face
+		Vector2(2.00 * girth + flute * 0.20, crest_y),               #  7 crest lip
+		Vector2(roof, crest_y - h * 0.16),                           #  8 roof, back edge
+		Vector2(roof, foot_y),                                       #  9 back foot
+		Vector2(-1.05 * girth, foot_y),                              # 10 skirt foot
+	])
+
+
+## Deterministic 0..1 hash. Used for the per-ring half of the crest serration:
+## a pure sine sum cannot produce a tooth at sweep resolution without aliasing
+## against the ring spacing, and a RandomNumberGenerator draw here would make
+## the wall depend on how many other passes had drawn from the course rng.
+static func _cliff_hash(n: int, salt: int) -> float:
+	var x := (n * 374761393 + salt * 668265263) & 0x7fffffff
+	x = ((x ^ (x >> 13)) * 1274126177) & 0x7fffffff
+	return float(x % 1000003) / 1000003.0
+
+
+static func _cliff_centre(ring: PackedVector3Array) -> Vector3:
+	var sum := Vector3.ZERO
+	for p: Vector3 in ring:
+		sum += p
+	return sum / float(ring.size())
+
+
+## Fan-caps one end of the sweep. The cross-section is star-shaped about its
+## toe (point 0 is its extreme inward point), so a fan from there is valid.
+static func _cliff_cap(st: SurfaceTool, ring: PackedVector3Array,
+		colors: PackedColorArray, outward: Vector3) -> void:
+	for j: int in range(1, ring.size() - 1):
+		_cliff_tri(st, ring[0], ring[j], ring[j + 1],
+			colors[0], colors[j], colors[j + 1], outward)
+
+
+## Sweep quad with a colour at every corner, flat-shaded: both triangles are
+## given the QUAD's normal rather than their own, so a non-planar ring pair
+## does not crease down its diagonal.
+static func _cliff_quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3,
+		ca: Color, cb: Color, cc: Color, cd: Color, outward: Vector3) -> void:
+	var n := (c - a).cross(d - b)
+	if n.length_squared() < 1e-9:
+		return
+	n = n.normalized()
+	if n.dot(outward) < 0.0:
+		n = -n
+	_cliff_tri(st, a, b, c, ca, cb, cc, n)
+	_cliff_tri(st, a, c, d, ca, cc, cd, n)
+
+
+## Triangle wound so its front face carries `n`, with `n` written explicitly on
+## all three vertices. Explicit normals rather than SurfaceTool.generate_normals
+## because that merges by position: on a swept tube every ring vertex is shared
+## by the quads above and below it, and averaging across those creases rounds a
+## crest lip into a wax drip.
+static func _cliff_tri(st: SurfaceTool, p: Vector3, q: Vector3, r: Vector3,
+		cp: Color, cq: Color, cr: Color, n: Vector3) -> void:
+	var v1 := q
+	var v2 := r
+	var c1 := cq
+	var c2 := cr
+	# _ctri's front face is the winding for which (r - p) x (q - p) faces the
+	# viewer; flip the pair when this triangle came out the other way round.
+	if (r - p).cross(q - p).dot(n) < 0.0:
+		v1 = r
+		v2 = q
+		c1 = cr
+		c2 = cq
+	st.set_normal(n)
+	st.set_color(cp)
+	st.add_vertex(p)
+	st.set_normal(n)
+	st.set_color(c1)
+	st.add_vertex(v1)
+	st.set_normal(n)
+	st.set_color(c2)
+	st.add_vertex(v2)
 
 
 ## Frozen waterfall wall: a broad columnar icefall frozen mid-pour down the
@@ -1213,7 +1375,6 @@ func _decorate_icefall() -> void:
 		var yaw_jitter := rng.randf_range(-0.06, 0.06)
 		var fall_width := rng.randf_range(17.0, 22.0)
 		var authored_height := rng.randf_range(15.0, 20.0)
-		var fall_depth := rng.randf_range(4.0, 6.0)
 		# Same treatment as the cliff runs: keep the crown lip where it was
 		# authored and pour the cascade down to the lake rather than ending it
 		# in mid-air 5m under the deck (capped so the melt-columns keep their
@@ -1221,8 +1382,19 @@ func _decorate_icefall() -> void:
 		var crest_y := pos.y + authored_height
 		var footed_height := clampf(crest_y - (sheet_y - 1.5),
 			authored_height, authored_height * CLIFF_MAX_STRETCH)
+		# X and Z scale EQUALLY, and the mesh carries the wall's depth-to-width
+		# ratio itself (FALL_DEPTH_RATIO). This is not cosmetic. A MultiMesh
+		# instance transform does NOT get an inverse-transpose applied to its
+		# normals -- the non-uniform-scale flag is read off the NODE, which is
+		# unscaled -- so a per-instance scale of (20, 50, 5) multiplied every
+		# normal's x by 20 and its z by 5. A groove flank 0.15 m deep across
+		# 0.5 m, whose true normal is 17 deg off the wall face, came out at 78
+		# deg: turned along the wall, away from the key light, no diffuse at
+		# all. That is what rendered every groove between the melt-columns as a
+		# hard BLACK bar. With x and z scaled alike the ratio survives and the
+		# flanks light like the faces they sit between.
 		var fall_basis := Basis(Vector3.UP, yaw + yaw_jitter) \
-			* Basis.from_scale(Vector3(fall_width, footed_height, fall_depth))
+			* Basis.from_scale(Vector3(fall_width, footed_height, fall_width))
 		transforms.append(Transform3D(fall_basis, Vector3(pos.x, crest_y - footed_height, pos.z)))
 		offset += 19.0
 	# Two-sided: the cascade is an open shell of melt-columns, and a groove flank
@@ -1246,6 +1418,13 @@ func _decorate_icefall() -> void:
 ## in qa_shots/props/bt12.png. A groove with real width shades instead of
 ## aliasing, and needs one winding because its normal always carries +Z.
 ## Deterministic per seed.
+## Wall depth as a fraction of wall WIDTH. Baked into the mesh instead of into
+## the instance scale, so _decorate_icefall can scale x and z alike and keep the
+## instance normal transform honest (see the note there). The product of this
+## and the mesh's z range reproduces the depth the old (17-22 x 4-6) scale gave.
+const FALL_DEPTH_RATIO: float = 0.25
+
+
 func _icefall_mesh(seed_value: int) -> ArrayMesh:
 	var mrng := RandomNumberGenerator.new()
 	mrng.seed = seed_value
@@ -1268,7 +1447,7 @@ func _icefall_mesh(seed_value: int) -> ArrayMesh:
 	for i: int in cols:
 		var x0 := -0.5 + float(i) / float(cols)
 		var x1 := -0.5 + float(i + 1) / float(cols)
-		var z := mrng.randf_range(0.06, 0.11)
+		var z := mrng.randf_range(0.06, 0.11) * FALL_DEPTH_RATIO
 		var lip := mrng.randf_range(0.86, 0.93)
 		var tip_y := mrng.randf_range(0.02, 0.12)
 		var streak := mrng.randf_range(0.8, 1.1)
@@ -1286,7 +1465,8 @@ func _icefall_mesh(seed_value: int) -> ArrayMesh:
 		# Crown runs the FULL column width, groove included: cutting it back to
 		# the column front left an open vertical slot above every groove.
 		_cgrad(st, Vector3(x0, lip, z), Vector3(x1, lip, z),
-			Vector3(x1, 1.0, z - 0.1), Vector3(x0, 1.0, z - 0.1), hi.lerp(crown, 0.6), crown)
+			Vector3(x1, 1.0, z - 0.1 * FALL_DEPTH_RATIO),
+			Vector3(x0, 1.0, z - 0.1 * FALL_DEPTH_RATIO), hi.lerp(crown, 0.6), crown)
 		# Icicle tip hanging under the column base. ONE winding: the reversed
 		# copy the old build added was coplanar with this triangle, so the two
 		# z-fought and the loser — facing away from every light — shaded black.
@@ -1307,7 +1487,7 @@ func _icefall_mesh(seed_value: int) -> ArrayMesh:
 			# in the first place — and its two possible lean directions light
 			# completely differently, so alternate grooves went dark. A V has one
 			# flank facing each way and a real floor between them.
-			var zmid := minf(prev_z, z) - 0.022
+			var zmid := minf(prev_z, z) - 0.022 * FALL_DEPTH_RATIO
 			_cgrad(st, Vector3(x0 - groove_w, 0.0, prev_z), Vector3(x0, 0.0, zmid),
 				Vector3(x0, hi_y, zmid), Vector3(x0 - groove_w, hi_y, prev_z), rec_lo, rec)
 			_cgrad(st, Vector3(x0, 0.0, zmid), Vector3(x0 + groove_w, 0.0, z),

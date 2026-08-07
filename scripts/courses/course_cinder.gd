@@ -423,6 +423,56 @@ func _decorate() -> void:
 	_decorate_spectators(density)
 	_decorate_haze(density)
 
+	# Baked contact shadows, flushed last so every pass above has had its chance
+	# to register one. The dusk sun rakes this coast almost horizontally, so the
+	# real cast shadows all run far off to one side and leave nothing under the
+	# props themselves; without an occlusion cue at the foot a correctly bedded
+	# column still reads as standing on top of the ash rather than in it.
+	_add_multimesh(VisualLibrary.contact_patch_mesh(), _contact_patches,
+		_contact_material(), "ContactShadows", false, 260.0)
+
+
+## --- Contact shadows ---------------------------------------------------------
+## gl_compatibility has no SSAO, so the occlusion that plants a prop on the
+## ground has to be geometry: one soft alpha quad per prop, all of them through
+## a single MultiMesh (one draw call for the whole coastline).
+
+var _contact_patches: Array[Transform3D] = []
+
+
+## Volcanic dusk: near-black ash and basalt under a low ember sun, with the sky
+## the only fill. A shadow here is a WARM near-black — glacier's blue-grey sky
+## bounce belongs to snow under a noon sun and on this ground would read as a
+## pale slick rather than shade. Kept weak: the ground is already dark, so the
+## patch only has to deepen it a little.
+func _contact_material() -> StandardMaterial3D:
+	var mat := VisualLibrary.contact_shadow_material().duplicate() as StandardMaterial3D
+	mat.albedo_color = Color(0.07, 0.045, 0.05, 0.38)
+	return mat
+
+
+## BUILD TIME ONLY. Registers a contact shadow under a prop seated at `pos`.
+## `radius` is the prop's ground footprint; the patch is drawn a shade wider,
+## because a real ambient-occlusion contact reaches slightly past the silhouette.
+##
+## `surface_y` is the height of the ground the prop was SEATED on, and it has to
+## be passed in rather than probed here for two reasons. Dressing is sunk below
+## grade by ground_embed, so a patch at the prop's own Y is buried. And a fresh
+## downward probe under a prop is worthless anyway: trackside dressing stands a
+## metre or two past the deck's collision edge, so the cast falls straight
+## through to the sea plane far below. seat_dressing already resolved the right
+## surface by walking back toward the centreline — this reuses that answer
+## instead of asking a worse question.
+##
+## Props that found no floor at all were seated on the sea plane; they get no
+## patch, because a disc lying on open water is worse than no contact cue.
+func _add_contact_patch(pos: Vector3, radius: float, surface_y: float) -> void:
+	if is_equal_approx(surface_y, ground_plane_y()):
+		return
+	_contact_patches.append(Transform3D(
+		Basis.from_scale(Vector3(radius * 2.4, 1.0, radius * 2.4)),
+		Vector3(pos.x, surface_y + 0.04, pos.z)))
+
 
 ## range_base > 0 opts the dressing into VisualLibrary.apply_dressing_range
 ## distance culling. Visibility range keys off the NODE origin, so the node is
@@ -501,6 +551,10 @@ func _decorate_basalt(density: float) -> void:
 					tall_ranks.append(Transform3D(column_basis, seat))
 				else:
 					short_ranks.append(Transform3D(column_basis, seat))
+				# A hexagonal prism has the hardest silhouette on the course and
+				# the smallest footprint to sell it with, so the foot shadow is
+				# what stops a rank reading as fence posts pushed into a photo.
+				_add_contact_patch(seat, radius * 0.9, seat.y + ground_embed(height, 0.12))
 			offset += step
 	var basalt_mat := VisualLibrary.rock_material(Color(1.0, 1.0, 1.0), 0.85)
 	_add_multimesh(_basalt_mesh(3311), short_ranks, basalt_mat, "BasaltColumns")
@@ -575,11 +629,16 @@ func _decorate_scoria(density: float) -> void:
 			rng.randf_range(-0.3, 0.3))).scaled(squash)
 		# Sphere meshes are centre-origin: half the squashed height plus a bite
 		# of bed depth puts the boulder's waist at the surface.
-		var pos := seat_dressing(xform, lateral, squash.y, 4.5, 0.12) + Vector3.UP * (squash.y * 0.42)
+		var seat := seat_dressing(xform, lateral, squash.y, 4.5, 0.12)
+		var pos := seat + Vector3.UP * (squash.y * 0.42)
 		if rng.randf() > 0.55:
 			crusted.append(Transform3D(bomb_basis, pos))
 		else:
 			bombs.append(Transform3D(bomb_basis, pos))
+		# Measured off the bed, not the raised sphere centre: `pos` is half a
+		# bomb's height above the ground it is bedded in.
+		_add_contact_patch(seat, maxf(squash.x, squash.z) * 0.8,
+			seat.y + ground_embed(squash.y, 0.12))
 	var bomb_mesh := SphereMesh.new()
 	bomb_mesh.radius = 0.8
 	bomb_mesh.height = 1.3
@@ -669,6 +728,10 @@ func _add_lantern(posts: Array[Transform3D], lamps: Array[Transform3D], offset: 
 	var yaw := Basis(Vector3.UP, rng.randf() * TAU)
 	posts.append(Transform3D(yaw, base + Vector3.UP * 1.7))
 	lamps.append(Transform3D(yaw, base + Vector3.UP * 3.5))
+	# Small pool at the foot of the post. A lantern is the one prop players
+	# actually look at on this course, and a 10cm pole meeting the ash with no
+	# darkening under it is the most obvious "stuck in, not standing on" tell.
+	_add_contact_patch(base, 0.34, base.y + ground_embed(3.4))
 
 
 ## Ember fissures: cracks in the cooled flow with the glow of the rock beneath

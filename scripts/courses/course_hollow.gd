@@ -433,6 +433,55 @@ func _decorate() -> void:
 	var icicle_mat := VisualLibrary.rock_material(Color(0.62, 0.8, 0.98), 0.12, 0.05)
 	_add_multimesh(VisualLibrary.ice_crystal_mesh(), icicles, icicle_mat, "HangingIcicles", false)
 
+	# Baked contact shadows, flushed last so every pass above has had its chance
+	# to register one. Nothing in the hollow casts a real shadow (the sun never
+	# reaches the floor and every dressing multimesh is shadowless), so on a
+	# bright ice floor these patches are the only thing seating the rubble and
+	# the columns in it.
+	_add_multimesh(VisualLibrary.contact_patch_mesh(), _contact_patches,
+		_contact_material(), "ContactShadows", false, 220.0)
+
+
+## --- Contact shadows ---------------------------------------------------------
+## gl_compatibility has no SSAO, so the occlusion that plants a prop on the
+## ground has to be geometry: one soft alpha quad per prop, all of them through
+## a single MultiMesh (one draw call for the whole hollow).
+
+var _contact_patches: Array[Transform3D] = []
+
+
+## Under the ice: no sun, no sky. Everything down here is lit by the slot far
+## above and by the crystal veins, so the shade a prop sits in is a deep,
+## saturated glacial blue rather than glacier's daylight blue-grey — a neutral
+## patch on this floor immediately reads as a grey decal.
+func _contact_material() -> StandardMaterial3D:
+	var mat := VisualLibrary.contact_shadow_material().duplicate() as StandardMaterial3D
+	mat.albedo_color = Color(0.05, 0.15, 0.32, 0.36)
+	return mat
+
+
+## BUILD TIME ONLY. Registers a contact shadow under a prop seated at `pos`.
+## `radius` is the prop's ground footprint; the patch is drawn a shade wider,
+## because a real ambient-occlusion contact reaches slightly past the silhouette.
+##
+## `surface_y` is the height of the ground the prop was SEATED on, and it has to
+## be passed in rather than probed here for two reasons. Dressing is sunk below
+## grade by ground_embed, so a patch at the prop's own Y is buried. And a fresh
+## downward probe under a prop is worthless anyway: trackside dressing stands a
+## metre or two past the deck's collision edge, so the cast falls straight
+## through to the hollow floor 30m below (measured: 0 of 54 props found ground).
+## seat_dressing already resolved the right surface by walking back toward the
+## centreline — this reuses that answer instead of asking a worse question.
+##
+## Props that found no floor at all were seated on the base plane; they get no
+## patch, because a disc hanging in the void is worse than no contact cue.
+func _add_contact_patch(pos: Vector3, radius: float, surface_y: float) -> void:
+	if is_equal_approx(surface_y, ground_plane_y()):
+		return
+	_contact_patches.append(Transform3D(
+		Basis.from_scale(Vector3(radius * 2.4, 1.0, radius * 2.4)),
+		Vector3(pos.x, surface_y + 0.04, pos.z)))
+
 
 ## range_base > 0 opts the dressing into VisualLibrary.apply_dressing_range
 ## distance culling. Visibility range keys off the NODE origin, so the node is
@@ -649,8 +698,10 @@ func _decorate_pillars(density: float) -> void:
 				var radius := rng.randf_range(0.7, 1.6)
 				var pillar_basis := Basis(Vector3.UP, rng.randf() * TAU) \
 					* Basis.from_scale(Vector3(radius, height, radius))
-				transforms.append(Transform3D(pillar_basis,
-					seat_dressing(xform, lateral, height, 5.0, 0.06)))
+				var seat := seat_dressing(xform, lateral, height, 5.0, 0.06)
+				transforms.append(Transform3D(pillar_basis, seat))
+				# The drip foot flares to about the mesh's full half-width.
+				_add_contact_patch(seat, radius * 0.75, seat.y + ground_embed(height, 0.06))
 			offset += 16.0 / maxf(density, 0.5)
 	_add_multimesh(_pillar_mesh(7250), transforms,
 		VisualLibrary.ice_material(Color(0.3, 0.6, 0.88), 0.7), "IcePillars", false, 340.0)
@@ -707,8 +758,13 @@ func _decorate_crystals(density: float, transforms: Array[Transform3D]) -> void:
 			var xform := main_guide.transform_at(offset)
 			var lateral := (track_edge_lateral(main_guide, offset, side, 9.0)
 				+ rng.randf_range(0.15, 0.9)) * side
-			transforms.append(_crystal_transform(
-				seat_dressing(xform, lateral, 2.6, 5.0, 0.12), rng.randf_range(1.6, 3.4)))
+			var seat := seat_dressing(xform, lateral, 2.6, 5.0, 0.12)
+			var height := rng.randf_range(1.6, 3.4)
+			transforms.append(_crystal_transform(seat, height))
+			# Glowing or not, a cluster still blocks what little light reaches
+			# this floor: the veins read as growing out of the ice, not stuck
+			# onto it. Kept narrow so the patch never fights the glow.
+			_add_contact_patch(seat, height * 0.24, seat.y + ground_embed(2.6, 0.12))
 		offset += step
 	# Cathedral monoliths: landmark scale, so the room reads as the one big
 	# space on the course rather than another stretch of corridor.
@@ -720,8 +776,10 @@ func _decorate_crystals(density: float, transforms: Array[Transform3D]) -> void:
 			var xform := main_guide.transform_at(mono_offset)
 			var lateral := (track_edge_lateral(main_guide, mono_offset, side, 9.0)
 				+ rng.randf_range(0.3, 1.1)) * side
-			transforms.append(_crystal_transform(
-				seat_dressing(xform, lateral, 6.0, 5.0, 0.1), rng.randf_range(4.5, 7.5)))
+			var seat := seat_dressing(xform, lateral, 6.0, 5.0, 0.1)
+			var height := rng.randf_range(4.5, 7.5)
+			transforms.append(_crystal_transform(seat, height))
+			_add_contact_patch(seat, height * 0.22, seat.y + ground_embed(6.0, 0.1))
 		mono_offset += 21.0
 
 
@@ -784,8 +842,11 @@ func _decorate_moraine(density: float) -> void:
 			rng.randf_range(0.8, 1.4)) * s
 		var rock_basis := Basis.from_euler(Vector3(rng.randf_range(-0.4, 0.4), rng.randf() * TAU,
 			rng.randf_range(-0.4, 0.4))).scaled(squash)
-		rocks.append(Transform3D(rock_basis,
-			seat_dressing(xform, lateral, squash.y, 4.5, 0.14) + Vector3.UP * (squash.y * 0.4)))
+		var seat := seat_dressing(xform, lateral, squash.y, 4.5, 0.14)
+		rocks.append(Transform3D(rock_basis, seat + Vector3.UP * (squash.y * 0.4)))
+		# Measured off the bed, not the raised sphere centre: the rock's origin
+		# sits nearly half its own height above the grit it is lying in.
+		_add_contact_patch(seat, maxf(squash.x, squash.z) * 0.8, seat.y + ground_embed(squash.y, 0.14))
 	var rock_mesh := SphereMesh.new()
 	rock_mesh.radius = 0.8
 	rock_mesh.height = 1.2

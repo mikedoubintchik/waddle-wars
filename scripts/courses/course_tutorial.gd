@@ -157,6 +157,54 @@ func _decorate() -> void:
 	_decorate_crystals(density)
 	_decorate_boulders(density)
 
+	# Baked contact shadows, flushed last so every pass above has had its chance
+	# to register one. Nothing on this course casts a real shadow (all dressing
+	# is shadowless multimesh), so on a high-key snow field these patches are
+	# the ONLY cue that the crystals and blocks are standing on the ground.
+	_add_multimesh(VisualLibrary.contact_patch_mesh(), _contact_patches,
+		_contact_material(), "ContactShadows")
+
+
+## --- Contact shadows ---------------------------------------------------------
+## gl_compatibility has no SSAO, so the occlusion that plants a prop on the
+## ground has to be geometry: one soft alpha quad per prop, all of them through
+## a single MultiMesh (one draw call for the whole schoolyard).
+
+var _contact_patches: Array[Transform3D] = []
+
+
+## Schoolyard noon-ish light: a warm sun over bright, almost white snow with a
+## pastel blue sky. The shadow snow throws back is a light cool violet — not
+## glacier's deeper blue-grey, which on this much brighter ground would read as
+## a dirty smudge rather than shade.
+func _contact_material() -> StandardMaterial3D:
+	var mat := VisualLibrary.contact_shadow_material().duplicate() as StandardMaterial3D
+	mat.albedo_color = Color(0.40, 0.48, 0.70, 0.38)
+	return mat
+
+
+## BUILD TIME ONLY. Registers a contact shadow under a prop seated at `pos`.
+## `radius` is the prop's ground footprint; the patch is drawn a shade wider,
+## because a real ambient-occlusion contact reaches slightly past the silhouette.
+##
+## `surface_y` is the height of the ground the prop was SEATED on, and it has to
+## be passed in rather than probed here for two reasons. Dressing is sunk below
+## grade by ground_embed, so a patch at the prop's own Y is buried. And a fresh
+## downward probe under a prop is worthless anyway: trackside dressing stands a
+## metre or two past the deck's collision edge, so the cast falls straight
+## through to the ice sheet far below. seat_dressing already resolved the right
+## surface by walking back toward the centreline — this reuses that answer
+## instead of asking a worse question.
+##
+## Props that found no floor at all were seated on the ice sheet; they get no
+## patch, because a disc hanging in mid-air is worse than no contact cue.
+func _add_contact_patch(pos: Vector3, radius: float, surface_y: float) -> void:
+	if is_equal_approx(surface_y, ground_plane_y()):
+		return
+	_contact_patches.append(Transform3D(
+		Basis.from_scale(Vector3(radius * 2.4, 1.0, radius * 2.4)),
+		Vector3(pos.x, surface_y + 0.04, pos.z)))
+
 
 func _add_multimesh(mesh: Mesh, transforms: Array[Transform3D], material: Material, name_hint: String, colors: PackedColorArray = PackedColorArray()) -> void:
 	if transforms.is_empty():
@@ -313,8 +361,10 @@ func _decorate_crystals(density: float) -> void:
 		var aspect := rng.randf_range(0.55, 0.85)
 		var crystal_basis := Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(Vector3(
 			height * aspect, height * rng.randf_range(0.85, 1.1), height * aspect))
-		transforms.append(Transform3D(crystal_basis,
-			seat_dressing(xform, lateral, crystal_basis.get_scale().y, GROUND_SHOULDER, 0.12)))
+		var pos := seat_dressing(xform, lateral, crystal_basis.get_scale().y, GROUND_SHOULDER, 0.12)
+		transforms.append(Transform3D(crystal_basis, pos))
+		_add_contact_patch(pos, height * 0.3,
+			pos.y + ground_embed(crystal_basis.get_scale().y, 0.12))
 	var crystal_mat := VisualLibrary.rock_material(Color(0.7, 0.87, 1.0)).duplicate() as StandardMaterial3D
 	crystal_mat.roughness = 0.12
 	crystal_mat.metallic = 0.05
@@ -339,8 +389,10 @@ func _decorate_boulders(density: float) -> void:
 			rng.randf_range(-0.3, 0.3), rng.randf() * TAU, rng.randf_range(-0.3, 0.3))) \
 			* Basis.from_scale(Vector3(
 				s * rng.randf_range(0.85, 1.25), s * rng.randf_range(0.5, 0.8), s * rng.randf_range(0.85, 1.25)))
-		transforms.append(Transform3D(boulder_basis,
-			seat_dressing(xform, lateral, boulder_basis.get_scale().y, 4.5, 0.1) + Vector3.DOWN * sink))
+		var seat := seat_dressing(xform, lateral, boulder_basis.get_scale().y, 4.5, 0.1)
+		transforms.append(Transform3D(boulder_basis, seat + Vector3.DOWN * sink))
+		_add_contact_patch(seat, maxf(boulder_basis.get_scale().x, boulder_basis.get_scale().z) * 0.75,
+			seat.y + ground_embed(boulder_basis.get_scale().y, 0.1))
 	_add_multimesh(VisualLibrary.berg_mesh(23), transforms,
 		TrackBuilder.surface_material(SurfacesDB.Surface.ICE_SMOOTH), "IceBoulders")
 
