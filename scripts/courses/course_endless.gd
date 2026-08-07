@@ -423,8 +423,11 @@ func _decorate_snowbanks(density: float) -> void:
 		var bank_basis := Basis(Vector3.UP, rng.randf() * TAU) \
 			* Basis.from_scale(Vector3(
 				r * rng.randf_range(1.4, 2.2), r * rng.randf_range(0.5, 0.8), r * rng.randf_range(0.7, 1.0)))
-		transforms.append(Transform3D(bank_basis,
-			seat_dressing(xform, lateral, bank_basis.get_scale().y, 5.0, 0.14)))
+		var bank_xform := Transform3D(bank_basis,
+			seat_dressing(xform, lateral, bank_basis.get_scale().y, 5.0, 0.14))
+		transforms.append(bank_xform)
+		# Trackside banks plough: running wide into one costs real speed.
+		add_snow_drift(bank_xform)
 		side = -side
 		offset += step
 	_add_multimesh(VisualLibrary.snow_drift_mesh(), transforms,

@@ -16,14 +16,21 @@ const ITEMS: Dictionary = {
 	Surface.PACKED_SNOW: {
 		"name": "Packed Snow",
 		"accel": 1.0, "max_speed": 1.0, "grip": 1.0,
-		"slide_keep": 0.90, "slide_bonus": 0.0,
-		"slide_target": 0.55, "slide_ramp": 0.0,
+		# Snow is not a slick surface. A belly slide on it scrubs speed rather
+		# than merely failing to add any -- sliding is a choice you make on ice
+		# and pay for on snow, which is what makes the two read differently
+		# under the feet instead of only under the eyes.
+		"slide_keep": 0.79, "slide_bonus": -1.0,
+		"slide_target": 0.45, "slide_ramp": 0.0,
 	},
 	Surface.DEEP_SNOW: {
 		"name": "Deep Snow",
-		"accel": 0.55, "max_speed": 0.72, "grip": 0.85,
-		"slide_keep": 0.62, "slide_bonus": -3.0,
-		"slide_target": 0.55, "slide_ramp": 0.0,
+		"accel": 0.45, "max_speed": 0.62, "grip": 0.85,
+		# Ploughing. Also what a racer gets for running into a trackside drift
+		# (SnowDriftField reports this surface), so it has to cost enough that
+		# holding the line is worth doing.
+		"slide_keep": 0.42, "slide_bonus": -6.0,
+		"slide_target": 0.45, "slide_ramp": 0.0,
 	},
 	Surface.ICE_SMOOTH: {
 		"name": "Smooth Ice",

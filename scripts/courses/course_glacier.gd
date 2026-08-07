@@ -583,8 +583,11 @@ func _decorate_snowbanks(density: float) -> void:
 			* Basis.from_scale(Vector3(
 				r * rng.randf_range(1.5, 2.3), r * rng.randf_range(0.5, 0.8), r * rng.randf_range(0.7, 0.95)))
 		# Low mounds hide their own footprint, so the shoulder reach is generous.
-		transforms.append(Transform3D(bank_basis,
-			seat_dressing(xform, lateral, bank_basis.get_scale().y, 5.0, 0.14)))
+		var bank_xform := Transform3D(bank_basis,
+			seat_dressing(xform, lateral, bank_basis.get_scale().y, 5.0, 0.14))
+		transforms.append(bank_xform)
+		# Trackside banks plough: running wide into one costs real speed.
+		add_snow_drift(bank_xform)
 		if rng.randf() > 0.6:
 			var far_r := rng.randf_range(2.5, 5.0)
 			var far_basis := Basis(Vector3.UP, wind_yaw + rng.randf_range(-0.35, 0.35)) \
@@ -619,8 +622,10 @@ func _decorate_snowbanks(density: float) -> void:
 				main_guide.yaw_at(run_offset) + rng.randf_range(-0.1, 0.1)) \
 				* Basis.from_scale(Vector3(rng.randf_range(0.8, 1.3),
 					rng.randf_range(0.35, 0.65), rng.randf_range(2.6, 4.8)))
-			transforms.append(Transform3D(drift_basis,
-				seat_dressing(run_xform, run_lateral, drift_basis.get_scale().y, 3.0, 0.15)))
+			var drift_xform := Transform3D(drift_basis,
+				seat_dressing(run_xform, run_lateral, drift_basis.get_scale().y, 3.0, 0.15))
+			transforms.append(drift_xform)
+			add_snow_drift(drift_xform)
 			run_side = -run_side
 			run_offset += rng.randf_range(7.0, 11.0) / maxf(density, 0.5)
 	_add_multimesh(VisualLibrary.snow_drift_mesh(), transforms,

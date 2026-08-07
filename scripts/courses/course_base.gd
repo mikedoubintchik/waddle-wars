@@ -17,6 +17,8 @@ var kill_y: float = -40.0
 var finish_offset: float = 0.0
 var rng := RandomNumberGenerator.new()
 
+## Ploughable snow volumes, created on first registration (see SnowDriftField).
+var _snow_drifts: SnowDriftField = null
 var _puff_pool: Array[GPUParticles3D] = []
 var _puff_next: int = 0
 var _splash_pool: Array[GPUParticles3D] = []
@@ -1449,6 +1451,20 @@ static func _burst_fade_ramp() -> GradientTexture1D:
 	tex.gradient = gradient
 	_burst_fade_ramp_cache = tex
 	return tex
+
+
+## BUILD TIME ONLY. Gives one drawn snow drift a ploughing volume, using the
+## same transform handed to the multimesh that renders it. Courses call this
+## alongside appending to their bank transform list, so the thing the player
+## sees and the thing that slows them down cannot drift apart.
+## Built headless too: drifts are physics, and a sim that cannot feel them is
+## not simulating the race the player runs.
+func add_snow_drift(xform: Transform3D) -> void:
+	if _snow_drifts == null:
+		_snow_drifts = SnowDriftField.new()
+		_snow_drifts.name = "SnowDrifts"
+		add_child(_snow_drifts)
+	_snow_drifts.add_drift(xform)
 
 
 func spawn_land_puff(pos: Vector3) -> void:

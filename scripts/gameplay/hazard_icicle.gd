@@ -43,21 +43,26 @@ void fragment() {
 	vec3 root_col = vec3(0.88, 0.94, 1.0);
 	vec3 tip_col = vec3(0.5, 0.76, 0.97);
 	vec3 col = mix(root_col, tip_col, smoothstep(0.1, 0.85, t));
-	// Growth-ripple striations: vertical bright bands over the lathe ridges.
+	// Growth-ripple striations: faint vertical banding over the lathe ridges.
+	// Anything stronger than this crosses into looking like a printed pattern.
 	float stri = 0.5 + 0.5 * sin(atan(v_obj.z, v_obj.x) * 7.0 + v_obj.y * 3.0);
-	col *= 0.93 + stri * 0.09;
+	col *= 0.96 + stri * 0.05;
 	// Dense bright core face-on near the root: fake subsurface scatter.
 	col = mix(col, vec3(0.97, 0.995, 1.0), pow(ndv, 2.0) * 0.35 * (1.0 - t));
-	// Sparse glint cells (object space, so they live on the crystal).
-	vec3 cell = floor(v_obj * 9.0 + 3.0);
-	vec3 jitter = vec3(hash31(cell), hash31(cell + 1.3), hash31(cell + 2.6)) - 0.5;
-	float glint = pow(clamp(dot(normalize(NORMAL + jitter), VIEW), 0.0, 1.0), 64.0)
-			* step(0.6, hash31(cell + 4.1));
+	// No procedural sparkle field.
+	//
+	// Two attempts at one made this prop worse, not better: object-space cells
+	// drew white RECTANGLES across the spike, and a striation-following vein
+	// drew a criss-cross net that read as wireframe. Ice reads as ice from its
+	// silhouette, a hard specular and a bright wet rim -- so that is all it
+	// gets, and it finally looks like ice.
 	ALBEDO = col;
-	ALPHA = clamp(0.8 + fres * 0.18, 0.0, 1.0);
-	ROUGHNESS = 0.06;
-	SPECULAR = 0.7;
-	EMISSION = vec3(0.8, 0.95, 1.0) * fres * 0.4 + vec3(1.0) * glint * 0.7;
+	// Solid, with the rim going glassy. The root stays the most opaque part,
+	// which is where compacted meltwater actually clouds up.
+	ALPHA = clamp(0.86 - fres * 0.22 + (1.0 - t) * 0.1, 0.0, 1.0);
+	ROUGHNESS = 0.05;
+	SPECULAR = 0.9;
+	EMISSION = vec3(0.72, 0.9, 1.0) * fres * 0.45;
 }
 """
 
@@ -267,13 +272,29 @@ func _on_hit(body: Node3D) -> void:
 ## Radius profile: power falloff + growth-ripple rings + per-ring jitter,
 ## with a slight lateral drift so the spike hangs organically, not machined.
 static func _lathe_spike(st: SurfaceTool, rng: RandomNumberGenerator, top: Vector3, length: float, base_r: float) -> void:
-	var rings := 10
-	var segs := 7
+	# 7 radial segments left a visibly heptagonal silhouette on a prop the
+	# player is meant to be reading at a glance; 13 is round enough that the
+	# facets read as crystal cleavage instead of low-poly.
+	var rings := 20
+	var segs := 13
 	var ring_pts: Array[PackedVector3Array] = []
 	var drift := Vector3(rng.randf_range(-0.05, 0.05), 0.0, rng.randf_range(-0.05, 0.05))
+	# One ripple phase per spike so a cluster does not show the same rings at
+	# the same heights on every member.
+	var ripple_phase := rng.randf() * TAU
 	for i: int in rings + 1:
 		var t := float(i) / float(rings)
-		var r := base_r * pow(1.0 - t, 0.78) * (1.0 + 0.13 * sin(t * 19.0) + rng.randf_range(-0.05, 0.05))
+		# Near-conical with a flare into the ceiling.
+		#
+		# A power falloff alone gives a fat shoulder that runs most of the
+		# length before needling at the very end -- which reads as a carrot,
+		# not an icicle. Real ones are close to a cone, thickest right at the
+		# root where meltwater keeps refreezing, with a rapid flare in the last
+		# few centimetres where they meet the overhang.
+		var r := base_r * pow(1.0 - t, 0.92)
+		r *= 1.0 + 0.075 * sin(t * 16.0 + ripple_phase) + rng.randf_range(-0.03, 0.03)
+		if t < 0.06:
+			r *= 1.0 + (0.06 - t) * 3.0
 		r = maxf(r, 0.0)
 		var center := top + Vector3.DOWN * (length * t) + drift * (t * t * length)
 		var pts := PackedVector3Array()
@@ -307,23 +328,50 @@ static func _get_cluster_mesh() -> ArrayMesh:
 	_lathe_spike(st, rng, Vector3(0.0, 1.1, 0.0), 2.2, 0.36)
 	_lathe_spike(st, rng, Vector3(0.27, 1.1, 0.11), 1.05, 0.17)
 	_lathe_spike(st, rng, Vector3(-0.24, 1.1, -0.13), 0.8, 0.14)
+	# Two stubby late-growth spikes off the collar. A cluster of three all
+	# pointing the same way reads as a decoration; five at mixed lengths reads
+	# as something that grew.
+	_lathe_spike(st, rng, Vector3(0.11, 1.12, -0.29), 0.52, 0.10)
+	_lathe_spike(st, rng, Vector3(-0.09, 1.12, 0.31), 0.38, 0.085)
 	st.generate_normals()
 	var mesh := st.commit()
-	# Surface 1: irregular frost collar where the cluster meets the overhang.
+	# Surface 1: frost collar where the cluster meets the overhang.
+	#
+	# This used to be a fan of triangles whose rim radius and height were drawn
+	# fresh for EACH face, so neighbouring faces did not share an edge and the
+	# collar rendered as a heap of intersecting flat plates -- the single worst
+	# thing about the prop close up. Vertices are now generated once around the
+	# ring and shared, and the collar is a skirt of two rings rather than a
+	# flat disc, so it has a rim you can see thickness in.
 	st = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var center := Vector3(0.0, 1.16, 0.0)
-	var sides := 9
+	var sides := 15
+	var crown := Vector3(0.0, 1.17, 0.0)
+	var inner := PackedVector3Array()
+	var outer := PackedVector3Array()
 	for i: int in sides:
-		var a0 := TAU * float(i) / float(sides)
-		var a1 := TAU * float(i + 1) / float(sides)
-		var r0 := 0.5 + rng.randf_range(-0.08, 0.14)
-		var r1 := 0.5 + rng.randf_range(-0.08, 0.14)
-		var p0 := Vector3(cos(a0) * r0, 1.04 + rng.randf_range(0.0, 0.05), sin(a0) * r0)
-		var p1 := Vector3(cos(a1) * r1, 1.04 + rng.randf_range(0.0, 0.05), sin(a1) * r1)
-		st.add_vertex(center)
-		st.add_vertex(p1)
-		st.add_vertex(p0)
+		var a := TAU * float(i) / float(sides)
+		var dir := Vector3(cos(a), 0.0, sin(a))
+		# One jitter per ANGLE, reused by both faces that meet on it.
+		var wobble := rng.randf_range(-0.07, 0.12)
+		inner.append(crown + dir * (0.15 + wobble * 0.3) + Vector3.DOWN * 0.02)
+		# The rim hangs below the crown: frost creeps down off an overhang.
+		# Kept tight -- a wide skirt turned the whole prop into a trumpet.
+		outer.append(crown + dir * (0.32 + wobble * 0.6)
+			+ Vector3.DOWN * (0.10 + rng.randf_range(0.0, 0.06)))
+	for i: int in sides:
+		var j := (i + 1) % sides
+		# Crown cap.
+		st.add_vertex(crown)
+		st.add_vertex(inner[j])
+		st.add_vertex(inner[i])
+		# Skirt.
+		st.add_vertex(inner[i])
+		st.add_vertex(inner[j])
+		st.add_vertex(outer[j])
+		st.add_vertex(inner[i])
+		st.add_vertex(outer[j])
+		st.add_vertex(outer[i])
 	st.generate_normals()
 	st.commit(mesh)
 	if _crystal_shader == null:

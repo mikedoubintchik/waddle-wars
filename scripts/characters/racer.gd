@@ -343,6 +343,18 @@ func _update_guide() -> void:
 	total_progress = float(last_checkpoint_index + 1) * 10000.0 + progress
 
 
+## Drift volumes currently containing this racer (see SnowDriftField).
+var _drift_count: int = 0
+
+
+func enter_snow_drift() -> void:
+	_drift_count += 1
+
+
+func exit_snow_drift() -> void:
+	_drift_count = maxi(0, _drift_count - 1)
+
+
 func _detect_surface() -> void:
 	if not _water_areas.is_empty():
 		current_surface = SurfacesDB.Surface.WATER
@@ -358,6 +370,13 @@ func _detect_surface() -> void:
 		current_surface = collider.get_meta("surface") as SurfacesDB.Surface
 	else:
 		current_surface = SurfacesDB.Surface.PACKED_SNOW
+	# Standing in a drift ploughs like deep snow whatever the deck underneath
+	# is tagged as. The surface ray only ever sees the geometry BELOW the
+	# racer, and a drift is piled on top of it, so it can never be found that
+	# way -- SnowDriftField reports it instead.
+	if _drift_count > 0:
+		current_surface = SurfacesDB.Surface.DEEP_SNOW
+		return
 	if _blizzard_slip_timer > 0.0 and current_surface == SurfacesDB.Surface.PACKED_SNOW:
 		current_surface = SurfacesDB.Surface.ICE_SMOOTH
 
