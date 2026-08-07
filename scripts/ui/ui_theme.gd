@@ -15,6 +15,49 @@ const COLOR_TEXT_DIM: Color = Color(0.62, 0.72, 0.84)
 const COLOR_DISABLED: Color = Color(0.42, 0.48, 0.58)
 const COLOR_SHADOW: Color = Color(0.0, 0.0, 0.0, 0.35)
 
+## --- Surface / depth tokens -------------------------------------------------
+##
+## Every surface in the game is lit from directly above: the rim is brightest
+## along the top edge, the body darkens downward, and a soft blue-black shadow
+## separates it from the animated backdrop. Keeping the light direction in one
+## place is what makes cards, rows, buttons and chips read as one material.
+const COLOR_CARD_TOP: Color = Color(0.114, 0.184, 0.298, 0.95)
+const COLOR_CARD_BOTTOM: Color = Color(0.047, 0.086, 0.161, 0.95)
+## Top-edge rim highlight (icy white) and the quieter hairline for the other
+## three sides.
+const COLOR_RIM: Color = Color(0.82, 0.93, 1.0, 0.34)
+const COLOR_HAIRLINE: Color = Color(0.62, 0.78, 0.96, 0.14)
+## Shadows are blue-black rather than neutral black: pure black over a navy
+## backdrop reads as a hole, a deep indigo reads as depth.
+const COLOR_SHADOW_SOFT: Color = Color(0.004, 0.016, 0.043, 0.52)
+
+## Promoted-primary face: the saturated glacier blue of the menu icon set, one
+## step deeper than the hover fill so the promoted action reads as solid rather
+## than washed. Shared here so "the action to take next" is identical on every
+## screen (main_menu's Play hero, results' Race Again, mode_select's Start…).
+const PRIMARY_FILL: Color = Color(0.129, 0.361, 0.588)
+const PRIMARY_FILL_HOVER: Color = Color(0.192, 0.478, 0.741)
+
+## Corner language, shared so screens stop inventing radii: cards are soft,
+## rows are tighter, buttons sit between them, chips are pills.
+const RADIUS_CARD: int = 18
+const RADIUS_ROW: int = 10
+const RADIUS_BUTTON: int = 12
+const RADIUS_PILL: int = 999
+
+## --- Type ramp --------------------------------------------------------------
+##
+## Authored sizes on the 1920x1080 desktop canvas. Screens should pick a rung
+## (make_display / make_headline / make_title / make_body / make_caption)
+## instead of an ad-hoc number, so one screen's "small label" is the same size
+## as the next screen's. The make_* helpers apply the touch step for you.
+const FS_DISPLAY: int = 64
+const FS_HEADLINE: int = 44
+const FS_TITLE: int = 30
+const FS_BODY: int = 22
+const FS_CAPTION: int = 15
+const FS_EYEBROW: int = 18
+
 ## Standard side margin for full-screen menu layouts.
 const SCREEN_MARGIN: int = 48
 
@@ -91,9 +134,17 @@ void fragment() {
 	float band2 = exp(-pow((uv.y - 0.52 - wave2) * 7.5, 2.0));
 	float band3 = exp(-pow((uv.y - 0.15 - wave3) * 9.5, 2.0));
 	float curtain = 0.82 + 0.18 * sin(uv.x * 46.0 + t * 9.0 + sin(uv.x * 13.0) * 2.0);
-	vec3 aurora = vec3(0.20, 0.95, 0.70) * band1 * curtain
+	// Hue drifts along x (~0.09 rad/s) so the near sheet is teal at one end and
+	// green at the other instead of one flat colour across the whole screen.
+	float hue = 0.5 + 0.5 * sin(uv.x * 2.0 - t * 2.0);
+	vec3 near = mix(vec3(0.16, 0.95, 0.72), vec3(0.34, 0.86, 0.98), hue);
+	vec3 aurora = near * band1 * curtain
 			+ vec3(0.45, 0.35, 0.95) * band2
 			+ vec3(0.78, 0.42, 0.85) * band3 * 0.55;
+	// Broad sky bloom the bands sit inside: the backdrop gets a light source
+	// near the top instead of reading as an even navy wash.
+	float bloom = exp(-pow((uv.y - 0.08) * 2.1, 2.0)) * (0.40 + 0.22 * sin(uv.x * 1.7 + t * 1.5));
+	aurora += vec3(0.26, 0.46, 0.72) * bloom * 0.32;
 	float fade = smoothstep(1.0, 0.35, uv.y);
 	float side = smoothstep(0.0, 0.12, uv.x) * smoothstep(1.0, 0.88, uv.x);
 	COLOR = vec4(aurora * strength * fade * (0.6 + 0.4 * side), 1.0);
@@ -167,11 +218,24 @@ const ICON_BACK: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" 
 
 static var _display_font: FontVariation = null
 static var _button_font: FontVariation = null
+static var _caption_font: FontVariation = null
 ## Aurora backdrop shader/materials are cached and shared across every menu
 ## screen: one compile, one material per strength (WebGL2 jank guard — menus
 ## rebuild on every navigation).
 static var _aurora_shader: Shader = null
 static var _aurora_materials: Dictionary = {}
+## Baked-once, shared-forever textures. Menus rebuild their whole tree on every
+## navigation, so anything procedural here is generated a single time per run
+## and then handed to every screen by reference — the mobile-web frame budget
+## cannot afford re-baking gradients or noise on each screen change.
+static var _card_texture: ImageTexture = null
+static var _gloss_texture: GradientTexture2D = null
+static var _bg_gradient: ImageTexture = null
+static var _vignette_texture: GradientTexture2D = null
+static var _star_texture: ImageTexture = null
+static var _grain_texture: ImageTexture = null
+## Slider knobs, keyed by tint (normal / hover / disabled).
+static var _knob_textures: Dictionary = {}
 
 
 ## True when a touchscreen is present (phones, tablets, touch laptops).
@@ -337,6 +401,35 @@ static func bold_font() -> FontVariation:
 	return _button_font
 
 
+## Wide-tracked variation for the small uppercase rungs of the ramp (eyebrows,
+## card titles, stat captions, table headings). Small uppercase text needs more
+## letter-spacing than body text to stay legible, and the extra tracking is what
+## makes a caption read as a caption rather than as shrunken body copy.
+static func caption_font() -> FontVariation:
+	if _caption_font == null:
+		_caption_font = FontVariation.new()
+		_caption_font.base_font = ThemeDB.fallback_font
+		_caption_font.variation_embolden = 0.45
+		_caption_font.spacing_glyph = 3
+	return _caption_font
+
+
+## --- Button state ramp ------------------------------------------------------
+##
+## Five states, one material, one light direction. Read as a ramp:
+##   normal    quiet frosted glass, top rim only, small grounded shadow
+##   hover     fill brightens a step, rim goes full accent, shadow lifts
+##   pressed   fill drops below the backdrop, shadow collapses, face sinks 2px
+##   focus     an accent ring drawn *outside* the face (never moves layout)
+##   disabled  fill and rim collapse toward the background, shadow removed
+## Kept as module constants so OptionButtons, popups and the promoted-primary
+## variant below all sample the same ramp instead of re-picking colors.
+const BTN_FILL: Color = Color(0.141, 0.227, 0.369, 0.68)
+const BTN_FILL_HOVER: Color = Color(0.200, 0.325, 0.502, 0.84)
+const BTN_FILL_PRESSED: Color = Color(0.043, 0.086, 0.157, 0.90)
+const BTN_FILL_DISABLED: Color = Color(0.078, 0.110, 0.161, 0.50)
+
+
 static func make_button(text: String, size: Vector2 = Vector2(320, 52), font_size: int = 24) -> Button:
 	var button := Button.new()
 	button.text = text
@@ -350,27 +443,27 @@ static func make_button(text: String, size: Vector2 = Vector2(320, 52), font_siz
 	button.add_theme_color_override("font_focus_color", Color.WHITE)
 	button.add_theme_color_override("font_pressed_color", COLOR_GOLD)
 	button.add_theme_color_override("font_disabled_color", COLOR_DISABLED)
+	button.add_theme_color_override("font_outline_color", Color(0.02, 0.04, 0.08, 0.55))
+	button.add_theme_constant_override("outline_size", 0)
 
-	# Frosted-glass state family: translucent fill lets the animated backdrop
-	# glow through; an icy rim plus inner top-highlight / bottom-shade strips
-	# (added below) give each button glassy depth. Hover lifts (brighter rim,
-	# larger shadow, 1.02 scale); pressed compresses (0.98 scale, tight shadow).
-	var normal := _button_box(Color(0.141, 0.227, 0.365, 0.58), Color(0.78, 0.90, 1.0, 0.22), 1)
-	var hover := _button_box(Color(0.196, 0.310, 0.478, 0.76), Color(COLOR_ACCENT, 0.95), 2)
-	hover.shadow_size = 10
-	hover.shadow_offset = Vector2(0.0, 5.0)
-	var pressed := _button_box(Color(0.055, 0.098, 0.176, 0.85), Color(COLOR_GOLD, 0.9), 2)
+	# Frosted-glass state family: the translucent fill lets the animated backdrop
+	# glow through; the top-weighted rim plus the gloss/shade overlay strips
+	# (added below) give each button a lit-from-above read. Hover lifts (brighter
+	# rim, larger shadow, 1.02 scale); pressed compresses (0.98 scale, tight
+	# shadow, face sinks 2px).
+	var normal := _button_box(BTN_FILL, COLOR_RIM, 1)
+	var hover := _button_box(BTN_FILL_HOVER, Color(COLOR_ACCENT, 0.95), 2)
+	hover.shadow_color = Color(0.086, 0.267, 0.435, 0.55)
+	hover.shadow_size = 12
+	hover.shadow_offset = Vector2(0.0, 6.0)
+	var pressed := _button_box(BTN_FILL_PRESSED, Color(COLOR_GOLD, 0.9), 2)
 	pressed.shadow_size = 2
 	pressed.shadow_offset = Vector2(0.0, 1.0)
 	pressed.content_margin_top = 12.0
 	pressed.content_margin_bottom = 8.0
-	var focus := StyleBoxFlat.new()
-	focus.draw_center = false
-	focus.border_color = Color(0.72, 0.92, 1.0)
-	focus.set_border_width_all(2)
-	focus.set_corner_radius_all(13)
-	focus.set_expand_margin_all(3.0)
-	var disabled := _button_box(Color(0.082, 0.114, 0.165, 0.55), Color(0.16, 0.21, 0.28, 0.5), 1)
+	var focus := _focus_ring(RADIUS_BUTTON + 2)
+	var disabled := _button_box(BTN_FILL_DISABLED, Color(0.30, 0.37, 0.47, 0.28), 1)
+	disabled.border_width_top = 1
 	disabled.shadow_size = 0
 
 	button.add_theme_stylebox_override("normal", normal)
@@ -381,6 +474,107 @@ static func make_button(text: String, size: Vector2 = Vector2(320, 52), font_siz
 	_attach_glass_edges(button)
 	attach_hover_scale(button, 1.02)
 	attach_hover_glow(button)
+	return button
+
+
+## The one focus affordance in the game: a bright accent ring drawn outside the
+## control's face with a soft halo behind it. Expand margins mean focus never
+## changes a control's size, so keyboard/gamepad navigation cannot reflow a
+## menu. Shared by buttons, pickers and anything else that takes focus.
+static func _focus_ring(radius: int) -> StyleBoxFlat:
+	var ring := StyleBoxFlat.new()
+	ring.draw_center = false
+	ring.border_color = Color(0.75, 0.93, 1.0, 0.98)
+	ring.set_border_width_all(2)
+	ring.set_corner_radius_all(radius)
+	ring.set_expand_margin_all(3.0)
+	ring.shadow_color = Color(COLOR_ACCENT, 0.30)
+	ring.shadow_size = 8
+	ring.anti_aliasing = true
+	return ring
+
+
+## Promoted-primary treatment: the single action a screen most wants pressed.
+## Formalised here so main_menu's Play hero, results' Race Again and every
+## screen an agent writes next promote their action identically — only the fill
+## weight changes relative to make_button, so the family stays coherent.
+## A translucent accent wash reads as *disabled*, and darkening COLOR_ACCENT
+## (a pale cyan) only greys it, so the promoted face is a saturated glacier
+## blue rimmed with COLOR_ACCENT instead.
+static func style_primary(button: Button) -> void:
+	button.add_theme_stylebox_override("normal",
+		_primary_box(PRIMARY_FILL, Color(COLOR_ACCENT, 0.85), 8))
+	button.add_theme_stylebox_override("hover",
+		_primary_box(PRIMARY_FILL_HOVER, Color(0.90, 0.98, 1.0, 0.95), 16))
+	button.add_theme_stylebox_override("pressed",
+		_primary_box(PRIMARY_FILL.darkened(0.35), Color(COLOR_GOLD, 0.9), 2))
+	var disabled := _primary_box(PRIMARY_FILL.darkened(0.55).lerp(COLOR_BG_DARK, 0.5),
+		Color(0.30, 0.37, 0.47, 0.30), 0)
+	button.add_theme_stylebox_override("disabled", disabled)
+	button.add_theme_color_override("font_color", Color(0.98, 0.995, 1.0))
+	button.add_theme_color_override("font_hover_color", Color.WHITE)
+	button.add_theme_color_override("font_focus_color", Color.WHITE)
+
+
+static func _primary_box(bg: Color, border: Color, shadow: int) -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = bg
+	box.border_color = border
+	box.set_border_width_all(2)
+	box.border_width_top = 3
+	box.border_blend = true
+	box.set_corner_radius_all(RADIUS_BUTTON)
+	box.content_margin_left = 22.0
+	box.content_margin_right = 22.0
+	box.content_margin_top = 10.0
+	box.content_margin_bottom = 10.0
+	box.shadow_color = Color(COLOR_ACCENT, 0.30)
+	box.shadow_size = shadow
+	box.shadow_offset = Vector2(0.0, 3.0)
+	box.anti_aliasing = true
+	return box
+
+
+## Promoted button in one call: make_button + style_primary.
+static func make_primary_button(text: String, size: Vector2 = Vector2(320, 60),
+		font_size: int = 26) -> Button:
+	var button := make_button(text, size, font_size)
+	style_primary(button)
+	return button
+
+
+## The quiet end of the ramp: a borderless text button for tertiary actions
+## ("Skip", "Reset", "Learn more") that must not compete with the row of real
+## buttons beside it. Still hovers, focuses and presses like the rest.
+static func style_ghost(button: Button) -> void:
+	var flat := StyleBoxFlat.new()
+	flat.bg_color = Color(1.0, 1.0, 1.0, 0.0)
+	flat.set_corner_radius_all(RADIUS_BUTTON)
+	flat.content_margin_left = 16.0
+	flat.content_margin_right = 16.0
+	flat.content_margin_top = 8.0
+	flat.content_margin_bottom = 8.0
+	var hover := flat.duplicate() as StyleBoxFlat
+	hover.bg_color = Color(0.78, 0.90, 1.0, 0.10)
+	var pressed := flat.duplicate() as StyleBoxFlat
+	pressed.bg_color = Color(0.02, 0.05, 0.10, 0.45)
+	button.add_theme_stylebox_override("normal", flat)
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_stylebox_override("pressed", pressed)
+	button.add_theme_stylebox_override("disabled", flat)
+	button.add_theme_color_override("font_color", COLOR_TEXT_DIM)
+	button.add_theme_color_override("font_hover_color", COLOR_TEXT)
+	# A ghost has no face, so it must not carry the glass gloss/shade strips —
+	# they would draw a phantom rectangle where the button is not.
+	for child in button.get_children():
+		if child is Control and (child.name == "GlassSheen" or child.name == "GlassShade"):
+			(child as Control).visible = false
+
+
+static func make_ghost_button(text: String, size: Vector2 = Vector2(180, 48),
+		font_size: int = 20) -> Button:
+	var button := make_button(text, size, font_size)
+	style_ghost(button)
 	return button
 
 
@@ -403,27 +597,31 @@ static func make_menu_button(text: String, icon_svg: String, size: Vector2 = Vec
 	return button
 
 
-## Inner 1px top highlight + darker bottom shade strips: the two-tone edge
-## treatment StyleBoxFlat cannot express (single border color). Strips are
-## anchored to the button rect, inset past the corner radius, and inert.
+## Top gloss + bottom shade overlay: the two-tone, falling-off edge treatment
+## StyleBoxFlat cannot express (one border color, no gradient). The gloss is a
+## shared baked gradient — bright at the very top edge, gone by ~40% down — so
+## the face reads as a curved glass surface lit from above rather than a flat
+## fill with a line on it. Both strips are inert and inset past the corner
+## radius, and the gradient texture is baked once for the whole game.
 static func _attach_glass_edges(button: Button) -> void:
-	var sheen := ColorRect.new()
+	var sheen := TextureRect.new()
 	sheen.name = "GlassSheen"
-	sheen.color = Color(1.0, 1.0, 1.0, 0.10)
+	sheen.texture = _gloss()
+	sheen.stretch_mode = TextureRect.STRETCH_SCALE
 	sheen.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	sheen.focus_mode = Control.FOCUS_NONE
 	sheen.anchor_left = 0.0
 	sheen.anchor_right = 1.0
 	sheen.anchor_top = 0.0
-	sheen.anchor_bottom = 0.0
+	sheen.anchor_bottom = 0.42
 	sheen.offset_left = 13.0
 	sheen.offset_right = -13.0
 	sheen.offset_top = 1.0
-	sheen.offset_bottom = 2.5
+	sheen.offset_bottom = 0.0
 	button.add_child(sheen)
 	var shade := ColorRect.new()
 	shade.name = "GlassShade"
-	shade.color = Color(0.0, 0.0, 0.0, 0.16)
+	shade.color = Color(0.0, 0.008, 0.031, 0.11)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	shade.focus_mode = Control.FOCUS_NONE
 	shade.anchor_left = 0.0
@@ -437,19 +635,51 @@ static func _attach_glass_edges(button: Button) -> void:
 	button.add_child(shade)
 
 
+## Shared white-to-transparent vertical gradient (the button gloss). One
+## GradientTexture2D for every button in the game.
+static func _gloss() -> GradientTexture2D:
+	if _gloss_texture == null:
+		# Cool-tinted, not pure white: white over navy desaturates into grey and
+		# the face stops reading as ice. Falls off fast so it is a specular edge,
+		# not a two-tone paint job.
+		var sheen := Color(0.82, 0.92, 1.0)
+		var grad := Gradient.new()
+		grad.colors = PackedColorArray([
+			Color(sheen.r, sheen.g, sheen.b, 0.13),
+			Color(sheen.r, sheen.g, sheen.b, 0.035),
+			Color(sheen.r, sheen.g, sheen.b, 0.0),
+		])
+		grad.offsets = PackedFloat32Array([0.0, 0.30, 1.0])
+		_gloss_texture = GradientTexture2D.new()
+		_gloss_texture.gradient = grad
+		_gloss_texture.width = 2
+		_gloss_texture.height = 48
+		_gloss_texture.fill_from = Vector2(0.0, 0.0)
+		_gloss_texture.fill_to = Vector2(0.0, 1.0)
+	return _gloss_texture
+
+
+## Button face for one state. The rim is one step thicker along the top edge
+## and blends inward, so every control in the game is lit from the same
+## direction as the cards behind it.
 static func _button_box(bg: Color, border: Color, border_width: int) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
 	box.bg_color = bg
 	box.border_color = border
 	box.set_border_width_all(border_width)
-	box.set_corner_radius_all(12)
+	# Crisp, not blended: a button's top edge is a specular highlight and needs
+	# a hard line. The gloss overlay supplies the falloff beneath it. (Cards use
+	# the opposite treatment — see make_panel_style.)
+	box.border_width_top = border_width + 1
+	box.set_corner_radius_all(RADIUS_BUTTON)
 	box.content_margin_left = 18.0
 	box.content_margin_right = 18.0
 	box.content_margin_top = 10.0
 	box.content_margin_bottom = 10.0
-	box.shadow_color = COLOR_SHADOW
-	box.shadow_size = 5
-	box.shadow_offset = Vector2(0.0, 3.0)
+	box.shadow_color = COLOR_SHADOW_SOFT
+	box.shadow_size = 7
+	box.shadow_offset = Vector2(0.0, 4.0)
+	box.anti_aliasing = true
 	return box
 
 
@@ -535,20 +765,300 @@ static func _scale_to(control: Control, target: float) -> void:
 	control.set_meta("_hover_tween", tween)
 
 
+## --- Surfaces ---------------------------------------------------------------
+
+## Panel face used by every card, chip, tile and popup that is not built with
+## make_card(). StyleBoxFlat cannot express a gradient body, so depth comes
+## from the three cues it *can* express: a rim that is one step thicker along
+## the top edge and blends inward (a lit upper edge with falloff), the shared
+## card radius, and a large, soft, blue-black drop shadow offset downward.
+## Signature is load-bearing — ~20 call sites pass their own bg/border and then
+## adjust radius, margins and shadow on the returned box.
 static func make_panel_style(bg: Color = COLOR_PANEL, border: Color = Color(COLOR_ACCENT, 0.20)) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
 	box.bg_color = bg
 	box.border_color = border
 	box.set_border_width_all(1)
-	box.set_corner_radius_all(14)
-	box.content_margin_left = 20.0
-	box.content_margin_right = 20.0
-	box.content_margin_top = 16.0
-	box.content_margin_bottom = 16.0
-	box.shadow_color = COLOR_SHADOW
-	box.shadow_size = 8
-	box.shadow_offset = Vector2(0.0, 4.0)
+	box.border_width_top = 2
+	box.border_blend = true
+	box.set_corner_radius_all(RADIUS_CARD)
+	box.content_margin_left = float(SPACE_M)
+	box.content_margin_right = float(SPACE_M)
+	box.content_margin_top = float(SPACE_S)
+	box.content_margin_bottom = float(SPACE_S)
+	box.shadow_color = COLOR_SHADOW_SOFT
+	box.shadow_size = 14
+	box.shadow_offset = Vector2(0.0, 7.0)
+	box.anti_aliasing = true
 	return box
+
+
+## The premium card face: a genuinely graded body (lighter at the top, darker
+## at the bottom), a bright 1px rim along the top edge, and a soft drop shadow
+## — all baked into one shared nine-patch texture. StyleBoxFlat has no gradient
+## and no per-side border color, so this is the only way to get the real thing;
+## baking it once and handing the same ImageTexture to every card keeps the
+## cost at zero for mobile web no matter how many cards a screen builds.
+## Each call returns a fresh (cheap) StyleBoxTexture wrapper so a screen can
+## adjust content margins without mutating everyone else's cards.
+static func make_card_style() -> StyleBoxTexture:
+	var box := StyleBoxTexture.new()
+	box.texture = _card_tex()
+	box.set_texture_margin_all(float(CARD_TEX_MARGIN))
+	# The baked shadow lives in the outer CARD_PAD ring; expanding by exactly
+	# that much makes the card's *body* land on the control rect, so the shadow
+	# costs no layout space.
+	box.set_expand_margin_all(float(CARD_PAD))
+	box.content_margin_left = float(scaled_int(SPACE_M))
+	box.content_margin_right = float(scaled_int(SPACE_M))
+	box.content_margin_top = float(scaled_int(SPACE_S))
+	box.content_margin_bottom = float(scaled_int(SPACE_S))
+	return box
+
+
+## A card in one call: PanelContainer wearing make_card_style(), optionally
+## parented. Use this for every "block of related content" — a settings
+## section, a standings table, a reward group — so every screen's blocks share
+## one radius, one rim, one shadow and one padding rhythm.
+static func make_card(parent: Control = null) -> PanelContainer:
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", make_card_style())
+	if parent != null:
+		parent.add_child(card)
+	return card
+
+
+## Row face inside a card: tighter radius, no shadow, an almost-invisible zebra
+## so long lists stay scannable. `highlight` promotes the row the player cares
+## about (their standings line, the selected option) to a filled accent card
+## with a thick left edge.
+static func make_row_style(index: int = 0, highlight: bool = false,
+		accent: Color = COLOR_GOLD) -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.set_corner_radius_all(RADIUS_ROW)
+	box.content_margin_left = float(scaled_int(12))
+	box.content_margin_right = float(scaled_int(14))
+	box.content_margin_top = float(scaled_int(6))
+	box.content_margin_bottom = float(scaled_int(6))
+	box.anti_aliasing = true
+	if highlight:
+		# Deliberately light on fill: a saturated accent wash over a navy card
+		# turns olive. The row is identified by its bright rim, its thick left
+		# edge and its glow — the fill only has to lift it off the zebra.
+		box.bg_color = Color(accent.r, accent.g, accent.b, 0.11)
+		box.border_color = Color(accent, 0.70)
+		box.set_border_width_all(1)
+		box.border_width_left = 5
+		box.shadow_color = Color(accent, 0.18)
+		box.shadow_size = 9
+	else:
+		box.bg_color = Color(1.0, 1.0, 1.0, 0.035 if index % 2 == 0 else 0.0)
+	return box
+
+
+## --- Baked card texture -----------------------------------------------------
+##
+## Nine-patch geometry. The outer CARD_PAD ring holds the baked shadow, the
+## next CARD_RADIUS holds the rounded corner, and the 2px middle is what
+## stretches — so a card of any size keeps a pixel-exact corner, a graded top
+## band, a graded bottom band, and a flat middle.
+const CARD_PAD: int = 22
+const CARD_TEX_MARGIN: int = CARD_PAD + RADIUS_CARD + 2
+const CARD_TEX_SIZE: int = CARD_TEX_MARGIN * 2 + 2
+
+
+static func _card_tex() -> ImageTexture:
+	if _card_texture != null:
+		return _card_texture
+	var size := CARD_TEX_SIZE
+	var img := Image.create_empty(size, size, false, Image.FORMAT_RGBA8)
+	var half := Vector2(float(size) * 0.5 - float(CARD_PAD), float(size) * 0.5 - float(CARD_PAD))
+	var center := Vector2(float(size) * 0.5, float(size) * 0.5) - Vector2(0.5, 0.5)
+	var radius := float(RADIUS_CARD)
+	var mid := COLOR_CARD_TOP.lerp(COLOR_CARD_BOTTOM, 0.55)
+	# Falloff over which the top band brightens and the bottom band darkens.
+	var band := float(CARD_TEX_MARGIN - CARD_PAD)
+	for y: int in size:
+		# Vertical body gradient, defined from the nearest edge so the stretched
+		# middle rows are exactly `mid` and the bands survive nine-patching.
+		var from_top := (float(y) - float(CARD_PAD)) / band
+		var from_bottom := (float(size - 1 - y) - float(CARD_PAD)) / band
+		var body := mid
+		if from_top < 1.0:
+			body = COLOR_CARD_TOP.lerp(mid, clampf(from_top, 0.0, 1.0))
+		elif from_bottom < 1.0:
+			body = COLOR_CARD_BOTTOM.lerp(mid, clampf(from_bottom, 0.0, 1.0))
+		for x: int in size:
+			var p := Vector2(float(x), float(y)) - center
+			var sd := _round_rect_sdf(p, half, radius)
+			# Shadow: same shape, pushed down and softened outward.
+			var sds := _round_rect_sdf(p - Vector2(0.0, 5.0), half, radius)
+			var k := clampf(1.0 - sds / float(CARD_PAD), 0.0, 1.0)
+			var out := Color(COLOR_SHADOW_SOFT.r, COLOR_SHADOW_SOFT.g, COLOR_SHADOW_SOFT.b,
+				COLOR_SHADOW_SOFT.a * k * k * k)
+			var cover := clampf(0.5 - sd, 0.0, 1.0)
+			if cover > 0.0:
+				var face := body
+				# Rim: brightest exactly on the top edge, gone 2px in. Only the
+				# upper arc gets it, so the light stays overhead.
+				var depth := -sd
+				if depth < 2.2 and p.y < 0.0:
+					var rim_t := clampf(1.0 - depth / 2.2, 0.0, 1.0) \
+						* clampf(-p.y / (half.y * 0.85), 0.0, 1.0)
+					face = face.lerp(Color(COLOR_RIM.r, COLOR_RIM.g, COLOR_RIM.b, 1.0),
+						COLOR_RIM.a * rim_t)
+				out = _over(Color(face.r, face.g, face.b, face.a * cover), out)
+			img.set_pixel(x, y, out)
+	_card_texture = ImageTexture.create_from_image(img)
+	return _card_texture
+
+
+## Signed distance to a rounded rectangle centered on the origin.
+static func _round_rect_sdf(p: Vector2, half: Vector2, radius: float) -> float:
+	var q := Vector2(absf(p.x), absf(p.y)) - half + Vector2(radius, radius)
+	return Vector2(maxf(q.x, 0.0), maxf(q.y, 0.0)).length() + minf(maxf(q.x, q.y), 0.0) - radius
+
+
+## Straight source-over composite in unpremultiplied color.
+static func _over(src: Color, dst: Color) -> Color:
+	var a := src.a + dst.a * (1.0 - src.a)
+	if a <= 0.0001:
+		return Color(0.0, 0.0, 0.0, 0.0)
+	var inv := 1.0 / a
+	return Color(
+		(src.r * src.a + dst.r * dst.a * (1.0 - src.a)) * inv,
+		(src.g * src.a + dst.g * dst.a * (1.0 - src.a)) * inv,
+		(src.b * src.a + dst.b * dst.a * (1.0 - src.a)) * inv,
+		a)
+
+
+## --- Type ramp helpers ------------------------------------------------------
+##
+## Five rungs, all applying the touch step for you. Reach for the rung, not a
+## number: display (one per screen, the thing you came to see), headline
+## (screen title), title (card/section heading), body (everything readable),
+## caption (uppercase, tracked, dim — the label *under* a value).
+
+## Biggest rung: a screen's one hero line. Uses scaled_heading so a landscape
+## phone does not spend its scarce height on the title.
+static func make_display(text: String, size: int = FS_DISPLAY) -> Label:
+	return heading(text, scaled_heading(size))
+
+
+## Screen title.
+static func make_headline(text: String, size: int = FS_HEADLINE) -> Label:
+	return heading(text, scaled_heading(size))
+
+
+## Card/section heading, or any emphasised line inside a card.
+static func make_title(text: String, size: int = FS_TITLE, color: Color = COLOR_TEXT) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_override("font", display_font())
+	label.add_theme_font_size_override("font_size", scaled_font(size))
+	label.add_theme_color_override("font_color", color)
+	return label
+
+
+## Readable body copy. Deliberately does NOT autowrap: most body labels are
+## cells in a row, and an autowrapping label squeezed by an expanding sibling
+## wraps one character per line. Use make_paragraph for real prose.
+static func make_body(text: String, size: int = FS_BODY, color: Color = COLOR_TEXT) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", scaled_font(size))
+	label.add_theme_color_override("font_color", color)
+	return label
+
+
+## Body copy that is meant to flow over several lines (descriptions, empty
+## states, credits). Give it a width — either a custom_minimum_size.x or an
+## expanding container — or it will wrap to nothing.
+static func make_paragraph(text: String, size: int = FS_BODY,
+		color: Color = COLOR_TEXT_DIM) -> Label:
+	var label := make_body(text, size, color)
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return label
+
+
+## Small uppercase tracked caption — the quiet line under a value, or a column
+## heading. Always COLOR_TEXT_DIM unless a screen has a reason otherwise.
+static func make_caption(text: String, size: int = FS_CAPTION,
+		color: Color = COLOR_TEXT_DIM) -> Label:
+	var label := Label.new()
+	label.text = text.to_upper()
+	label.add_theme_font_override("font", caption_font())
+	label.add_theme_font_size_override("font_size", scaled_font(size))
+	label.add_theme_color_override("font_color", color)
+	return label
+
+
+## Context line *above* a headline ("QUICK RACE · GLACIER GAUNTLET"). Same
+## treatment as a caption but accent-tinted, because it belongs to the headline
+## rather than to the value below it.
+static func make_eyebrow(text: String, size: int = FS_EYEBROW,
+		color: Color = Color(COLOR_ACCENT, 0.75)) -> Label:
+	var label := make_caption(text, size, color)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return label
+
+
+## A number the player is meant to read at a glance: display font, larger,
+## tinted. Pair with make_caption underneath.
+static func make_value(text: String, size: int = FS_TITLE,
+		color: Color = COLOR_TEXT) -> Label:
+	var label := make_title(text, size, color)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	return label
+
+
+## Value-over-caption pair, the atom the whole game's stat strips are built
+## from. Returns the tile so callers can size or restyle it.
+static func make_stat(value: String, caption: String, color: Color = COLOR_TEXT) -> VBoxContainer:
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 0)
+	stack.add_child(make_value(value, FS_TITLE, color))
+	var cap := make_caption(caption)
+	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stack.add_child(cap)
+	return stack
+
+
+## Card caption: a short accent tick followed by an uppercase tracked label, so
+## every card in the game announces itself the same way. Adds the row to
+## `parent` and returns it.
+static func card_title(parent: Control, text: String) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", scaled_int(10))
+	parent.add_child(row)
+	var tick := ColorRect.new()
+	tick.color = Color(COLOR_ACCENT, 0.85)
+	tick.custom_minimum_size = Vector2(scaled(4.0), scaled(17.0))
+	tick.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	tick.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(tick)
+	row.add_child(make_caption(text, FS_EYEBROW - 1, Color(0.72, 0.83, 0.94)))
+	return row
+
+
+## Hairline separator between groups inside a card or column.
+static func make_divider(thickness: float = 1.0) -> ColorRect:
+	var rule := ColorRect.new()
+	rule.color = Color(COLOR_ACCENT, 0.16)
+	rule.custom_minimum_size = Vector2(0.0, thickness)
+	rule.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return rule
+
+
+## Fixed vertical gap on the SPACE_S/M/L rhythm. Takes the touch step, so a
+## phone's spacing grows with its controls.
+static func make_spacer(height: int = SPACE_M) -> Control:
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0.0, float(spacing(height)))
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return gap
 
 
 static func heading(text: String, size: int = 44) -> Label:
@@ -698,27 +1208,75 @@ static func make_bar_fill(from: Color, to: Color) -> StyleBoxTexture:
 	return sb
 
 
-## Themed track/grabber styling for HSliders so they match the panel system.
+## Themed track/fill/knob for HSliders. Same material as everything else: the
+## track is an inset channel (darkest along its *top* edge, the inverse of a
+## raised surface), the fill is a glossy accent bar lit from above, and the
+## grabber is a baked knob with its own rim and shadow so the control has a
+## real handle instead of the engine's default white dot.
 static func style_slider(slider: HSlider) -> void:
 	var track := StyleBoxFlat.new()
-	track.bg_color = COLOR_BG_DEEP
-	track.set_corner_radius_all(5)
+	track.bg_color = Color(0.024, 0.051, 0.098, 0.92)
+	track.set_corner_radius_all(6)
 	track.set_border_width_all(1)
-	track.border_color = Color(COLOR_ACCENT, 0.25)
-	track.content_margin_top = 5.0
-	track.content_margin_bottom = 5.0
+	track.border_color = Color(0.0, 0.008, 0.031, 0.55)
+	track.border_width_top = 2
+	track.border_blend = true
+	track.content_margin_top = 6.0
+	track.content_margin_bottom = 6.0
+	track.anti_aliasing = true
 	var fill := StyleBoxFlat.new()
-	fill.bg_color = Color(COLOR_ACCENT, 0.85)
-	fill.set_corner_radius_all(5)
-	fill.content_margin_top = 5.0
-	fill.content_margin_bottom = 5.0
+	fill.bg_color = Color(0.235, 0.573, 0.847)
+	fill.border_color = Color(0.76, 0.94, 1.0, 0.90)
+	fill.set_border_width_all(0)
+	fill.border_width_top = 3
+	fill.border_blend = true
+	fill.set_corner_radius_all(6)
+	fill.content_margin_top = 6.0
+	fill.content_margin_bottom = 6.0
+	fill.anti_aliasing = true
+	var fill_hot := fill.duplicate() as StyleBoxFlat
+	fill_hot.bg_color = Color(0.310, 0.678, 0.949)
 	slider.add_theme_stylebox_override("slider", track)
 	slider.add_theme_stylebox_override("grabber_area", fill)
-	slider.add_theme_stylebox_override("grabber_area_highlight", fill)
+	slider.add_theme_stylebox_override("grabber_area_highlight", fill_hot)
+	slider.add_theme_icon_override("grabber", _knob_tex(Color(0.90, 0.96, 1.0)))
+	slider.add_theme_icon_override("grabber_highlight", _knob_tex(Color(0.72, 0.92, 1.0)))
+	slider.add_theme_icon_override("grabber_disabled", _knob_tex(Color(0.42, 0.48, 0.58)))
 	# Touchscreens get a taller control rect: the track stays slim but the
 	# whole rect accepts drags, so fingertips land reliably.
 	if is_touch():
 		slider.custom_minimum_size.y = maxf(slider.custom_minimum_size.y, float(TOUCH_MIN_HEIGHT))
+
+
+## Baked slider knob: a domed disc, lit from above, with its own rim and a soft
+## drop shadow. Cached per tint, so the whole game shares three of them.
+static func _knob_tex(tint: Color) -> ImageTexture:
+	var key := tint.to_html(false)
+	if _knob_textures.has(key):
+		return _knob_textures[key] as ImageTexture
+	var size := 30
+	var radius := 10.0
+	var img := Image.create_empty(size, size, false, Image.FORMAT_RGBA8)
+	var center := Vector2(float(size) * 0.5 - 0.5, float(size) * 0.5 - 0.5)
+	for y: int in size:
+		for x: int in size:
+			var p := Vector2(float(x), float(y)) - center
+			var shadow_d := (p - Vector2(0.0, 1.5)).length() - radius
+			var k := clampf(1.0 - shadow_d / 6.0, 0.0, 1.0)
+			var out := Color(COLOR_SHADOW_SOFT.r, COLOR_SHADOW_SOFT.g, COLOR_SHADOW_SOFT.b,
+				0.55 * k * k * k)
+			var cover := clampf(radius + 0.5 - p.length(), 0.0, 1.0)
+			if cover > 0.0:
+				var down := clampf((p.y + radius) / (radius * 2.0), 0.0, 1.0)
+				var face := tint.lerp(tint.darkened(0.30), down)
+				var edge := p.length() - (radius - 1.8)
+				if edge > 0.0:
+					face = face.lerp(Color(1.0, 1.0, 1.0), 0.45 * clampf(edge / 1.8, 0.0, 1.0))
+				out = _over(Color(face.r, face.g, face.b, cover), out)
+			img.set_pixel(x, y, out)
+	var texture := ImageTexture.create_from_image(img)
+	_knob_textures[key] = texture
+	return texture
 
 
 ## Applies the button style family to an OptionButton picker.
@@ -726,16 +1284,13 @@ static func style_option_button(picker: OptionButton) -> void:
 	picker.add_theme_color_override("font_color", COLOR_TEXT)
 	picker.add_theme_color_override("font_hover_color", Color.WHITE)
 	picker.add_theme_color_override("font_focus_color", Color.WHITE)
-	var normal := _button_box(Color(0.141, 0.227, 0.365, 0.62), Color(0.78, 0.90, 1.0, 0.22), 1)
-	normal.shadow_size = 3
-	var hover := _button_box(Color(0.196, 0.310, 0.478, 0.78), Color(COLOR_ACCENT, 0.95), 2)
-	hover.shadow_size = 4
-	var focus := StyleBoxFlat.new()
-	focus.draw_center = false
-	focus.border_color = Color(0.72, 0.92, 1.0)
-	focus.set_border_width_all(2)
-	focus.set_corner_radius_all(13)
-	focus.set_expand_margin_all(2.0)
+	var normal := _button_box(BTN_FILL, COLOR_RIM, 1)
+	normal.shadow_size = 4
+	normal.shadow_offset = Vector2(0.0, 2.0)
+	var hover := _button_box(BTN_FILL_HOVER, Color(COLOR_ACCENT, 0.95), 2)
+	hover.shadow_size = 6
+	hover.shadow_offset = Vector2(0.0, 3.0)
+	var focus := _focus_ring(RADIUS_BUTTON + 2)
 	picker.add_theme_stylebox_override("normal", normal)
 	picker.add_theme_stylebox_override("hover", hover)
 	picker.add_theme_stylebox_override("pressed", hover)
@@ -818,39 +1373,155 @@ static func attach_swipe_back(node: Control, callback: Callable) -> void:
 			callback.call())
 
 
-## Full-rect animated menu backdrop: three-stop navy gradient, faint aurora
-## sweep, slow drifting snow, and a corner vignette. Quality-gated so low-end
-## and headless runs stay cheap; menus are never a static flat color.
+## Full-rect animated menu backdrop, built as a real sky rather than a navy
+## wash. Layers, back to front:
+##   1. flat deep base (nothing shows through it)
+##   2. the sky: a five-stop vertical gradient with an indigo horizon band and
+##      a wide cyan bloom high on the screen — the light source that makes the
+##      vignette and the card rims make sense. Both are baked into ONE texture
+##      rather than two stacked layers, because a menu's cost on mobile web is
+##      full-screen overdraw and the bloom does not need its own pass.
+##   3. a baked star field, fading out before it reaches the content
+##   4. the aurora sheet (shader) and two parallax snow layers
+##   5. a tiled grain wash that dithers away the banding a full-screen navy
+##      gradient produces on 8-bit displays and cheap phone panels
+##   6. an elliptical vignette that closes the corners
+## Every texture here is baked once into a static and shared by every screen —
+## menus rebuild their whole tree on each navigation, and re-generating
+## gradients per screen was pure waste on single-threaded WASM.
+## Quality-gated so low-end and headless runs stay cheap: "low" keeps exactly
+## the three layers it had before this pass, and grain is high-only.
 static func make_background(parent: Control) -> void:
 	var bg := ColorRect.new()
 	bg.color = COLOR_BG_DEEP
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(bg)
-
-	# Four-stop gradient: a faint indigo band between mid and deep adds a
-	# horizon layer the aurora bands sit on, deepening the backdrop for free.
-	var grad := Gradient.new()
-	grad.colors = PackedColorArray([
-		Color(0.098, 0.169, 0.290), COLOR_BG, Color(0.043, 0.082, 0.157), COLOR_BG_DEEP,
-	])
-	grad.offsets = PackedFloat32Array([0.0, 0.42, 0.74, 1.0])
-	var tex := GradientTexture2D.new()
-	tex.gradient = grad
-	tex.fill_from = Vector2(0.0, 0.0)
-	tex.fill_to = Vector2(0.0, 1.0)
-	var rect := TextureRect.new()
-	rect.texture = tex
-	rect.stretch_mode = TextureRect.STRETCH_SCALE
-	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
-	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(rect)
+	parent.add_child(_full_rect(_sky_tex()))
 
 	var quality := String(SettingsManager.get_setting("display", "particle_quality"))
 	if not GameConfig.is_headless() and quality != "low":
+		_add_stars(parent)
 		_add_aurora(parent)
 		_add_snow(parent, quality)
+		if quality == "high":
+			_add_grain(parent)
 	_add_vignette(parent)
+
+
+## Inert full-screen TextureRect: the shape every backdrop layer takes.
+static func _full_rect(texture: Texture2D) -> TextureRect:
+	var rect := TextureRect.new()
+	rect.texture = texture
+	rect.stretch_mode = TextureRect.STRETCH_SCALE
+	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return rect
+
+
+## The sky, baked once: a five-stop vertical ramp (cool upper band, mid navy,
+## indigo horizon for the aurora to sit on, deep floor) with a wide elliptical
+## cyan bloom composited into it high on the screen. Low-res on purpose — it is
+## stretched over the whole viewport, so 128x72 is plenty and costs 36 KB.
+static func _sky_tex() -> ImageTexture:
+	if _bg_gradient != null:
+		return _bg_gradient
+	var grad := Gradient.new()
+	grad.colors = PackedColorArray([
+		Color(0.075, 0.145, 0.278),
+		Color(0.106, 0.180, 0.310),
+		COLOR_BG,
+		Color(0.043, 0.082, 0.157),
+		COLOR_BG_DEEP,
+	])
+	grad.offsets = PackedFloat32Array([0.0, 0.22, 0.48, 0.76, 1.0])
+	var w := 128
+	var h := 72
+	var glow := Color(0.38, 0.64, 0.90)
+	var img := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
+	for y: int in h:
+		var base := grad.sample(float(y) / float(h - 1))
+		for x: int in w:
+			var u := Vector2(float(x) / float(w - 1), float(y) / float(h - 1))
+			# Wide, high ellipse: reads as "the sky is lit from up there",
+			# never as a visible blob.
+			var d := Vector2((u.x - 0.5) / 0.80, (u.y - 0.15) / 0.46).length()
+			var k := clampf(1.0 - d, 0.0, 1.0)
+			k = k * k * (3.0 - 2.0 * k)  # smoothstep falloff
+			var color := base.lerp(glow, k * 0.22)
+			img.set_pixel(x, y, Color(color.r, color.g, color.b, 1.0))
+	_bg_gradient = ImageTexture.create_from_image(img)
+	return _bg_gradient
+
+
+## Baked star field: deterministic, dim, top-weighted, and gone well before the
+## content column starts. Costs one shared texture and one TextureRect — no
+## particles, no shader, no per-frame work.
+static func _add_stars(parent: Control) -> void:
+	var stars := _full_rect(_star_tex())
+	# Cover, not scale: stretching the field to a portrait viewport turned every
+	# star into a vertical dash. Cropping keeps them round on any aspect.
+	stars.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	parent.add_child(stars)
+
+
+static func _star_tex() -> ImageTexture:
+	if _star_texture != null:
+		return _star_texture
+	var w := 480
+	var h := 270
+	var img := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 0x57ADD1E  # fixed: the sky is the same every launch
+	for i: int in 260:
+		var x := rng.randi_range(1, w - 2)
+		var y := rng.randi_range(1, h - 2)
+		# Stars thin out toward the bottom so they never fight the menu column.
+		var height_fade := clampf(1.0 - float(y) / float(h) * 1.35, 0.0, 1.0)
+		if height_fade <= 0.02:
+			continue
+		var bright := rng.randf_range(0.18, 0.85) * height_fade
+		var tint := Color(1.0, 1.0, 1.0).lerp(Color(0.62, 0.82, 1.0), rng.randf())
+		img.set_pixel(x, y, Color(tint.r, tint.g, tint.b, bright))
+		# A handful of brighter stars get a one-pixel halo so they twinkle when
+		# the texture is scaled up to the screen.
+		if bright > 0.62:
+			var halo := Color(tint.r, tint.g, tint.b, bright * 0.28)
+			img.set_pixel(x - 1, y, halo)
+			img.set_pixel(x + 1, y, halo)
+			img.set_pixel(x, y - 1, halo)
+			img.set_pixel(x, y + 1, halo)
+	_star_texture = ImageTexture.create_from_image(img)
+	return _star_texture
+
+
+## Tiled monochrome grain at ~2% alpha. Its job is dithering: a full-screen
+## navy gradient bands badly on 8-bit panels, and the banding is the single
+## most "cheap" looking thing about a dark menu. Also adds a faint film texture
+## that makes the flat regions read as a surface.
+static func _add_grain(parent: Control) -> void:
+	var grain := TextureRect.new()
+	grain.texture = _grain_tex()
+	grain.stretch_mode = TextureRect.STRETCH_TILE
+	grain.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	grain.set_anchors_preset(Control.PRESET_FULL_RECT)
+	grain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(grain)
+
+
+static func _grain_tex() -> ImageTexture:
+	if _grain_texture != null:
+		return _grain_texture
+	var size := 64
+	var img := Image.create_empty(size, size, false, Image.FORMAT_RGBA8)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 0x6A41
+	for y: int in size:
+		for x: int in size:
+			var v := rng.randf()
+			img.set_pixel(x, y, Color(1.0, 1.0, 1.0, v * 0.028))
+	_grain_texture = ImageTexture.create_from_image(img)
+	return _grain_texture
 
 
 static func _add_aurora(parent: Control) -> void:
@@ -921,23 +1592,27 @@ static func _make_snow_layer(amount: int, scale_min: float, scale_max: float,
 	return snow
 
 
+## Corner vignette. Blue-black rather than neutral (matching COLOR_SHADOW_SOFT)
+## and a touch deeper than before, so the lit upper-centre reads as a real
+## light source instead of the screen being evenly bright. Shared texture.
 static func _add_vignette(parent: Control) -> void:
-	var grad := Gradient.new()
-	grad.colors = PackedColorArray([
-		Color(0.0, 0.0, 0.0, 0.0), Color(0.0, 0.0, 0.0, 0.0), Color(0.0, 0.0, 0.0, 0.30),
-	])
-	grad.offsets = PackedFloat32Array([0.0, 0.62, 1.0])
-	var tex := GradientTexture2D.new()
-	tex.gradient = grad
-	tex.fill = GradientTexture2D.FILL_RADIAL
-	tex.fill_from = Vector2(0.5, 0.5)
-	tex.fill_to = Vector2(0.5, -0.15)
-	var vignette := TextureRect.new()
-	vignette.texture = tex
-	vignette.stretch_mode = TextureRect.STRETCH_SCALE
-	vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
-	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(vignette)
+	if _vignette_texture == null:
+		var edge := Color(0.004, 0.012, 0.031)
+		var grad := Gradient.new()
+		grad.colors = PackedColorArray([
+			Color(edge.r, edge.g, edge.b, 0.0),
+			Color(edge.r, edge.g, edge.b, 0.06),
+			Color(edge.r, edge.g, edge.b, 0.44),
+		])
+		grad.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
+		_vignette_texture = GradientTexture2D.new()
+		_vignette_texture.gradient = grad
+		_vignette_texture.fill = GradientTexture2D.FILL_RADIAL
+		_vignette_texture.fill_from = Vector2(0.5, 0.46)
+		_vignette_texture.fill_to = Vector2(0.5, -0.20)
+		_vignette_texture.width = 128
+		_vignette_texture.height = 128
+	parent.add_child(_full_rect(_vignette_texture))
 
 
 ## Applies the accessibility ui_scale setting to a screen root.
