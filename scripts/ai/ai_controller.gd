@@ -8,6 +8,23 @@ const THROW_RANGE: float = 25.0
 const THROW_CONE_DOT: float = 0.94  # ~20 degree cone ahead
 const PICKUP_SCAN_AHEAD: float = 30.0
 
+## Gap detection. The AI used to jump ONLY where a course had authored a "jump"
+## hint, so any gap whose hint was missing was simply a wall it walked into --
+## for the rest of the race. Iceberg Bay's floe runs are laid out with "gap"
+## points but carry hints at three of them, and the field piled up at the first
+## edge without one. Probing for missing ground fixes every course at once,
+## including ones written after this.
+##
+## Probed along the racer's ACTUAL heading, because "will I fall" is a question
+## about where it is going, not where the track goes.
+const GAP_LOOKAHEAD_MIN: float = 4.0
+const GAP_LOOKAHEAD_PER_SPEED: float = 0.40
+## Ground missing this far below the probe counts as a gap rather than a step.
+const GAP_DROP: float = 3.0
+## Seconds between gap jumps, so a long run of open water is a sequence of
+## hops rather than a stuck jump button.
+const GAP_JUMP_COOLDOWN: float = 0.55
+
 var racer: Racer = null
 var course: CourseBase = null
 var personality: Dictionary = {}
@@ -30,6 +47,7 @@ var _stuck_last_position: Vector3 = Vector3(9999, 9999, 9999)
 var _progress_watch_timer: float = 12.0
 var _progress_watch_last: float = -1.0
 var _slide_zone_until: float = -1.0
+var _gap_jump_cooldown: float = 0.0
 var _shove_eval_timer: float = 0.0
 var _throw_eval_timer: float = 0.0
 
@@ -49,6 +67,7 @@ func tick(delta: float) -> void:
 		slide_held = false
 		return
 
+	_gap_jump_cooldown = maxf(_gap_jump_cooldown - delta, 0.0)
 	_retarget_timer -= delta
 	_lateral_timer -= delta
 	_mistake_timer -= delta
@@ -149,6 +168,29 @@ func _steer_toward_target(delta: float) -> void:
 		# is enough to overshoot a corner straight into the walls.
 		raw_steer += _mistake_steer
 	steer = clampf(lerpf(steer, raw_steer, minf(delta * 8.0, 1.0)), -1.0, 1.0)
+
+
+## True when there is no ground where this racer is about to be.
+##
+## Two probes, near and far: a single one at the edge of the track fires
+## whenever a racer drifts wide and would have them hopping along the rim. A
+## real gap is missing ground at BOTH distances.
+func _gap_ahead() -> bool:
+	if racer == null or not racer.is_on_floor():
+		return false
+	var space := racer.get_world_3d().direct_space_state
+	if space == null:
+		return false
+	var yaw := racer.get_heading_yaw()
+	var dir := Vector3(-sin(yaw), 0.0, -cos(yaw))
+	var lead := GAP_LOOKAHEAD_MIN + racer.current_speed * GAP_LOOKAHEAD_PER_SPEED
+	for reach: float in [lead, lead * 0.6]:
+		var from := racer.global_position + dir * reach + Vector3.UP * 1.2
+		var query := PhysicsRayQueryParameters3D.create(
+			from, from + Vector3.DOWN * (GAP_DROP + 1.2), GameConfig.LAYER_WORLD)
+		if not space.intersect_ray(query).is_empty():
+			return false
+	return true
 
 
 func _update_actions() -> void:
