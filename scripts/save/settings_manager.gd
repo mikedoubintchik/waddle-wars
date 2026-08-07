@@ -329,7 +329,9 @@ func _watch_orientation() -> void:
 
 
 func _on_window_resized() -> void:
-	_apply_ui_scale(float(get_setting("display", "ui_scale")))
+	# ui_scale lives under "accessibility", not "display" -- reading the wrong
+	# section returns null and float(null) throws on every resize.
+	_apply_ui_scale(float(get_setting("accessibility", "ui_scale")))
 
 
 func _apply_ui_scale(user_scale: float) -> void:
