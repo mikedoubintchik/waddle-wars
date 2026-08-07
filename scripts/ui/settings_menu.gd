@@ -773,6 +773,67 @@ func _add_link_row(body: VBoxContainer, label_text: String, description: String,
 	slot.add_child(button)
 
 
+## Live sensor state, plus a way to ask again.
+##
+## Tilt shipped defaulting to ON with no way to tell whether the sensor had
+## actually been granted: on iOS the permission can be refused silently, so the
+## setting read "On" while nothing moved and there was nothing anywhere to say
+## why. This row says what the sensor is doing in plain words and gives the
+## player a button whose press is itself the gesture the browser needs.
+func _add_tilt_status_row(body: VBoxContainer) -> void:
+	var slot := _row(body, "Motion Access",
+		"Leaning needs the browser's permission to read the phone's motion.")
+	var status := Label.new()
+	status.add_theme_font_size_override("font_size", _f(17))
+	status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	slot.add_child(status)
+
+	var button := UITheme.make_button("Allow", _btn(0.0, CONTROL_HEIGHT), _f(18))
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	UITheme.hook_sounds(button)
+	slot.add_child(button)
+
+	var refresh := func() -> void:
+		var state := TiltSteering.permission_state()
+		match state:
+			"granted":
+				status.text = "Working"
+				status.add_theme_color_override("font_color", Color(0.55, 0.88, 0.62))
+				button.visible = false
+			"listening", "pending":
+				status.text = "Waiting for the sensor…"
+				status.add_theme_color_override("font_color", UITheme.COLOR_TEXT_DIM)
+				button.visible = false
+			"denied":
+				status.text = "Blocked by the browser"
+				status.add_theme_color_override("font_color", Color(1.0, 0.62, 0.55))
+				button.text = "Try Again"
+				button.visible = true
+			"nosensor", "unsupported":
+				status.text = "No motion sensor on this device"
+				status.add_theme_color_override("font_color", UITheme.COLOR_TEXT_DIM)
+				button.visible = false
+			_:
+				status.text = "Not granted yet"
+				status.add_theme_color_override("font_color", UITheme.COLOR_TEXT_DIM)
+				button.text = "Allow"
+				button.visible = true
+	refresh.call()
+	button.pressed.connect(func() -> void:
+		TiltSteering.request_permission()
+		refresh.call())
+	# The browser answers asynchronously, so poll while this screen is open
+	# rather than leaving a stale label until the player navigates away.
+	var timer := Timer.new()
+	timer.wait_time = 0.5
+	timer.autostart = true
+	timer.timeout.connect(func() -> void: refresh.call())
+	slot.add_child(timer)
+
+
 ## --- Section builders -------------------------------------------------------
 
 func _build_display_section() -> void:
@@ -828,6 +889,7 @@ func _build_gameplay_section() -> void:
 			0.4, 2.0, 0.05, true, "How far you have to lean for a full turn.")
 		_add_toggle_row(body, "gameplay", "tilt_invert", "Invert Tilt",
 			"Swap which way the lean steers.")
+		_add_tilt_status_row(body)
 
 	_add_toggle_row(body, "gameplay", "slide_toggle_mode", "Slide: Toggle Mode",
 		"On: press once to keep sliding. Off: hold the button.")

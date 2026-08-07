@@ -39,12 +39,14 @@ const CALIBRATION_SAMPLES: int = 12
 ## Installed once per page. Keeps the newest screen-space lean on the window so
 ## GDScript can read a property instead of eval-ing a string every frame.
 const JS_SHIM := """
-window.__ww_tilt = window.__ww_tilt || {ok: 0, x: 0.0, ts: 0, on: 0};
-window.__ww_tilt_start = function () {
-	if (window.__ww_tilt.on) { return 1; }
+window.__ww_tilt = window.__ww_tilt || {ok: 0, x: 0.0, ts: 0, on: 0, state: 'idle'};
+
+window.__ww_tilt_listen = function () {
+	if (window.__ww_tilt.on) { return; }
 	window.addEventListener('deviceorientation', function (e) {
 		var g = (e.gamma == null) ? 0 : e.gamma;
 		var b = (e.beta == null) ? 0 : e.beta;
+		if (e.gamma == null && e.beta == null) { return; }
 		var a = 0;
 		try {
 			a = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
@@ -56,22 +58,59 @@ window.__ww_tilt_start = function () {
 		window.__ww_tilt.x = g * Math.cos(r) + b * Math.sin(r);
 		window.__ww_tilt.ok = 1;
 		window.__ww_tilt.ts = Date.now();
+		window.__ww_tilt.state = 'granted';
 	}, true);
 	window.__ww_tilt.on = 1;
-	return 1;
 };
-window.__ww_tilt_request = function () {
+
+// Asks, and reports what happened. Must run inside a real gesture on iOS.
+window.__ww_tilt_ask = function () {
 	try {
-		if (typeof DeviceOrientationEvent !== 'undefined' &&
-				typeof DeviceOrientationEvent.requestPermission === 'function') {
-			DeviceOrientationEvent.requestPermission().then(function (s) {
-				if (s === 'granted') { window.__ww_tilt_start(); }
-			}).catch(function () {});
-			return 2;
+		if (typeof DeviceOrientationEvent === 'undefined') {
+			window.__ww_tilt.state = 'nosensor';
+			return;
 		}
-	} catch (_) {}
-	window.__ww_tilt_start();
-	return 1;
+		if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+			window.__ww_tilt.state = 'pending';
+			DeviceOrientationEvent.requestPermission().then(function (s) {
+				if (s === 'granted') {
+					window.__ww_tilt.state = 'listening';
+					window.__ww_tilt_listen();
+				} else {
+					window.__ww_tilt.state = 'denied';
+				}
+			}).catch(function () { window.__ww_tilt.state = 'denied'; });
+			return;
+		}
+	} catch (_) {
+		window.__ww_tilt.state = 'denied';
+		return;
+	}
+	// No permission gate (Android, desktop): just listen.
+	window.__ww_tilt.state = 'listening';
+	window.__ww_tilt_listen();
+};
+
+// Arms the ask on the next REAL DOM gesture.
+//
+// This has to happen in JavaScript, not in GDScript. Godot queues browser
+// input and dispatches it during its own main-loop iteration, so by the time a
+// GDScript _input handler runs it is no longer inside the DOM event handler --
+// and Safari grants DeviceOrientation only to a request made from within one.
+// Asking from GDScript looked correct and was silently refused, with no prompt
+// shown and no error raised.
+window.__ww_tilt_arm = function () {
+	if (window.__ww_tilt._armed) { return; }
+	window.__ww_tilt._armed = 1;
+	var fire = function () {
+		window.removeEventListener('pointerdown', fire, true);
+		window.removeEventListener('touchend', fire, true);
+		window.removeEventListener('click', fire, true);
+		window.__ww_tilt_ask();
+	};
+	window.addEventListener('pointerdown', fire, true);
+	window.addEventListener('touchend', fire, true);
+	window.addEventListener('click', fire, true);
 };
 """
 
@@ -98,19 +137,25 @@ static func supported() -> bool:
 	return GameConfig.is_mobile() or GameConfig.has_touchscreen()
 
 
-## True once this session has spent its one permission request.
-static var _asked: bool = false
-
-
-## Asks the browser for sensor access. MUST be called from inside a real user
-## gesture -- iOS grants nothing otherwise, and only ever asks once, so a
-## wasted call costs the feature for that session.
+## Arms the sensor request against the next real DOM gesture. Safe to call
+## repeatedly; the shim only arms once until it has fired.
 static func request_permission() -> void:
-	if _asked or not OS.has_feature("web") or GameConfig.is_headless():
+	if not OS.has_feature("web") or GameConfig.is_headless():
 		return
-	_asked = true
 	_install_shim()
-	JavaScriptBridge.eval("window.__ww_tilt_request()", true)
+	JavaScriptBridge.eval("window.__ww_tilt_arm()", true)
+
+
+## Where the sensor currently stands, for the settings row to show. One of
+## "idle", "pending", "listening", "granted", "denied", "nosensor" -- or
+## "unsupported" off the web.
+static func permission_state() -> String:
+	if not OS.has_feature("web") or GameConfig.is_headless():
+		return "unsupported"
+	_install_shim()
+	if _bridge == null:
+		return "idle"
+	return String(_bridge.state)
 
 
 ## Fires the permission request on the player's NEXT real tap, then stops
@@ -122,32 +167,12 @@ static func request_permission() -> void:
 ## press, the ask rides whatever they were going to tap anyway. On Android and
 ## desktop browsers there is no permission at all and this is a no-op beyond
 ## installing the listener.
-static func arm_permission_on_first_gesture(host: Node) -> void:
-	if _asked or GameConfig.is_headless() or not supported():
+static func arm_permission_on_first_gesture(_host: Node) -> void:
+	if GameConfig.is_headless() or not supported():
 		return
 	if not bool(SettingsManager.get_setting("gameplay", "tilt_steering")):
 		return
-	var arm := GestureArm.new()
-	arm.name = "TiltPermissionArm"
-	host.add_child(arm)
-
-
-## Watches for one press, spends the permission ask on it, and frees itself.
-class GestureArm:
-	extends Node
-
-	func _ready() -> void:
-		process_mode = Node.PROCESS_MODE_ALWAYS
-
-	func _input(event: InputEvent) -> void:
-		var pressed := (event is InputEventScreenTouch
-				and (event as InputEventScreenTouch).pressed)
-		if not pressed and event is InputEventMouseButton:
-			pressed = (event as InputEventMouseButton).pressed
-		if not pressed:
-			return
-		TiltSteering.request_permission()
-		queue_free()
+	request_permission()
 
 
 static func _install_shim() -> void:

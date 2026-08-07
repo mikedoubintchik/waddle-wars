@@ -379,7 +379,62 @@ static func content_width(base: float, host: Control) -> float:
 	var view_width := host.get_viewport_rect().size.x
 	if view_width <= 0.0:
 		return width
-	return clampf(width, view_width * TOUCH_CONTENT_MIN_FRAC, view_width * TOUCH_CONTENT_MAX_FRAC)
+	# Keep clear of the device's own furniture. A phone's usable rectangle is
+	# not its screen: rounded corners, the notch and the home indicator all eat
+	# into the edges, and a canvas that fills the display puts content under
+	# them. The percentage band alone is not enough, because on a modern iPhone
+	# the corner radius is larger than the margin it leaves.
+	var usable := maxf(view_width - safe_inset_x(host) * 2.0, view_width * 0.5)
+	return clampf(width, usable * TOUCH_CONTENT_MIN_FRAC, usable * TOUCH_CONTENT_MAX_FRAC)
+
+
+## Horizontal safe-area inset in LOGICAL units, per side. 0 where the platform
+## does not report one. Cached: reading it crosses into JavaScript on web.
+static var _safe_inset_x: float = -1.0
+
+
+static func safe_inset_x(host: Control) -> float:
+	if _safe_inset_x >= 0.0:
+		return _safe_inset_x
+	_safe_inset_x = 0.0
+	if GameConfig.is_headless() or host == null or not host.is_inside_tree():
+		return 0.0
+	var view_width := host.get_viewport_rect().size.x
+	var window := host.get_window()
+	if view_width <= 0.0 or window == null or window.size.x <= 0:
+		return 0.0
+	# Logical units per physical pixel, so a CSS-pixel inset can be expressed
+	# in the same units the layout is written in.
+	var logical_per_physical := view_width / float(window.size.x)
+	if OS.has_feature("web"):
+		var probe: Variant = JavaScriptBridge.eval("""
+			(function () {
+				var d = document.createElement('div');
+				d.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;' +
+					'padding-left:env(safe-area-inset-left);' +
+					'padding-right:env(safe-area-inset-right);';
+				document.body.appendChild(d);
+				var cs = getComputedStyle(d);
+				var l = parseFloat(cs.paddingLeft) || 0;
+				var r = parseFloat(cs.paddingRight) || 0;
+				d.remove();
+				var dpr = window.devicePixelRatio || 1;
+				return Math.max(l, r) * dpr;
+			})()
+		""", true)
+		var physical := float(probe) if probe != null else 0.0
+		# A device that reports nothing but has rounded corners still needs a
+		# little clearance, so touch gets a floor rather than a bare zero.
+		_safe_inset_x = maxf(physical * logical_per_physical,
+			24.0 if is_touch() else 0.0)
+		return _safe_inset_x
+	var safe := DisplayServer.get_display_safe_area()
+	var screen := DisplayServer.screen_get_size()
+	if screen.x > 0 and safe.size.x > 0 and safe.size.x < screen.x:
+		_safe_inset_x = float(screen.x - safe.size.x) * 0.5 * logical_per_physical
+	elif is_touch():
+		_safe_inset_x = 24.0
+	return _safe_inset_x
 
 
 ## Height for a fixed-size menu block (a list panel, a preview frame). Desktop
