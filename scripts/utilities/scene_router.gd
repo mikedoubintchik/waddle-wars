@@ -4,6 +4,10 @@ extends Node
 signal scene_changed(path: String)
 
 const FADE_TIME: float = 0.35
+## Upper bound on how long the loading overlay will wait for the incoming
+## scene's ShaderWarmup. Generous enough for a cold Chrome cache, hard enough
+## that a stuck warmup cannot strand the player on a loading screen.
+const WARMUP_HOLD_FRAMES: int = 180
 
 var _overlay_layer: CanvasLayer
 var _fade_rect: ColorRect
@@ -104,8 +108,24 @@ func _change_now(scene_path: String) -> void:
 ## Holds the overlay until the incoming scene has actually presented a few
 ## frames — on web the first draws stall on shader compilation, and fading
 ## out immediately exposed seconds of half-built sky ("blue screen").
+##
+## It now also waits out the incoming scene's ShaderWarmup rather than lifting
+## after a fixed three frames. Course construction is cheap (30-65 ms measured
+## headless across all five courses); what actually costs seconds on the web
+## build is linking every material's GL program, and ANGLE charges milliseconds
+## per link where Safari's native path charges microseconds. ShaderWarmup does
+## that work a bounded chunk per frame, so holding the overlay over it means
+## the loading penguin keeps animating through the expensive part and the race
+## opens on programs that are already linked — instead of the overlay lifting
+## early and dumping the stall into the first seconds of the race.
 func _fade_out_when_scene_drawn() -> void:
 	for i: int in 3:
+		await RenderingServer.frame_post_draw
+	# Cap the wait: a warmup that somehow never finishes must not strand the
+	# player on a loading screen.
+	for i: int in WARMUP_HOLD_FRAMES:
+		if get_tree() == null or not _scene_is_warming():
+			break
 		await RenderingServer.frame_post_draw
 	var tween := create_tween()
 	tween.tween_property(_fade_rect, "modulate:a", 0.0, FADE_TIME)
@@ -113,6 +133,17 @@ func _fade_out_when_scene_drawn() -> void:
 	tween.parallel().tween_callback(func() -> void: _loading_box.visible = false).set_delay(FADE_TIME * 0.6)
 	tween.tween_callback(func() -> void:
 		_fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE)
+
+
+## True while the current scene still has a ShaderWarmup running in it.
+func _scene_is_warming() -> bool:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return false
+	for child: Node in scene.get_children():
+		if child is ShaderWarmup:
+			return true
+	return false
 
 
 func _on_achievement_unlocked(id: String) -> void:
