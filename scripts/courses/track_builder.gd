@@ -943,7 +943,10 @@ static func add_boost_pad(parent: Node3D, guide: PathGuide, offset: float, later
 		# behind and the pad read as a tray dropped onto the ice.
 		_pad_deck_mesh.size = Vector3(4.0, 0.06, 6.0)
 		_pad_arrow_mesh = PlaneMesh.new()
-		_pad_arrow_mesh.size = Vector2(3.6, 5.6)
+		# Matches the deck footprint. At 3.6 x 5.6 on a 4.0 x 6.0 deck, a 20 cm
+		# band of pale deck showed all the way round the chevrons and the pad
+		# read as a sticker on a tray rather than as part of the track.
+		_pad_arrow_mesh.size = Vector2(4.0, 6.0)
 		_pad_trigger_shape = BoxShape3D.new()
 		_pad_trigger_shape.size = Vector3(4.0, 2.0, 6.0)
 	# Deck frame, not the guide frame: on a banked corner the two differ by

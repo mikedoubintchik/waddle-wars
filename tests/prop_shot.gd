@@ -15,6 +15,11 @@ var _prop: String = "wind"
 var _pose: String = "stand"
 var _wait: float = 2.0
 var _yaw_deg: float = 34.0
+var _dist: float = 0.0   # 0 keeps each prop's authored framing
+var _lift: float = -99.0
+var _look_y: float = -99.0
+var _look_z: float = -99.0
+var _idx: int = 0
 var _elapsed: float = 0.0
 var _done: bool = false
 
@@ -34,10 +39,18 @@ func _ready() -> void:
 			"h": height = int(parts[1])
 			"wait": _wait = float(parts[1])
 			"yaw": _yaw_deg = float(parts[1])
+			"dist": _dist = float(parts[1])
+			"lift": _lift = float(parts[1])
+			"look_y": _look_y = float(parts[1])
+			"look_z": _look_z = float(parts[1])
+			"idx": _idx = int(parts[1])
 	DisplayServer.window_set_size(Vector2i(width, height))
 	DisplayServer.window_set_position(Vector2i(40, 60))
 
-	_build_set()
+	# bearcourse brings its own world (the real course lights, sky and deck), so
+	# the neutral studio set is skipped for it.
+	if _prop != "bearcourse":
+		_build_set()
 	match _prop:
 		"wind":
 			_build_wind()
@@ -45,6 +58,8 @@ func _ready() -> void:
 			_build_icicle()
 		"bear":
 			_build_bear()
+		"bearcourse":
+			_build_bear_course()
 		_:
 			push_error("prop_shot: unknown prop '%s'" % _prop)
 
@@ -153,7 +168,84 @@ func _build_bear() -> void:
 	_place_camera(Vector3(0.0, 0.78, -0.2), 4.6, 0.30)
 
 
+## In-course placement check: builds the REAL glacier course and frames the
+## idx-th trackside bear from the racing line. Judging a prop in a studio set
+## says nothing about whether it is bedded on the shoulder, clear of the deck
+## and clear of the cliff runs; this does.
+##
+##   godot res://tests/prop_shot.tscn -- prop=bearcourse idx=2 wait=6 \
+##       out=qa_shots/props/bear_course2.png
+func _build_bear_course() -> void:
+	var script: GDScript = load("res://scripts/courses/course_glacier.gd")
+	var course := script.new() as Node3D
+	course.add_to_group(&"course")
+	add_child(course)
+	var bears: Array[Node] = []
+	for child: Node in course.get_children():
+		if child is PolarBear:
+			bears.append(child)
+	if bears.is_empty():
+		push_error("prop_shot: the glacier built no bears")
+		return
+	print("[prop_shot] bears on course: %d" % bears.size())
+	var bear := bears[clampi(_idx, 0, bears.size() - 1)] as Node3D
+	var guide: PathGuide = course.get("main_guide")
+	var offset := float(guide.nearest(bear.global_position, -1)["offset"])
+	var track := guide.position_at(offset)
+	var tangent := guide.transform_at(offset).basis.z
+	# Ground check: a shoulder prop that is bedded at deck height but has no
+	# collidable floor under it is standing on thin air, which a 2.5 m animal
+	# shows and a 40 cm drift mound hides. Probe under the bear's four corners.
+	await get_tree().physics_frame
+	var space := get_viewport().world_3d.direct_space_state
+	var report := PackedStringArray()
+	for probe: Vector3 in [Vector3.ZERO, Vector3(0.45, 0, 0), Vector3(-0.45, 0, 0),
+			Vector3(0, 0, 1.2), Vector3(0, 0, -1.2)]:
+		var origin := track if probe == Vector3.ZERO and _idx < 0 else bear.global_position
+		var from := origin + bear.global_transform.basis * probe + Vector3.UP * 4.0
+		var query := PhysicsRayQueryParameters3D.create(from, from + Vector3.DOWN * 25.0)
+		var hit := space.intersect_ray(query)
+		report.append("none" if hit.is_empty() else "%.2f" % (bear.global_position.y - float((hit["position"] as Vector3).y)))
+	var ctrl_query := PhysicsRayQueryParameters3D.create(
+		track + Vector3.UP * 4.0, track + Vector3.DOWN * 25.0)
+	var ctrl_hit := space.intersect_ray(ctrl_query)
+	print("[prop_shot] control probe on the racing line: %s"
+		% ("MISS (harness fault)" if ctrl_hit.is_empty() else "hit"))
+	print("[prop_shot] bear %d at %v, track centre %v, lateral %.2f m, drop %.2f m, ground under [%s]"
+		% [_idx, bear.global_position, track,
+			Vector2(bear.global_position.x - track.x, bear.global_position.z - track.z).length(),
+			track.y - bear.global_position.y, ", ".join(report)])
+	var camera := Camera3D.new()
+	# Eye height and standoff of a racer coming down the track at it.
+	var outward := (bear.global_position - track)
+	outward.y = 0.0
+	if _pose == "aerial":
+		# Raised three-quarter from outside the shoulder: shows the bear, the
+		# ground under it AND the deck edge it must be clear of, in one frame.
+		camera.position = bear.global_position + Vector3.UP * 4.0 \
+			+ outward.normalized() * 5.5 + tangent * 7.0
+	else:
+		# Default: a racer's eye on the racing line. This is the view that
+		# actually ships, so it is the one placement is judged from.
+		camera.position = track + Vector3.UP * 2.2 + tangent * 9.0 \
+			+ outward.normalized() * 2.0
+	camera.fov = 60.0
+	add_child(camera)
+	camera.look_at(bear.global_position + Vector3.UP * 0.7, Vector3.UP)
+	camera.current = true
+
+
+## dist / lift / look_y from the command line override the prop's authored
+## framing, which is how a head close-up is taken without editing this file.
 func _place_camera(look_at_point: Vector3, distance: float, lift: float) -> void:
+	if _dist > 0.0:
+		distance = _dist
+	if _lift > -90.0:
+		lift = _lift
+	if _look_y > -90.0:
+		look_at_point.y = _look_y
+	if _look_z > -90.0:
+		look_at_point.z = _look_z
 	var camera := Camera3D.new()
 	var yaw := deg_to_rad(_yaw_deg)
 	var offset := Vector3(sin(yaw), lift, cos(yaw)).normalized() * distance

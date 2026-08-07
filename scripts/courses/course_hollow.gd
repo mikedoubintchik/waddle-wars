@@ -36,9 +36,9 @@ const CRYSTAL_ALBEDO: Color = Color(0.16, 0.55, 0.78)
 ## Track albedo. Deeper and colder than the daylight courses: this ice is tens
 ## of metres inside a glacier, where only blue light survives. The rough-ice
 ## runs stay paler so the two surfaces still read apart in the gloom.
-const TRACK_ICE_TINT: Color = Color(0.16, 0.52, 0.85)
-const TRACK_RICE_TINT: Color = Color(0.45, 0.7, 0.88)
-const TRACK_SNOW_TINT: Color = Color(0.66, 0.79, 0.94)
+const TRACK_ICE_TINT: Color = Color(0.10, 0.36, 0.66)
+const TRACK_RICE_TINT: Color = Color(0.40, 0.58, 0.74)
+const TRACK_SNOW_TINT: Color = Color(0.66, 0.72, 0.80)
 
 
 func _init() -> void:
@@ -87,9 +87,16 @@ func build_course() -> void:
 		p(2, 21.8, -800, {"width": 16.0, "surface": ICE}),
 		p(-2, 21.4, -838, {"width": 14.0}),
 		p(-4, 21.0, -866, {"width": 14.0, "gap": true}),   # shelf edge, 1m over water
-		p(-4, 20.0, -902, {"width": 14.0, "gap": true}),   # guide at the surface
-		p(-3, 19.2, -926, {"width": 18.0, "surface": ICE, "wall_l": false, "wall_r": false}),
-		p(0, 21.4, -960, {"width": 18.0, "surface": ICE}),
+		p(-4, 20.0, -890, {"width": 14.0, "gap": true}),   # guide at the surface
+		p(-4, 20.0, -912, {"width": 14.0, "gap": true}),
+		# Submerged exit ramp: its lip sits 0.8m UNDER the lake so a swimmer
+		# meets a slope instead of a wall, and the water volume runs 14m past
+		# it so the rising floor lifts racers clear while they are still
+		# swimming. Both numbers are load-bearing — a lip level with the
+		# surface, or water that stops at the lip, traps the whole field in
+		# the lake (verified in race_sim).
+		p(-3, 19.2, -919, {"width": 18.0, "surface": ICE, "wall_l": false, "wall_r": false}),
+		p(0, 21.4, -952, {"width": 18.0, "surface": ICE}),
 		# 7) Crystal cathedral: the one big room on the course, a wide right
 		# sweep under a 20m vault hung with glowing veins.
 		p(4, 22.4, -1002, {"width": 18.0}),
@@ -131,7 +138,8 @@ func build_course() -> void:
 	var boulder_start := _offset_near(Vector3(-2, 23.0, -692))
 	var boulder_end := _offset_near(Vector3(2, 21.8, -800))
 	var lake_in := _offset_near(Vector3(-2, 21.4, -838))
-	var lake_out := _offset_near(Vector3(0, 21.4, -960))
+	var lake_ramp := _offset_near(Vector3(-3, 19.2, -919))
+	var lake_out := _offset_near(Vector3(0, 21.4, -952))
 	var cathedral := _offset_near(Vector3(16, 23.4, -1052))
 	var chute_start := _offset_near(Vector3(14, 20.0, -1162))
 	var chute_end := _offset_near(Vector3(-8, 3.5, -1346))
@@ -141,8 +149,9 @@ func build_course() -> void:
 	# visible surface and the lake bed all come from build_water.
 	var lake_pts: Array = [
 		p(-4, LAKE_Y, -870, {"width": 15.0}),
-		p(-4, LAKE_Y, -902),
-		p(-3, LAKE_Y, -932),
+		p(-4, LAKE_Y, -890),
+		p(-4, LAKE_Y, -912),
+		p(-3, LAKE_Y, -933),
 	]
 	var lake := TrackBuilder.build_water(lake_pts, "SubglacialLake")
 	add_child(lake)
@@ -195,7 +204,10 @@ func build_course() -> void:
 	# through the cathedral approach, and the whole exit chute (re-acquired
 	# mid-chute so a racer respawning inside it does not waddle the rest).
 	add_hint(boulder_end - 6.0, "slide", lake_in)
-	add_hint(_offset_near(Vector3(-3, 19.2, -926)), "slide", lake_out + 20.0)
+	add_hint(lake_ramp, "slide", lake_out + 20.0)
+	# One porpoise out of the water: the jump burst in SWIMMING state carries a
+	# racer up onto the ramp lip even if it arrives low and slow.
+	add_hint(lake_ramp - 10.0, "jump")
 	add_hint(chute_start - 6.0, "slide", chute_end + 12.0)
 	add_hint(_offset_near(Vector3(0, 14.0, -1224)), "slide", chute_end + 12.0)
 	# The moulin ledge is rough ice all the way down: slide it and hold the
@@ -234,14 +246,14 @@ func build_course() -> void:
 	add_fish_line(25.0, 10, 6.0, 0.0, 0.0, shortcut)  # reward the moulin ledge
 	add_fish_line(draught_start + 8.0, 8, 5.5, 4.0)
 	add_fish_line(boulder_start + 12.0, 10, 5.0, 0.0)
-	add_fish_line(_offset_near(Vector3(-4, 20.0, -902)) - 22.0, 8, 5.5, 0.0)  # across the lake
+	add_fish_line(_offset_near(Vector3(-4, 20.0, -890)) - 14.0, 8, 5.5, 0.0)  # across the lake
 	add_fish_line(cathedral - 20.0, 10, 5.0, -4.0)
 	add_fish_line(chute_start + 40.0, 12, 5.5, 0.0)
 
 	# The hollow floor goes down before anything else: the wall footings, the
 	# far-field skyline and every seated prop measure themselves against it.
-	add_ground_plane(HOLLOW_FLOOR_Y, Color(0.04, 0.11, 0.18), 4000.0,
-		VisualLibrary.snow_material(Color(0.24, 0.42, 0.66), 0.35))
+	add_ground_plane(HOLLOW_FLOOR_Y, Color(0.02, 0.06, 0.1), 4000.0,
+		VisualLibrary.rock_material(Color(0.03, 0.08, 0.13), 1.0))
 	_retint_track()
 	_decorate()
 	# Deep inside the ice: a near-black roof, a thin band of daylight where the
@@ -253,7 +265,7 @@ func build_course() -> void:
 	# crystal veins bloom; nothing else on the course is bright enough to.
 	build_environment({
 		"sky_top": Color(0.02, 0.05, 0.10),
-		"sky_horizon": Color(0.10, 0.34, 0.47),
+		"sky_horizon": Color(0.05, 0.16, 0.25),
 		"ground_color": Color(0.02, 0.07, 0.12),
 		"sun_angle_deg": -66.0,
 		"sun_yaw_deg": SLOT_YAW_DEG,
@@ -262,8 +274,8 @@ func build_course() -> void:
 		"sun_angle_max": 6.0,
 		"sun_curve": 0.2,
 		"sky_energy": 0.68,
-		"ambient_energy": 1.3,
-		"exposure": 0.94,
+		"ambient_energy": 1.0,
+		"exposure": 0.9,
 		"fog_color": Color(0.05, 0.17, 0.26),
 		"fog_density": 0.0035,
 		"fog_horizon_blend": 0.28,
@@ -281,8 +293,7 @@ func build_course() -> void:
 		"sky_cover_strength": 0.0,
 		"fill_energy": 0.24,
 		"fill_color": Color(0.24, 0.5, 0.78),
-		"skyline_color": Color(0.14, 0.26, 0.4),
-		"skyline_density": 0.6,
+		"skyline": false,
 	})
 
 
@@ -310,22 +321,57 @@ func _retint_track() -> void:
 	snow.set_shader_parameter("micro_bump_strength", 0.2)
 	snow.set_shader_parameter("shadow_tint", Color(0.3, 0.48, 0.72))
 	snow.set_shader_parameter("roughness_value", 0.6)
+	# Skirt: the ribbon's visible thickness. Its baked vertex gradient is a
+	# glacial lip-to-deep-blue, multiplied by this albedo — darkened here so
+	# the deck edge does not glow against a cavern that is meant to be dim.
+	# Own instance, because the cached skirt material is shared by every
+	# ribbon in the session.
+	var skirt := VisualLibrary.rock_material(Color(0.38, 0.52, 0.72), 0.6).duplicate() as StandardMaterial3D
+	skirt.vertex_color_use_as_albedo = true
+	skirt.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var wall: ShaderMaterial = null
 	for track: Node in get_children():
 		if track.name != &"MainTrack" and not String(track.name).begins_with("Branch_"):
 			continue
 		var children := track.get_children()
-		for i: int in maxi(children.size() - 1, 0):
-			var floor_mesh := children[i] as MeshInstance3D
-			var body := children[i + 1] as StaticBody3D
-			if floor_mesh == null or body == null or not body.has_meta("surface"):
+		for i: int in children.size():
+			var mesh := children[i] as MeshInstance3D
+			if mesh == null:
+				continue
+			var body: StaticBody3D = null
+			if i + 1 < children.size():
+				body = children[i + 1] as StaticBody3D
+			if body == null:
+				# No collider behind it: the visual-only side skirt.
+				mesh.material_override = skirt
+				continue
+			if not body.has_meta("surface"):
+				# A collider with no surface tag is an edge wall. Deepened to
+				# cave ice, with the crest lip left bright so the boundary
+				# still reads by brightness in the dark — the accessibility
+				# contract the ice wall shader was written for. Re-tinted per
+				# instance: the TrackBuilder original is one cached instance
+				# shared by every course and must never be mutated.
+				if wall == null:
+					var source := mesh.material_override as ShaderMaterial
+					if source != null:
+						wall = source.duplicate() as ShaderMaterial
+						wall.set_shader_parameter("tint", Color(0.07, 0.24, 0.46))
+						wall.set_shader_parameter("strata_tint", Color(0.36, 0.62, 0.86))
+						wall.set_shader_parameter("lip_tint", Color(0.66, 0.94, 1.0))
+						wall.set_shader_parameter("base_alpha", 0.88)
+						wall.set_shader_parameter("rim_strength", 0.6)
+						wall.set_shader_parameter("lip_glow", 0.24)
+				if wall != null:
+					mesh.material_override = wall
 				continue
 			match int(body.get_meta("surface")):
 				SNOW:
-					floor_mesh.material_override = snow
+					mesh.material_override = snow
 				ICE:
-					floor_mesh.material_override = ice
+					mesh.material_override = ice
 				RICE:
-					floor_mesh.material_override = rice
+					mesh.material_override = rice
 
 
 ## The shared channel material is a daylight surface; a subglacial lake is
@@ -382,7 +428,7 @@ func _decorate() -> void:
 	# a second for hanging icicles (the same cluster mesh flipped in the
 	# instance transform). The glow material is emissive but restrained: these
 	# are veins in the ice catching the sky slot, not floodlights.
-	var crystal_mat := VisualLibrary.emissive_material(CRYSTAL_ALBEDO, CRYSTAL_GLOW, 1.25, 0.15)
+	var crystal_mat := VisualLibrary.emissive_material(CRYSTAL_ALBEDO, CRYSTAL_GLOW, 1.9, 0.15)
 	_add_multimesh(VisualLibrary.ice_crystal_mesh(), crystals, crystal_mat, "GlowCrystals", false)
 	var icicle_mat := VisualLibrary.rock_material(Color(0.62, 0.8, 0.98), 0.12, 0.05)
 	_add_multimesh(VisualLibrary.ice_crystal_mesh(), icicles, icicle_mat, "HangingIcicles", false)
@@ -425,21 +471,24 @@ func _add_multimesh(mesh: Mesh, transforms: Array[Transform3D], material: Materi
 ## whole route so the course is a place with sides rather than a ribbon in the
 ## dark — this is the single load-bearing piece of dressing on the course.
 ##
-## Slabs are FOOTED, not floated: the crest stays where it is authored and the
-## base stretches down toward the hollow floor, capped at WALL_MAX_STRETCH so
-## the baked flute banding never smears into ribbons on the tall stretches.
+## Slabs are proportioned like rock, not like scenery flats: a first pass ran
+## them 20m wide and 70m tall (footed all the way down to the hollow floor) and
+## the result was a picket fence of paper blades with black sky between them.
+## They now sit close to the deck, start 11m under it and rise 20-32m, capped
+## at WALL_MAX_STRETCH so no slab ever grows past about twice its own width.
 ## Three cached mesh variants through one MultiMesh each, one shared material.
-const WALL_MAX_STRETCH: float = 3.4
+const WALL_MAX_STRETCH: float = 1.5
 
 
 func _decorate_walls(density: float) -> void:
 	var buckets: Array = [[], [], []]
-	var step := 15.0 / maxf(density, 0.5)
-	var floor_y := ground_plane_y()
+	# Dense on purpose: neighbouring slabs have to OVERLAP, or the gaps between
+	# them are windows onto empty fog and the hollow stops being enclosed.
+	var step := 10.0 / maxf(density, 0.5)
 	# The whole route is walled except the lake (open water both sides) and the
 	# outwash plain past the chute, where the glacier is behind the racer.
-	var lake_start := _offset_near(Vector3(-2, 21.4, -838)) - 20.0
-	var lake_end := _offset_near(Vector3(0, 21.4, -960)) + 10.0
+	var lake_start := _offset_near(Vector3(-2, 21.4, -838)) - 16.0
+	var lake_end := _offset_near(Vector3(0, 21.4, -952)) + 8.0
 	var daylight := _offset_near(Vector3(-8, 3.5, -1346))
 	var offset := 8.0
 	while offset < daylight:
@@ -448,20 +497,19 @@ func _decorate_walls(density: float) -> void:
 			continue
 		for side: float in [-1.0, 1.0]:
 			var xform := main_guide.transform_at(offset)
+			# Hard against the deck edge: this is a slot, and a wall standing
+			# 6m back from the boundary reads as a distant cliff instead.
 			var lateral := (track_edge_lateral(main_guide, offset, side, 9.0)
-				+ rng.randf_range(3.0, 6.0)) * side
-			var pos := xform.origin + xform.basis.x * lateral + Vector3.DOWN * 2.5
+				+ rng.randf_range(1.8, 2.6)) * side
+			var pos := xform.origin + xform.basis.x * lateral + Vector3.DOWN * 11.0
 			var toward := -xform.basis.x * side
-			var yaw := atan2(toward.x, toward.z) + rng.randf_range(-0.07, 0.07)
-			var slab_width := rng.randf_range(17.0, 24.0)
-			var authored_height := rng.randf_range(15.0, 28.0)
-			var slab_depth := rng.randf_range(4.0, 7.0)
-			var crest_y := pos.y + authored_height
-			var footed := clampf(crest_y - (floor_y - 1.5), authored_height,
-				authored_height * WALL_MAX_STRETCH)
+			var yaw := atan2(toward.x, toward.z) + rng.randf_range(-0.06, 0.06)
+			var slab_width := rng.randf_range(24.0, 32.0)
+			var authored_height := rng.randf_range(20.0, 32.0)
+			var slab_depth := rng.randf_range(8.0, 12.0)
+			var footed := clampf(authored_height, authored_height, slab_width * WALL_MAX_STRETCH)
 			var slab_basis := Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3(slab_width, footed, slab_depth))
-			(buckets[rng.randi_range(0, 2)] as Array).append(
-				Transform3D(slab_basis, Vector3(pos.x, crest_y - footed, pos.z)))
+			(buckets[rng.randi_range(0, 2)] as Array).append(Transform3D(slab_basis, pos))
 		offset += step
 	var wall_mat := VisualLibrary.rock_material(Color(1.0, 1.0, 1.0), 0.28, 0.04)
 	for v: int in 3:
@@ -471,47 +519,71 @@ func _decorate_walls(density: float) -> void:
 		_add_multimesh(_wall_mesh(6100 + v), typed, wall_mat, "HollowWall_%d" % v, false)
 
 
-## Unit-scale fluted ice wall slab: x -0.5..0.5, y 0..~1, face toward +Z.
-## Meltwater carves vertical flutes into cave ice, so the face is a run of
-## columns at varying depths with a scoured waterline at the foot, a mid band
-## of deep compressed blue, a pale rime crest, and crevice returns between
-## columns that are emitted double-sided so oblique views never see through.
-## Deterministic per seed; vertex colors carry all of it.
+## Unit-scale fluted ice wall slab: x -0.5..0.5, y 0..~1, track-facing side
+## toward +Z, backed out to z = -0.5. Meltwater carves flutes into cave ice, so
+## the face is a run of columns at varying depths with a scoured waterline at
+## the foot, a mid band of deep compressed blue and a pale rime crest, with
+## crevice returns between columns.
+##
+## CLOSED on purpose: the first version was a face and nothing else, and a
+## single-sided plane scaled 20m wide reads as a cardboard flat the moment the
+## camera sees it at an angle — which, on a course whose whole job is to feel
+## enclosed, is fatal. Back face, end caps and a crest shelf give it real
+## thickness for about sixty extra triangles. Deterministic per seed; vertex
+## colors carry all of it.
 func _wall_mesh(seed_value: int) -> ArrayMesh:
 	var mrng := RandomNumberGenerator.new()
 	mrng.seed = seed_value
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var cols := 10
+	var back_z := -0.5
 	var deep := Color(0.02, 0.13, 0.3)
 	var body := Color(0.1, 0.34, 0.58)
 	var rime := Color(0.62, 0.78, 0.94)
 	var scour := Color(0.05, 0.2, 0.36)
-	var prev_z := 0.0
-	var prev_top := 0.0
+	var hidden := Color(0.02, 0.07, 0.16)
+	var front_z: Array[float] = []
+	var tops: Array[float] = []
+	for i: int in cols:
+		front_z.append(mrng.randf_range(0.0, 0.22))
+		tops.append(mrng.randf_range(0.78, 1.0))
 	for i: int in cols:
 		var x0 := -0.5 + float(i) / float(cols)
 		var x1 := -0.5 + float(i + 1) / float(cols)
-		var z := mrng.randf_range(0.0, 0.2)
-		var top := mrng.randf_range(0.78, 1.0)
+		var z := front_z[i]
+		var top := tops[i]
 		var flute := mrng.randf_range(0.5, 1.15)
 		var face := body.lerp(deep, 1.0 - flute)
 		var y_scour := mrng.randf_range(0.1, 0.2)
 		var y_rime := top - mrng.randf_range(0.06, 0.14)
+		# Column front: scoured waterline -> compressed blue body -> rime crest.
 		_cquad(st, Vector3(x0, 0.0, z), Vector3(x1, 0.0, z), Vector3(x1, y_scour, z), Vector3(x0, y_scour, z), scour)
 		_cquad(st, Vector3(x0, y_scour, z), Vector3(x1, y_scour, z), Vector3(x1, y_rime, z), Vector3(x0, y_rime, z), face)
 		_cquad(st, Vector3(x0, y_rime, z), Vector3(x1, y_rime, z), Vector3(x1, top, z), Vector3(x0, top, z),
 			face.lerp(rime, 0.8))
-		# Shelf running back from the crest so the wall top never reads as a
-		# cut edge when a racer looks up at it from the deck.
-		_cquad(st, Vector3(x0, top, z), Vector3(x1, top, z), Vector3(x1, top, z - 0.45), Vector3(x0, top, z - 0.45), rime)
+		# Crest shelf running back to the slab's spine, so looking up at the
+		# wall from the deck shows a snow-lipped top rather than a cut edge.
+		_cquad(st, Vector3(x0, top, z), Vector3(x1, top, z),
+			Vector3(x1, top, back_z), Vector3(x0, top, back_z), rime)
+		# Back face and the two end caps: cheap, and the only thing standing
+		# between the player and seeing straight through the wall.
+		_cquad(st, Vector3(x1, 0.0, back_z), Vector3(x0, 0.0, back_z),
+			Vector3(x0, top, back_z), Vector3(x1, top, back_z), hidden)
+		if i == 0:
+			_cquad(st, Vector3(x0, 0.0, back_z), Vector3(x0, 0.0, z),
+				Vector3(x0, top, z), Vector3(x0, top, back_z), face.lerp(deep, 0.5))
+		if i == cols - 1:
+			_cquad(st, Vector3(x1, 0.0, z), Vector3(x1, 0.0, back_z),
+				Vector3(x1, top, back_z), Vector3(x1, top, z), face.lerp(deep, 0.5))
 		if i > 0:
+			# Crevice return between neighbouring columns, both windings so an
+			# oblique view never sees through the step.
 			var crevice := Color(face.r * 0.35, face.g * 0.4, face.b * 0.55)
-			var hi := maxf(top, prev_top)
-			_cquad(st, Vector3(x0, 0.0, prev_z), Vector3(x0, 0.0, z), Vector3(x0, hi, z), Vector3(x0, hi, prev_z), crevice)
-			_cquad(st, Vector3(x0, 0.0, z), Vector3(x0, 0.0, prev_z), Vector3(x0, hi, prev_z), Vector3(x0, hi, z), crevice)
-		prev_z = z
-		prev_top = top
+			var hi := maxf(top, tops[i - 1])
+			var pz := front_z[i - 1]
+			_cquad(st, Vector3(x0, 0.0, pz), Vector3(x0, 0.0, z), Vector3(x0, hi, z), Vector3(x0, hi, pz), crevice)
+			_cquad(st, Vector3(x0, 0.0, z), Vector3(x0, 0.0, pz), Vector3(x0, hi, pz), Vector3(x0, hi, z), crevice)
 	st.generate_normals()
 	return st.commit()
 
@@ -523,13 +595,14 @@ func _wall_mesh(seed_value: int) -> ArrayMesh:
 ## fringe of icicles from its crown, which is what sells the clearance.
 func _decorate_vaults(icicles: Array[Transform3D]) -> void:
 	var torus := TorusMesh.new()
-	torus.inner_radius = 9.0
-	torus.outer_radius = 12.0
+	torus.inner_radius = 10.5
+	torus.outer_radius = 13.5
 	torus.rings = 48
 	torus.ring_segments = 14
 	var vault_mat := VisualLibrary.ice_material(Color(0.14, 0.42, 0.72), 0.85)
 	var spans: Array[Vector2] = [
 		Vector2(6.0, _offset_near(Vector3(-2, 44.5, -82))),
+		Vector2(_offset_near(Vector3(-16, 41.5, -132)), _offset_near(Vector3(-8, 34.0, -274))),
 		Vector2(_offset_near(Vector3(10, 32.5, -322)) - 8.0, _offset_near(Vector3(16, 30.5, -430))),
 		Vector2(_offset_near(Vector3(4, 22.4, -1002)), _offset_near(Vector3(22, 23.6, -1104))),
 	]
@@ -624,7 +697,7 @@ func _pillar_mesh(seed_value: int) -> ArrayMesh:
 ## route (thicker where the course needs reading — the slot bends, the gallery,
 ## the draught, the cathedral), plus a ring of monoliths around the cathedral.
 func _decorate_crystals(density: float, transforms: Array[Transform3D]) -> void:
-	var step := 11.0 / maxf(density, 0.5)
+	var step := 10.0 / maxf(density, 0.5)
 	var offset := 20.0
 	var daylight := _offset_near(Vector3(-8, 3.5, -1346))
 	while offset < daylight:
@@ -633,9 +706,9 @@ func _decorate_crystals(density: float, transforms: Array[Transform3D]) -> void:
 				continue
 			var xform := main_guide.transform_at(offset)
 			var lateral := (track_edge_lateral(main_guide, offset, side, 9.0)
-				+ rng.randf_range(0.6, 3.2)) * side
+				+ rng.randf_range(0.15, 0.9)) * side
 			transforms.append(_crystal_transform(
-				seat_dressing(xform, lateral, 2.5, 5.0, 0.12), rng.randf_range(1.2, 3.6)))
+				seat_dressing(xform, lateral, 2.6, 5.0, 0.12), rng.randf_range(1.6, 3.4)))
 		offset += step
 	# Cathedral monoliths: landmark scale, so the room reads as the one big
 	# space on the course rather than another stretch of corridor.
@@ -646,9 +719,9 @@ func _decorate_crystals(density: float, transforms: Array[Transform3D]) -> void:
 		for side: float in [-1.0, 1.0]:
 			var xform := main_guide.transform_at(mono_offset)
 			var lateral := (track_edge_lateral(main_guide, mono_offset, side, 9.0)
-				+ rng.randf_range(2.0, 5.0)) * side
+				+ rng.randf_range(0.3, 1.1)) * side
 			transforms.append(_crystal_transform(
-				seat_dressing(xform, lateral, 7.0, 5.0, 0.1), rng.randf_range(5.0, 9.0)))
+				seat_dressing(xform, lateral, 6.0, 5.0, 0.1), rng.randf_range(4.5, 7.5)))
 		mono_offset += 21.0
 
 
@@ -686,7 +759,7 @@ func _decorate_wall_icicles(density: float, transforms: Array[Transform3D]) -> v
 				continue
 			var xform := main_guide.transform_at(offset)
 			var lateral := (track_edge_lateral(main_guide, offset, side, 9.0)
-				+ rng.randf_range(0.4, 2.0)) * side
+				+ rng.randf_range(0.2, 1.2)) * side
 			var hang := xform.origin + xform.basis.x * lateral \
 				+ Vector3.UP * rng.randf_range(6.0, 11.0)
 			transforms.append(_icicle_transform(hang, rng.randf_range(0.8, 2.6)))
@@ -797,7 +870,7 @@ func _add_marker(posts: Array[Transform3D], lamps: Array[Transform3D], offset: f
 func _decorate_lake_shore(density: float) -> void:
 	var rubble: Array[Transform3D] = []
 	var edge := _offset_near(Vector3(-4, 21.0, -866))
-	var far_edge := _offset_near(Vector3(-3, 19.2, -926))
+	var far_edge := _offset_near(Vector3(-3, 19.2, -919))
 	var offset := edge - 30.0
 	while offset < far_edge + 30.0:
 		for side: float in [-1.0, 1.0]:
@@ -849,8 +922,8 @@ func _decorate_glints(density: float) -> void:
 				continue
 			var xform := main_guide.transform_at(offset)
 			var s := rng.randf_range(0.4, 1.2)
-			var pos := xform.origin + xform.basis.x * (rng.randf_range(7.5, 13.0) * side) \
-				+ Vector3.UP * rng.randf_range(0.6, 8.0)
+			var pos := xform.origin + xform.basis.x * (rng.randf_range(8.0, 10.5) * side) \
+				+ Vector3.UP * rng.randf_range(0.6, 9.0)
 			transforms.append(Transform3D(Basis.from_scale(Vector3(s, s, s)), pos))
 		offset += 7.5 / maxf(density, 0.5)
 	var glint_mat := StandardMaterial3D.new()
@@ -913,7 +986,7 @@ func _decorate_mist(density: float) -> void:
 	mist_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	var regions: Array[Vector2] = [
 		Vector2(_offset_near(Vector3(-16, 41.5, -132)), _offset_near(Vector3(-8, 34.0, -274))),
-		Vector2(_offset_near(Vector3(-2, 21.4, -838)), _offset_near(Vector3(0, 21.4, -960))),
+		Vector2(_offset_near(Vector3(-2, 21.4, -838)), _offset_near(Vector3(0, 21.4, -952))),
 		Vector2(_offset_near(Vector3(4, 22.4, -1002)), _offset_near(Vector3(22, 23.6, -1104))),
 	]
 	var per_region := maxi(int(5.0 * density), 2)

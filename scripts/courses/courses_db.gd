@@ -41,7 +41,7 @@ const ITEMS: Dictionary = {
 		"script": "res://scripts/courses/course_hollow.gd",
 		"theme_color": Color(0.24, 0.6, 0.92),
 		"music": "music_aurora",
-		"par_time": 170.0,
+		"par_time": 150.0,
 	},
 }
 

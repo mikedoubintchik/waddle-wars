@@ -242,6 +242,9 @@ func _decorate() -> void:
 
 	var crystal_transforms: Array[Transform3D] = []
 	var icicle_transforms: Array[Transform3D] = []
+	# Wildlife FIRST: every pass below checks against where the bears ended up,
+	# so no boulder, drift, route flag or spectator is ever placed inside one.
+	_decorate_wildlife(density)
 	_decorate_flags()
 	_decorate_cave(crystal_transforms, icicle_transforms)
 	_decorate_scatter(density, crystal_transforms)
@@ -339,6 +342,10 @@ func _decorate_flags() -> void:
 		var xform := main_guide.transform_at(offset)
 		var lateral := (track_edge_lateral(main_guide, offset, side, 9.0) + rng.randf_range(0.7, 2.6)) * side
 		var base := seat_dressing(xform, lateral, 3.0)
+		if not _clear_of_wildlife(base, 2.6):
+			side = -side
+			offset += 70.0
+			continue
 		var yaw := Basis(Vector3.UP, rng.randf() * TAU)
 		pole_transforms.append(Transform3D(yaw, base + Vector3.UP * 1.5))
 		var flag_basis := yaw * Basis(Vector3(0, 0, 1), deg_to_rad(-90.0))
@@ -362,6 +369,8 @@ func _decorate_flags() -> void:
 			var lateral := (track_edge_lateral(main_guide, cluster_offset, side_sign, 9.6)
 				+ rng.randf_range(0.8, 2.6)) * side_sign
 			var base := seat_dressing(cluster_xform, lateral, 3.0)
+			if not _clear_of_wildlife(base, 2.6):
+				continue
 			var yaw := Basis(Vector3.UP, rng.randf() * TAU)
 			pole_transforms.append(Transform3D(yaw, base + Vector3.UP * 1.5))
 			var flag_basis := yaw * Basis(Vector3(0, 0, 1), deg_to_rad(-90.0))
@@ -540,6 +549,8 @@ func _decorate_scatter(density: float, crystal_transforms: Array[Transform3D]) -
 		var side := 1.0 if rng.randf() > 0.5 else -1.0
 		var lateral := (track_edge_lateral(main_guide, offset, side, 9.0) + margin) * side
 		var pos := seat_dressing(xform, lateral, 1.6, 4.5, 0.12)
+		if not _clear_of_wildlife(pos):
+			continue
 		if rng.randf() > 0.4:
 			var s := rng.randf_range(0.7, 1.8)
 			var squash := Vector3(rng.randf_range(0.8, 1.4), rng.randf_range(0.6, 1.0), rng.randf_range(0.8, 1.4)) * s
@@ -583,6 +594,10 @@ func _decorate_snowbanks(density: float) -> void:
 			* Basis.from_scale(Vector3(
 				r * rng.randf_range(1.5, 2.3), r * rng.randf_range(0.5, 0.8), r * rng.randf_range(0.7, 0.95)))
 		# Low mounds hide their own footprint, so the shoulder reach is generous.
+		# A bank that would land on a bear is pushed further out rather than
+		# dropped: these ones plough, so the field keeps every one it authored.
+		if not _clear_of_wildlife(seat_dressing(xform, lateral, 1.0, 5.0, 0.14), 4.0):
+			lateral += 3.4 * side
 		var bank_xform := Transform3D(bank_basis,
 			seat_dressing(xform, lateral, bank_basis.get_scale().y, 5.0, 0.14))
 		transforms.append(bank_xform)
@@ -737,8 +752,9 @@ func _decorate_spectators(density: float) -> void:
 		var start_side := 1.0 if i % 2 == 0 else -1.0
 		var lateral := (track_edge_lateral(main_guide, start_arc, start_side, 9.0)
 			+ rng.randf_range(0.7, 5.0)) * start_side
-		TrackBuilder.add_spectator(self, seat_dressing(near_start, lateral, 1.6, GROUND_SHOULDER, 0.05),
-			near_start.origin, rng)
+		var start_pos := seat_dressing(near_start, lateral, 1.6, GROUND_SHOULDER, 0.05)
+		if _clear_of_wildlife(start_pos, 2.4):
+			TrackBuilder.add_spectator(self, start_pos, near_start.origin, rng)
 	var finish_count := maxi(int(14.0 * density), 6)
 	for i: int in finish_count:
 		var finish_arc := finish_offset - rng.randf_range(5.0, 70.0)
@@ -746,8 +762,9 @@ func _decorate_spectators(density: float) -> void:
 		var finish_side := 1.0 if i % 2 == 0 else -1.0
 		var lateral := (track_edge_lateral(main_guide, finish_arc, finish_side, 9.0)
 			+ rng.randf_range(0.7, 5.0)) * finish_side
-		TrackBuilder.add_spectator(self, seat_dressing(near_finish, lateral, 1.6, GROUND_SHOULDER, 0.05),
-			near_finish.origin, rng)
+		var finish_pos := seat_dressing(near_finish, lateral, 1.6, GROUND_SHOULDER, 0.05)
+		if _clear_of_wildlife(finish_pos, 2.4):
+			TrackBuilder.add_spectator(self, finish_pos, near_finish.origin, rng)
 	var overlook := _offset_near(Vector3(38, 46, -740))
 	var overlook_count := maxi(int(7.0 * density), 3)
 	for _i: int in overlook_count:
@@ -755,8 +772,166 @@ func _decorate_spectators(density: float) -> void:
 		var xform := main_guide.transform_at(overlook_arc)
 		var overlook_lateral := -(track_edge_lateral(main_guide, overlook_arc, -1.0, 8.0)
 			+ rng.randf_range(0.8, 3.8))
-		TrackBuilder.add_spectator(self, seat_dressing(xform, overlook_lateral, 1.6, GROUND_SHOULDER, 0.05),
-			xform.origin, rng)
+		var overlook_pos := seat_dressing(xform, overlook_lateral, 1.6, GROUND_SHOULDER, 0.05)
+		if _clear_of_wildlife(overlook_pos, 2.4):
+			TrackBuilder.add_spectator(self, overlook_pos, xform.origin, rng)
+
+
+## Trackside polar bears: the glacier's resident wildlife, watching the race go
+## past from the snow beside it. AMBIENT ONLY — PolarBear carries no collision
+## body and no hazard behaviour, so a racer that leaves the track passes
+## straight through one.
+##
+## Placement rules, in the order they matter:
+##  * Never on the racing line. Every lateral is measured from the REAL deck
+##    edge at that offset (the track runs 22 m wide through the opening hills
+##    and 11 m through the tunnel) and then pushed 1.1-1.9 m further out. That
+##    band is deliberately tight: further out the shoulder runs out from under a
+##    2.5 m animal (a 40 cm drift mound hides standing on thin air, a bear with
+##    legs does not), and it would read as a speck from the racing line anyway.
+##    Facings stay within ~40 degrees of the track heading for the same reason —
+##    a bear turned broadside swings its own length back over the deck.
+##  * Never against a cliff or the icefall. Those start at 18.5 m and 23 m
+##    lateral respectively, so the outer limit here stays under ~15 m.
+##  * Well spaced: five spots spread over the whole route, no two closer than a
+##    couple of hundred metres of arc, so a bear is a moment rather than a herd.
+##  * Standing on something. This track is a ribbon in the air — TrackBuilder's
+##    collidable floor ends exactly at the authored width, and everything
+##    outside it is skirt, so a prop bedded at deck height off the edge is
+##    literally in mid-air. A 40 cm drift mound gets away with that; a 1.3 m
+##    animal with four legs does not. Every bear therefore gets a wide, low
+##    snow ledge drifted against the track edge underneath it, whose crown sits
+##    at deck height and whose inboard side is buried under the deck. The ledge
+##    is visual only — no add_snow_drift, so it ploughs nothing and the bears
+##    stay free of any gameplay effect whatsoever.
+## Count scales with particle quality (5 / 4 / 3), and every bear is skipped
+## headless with the rest of _decorate().
+var _wildlife_spots: Array[Vector3] = []
+
+
+## True when `pos` is far enough from every bear for a scatter prop to be
+## placed there without burying one.
+func _clear_of_wildlife(pos: Vector3, radius: float = 3.2) -> bool:
+	for spot: Vector3 in _wildlife_spots:
+		if Vector2(pos.x - spot.x, pos.z - spot.z).length_squared() < radius * radius:
+			return false
+	return true
+
+
+## Bears are FOUND, not authored.
+##
+## Five hand-picked spots were tried first and the course rejected every one
+## of them: the ribbon is a floor of exactly the authored width in open air, so
+## a spot chosen by eye off the edge usually has nothing under it, and the
+## spans that do have ground beside them are often the ones carrying an edge
+## wall -- which is translucent azure, and turns the animal behind it into a
+## blue silhouette. Rather than prop the bears up on invented ledges and accept
+## the tinting, the course is swept for sites that already satisfy both
+## conditions, and only those get a bear.
+const WILDLIFE_MAX: int = 4
+const WILDLIFE_SEARCH_STEP: float = 11.0
+const WILDLIFE_MIN_SPACING: float = 150.0
+const WILDLIFE_POSES: Array[int] = [
+	PolarBear.Pose.STANDING, PolarBear.Pose.SITTING,
+	PolarBear.Pose.LYING, PolarBear.Pose.STANDING,
+]
+
+
+func _decorate_wildlife(density: float) -> void:
+	var spots: Array = []
+	var last_offset := -WILDLIFE_MIN_SPACING
+	var search := 60.0
+	while search < main_guide.length - 60.0 and spots.size() < WILDLIFE_MAX:
+		if search - last_offset < WILDLIFE_MIN_SPACING:
+			search += WILDLIFE_SEARCH_STEP
+			continue
+		for side: float in [1.0, -1.0]:
+			if spots.size() >= WILDLIFE_MAX:
+				break
+			var probe_xform := main_guide.transform_at(search)
+			var probe_lateral := (track_edge_lateral(main_guide, search, side, 9.0) + 1.5) * side
+			var probe_seat := seat_dressing(probe_xform, probe_lateral, 1.35, 6.0, 0.06)
+			if not _wildlife_site_ok(probe_xform, probe_seat, probe_lateral, side):
+				continue
+			# Face across the track, so the animal is looking at the race rather
+			# than presenting its flank to it.
+			var facing := -PI * 0.5 * side + rng.randf_range(-0.5, 0.5)
+			spots.append([search, side, WILDLIFE_POSES[spots.size() % WILDLIFE_POSES.size()],
+				facing, rng.randf_range(1.25, 1.42)])
+			last_offset = search
+		search += WILDLIFE_SEARCH_STEP
+	# Every candidate is auditioned before it is built, and a bear that fails
+	# is simply not placed.
+	#
+	# The first pass placed all five and propped up the ones with nothing under
+	# them on a purpose-built snow ledge. That solved the floating and created
+	# two worse problems: from the racing line the ledge read as a white disc
+	# parked in mid-air, and on walled spans the bear was being viewed THROUGH
+	# the translucent azure edge wall, which tinted it to a flat blue
+	# silhouette. A rock can survive being seen through glass; the one animal
+	# on the course cannot -- it just reads as broken. So the ground and the
+	# sightline are now entry requirements rather than things to compensate
+	# for afterwards, and three bears standing in the open beat five behind a
+	# window.
+	var wanted := clampi(int(round(5.0 * density)), 3, spots.size())
+	var placed := 0
+	var rejected := 0
+	for spot: Array in spots:
+		if placed >= wanted:
+			break
+		var offset := float(spot[0])
+		var side := float(spot[1])
+		var xform := main_guide.transform_at(offset)
+		var lateral := (track_edge_lateral(main_guide, offset, side, 9.0)
+			+ rng.randf_range(1.1, 1.9)) * side
+		# Height 1.35 m at the withers; a 6% sink beds the paws into the snow.
+		# Shoulder reach 6 m so the probe reads the deck surface from out here
+		# instead of falling through to the frozen lake.
+		var seat := seat_dressing(xform, lateral, 1.35, 6.0, 0.06)
+		var yaw := main_guide.yaw_at(offset) + float(spot[3])
+		if not _wildlife_site_ok(xform, seat, lateral, side):
+			rejected += 1
+			continue
+		var bear := PolarBear.new()
+		bear.name = "PolarBear_%d" % placed
+		add_child(bear)
+		bear.configure(spot[2] as PolarBear.Pose)
+		bear.position = seat
+		bear.rotation.y = yaw + rng.randf_range(-0.12, 0.12)
+		var s := float(spot[4]) * rng.randf_range(0.97, 1.03)
+		bear.scale = Vector3(s, s, s)
+		_wildlife_spots.append(bear.position)
+		placed += 1
+	if BootProfiler.enabled() or placed == 0:
+		print("[glacier] wildlife: %d placed, %d sites rejected (no ground or occluded)"
+			% [placed, rejected])
+
+
+## True when a wildlife site has solid ground under the whole animal AND a
+## clear view of it from the racing line.
+##
+## Two independent gates, because they catch different failures. The ground
+## probe rejects the ribbon's outer lip, where the collidable floor stops at
+## the authored width and a prop bedded at deck height is literally in the air.
+## The sightline probe rejects anything with course geometry -- an edge wall,
+## most of all -- between the racer and the animal.
+func _wildlife_site_ok(xform: Transform3D, seat: Vector3, lateral: float, side: float) -> bool:
+	if not ground_probe_ready():
+		return true
+	# Four paw corners plus the centre. All must find ground close to the seat
+	# height: a hit far below means the probe fell past the deck edge.
+	for probe: Vector2 in [Vector2.ZERO, Vector2(-1.1, -0.9), Vector2(1.1, -0.9),
+			Vector2(-1.1, 0.9), Vector2(1.1, 0.9)]:
+		var at := seat + xform.basis.x * probe.x - xform.basis.z * probe.y
+		var ground := _raw_ground(at.x, at.z, seat.y + 1.2, 3.6)
+		if ground == -INF or absf(ground - seat.y) > 1.0:
+			return false
+	# Sightline: chest height on the animal, from head height on the racing
+	# line. LAYER_WORLD only -- triggers and pickups are not occluders.
+	var eye := xform.origin + Vector3.UP * 1.5
+	var chest := seat + Vector3.UP * 1.0 - xform.basis.x * (0.5 * side)
+	var los := PhysicsRayQueryParameters3D.create(eye, chest, GameConfig.LAYER_WORLD)
+	return get_world_3d().direct_space_state.intersect_ray(los).is_empty()
 
 
 ## --- Cliffs, crevasse cracks, fog, glint ------------------------------------
@@ -1019,6 +1194,8 @@ func _decorate_boulders(density: float) -> void:
 				s * rng.randf_range(0.85, 1.3), s * rng.randf_range(0.5, 0.85), s * rng.randf_range(0.85, 1.3)))
 		var pos := seat_dressing(xform, lateral, boulder_basis.get_scale().y, 4.5, 0.12) \
 			+ Vector3.DOWN * sink
+		if not _clear_of_wildlife(pos, 3.6):
+			continue
 		transforms.append(Transform3D(boulder_basis, pos))
 		# Calving debris: a smaller shard shed beside ~40% of blocks.
 		if rng.randf() > 0.6:

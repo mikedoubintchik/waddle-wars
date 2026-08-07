@@ -91,10 +91,40 @@ const ART_ICEBERG: String = """<svg xmlns="http://www.w3.org/2000/svg" width="20
 <path d="M140 84 L152 74 L166 84 Z" fill="#d8ecfb"/>
 </svg>"""
 
+## Cinder Coast: dusk geothermal shore -- basalt palisade, a smoking cone and
+## the glowing seam where the lava meets the black sand.
+const ART_CINDER: String = """<svg xmlns="http://www.w3.org/2000/svg" width="200" height="92" viewBox="0 0 200 92">
+<path d="M0 62 L34 30 L52 44 L74 22 L96 50 L118 34 L146 12 L172 40 L200 26 L200 92 L0 92 Z" fill="#3a2029"/>
+<path d="M132 24 L146 12 L162 28 L152 30 Z" fill="#4d2a2c"/>
+<path d="M141 12 q4 -9 -2 -14 q10 4 8 14 Z" fill="#8d6a63" opacity="0.7"/>
+<path d="M0 62 L34 30 L52 44 L74 22 L96 50 L118 34 L146 12 L172 40 L200 26 L200 34 L0 70 Z" fill="#a83a1c" opacity="0.55"/>
+<rect x="0" y="66" width="200" height="26" fill="#20141a"/>
+<path d="M0 66 q26 5 52 0 q28 -5 52 2 q30 5 52 -2 q24 -4 44 1 L200 70 L0 72 Z" fill="#e0642a" opacity="0.75"/>
+<circle cx="26" cy="80" r="2.4" fill="#f0a34c" opacity="0.6"/>
+<circle cx="118" cy="84" r="2" fill="#f0a34c" opacity="0.5"/>
+</svg>"""
+
+## Sapphire Hollow: inside the glacier -- vaulted arches down a blue slot with
+## crystal veins glowing in the walls.
+const ART_HOLLOW: String = """<svg xmlns="http://www.w3.org/2000/svg" width="200" height="92" viewBox="0 0 200 92">
+<rect x="0" y="0" width="200" height="92" fill="#050b1c"/>
+<path d="M18 92 L18 34 q82 -34 164 0 L164 92 Z" fill="#123a72"/>
+<path d="M40 92 L40 44 q60 -26 120 0 L160 92 Z" fill="#1b56a0"/>
+<path d="M64 92 L64 54 q36 -18 72 0 L136 92 Z" fill="#2a74c6"/>
+<path d="M86 92 L86 64 q14 -10 28 0 L114 92 Z" fill="#4a9ce0"/>
+<rect x="6" y="20" width="9" height="72" fill="#0d2450"/>
+<rect x="185" y="20" width="9" height="72" fill="#0d2450"/>
+<path d="M28 40 L31 62 L27 78" stroke="#7fd8ff" stroke-width="2" fill="none" opacity="0.75"/>
+<path d="M172 44 L169 66 L173 80" stroke="#7fd8ff" stroke-width="2" fill="none" opacity="0.75"/>
+<rect x="0" y="84" width="200" height="8" fill="#5fa8e6" opacity="0.5"/>
+</svg>"""
+
 const COURSE_ART: Dictionary = {
 	"glacier": ART_GLACIER,
 	"aurora": ART_AURORA,
 	"iceberg": ART_ICEBERG,
+	"cinder": ART_CINDER,
+	"hollow": ART_HOLLOW,
 }
 
 ## Sky gradient behind each poster (top → bottom).
@@ -102,7 +132,12 @@ const COURSE_SKY: Dictionary = {
 	"glacier": [Color(0.29, 0.52, 0.78), Color(0.82, 0.92, 0.99)],
 	"aurora": [Color(0.04, 0.07, 0.19), Color(0.24, 0.38, 0.56)],
 	"iceberg": [Color(0.25, 0.23, 0.49), Color(0.99, 0.70, 0.45)],
+	"cinder": [Color(0.36, 0.10, 0.09), Color(0.92, 0.44, 0.18)],
+	"hollow": [Color(0.02, 0.05, 0.13), Color(0.16, 0.42, 0.72)],
 }
+
+## Most course posters in one landscape row before the grid wraps.
+const COURSE_COLUMNS_MAX: int = 3
 
 const DIFFICULTY_COLORS: Dictionary = {
 	"chill": "#7fe08f",
@@ -653,7 +688,10 @@ func _show_course_step() -> void:
 	_build_rail()
 
 	var portrait := _is_portrait()
-	var columns := 1 if portrait else CoursesDB.ORDER.size()
+	# Cap the row rather than stretching it: one column per course was fine at
+	# three and turns the posters into slivers as the roster grows. Beyond the
+	# cap the grid wraps to a second row.
+	var columns := 1 if portrait else mini(CoursesDB.ORDER.size(), COURSE_COLUMNS_MAX)
 	var grid := GridContainer.new()
 	grid.columns = columns
 	grid.add_theme_constant_override("h_separation", _gap(14))

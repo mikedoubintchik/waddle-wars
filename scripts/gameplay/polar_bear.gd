@@ -9,9 +9,10 @@ extends Node3D
 ## high rounded rump and a stub tail) with egg-shaped cross sections — deep
 ## chest, flatter back — plus four thick columnar limbs whose shoulder and
 ## haunch masses deliberately bulge past the flank so the body reads as muscle
-## over bone. Paws are broad slabs with five toe domes and dark claws; the head
-## is a small braincase running out into a long, subtly dished muzzle with a
-## black nose button, small rounded ears set well back, and glossy dark eyes.
+## over bone. Paws are broad slabs with five toe domes, dark claws and bare
+## black plantar pads; the head is a small braincase running out into a blunt,
+## subtly dished muzzle ending in a painted black nose pad, with small rounded
+## ears set well back and glossy dark eyes.
 ##
 ## Polar bears are NOT white. The vertex colors run cream/ivory along the sunlit
 ## spine down through buff flanks into a warm ochre-shadowed underside, with
@@ -28,7 +29,7 @@ extends Node3D
 enum Pose {
 	STANDING,  ## Four-square, weight settled, head carried below the withers.
 	SITTING,   ## Rump down, forelegs propped straight, hind legs forward.
-	LYING,     ## Belly down and sprawled, limbs splayed, head low.
+	LYING,     ## Belly down and sprawled, limbs splayed, head up and turned.
 }
 
 ## --- Coat palette -----------------------------------------------------------
@@ -37,24 +38,34 @@ enum Pose {
 ## renders as paper white indistinguishable from the snow behind it; authored
 ## here, the coat lands a clear step darker than the drift it stands on, which
 ## is what a polar bear actually looks like.
-const FUR_TOP := Color(0.52, 0.49, 0.43)    # sunlit ivory along the spine
-const FUR_MID := Color(0.42, 0.38, 0.30)    # cream flank
-const FUR_LOW := Color(0.22, 0.19, 0.145)   # warm ochre shadow underside
-const FUR_BUFF := Color(0.40, 0.32, 0.20)   # yellowed guard-hair patches
-const FUR_DAMP := Color(0.18, 0.16, 0.13)   # wet/dirty lower legs
-const NOSE_DARK := Color(0.05, 0.045, 0.048)
+## Coat values.
+##
+## These were authored two stops darker on the theory that ACES plus sky
+## ambient would lift them. In a neutral test set that held; on the glacier it
+## did not. The bears live thirty metres off the racing line against a field of
+## lit snow, and a mid-ochre animal at that distance reads as a rock, not as
+## the one white animal everybody can name. Lightened until the silhouette is
+## paler than the snow behind it, with the warm ochre kept only in the
+## underside and the damp lower legs -- which is what stops it going flat.
+const FUR_TOP := Color(0.93, 0.900, 0.815)  # sunlit ivory along the spine
+const FUR_MID := Color(0.82, 0.775, 0.660)  # cream flank
+const FUR_LOW := Color(0.56, 0.500, 0.385)  # warm ochre shadow underside
+const FUR_BUFF := Color(0.80, 0.720, 0.560) # yellowed guard-hair patches
+const FUR_DAMP := Color(0.46, 0.410, 0.330) # wet/dirty lower legs
+const NOSE_DARK := Color(0.085, 0.075, 0.072)
 const LIP_DARK := Color(0.13, 0.11, 0.10)
 const CLAW_DARK := Color(0.24, 0.21, 0.18)
+const PAD_DARK := Color(0.105, 0.088, 0.080)  # bare black plantar pads
 
 ## --- Build proportions (metres; the bear faces -Z, ground at y = 0) ---------
-## Adult male: 1.32 m at the withers, 2.46 m nose to tail, belly clearance 0.60.
-## The ratio that matters is body depth (0.72) BEATING visible leg length
+## Adult male: 1.33 m at the withers, 2.5 m nose to tail, belly clearance 0.60.
+## The ratio that matters is body depth (0.73) BEATING visible leg length
 ## (0.60) — get that backwards and the silhouette reads as a big white dog no
 ## matter how good the head is.
 const BODY_SEGS: int = 26
 const LEG_SEGS: int = 16
-const HEAD_SEGS: int = 22
-const HEAD_JOINT := Vector3(0.0, 1.14, -0.80)   # atlas: where the head pivots
+const HEAD_SEGS: int = 26
+const HEAD_JOINT := Vector3(0.0, 1.125, -0.74)  # atlas: where the head pivots
 const FRONT_SOCKET := Vector3(0.225, 1.02, -0.36)
 const HIND_SOCKET := Vector3(0.225, 1.02, 0.54)
 
@@ -80,9 +91,14 @@ void fragment() {
 	// meant to go smooth rather than sparkle into noise.
 	float near_k = 1.0 - smoothstep(4.0, 14.0, dist);
 	float mid_k = 1.0 - smoothstep(12.0, 34.0, dist);
-	float strand = sin(v_obj.x * 190.0 + v_obj.y * 64.0) * sin(v_obj.z * 165.0 - v_obj.y * 43.0);
-	float clump = sin(v_obj.y * 23.0 + sin(v_obj.x * 8.0 + v_obj.z * 6.0) * 2.1)
-		* (0.55 + 0.45 * sin(v_obj.x * 13.0 - v_obj.z * 9.0));
+	// Two wavy strand fields SUMMED at incommensurate frequencies and angles.
+	// A product of two sines cross-hatches into woven fabric; a single band
+	// field rings the legs like corduroy; the sum interferes into irregular
+	// streaks, which is what a pelt actually does.
+	float strand = sin(v_obj.y * 145.0 + v_obj.x * 52.0 + sin(v_obj.z * 23.0) * 3.0) * 0.62
+		+ sin(v_obj.z * 118.0 - v_obj.x * 61.0 + sin(v_obj.y * 19.0) * 2.4) * 0.38;
+	float clump = sin(v_obj.z * 14.0 + v_obj.y * 7.0 + sin(v_obj.x * 11.0) * 1.7)
+		* (0.6 + 0.4 * sin(v_obj.y * 9.0 - v_obj.z * 6.0));
 
 	// Hemispheric countershading. INV_VIEW_MATRIX's second row is world up in
 	// view space, which is one dot product and no extra varying. (Do NOT reach
@@ -91,8 +107,8 @@ void fragment() {
 	vec3 world_up = vec3(INV_VIEW_MATRIX[0][1], INV_VIEW_MATRIX[1][1], INV_VIEW_MATRIX[2][1]);
 	float up = clamp(dot(NORMAL, world_up) * 0.5 + 0.5, 0.0, 1.0);
 	float shade = up * up * (3.0 - 2.0 * up);
-	vec3 col = base * (mix(0.56, 1.16, shade) + strand * 0.055 * near_k + clump * 0.05 * mid_k);
-	col += vec3(0.05, 0.07, 0.11) * (shade * shade * 0.09);
+	vec3 col = base * (mix(0.56, 1.16, shade) + strand * 0.036 * near_k + clump * 0.045 * mid_k);
+	col += vec3(0.02, 0.028, 0.045) * (shade * shade * 0.05);
 
 	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
 	float rim = pow(1.0 - ndv, 3.2);
@@ -177,7 +193,7 @@ func _ready() -> void:
 		var gleam := MeshInstance3D.new()
 		gleam.mesh = _get_gleam_mesh()
 		gleam.material_override = _get_gleam_material()
-		gleam.position = Vector3(side * 0.116, 0.058, -0.240)
+		gleam.position = Vector3(side * 0.128, 0.062, -0.288)
 		gleam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_head_pivot.add_child(gleam)
 
@@ -219,7 +235,7 @@ func _pose_standing() -> void:
 	_place_leg(1, FRONT_SOCKET, 1.0, Vector3(deg_to_rad(3.0), deg_to_rad(9.0), 0.0))
 	_place_leg(2, HIND_SOCKET, -1.0, Vector3(deg_to_rad(4.0), deg_to_rad(-6.0), deg_to_rad(2.0)))
 	_place_leg(3, HIND_SOCKET, 1.0, Vector3(deg_to_rad(-3.0), deg_to_rad(-6.0), deg_to_rad(2.0)))
-	_head_base = Vector3(deg_to_rad(-7.0), 0.0, 0.0)
+	_head_base = Vector3(deg_to_rad(-5.0), 0.0, 0.0)
 	_head_pivot.rotation = _head_base
 
 
@@ -233,25 +249,28 @@ func _pose_sitting() -> void:
 		Vector3(0.0, FRONT_SOCKET.y, FRONT_SOCKET.z), Vector3(0.0, 0.06, 0.0))
 	_place_leg(0, FRONT_SOCKET, -1.0, Vector3(-pitch + deg_to_rad(3.0), deg_to_rad(11.0), deg_to_rad(-3.0)))
 	_place_leg(1, FRONT_SOCKET, 1.0, Vector3(-pitch - deg_to_rad(2.0), deg_to_rad(11.0), deg_to_rad(-3.0)))
-	_place_leg(2, HIND_SOCKET, -1.0, Vector3(deg_to_rad(40.0), deg_to_rad(-4.0), deg_to_rad(18.0)))
-	_place_leg(3, HIND_SOCKET, 1.0, Vector3(deg_to_rad(44.0), deg_to_rad(-4.0), deg_to_rad(15.0)))
+	_place_leg(2, HIND_SOCKET, -1.0, Vector3(deg_to_rad(26.0), deg_to_rad(-4.0), deg_to_rad(26.0)))
+	_place_leg(3, HIND_SOCKET, 1.0, Vector3(deg_to_rad(30.0), deg_to_rad(-4.0), deg_to_rad(22.0)))
 	# The rig carries +33 degrees of pitch, so the head has to give most of it
 	# back or the muzzle points at the sky; the remainder reads as looking up.
 	_head_base = Vector3(-pitch + deg_to_rad(9.0), deg_to_rad(-8.0), 0.0)
 	_head_pivot.rotation = _head_base
 
 
-## Sprawled belly-down and asleep: body settled onto the snow, forelegs pushed
-## out ahead, hind legs trailing back and splayed frog-wise, head laid low.
+## Resting belly-down on the ice: the body settled onto the snow, forelegs
+## pushed out ahead sphinx-fashion, hind legs trailing back and splayed
+## frog-wise, head up and turned off to one side. Head UP on purpose — laid
+## flat on the snow the silhouette stops reading as a resting animal and starts
+## reading as a bear-skin rug.
 func _pose_lying() -> void:
 	_rig.transform = _pivoted(
-		Basis.from_euler(Vector3(deg_to_rad(-2.0), 0.0, deg_to_rad(5.0))),
-		Vector3(0.0, 1.0, 0.0), Vector3(0.0, -0.55, 0.0))
-	_place_leg(0, FRONT_SOCKET, -1.0, Vector3(deg_to_rad(63.0), deg_to_rad(16.0), deg_to_rad(-22.0)))
-	_place_leg(1, FRONT_SOCKET, 1.0, Vector3(deg_to_rad(58.0), deg_to_rad(16.0), deg_to_rad(-26.0)))
-	_place_leg(2, HIND_SOCKET, -1.0, Vector3(deg_to_rad(-56.0), deg_to_rad(-10.0), deg_to_rad(-34.0)))
-	_place_leg(3, HIND_SOCKET, 1.0, Vector3(deg_to_rad(-60.0), deg_to_rad(-10.0), deg_to_rad(-30.0)))
-	_head_base = Vector3(deg_to_rad(-13.0), deg_to_rad(22.0), deg_to_rad(-6.0))
+		Basis.from_euler(Vector3(deg_to_rad(-1.0), 0.0, deg_to_rad(3.0))),
+		Vector3(0.0, 1.0, 0.0), Vector3(0.0, -0.50, 0.0))
+	_place_leg(0, FRONT_SOCKET, -1.0, Vector3(deg_to_rad(66.0), deg_to_rad(14.0), deg_to_rad(11.0)))
+	_place_leg(1, FRONT_SOCKET, 1.0, Vector3(deg_to_rad(62.0), deg_to_rad(14.0), deg_to_rad(14.0)))
+	_place_leg(2, HIND_SOCKET, -1.0, Vector3(deg_to_rad(-58.0), deg_to_rad(-8.0), deg_to_rad(32.0)))
+	_place_leg(3, HIND_SOCKET, 1.0, Vector3(deg_to_rad(-55.0), deg_to_rad(-8.0), deg_to_rad(36.0)))
+	_head_base = Vector3(deg_to_rad(2.0), deg_to_rad(26.0), deg_to_rad(-5.0))
 	_head_pivot.rotation = _head_base
 
 
@@ -368,6 +387,33 @@ static func _lathe(st: SurfaceTool, ctrl: Array, subdiv: int, segs: int,
 		rings.append(ring)
 		colors.append(col)
 	_stitch(st, rings, colors)
+	_cap(st, rings[0], colors[0], false)
+	_cap(st, rings[rings.size() - 1], colors[colors.size() - 1], true)
+
+
+## Closes one end of a lathe with a triangle fan to the ring's centroid.
+##
+## Not optional: an open lathe end is a hole you can see straight through, and
+## with back faces culled it renders as a hard-edged disc of BACKGROUND punched
+## into the model. The muzzle tip and the paw soles both point at the camera at
+## some point, and a white circle in the middle of a black nose is not subtle.
+## `forward` selects the winding for the end the lathe advances toward.
+static func _cap(st: SurfaceTool, ring: PackedVector3Array, col: PackedColorArray, forward: bool) -> void:
+	var n := ring.size()
+	var centre := Vector3.ZERO
+	for v: Vector3 in ring:
+		centre += v
+	centre /= float(n)
+	for i: int in n:
+		var i2 := (i + 1) % n
+		if forward:
+			st.set_color(col[i]); st.add_vertex(ring[i])
+			st.set_color(col[i2]); st.add_vertex(ring[i2])
+			st.set_color(col[i]); st.add_vertex(centre)
+		else:
+			st.set_color(col[i]); st.add_vertex(centre)
+			st.set_color(col[i2]); st.add_vertex(ring[i2])
+			st.set_color(col[i]); st.add_vertex(ring[i])
 
 
 ## A squashed ball (toe domes, the nose button, eyes) as a five-station lathe.
@@ -423,22 +469,22 @@ static func _get_torso_mesh() -> ArrayMesh:
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	st.set_smooth_group(0)
 	var ctrl: Array = [
-		_station(-0.86, 1.140, 0.090, 0.085, 0.085),  # throat cap (inside the head)
-		_station(-0.80, 1.135, 0.155, 0.145, 0.155),  # upper neck
-		_station(-0.70, 1.115, 0.200, 0.185, 0.200),  # neck, thick as the skull
-		_station(-0.60, 1.075, 0.245, 0.225, 0.260),  # neck into shoulders
-		_station(-0.46, 1.015, 0.300, 0.290, 0.415),  # chest, keel below the elbow
-		_station(-0.30, 0.985, 0.335, 0.350, 0.415),  # withers hump, 1.335
-		_station(-0.10, 0.975, 0.345, 0.305, 0.405),  # ribs, widest
-		_station(0.12, 0.972, 0.335, 0.283, 0.372),   # loin dip, 1.255
+		_station(-0.84, 1.135, 0.075, 0.070, 0.070),  # throat cap (inside the head)
+		_station(-0.80, 1.130, 0.150, 0.140, 0.150),  # upper neck
+		_station(-0.70, 1.110, 0.230, 0.210, 0.230),  # neck, thick as the skull
+		_station(-0.60, 1.070, 0.272, 0.248, 0.278),  # neck into shoulders
+		_station(-0.46, 1.015, 0.305, 0.300, 0.415),  # chest, keel below the elbow
+		_station(-0.30, 0.985, 0.338, 0.340, 0.415),  # withers hump, 1.325
+		_station(-0.10, 0.975, 0.348, 0.312, 0.405),  # ribs, widest
+		_station(0.12, 0.972, 0.335, 0.285, 0.372),   # loin dip, 1.257
 		_station(0.34, 0.985, 0.345, 0.295, 0.355),   # loin, belly tucking up
 		_station(0.56, 1.000, 0.365, 0.310, 0.345),   # hips, 1.31
 		_station(0.76, 1.005, 0.350, 0.300, 0.330),   # rump
-		_station(0.92, 1.010, 0.335, 0.290, 0.305),   # a bear's rump is BLUNT,
-		_station(1.04, 1.015, 0.280, 0.250, 0.255),   # never tapered to a cone
-		_station(1.12, 1.020, 0.175, 0.160, 0.160),
-		_station(1.17, 1.020, 0.075, 0.070, 0.070),   # tail stub
-		_station(1.20, 1.015, 0.025, 0.025, 0.025),
+		_station(0.90, 1.010, 0.338, 0.292, 0.300),   # a bear's rump is BLUNT,
+		_station(1.00, 1.012, 0.290, 0.258, 0.258),   # never tapered to a cone
+		_station(1.07, 1.014, 0.190, 0.172, 0.172),
+		_station(1.11, 1.012, 0.080, 0.074, 0.074),   # tail stub
+		_station(1.14, 1.008, 0.028, 0.028, 0.028),
 	]
 	_lathe(st, ctrl, 3, BODY_SEGS, Transform3D.IDENTITY,
 		func(p: Vector3, u: float, t: float) -> Color:
@@ -459,8 +505,8 @@ static func _get_front_leg_mesh() -> ArrayMesh:
 		return _front_leg_mesh
 	_front_leg_mesh = _build_leg([
 		# [depth below socket, fore/aft centre, half width, radius aft, radius fore]
-		_station(0.16, 0.0, 0.060, 0.060, 0.060),      # cap, buried in the torso
-		_station(0.06, -0.010, 0.160, 0.175, 0.175),
+		_station(0.055, 0.0, 0.075, 0.078, 0.078),     # cap, buried in the torso
+		_station(0.020, -0.010, 0.150, 0.164, 0.164),
 		_station(-0.04, -0.010, 0.182, 0.196, 0.198),  # shoulder, bulges past the flank
 		_station(-0.18, -0.010, 0.175, 0.190, 0.190),
 		_station(-0.32, -0.015, 0.158, 0.168, 0.172),
@@ -480,8 +526,8 @@ static func _get_hind_leg_mesh() -> ArrayMesh:
 	if _hind_leg_mesh != null:
 		return _hind_leg_mesh
 	_hind_leg_mesh = _build_leg([
-		_station(0.16, 0.0, 0.065, 0.065, 0.065),
-		_station(0.05, 0.012, 0.185, 0.205, 0.200),
+		_station(0.055, 0.0, 0.082, 0.086, 0.086),
+		_station(0.020, 0.010, 0.170, 0.192, 0.188),
 		_station(-0.06, 0.016, 0.205, 0.236, 0.228),   # haunch, widest of the animal
 		_station(-0.22, 0.016, 0.205, 0.235, 0.225),
 		_station(-0.38, 0.006, 0.180, 0.200, 0.190),   # stifle
@@ -519,20 +565,24 @@ static func _build_leg(ctrl: Array, toe_z: float) -> ArrayMesh:
 		func(p: Vector3, _u: float, _t: float) -> Color:
 			# Legs read by height, not by ring angle: shoulder tops catch the
 			# sun, the trousers go warm, the paws are damp and dark.
-			var h := clampf((p.y + 1.04) / 1.18, 0.0, 1.0)
+			var h := clampf((p.y + 1.04) / 1.10, 0.0, 1.0)
 			var damp := smoothstep(0.16, 0.0, h) * 0.55
-			return _fur(p, h * 1.7 - 0.75, na, nb, smoothstep(0.55, 0.12, h) * 0.35, damp))
+			var col := _fur(p, h * 1.7 - 0.75, na, nb, smoothstep(0.55, 0.12, h) * 0.35, damp)
+			# Sole: one big plantar pad, with fur left between it and the toes.
+			var radial := p.x * p.x + (p.z + 0.02) * (p.z + 0.02)
+			var sole := smoothstep(-1.010, -1.032, p.y) * (1.0 - smoothstep(0.009, 0.019, radial))
+			return col.lerp(PAD_DARK, clampf(sole, 0.0, 1.0) * 0.90))
 	# Five toe domes across the front of the paw, with a small dark claw ahead
 	# of each. A bear paw is the tell at any distance, so it is not a stub.
-	var toe_y := -0.955
+	var toe_y := -0.960
 	for k: int in 5:
-		var x := -0.108 + 0.054 * float(k)
-		var spread := 1.0 - absf(float(k) - 2.0) * 0.08
-		_blob(st, Vector3(x, toe_y, -toe_z - 0.035), Vector3(0.046, 0.044, 0.060) * spread,
+		var x := -0.100 + 0.050 * float(k)
+		var spread := 1.0 - absf(float(k) - 2.0) * 0.07
+		_blob(st, Vector3(x, toe_y, -toe_z - 0.014), Vector3(0.050, 0.044, 0.050) * spread,
 			10, _fur(Vector3(x, toe_y, -toe_z), -0.30, na, nb, 0.30, 0.30))
 		# Claws: mostly buried in toe fur, just the dark hooks showing.
-		_blob(st, Vector3(x * 1.03, toe_y - 0.036, -toe_z - 0.082),
-			Vector3(0.014, 0.012, 0.028) * spread, 8, CLAW_DARK)
+		_blob(st, Vector3(x * 1.02, toe_y - 0.030, -toe_z - 0.052),
+			Vector3(0.013, 0.011, 0.024) * spread, 8, CLAW_DARK)
 	st.generate_normals()
 	st.index()
 	return st.commit()
@@ -551,18 +601,19 @@ static func _get_head_mesh() -> ArrayMesh:
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	st.set_smooth_group(0)
 	var ctrl: Array = [
-		_station(-0.525, -0.098, 0.032, 0.028, 0.028),  # blunt face, not a point
-		_station(-0.505, -0.096, 0.082, 0.068, 0.076),  # a bear muzzle is BLUNT:
-		_station(-0.460, -0.090, 0.088, 0.072, 0.082),  # it barely tapers
-		_station(-0.400, -0.080, 0.094, 0.078, 0.088),
-		_station(-0.340, -0.060, 0.101, 0.084, 0.094),  # the dish: this top line
-		_station(-0.275, -0.044, 0.114, 0.092, 0.104),  # runs concave to the stop
-		_station(-0.205, -0.020, 0.140, 0.118, 0.122),  # stop, brow over the eye
-		_station(-0.135, 0.000, 0.160, 0.144, 0.138),   # braincase
-		_station(-0.055, -0.004, 0.163, 0.146, 0.142),  # occiput and jowl
-		_station(0.020, -0.016, 0.145, 0.130, 0.132),
-		_station(0.100, -0.026, 0.112, 0.102, 0.104),   # swallowed by the neck
-		_station(0.170, -0.030, 0.035, 0.032, 0.032),
+		_station(-0.556, -0.068, 0.032, 0.030, 0.030),  # blunt face, not a point
+		_station(-0.545, -0.068, 0.070, 0.058, 0.064),
+		_station(-0.528, -0.068, 0.098, 0.082, 0.094),  # a bear muzzle is BLUNT
+		_station(-0.481, -0.064, 0.104, 0.088, 0.102),  # and deep-jawed: the
+		_station(-0.424, -0.058, 0.111, 0.096, 0.110),  # underside runs level
+		_station(-0.367, -0.048, 0.119, 0.106, 0.118),  # while the top line
+		_station(-0.301, -0.036, 0.134, 0.120, 0.130),  # rises in a soft dish
+		_station(-0.232, -0.018, 0.160, 0.136, 0.148),  # stop, brow over the eye
+		_station(-0.153, 0.000, 0.182, 0.163, 0.160),   # braincase
+		_station(-0.062, -0.004, 0.185, 0.166, 0.166),  # occiput and jowl
+		_station(0.023, -0.016, 0.166, 0.148, 0.152),
+		_station(0.113, -0.028, 0.128, 0.116, 0.120),   # swallowed by the neck
+		_station(0.192, -0.034, 0.040, 0.036, 0.036),
 	]
 	_lathe(st, ctrl, 3, HEAD_SEGS, Transform3D.IDENTITY,
 		func(p: Vector3, u: float, _t: float) -> Color:
@@ -577,12 +628,12 @@ static func _get_head_mesh() -> ArrayMesh:
 		# The base station is wide and starts BELOW the skull surface, so the
 		# ear grows out of the head instead of sitting on it like a bead.
 		_lathe(st, [
-			_station(-0.060, 0.0, 0.048, 0.048, 0.048),
-			_station(-0.010, 0.002, 0.055, 0.058, 0.052),
-			_station(0.028, 0.004, 0.058, 0.062, 0.054),
-			_station(0.058, 0.002, 0.046, 0.050, 0.042),
-			_station(0.070, 0.0, 0.014, 0.014, 0.014),
-		], 3, 14, Transform3D(ear_basis, Vector3(side * 0.092, 0.104, -0.082)),
+			_station(-0.066, 0.0, 0.054, 0.054, 0.054),
+			_station(-0.012, 0.002, 0.061, 0.065, 0.058),
+			_station(0.032, 0.004, 0.065, 0.070, 0.060),
+			_station(0.066, 0.002, 0.051, 0.056, 0.047),
+			_station(0.078, 0.0, 0.016, 0.016, 0.016),
+		], 3, 14, Transform3D(ear_basis, Vector3(side * 0.106, 0.116, -0.095)),
 			func(p: Vector3, u: float, t: float) -> Color:
 				# The inner face of the ear is shaded and a touch ruddier.
 				return _fur(p, u * 0.6 + 0.2, na, nb, 0.25 + t * 0.25, t * 0.18))
@@ -592,24 +643,41 @@ static func _get_head_mesh() -> ArrayMesh:
 	return _head_mesh
 
 
-## Face colour: the pale muzzle mask, a black lip line down the lower jaw and
-## darkened eye surrounds, over the standard coat.
+## Face colour: pale muzzle mask, the black nose pad, a dark lip line along the
+## jaw and darkened eye surrounds, over the standard coat.
+##
+## The nose is PAINTED rather than modelled. A separate dark ball on the end of
+## the muzzle reads as a pipe end from every angle — hard circular edge, one
+## specular dot in the middle of it. Baking it into the muzzle's own vertex
+## colors gives a pad whose edge follows the face's contour and whose shading is
+## the muzzle's shading, which is what a real nose looks like.
 static func _head_fur(pos: Vector3, up: float, na: FastNoiseLite, nb: FastNoiseLite) -> Color:
-	var muzzle := smoothstep(-0.16, -0.38, pos.z)
+	var muzzle := smoothstep(-0.18, -0.44, pos.z)
 	var col := _fur(pos, up, na, nb, muzzle * 0.30)
 	# Lip line: a thin dark band low on the sides of the muzzle.
 	var u := up * 0.5 + 0.5
-	var lip := muzzle * (1.0 - smoothstep(0.10, 0.34, absf(u - 0.22)) )
-	col = col.lerp(LIP_DARK, clampf(lip, 0.0, 1.0) * 0.55)
+	var lip := muzzle * (1.0 - smoothstep(0.04, 0.20, absf(u - 0.20)))
+	col = col.lerp(LIP_DARK, clampf(lip, 0.0, 1.0) * 0.80)
+	# Nose pad: broad across the face front, stopping where the bridge starts.
+	# The cutoff is on world height, NOT on the ring angle — the frontmost rings
+	# sweep a full circle at the tip, so an angle gate leaves a pale blotch in
+	# the middle of the pad, which is exactly where it is most visible.
+	var pad := smoothstep(-0.482, -0.524, pos.z) * (1.0 - smoothstep(-0.045, 0.020, pos.y))
+	col = col.lerp(NOSE_DARK, clampf(pad, 0.0, 1.0) * 0.94)
+	# Nostril slits, painted a shade blacker than the pad around them.
+	for side: float in [-1.0, 1.0]:
+		var nd := pos.distance_to(Vector3(side * 0.030, -0.062, -0.548))
+		if nd < 0.026:
+			col = col.lerp(Color(0.02, 0.018, 0.018), (1.0 - nd / 0.026) * 0.85)
 	# Eye surrounds.
 	for side: float in [-1.0, 1.0]:
-		var d := pos.distance_to(Vector3(side * 0.108, 0.045, -0.225))
-		if d < 0.090:
-			col = col.lerp(LIP_DARK, (1.0 - d / 0.090) * 0.50)
+		var d := pos.distance_to(Vector3(side * 0.118, 0.048, -0.272))
+		if d < 0.105:
+			col = col.lerp(LIP_DARK, (1.0 - d / 0.105) * 0.55)
 	return col
 
 
-## Eyes and nose button in one dark glossy surface, in head space.
+## Eyes and nostrils: the only genuinely glossy parts of a bear, in head space.
 static func _get_face_mesh() -> ArrayMesh:
 	if _face_mesh != null:
 		return _face_mesh
@@ -617,11 +685,8 @@ static func _get_face_mesh() -> ArrayMesh:
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	st.set_smooth_group(0)
 	for side: float in [-1.0, 1.0]:
-		_blob(st, Vector3(side * 0.108, 0.046, -0.228), Vector3(0.028, 0.028, 0.028), 14,
-			Color(0.04, 0.035, 0.034))
-	# The nose is a big black button — the single most recognisable feature on
-	# a white animal, so it is deliberately oversized rather than a dot.
-	_blob(st, Vector3(0.0, -0.103, -0.502), Vector3(0.064, 0.050, 0.042), 16, NOSE_DARK)
+		_blob(st, Vector3(side * 0.118, 0.048, -0.272), Vector3(0.034, 0.034, 0.034), 14,
+			Color(0.055, 0.048, 0.045))
 	st.generate_normals()
 	st.index()
 	_face_mesh = st.commit()
@@ -654,7 +719,7 @@ static func _get_face_material() -> StandardMaterial3D:
 		_face_mat = StandardMaterial3D.new()
 		_face_mat.vertex_color_use_as_albedo = true
 		_face_mat.albedo_color = Color(1.0, 1.0, 1.0)
-		_face_mat.roughness = 0.16
+		_face_mat.roughness = 0.42
 		_face_mat.metallic = 0.0
 		_face_mat.metallic_specular = 0.6
 	return _face_mat

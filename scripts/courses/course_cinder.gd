@@ -35,8 +35,8 @@ const SUN_YAW_DEG: float = 152.0
 ## to pink concrete, and this course's whole point is that the ground is dark:
 ## the deck is basalt sand with an ash-grey ice glaze, so racers, fish and the
 ## amber boost pads all separate against it.
-const TRACK_SAND_TINT: Color = Color(0.28, 0.26, 0.28)
-const TRACK_GLAZE_TINT: Color = Color(0.22, 0.30, 0.38)
+const TRACK_SAND_TINT: Color = Color(0.22, 0.20, 0.21)
+const TRACK_GLAZE_TINT: Color = Color(0.17, 0.23, 0.31)
 const TRACK_CRUST_TINT: Color = Color(0.40, 0.40, 0.43)
 ## Sinter crust: the pale mineral rind around a hot spring. Used for the ash
 ## climb so the deep-ash section still reads as a different material.
@@ -165,7 +165,10 @@ func build_course() -> void:
 	for i: int in 6:
 		var vent := HazardGeyser.new()
 		vent.phase_offset = float(vent_phases[i])
-		vent.position = main_guide.point_at(flat_start + 24.0 + float(i) * 28.0, float(vent_laterals[i]), 0.0)
+		# Clamped to the shelf: a vent that drifts past the flat onto the ash
+		# climb would launch racers backwards down a grade they just fought up.
+		var vent_offset := minf(flat_start + 24.0 + float(i) * 28.0, flat_end - 14.0)
+		vent.position = main_guide.point_at(vent_offset, float(vent_laterals[i]), 0.0)
 		add_child(vent)
 
 	# --- Basking seals on the warm sand -------------------------------------
@@ -256,7 +259,7 @@ func build_course() -> void:
 	# between the dark ground and the ember sky, not brightness.
 	build_environment({
 		"sky_top": Color(0.07, 0.08, 0.17),
-		"sky_horizon": Color(0.86, 0.38, 0.18),
+		"sky_horizon": Color(0.80, 0.36, 0.17),
 		"ground_color": Color(0.07, 0.05, 0.05),
 		"sun_angle_deg": -11.0,
 		"sun_yaw_deg": SUN_YAW_DEG,
@@ -267,9 +270,9 @@ func build_course() -> void:
 		"sky_energy": 0.86,
 		"ambient_energy": 0.78,
 		"exposure": 0.90,
-		"fog_color": Color(0.34, 0.22, 0.20),
+		"fog_color": Color(0.26, 0.19, 0.20),
 		"fog_density": 0.0024,
-		"fog_horizon_blend": 0.5,
+		"fog_horizon_blend": 0.34,
 		"fog_sun_scatter": 0.2,
 		"fog_height": 16.0,
 		"fog_height_density": 0.035,
@@ -277,7 +280,7 @@ func build_course() -> void:
 		"glow_intensity": 0.45,
 		"shadow_distance": 150.0,
 		"contrast": 1.12,
-		"saturation": 1.14,
+		"saturation": 1.05,
 		"snow": false,
 		"clouds": true,
 		"cloud_color": Color(0.70, 0.42, 0.34, 0.8),
@@ -285,8 +288,8 @@ func build_course() -> void:
 		"cloud_streaks": 0.72,
 		"fill_energy": 0.16,
 		"fill_color": Color(0.32, 0.40, 0.62),
-		"skyline_color": Color(0.22, 0.19, 0.21),
-		"skyline_density": 0.85,
+		"skyline_color": Color(0.16, 0.14, 0.16),
+		"skyline_density": 0.6,
 	})
 
 
@@ -323,26 +326,72 @@ func _retint_track() -> void:
 	var glaze := VisualLibrary.ice_material(TRACK_GLAZE_TINT, 0.55).duplicate() as ShaderMaterial
 	glaze.set_shader_parameter("roughness_base", 0.06)
 	glaze.set_shader_parameter("crack_strength", 0.95)
+	glaze.set_shader_parameter("deep_tint", Color(0.02, 0.03, 0.05))
+	# The ice shader frosts the ends of every run white for accessibility. On
+	# cooled lava that reads as snow drifted onto the ramp, so the border is
+	# narrowed and warmed to a dull ash rind rather than removed — the run
+	# boundary still reads by brightness.
+	glaze.set_shader_parameter("frost_tint", Color(0.55, 0.5, 0.47))
+	glaze.set_shader_parameter("frost_strength", 0.45)
+	glaze.set_shader_parameter("frost_edge_width", 0.035)
 	var crust := VisualLibrary.ice_material(TRACK_CRUST_TINT, 0.25).duplicate() as ShaderMaterial
 	crust.set_shader_parameter("roughness_base", 0.42)
+	crust.set_shader_parameter("deep_tint", Color(0.2, 0.17, 0.15))
+	crust.set_shader_parameter("frost_tint", Color(0.62, 0.58, 0.54))
+	# Skirt: the ribbon's visible thickness. Its baked vertex gradient is a
+	# glacial lip-to-deep-blue, multiplied by this albedo — a warm dark tint
+	# turns it into the ash bench the deck is cut into. Own instance, because
+	# the cached skirt material is shared by every ribbon in the session.
+	var skirt := VisualLibrary.rock_material(Color(0.42, 0.28, 0.24), 0.75).duplicate() as StandardMaterial3D
+	skirt.vertex_color_use_as_albedo = true
+	skirt.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var wall: ShaderMaterial = null
 	for track: Node in get_children():
 		if track.name != &"MainTrack" and not String(track.name).begins_with("Branch_"):
 			continue
 		var children := track.get_children()
-		for i: int in maxi(children.size() - 1, 0):
-			var floor_mesh := children[i] as MeshInstance3D
-			var body := children[i + 1] as StaticBody3D
-			if floor_mesh == null or body == null or not body.has_meta("surface"):
+		for i: int in children.size():
+			var mesh := children[i] as MeshInstance3D
+			if mesh == null:
+				continue
+			var body: StaticBody3D = null
+			if i + 1 < children.size():
+				body = children[i + 1] as StaticBody3D
+			if body == null:
+				# No collider behind it: the visual-only side skirt.
+				mesh.material_override = skirt
+				continue
+			if not body.has_meta("surface"):
+				# A collider with no surface tag is an edge wall. The glacial
+				# barrier shader is the wrong material on black sand — it reads
+				# as a lit ice fence — so it is re-tinted per instance (the
+				# TrackBuilder original is one cached instance shared by every
+				# course, and must never be mutated).
+				if wall == null:
+					var source := mesh.material_override as ShaderMaterial
+					if source != null:
+						wall = source.duplicate() as ShaderMaterial
+						wall.set_shader_parameter("tint", Color(0.12, 0.1, 0.1))
+						wall.set_shader_parameter("strata_tint", Color(0.42, 0.28, 0.2))
+						# Crest lip kept bright and warm: the boundary still has
+						# to read by brightness, which is the accessibility
+						# contract the ice wall shader was written for.
+						wall.set_shader_parameter("lip_tint", Color(0.92, 0.58, 0.34))
+						wall.set_shader_parameter("base_alpha", 0.92)
+						wall.set_shader_parameter("rim_strength", 0.35)
+						wall.set_shader_parameter("lip_glow", 0.1)
+				if wall != null:
+					mesh.material_override = wall
 				continue
 			match int(body.get_meta("surface")):
 				SNOW:
-					floor_mesh.material_override = sand
+					mesh.material_override = sand
 				DEEP:
-					floor_mesh.material_override = ash
+					mesh.material_override = ash
 				ICE:
-					floor_mesh.material_override = glaze
+					mesh.material_override = glaze
 				RICE:
-					floor_mesh.material_override = crust
+					mesh.material_override = crust
 
 
 ## --- Decoration -------------------------------------------------------------
@@ -698,7 +747,7 @@ func _fissure_mesh(seed_value: int) -> ArrayMesh:
 ## per-frame script cost); reduced motion pins them still.
 func _decorate_fumaroles(density: float) -> void:
 	var plume_mat := StandardMaterial3D.new()
-	plume_mat.albedo_color = Color(0.86, 0.78, 0.74, 0.3)
+	plume_mat.albedo_color = Color(0.86, 0.79, 0.74, 0.17)
 	plume_mat.albedo_texture = VisualLibrary.soft_radial_texture(64, 0.85)
 	plume_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	plume_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -712,7 +761,7 @@ func _decorate_fumaroles(density: float) -> void:
 	for i: int in 6:
 		anchors.append(main_guide.point_at(flat_start + 24.0 + float(i) * 28.0,
 			[-4.5, 3.5, -1.0, 4.5, -3.5, 1.5][i], 0.4))
-	var scatter := maxi(int(14.0 * density), 6)
+	var scatter := maxi(int(9.0 * density), 4)
 	for _i: int in scatter:
 		var offset := rng.randf_range(_offset_near(Vector3(14, 10.0, -540)),
 			_offset_near(Vector3(6, 9.5, -915)))
@@ -725,15 +774,16 @@ func _decorate_fumaroles(density: float) -> void:
 		var puffs := rng.randi_range(3, 5)
 		for k: int in puffs:
 			var t := float(k) / float(puffs)
-			var size := lerpf(3.0, 9.5, t) * rng.randf_range(0.8, 1.2)
+			var size := lerpf(1.8, 5.6, t) * rng.randf_range(0.85, 1.15)
 			var plume := MeshInstance3D.new()
 			var quad := QuadMesh.new()
-			quad.size = Vector2(size, size * rng.randf_range(0.8, 1.15))
+			# Taller than wide: a rising column, not a ball of cotton.
+			quad.size = Vector2(size, size * rng.randf_range(1.2, 1.7))
 			plume.mesh = quad
 			plume.material_override = plume_mat
 			plume.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			var base := anchor + Vector3.UP * (1.2 + t * 12.0) \
-				+ Vector3(rng.randf_range(-1.5, 1.5), 0.0, rng.randf_range(-1.5, 1.5))
+			var base := anchor + Vector3.UP * (0.9 + t * 6.5) \
+				+ Vector3(rng.randf_range(-0.9, 0.9), 0.0, rng.randf_range(-0.9, 0.9))
 			plume.position = base
 			VisualLibrary.apply_dressing_range(plume, 320.0)
 			add_child(plume)
@@ -746,7 +796,7 @@ func _decorate_fumaroles(density: float) -> void:
 			var dur := rng.randf_range(4.5, 8.0)
 			var tw := plume.create_tween()
 			tw.set_loops()
-			tw.tween_property(plume, "position", base + Vector3.UP * 4.0 + drift, dur) \
+			tw.tween_property(plume, "position", base + Vector3.UP * 2.6 + drift, dur) \
 				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 			tw.tween_property(plume, "position", base, dur * 0.5) \
 				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
@@ -915,7 +965,7 @@ func _decorate_cone() -> void:
 	# Smoke column: big soft quads stacked above the crater, leaning downwind
 	# and fading as they climb.
 	var smoke_mat := StandardMaterial3D.new()
-	smoke_mat.albedo_color = Color(0.36, 0.3, 0.3, 0.34)
+	smoke_mat.albedo_color = Color(0.3, 0.25, 0.26, 0.2)
 	smoke_mat.albedo_texture = VisualLibrary.soft_radial_texture(64, 0.8)
 	smoke_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	smoke_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -926,7 +976,7 @@ func _decorate_cone() -> void:
 		var t := float(k) / 6.0
 		var puff := MeshInstance3D.new()
 		var quad := QuadMesh.new()
-		var size := lerpf(150.0, 330.0, t)
+		var size := lerpf(120.0, 260.0, t)
 		quad.size = Vector2(size, size * 0.85)
 		puff.mesh = quad
 		puff.material_override = smoke_mat
