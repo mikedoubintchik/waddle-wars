@@ -79,6 +79,12 @@ func _ready() -> void:
 	_add_button(vbox, "Play", UITheme.ICON_PLAY, func() -> void:
 		SceneRouter.go_to(Game.SCENE_MODE_SELECT), true)
 	_spacer(vbox, 6)
+	# The daily sits directly under Play: it is the reason to open the game on
+	# a day you were not otherwise going to, so it has to be visible without a
+	# menu dive. Its label carries the state (streak, or done for today) so the
+	# button itself is the reminder.
+	_add_button(vbox, _daily_label(), UITheme.ICON_TROPHY, func() -> void:
+		Game.start_daily_challenge(), false)
 	# Rank two: the rest of the game, full width and evenly weighted.
 	_add_button(vbox, "Waddle School", UITheme.ICON_SCHOOL, func() -> void:
 		Game.start_tutorial(), false)
@@ -190,6 +196,21 @@ func _spacer(parent: Control, height: int) -> void:
 
 
 ## Hairline rule that separates the utility row from the main actions.
+## Label for the daily button, carrying today's state so the button is its own
+## reminder: an unplayed day advertises the streak it would continue, and a
+## finished day shows the time to beat rather than pretending there is nothing
+## left to do.
+func _daily_label() -> String:
+	# Kept short deliberately: this row shares an icon rail and chevron with
+	# every other nav row, and a long label pushes both off the button.
+	if DailyChallenge.is_complete_today():
+		return "Daily Done · %s" % RaceHUD.format_time(DailyChallenge.today_best())
+	var pending := DailyChallenge.pending_streak()
+	if pending > 1:
+		return "Daily · Day %d 🔥" % pending
+	return "Daily Challenge"
+
+
 func _divider() -> Control:
 	var rule := ColorRect.new()
 	rule.color = Color(UITheme.COLOR_ACCENT, 0.16)

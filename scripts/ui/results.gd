@@ -1115,6 +1115,19 @@ func _build_buttons(parent: Control) -> void:
 ## Share copy for the finished run, or "" when there is nothing worth
 ## bragging about (tutorial, missing result handoff).
 func _share_text() -> String:
+	# A completed daily shares as a challenge rather than a boast: the link
+	# carries the day, so whoever opens it races the identical course and
+	# field. That is the only share in the game the recipient can accept.
+	if not Game.daily_result.is_empty():
+		var daily_row: Dictionary = {}
+		for row: Dictionary in Game.last_race_results:
+			if bool(row.get("is_player", false)):
+				daily_row = row
+		if not daily_row.is_empty() and not bool(daily_row.get("dnf", false)):
+			return ShareManager.compose_daily_text(
+				DailyChallenge.for_day(),
+				RaceHUD.format_time(float(daily_row.get("time", 0.0))),
+				int(Game.daily_result.get("streak", 0)))
 	match Game.mode:
 		Game.Mode.TUTORIAL:
 			return ""

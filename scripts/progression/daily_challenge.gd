@@ -81,7 +81,7 @@ static func title_for(challenge: Dictionary) -> String:
 	var info := CoursesDB.get_item(course_name)
 	var display := String(info.get("name", course_name.capitalize())) if not info.is_empty() \
 		else course_name.capitalize()
-	return "%s %s" % [display, String(challenge.get("name", ""))]
+	return "%s · %s" % [display, String(challenge.get("name", ""))]
 
 
 ## Day number requested by the page URL (?d=NNN), or -1 when there is none.
