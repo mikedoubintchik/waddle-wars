@@ -96,7 +96,7 @@ func _build() -> void:
 	# Touch has no modifier to hold, so the over-the-shoulder throw gets its own
 	# button. Smaller and set above ITEM: it is the rarer of the two and the
 	# corner is already crowded, but it stays clear of ITEM's padded rect.
-	_add_button("BACK v", Vector2(-80, -80 - BUTTON_SIZE_PX * 0.82) * s,
+	_add_button("BACK", Vector2(-80, -80 - BUTTON_SIZE_PX * 0.82) * s,
 		BUTTON_SIZE_PX * 0.62 * s, false,
 		func() -> void: controller.touch_item_back(), Callable())
 
@@ -178,14 +178,32 @@ func _maybe_show_gesture_hint() -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(panel)
 
-	var label := Label.new()
-	label.text = "▲  swipe up — jump\n▼  swipe down + hold — slide\n◄ ►  drag sideways — steer"
-	label.set_anchors_preset(Control.PRESET_FULL_RECT)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 30)
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(label)
+	# Drawn arrows, one row each. These used to be typed ▲ ▼ ◄ ► characters,
+	# which the bundled font does not carry -- on the web build the hint that
+	# teaches the controls opened with three rows of empty boxes.
+	var rows := VBoxContainer.new()
+	rows.set_anchors_preset(Control.PRESET_FULL_RECT)
+	rows.alignment = BoxContainer.ALIGNMENT_CENTER
+	rows.add_theme_constant_override("separation", 14)
+	rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(rows)
+	for hint: Array in [
+		["up", "swipe up — jump"],
+		["down", "swipe down + hold — slide"],
+		["both", "drag sideways — steer"],
+	]:
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 16)
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(UITheme.arrow_icon(String(hint[0]), 34.0, UITheme.COLOR_ACCENT))
+		var text := Label.new()
+		text.text = String(hint[1])
+		text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		text.add_theme_font_size_override("font_size", 28)
+		text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(text)
+		rows.add_child(row)
 
 	var tween := overlay.create_tween()
 	tween.tween_interval(HINT_VISIBLE_SEC)

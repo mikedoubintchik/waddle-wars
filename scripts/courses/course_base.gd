@@ -565,7 +565,7 @@ func build_environment(params: Dictionary) -> void:
 	env.ambient_light_energy = float(params.get("ambient_energy", 0.92))
 	env.ambient_light_sky_contribution = float(params.get("sky_contribution", 1.0))
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = float(params.get("exposure", 0.96))
+	env.tonemap_exposure = float(params.get("exposure", 0.93))
 	env.tonemap_white = 6.0
 	env.fog_enabled = true
 	# Atmospheric perspective: real distance haze drifts toward the horizon/sky
@@ -606,7 +606,7 @@ func build_environment(params: Dictionary) -> void:
 		# bloom — cheap on Forward Mobile, never a full-screen wash.
 		env.glow_enabled = true
 		env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
-		env.glow_hdr_threshold = float(params.get("glow_threshold", 1.1))
+		env.glow_hdr_threshold = float(params.get("glow_threshold", 1.45))
 		env.glow_intensity = float(params.get("glow_intensity", 0.5))
 		env.glow_bloom = 0.0
 		# Gentle wide halo: keep the default mid mip levels but add a faint

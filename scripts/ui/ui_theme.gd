@@ -216,6 +216,30 @@ const ICON_BACK: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" 
 <path d="M38 12 L18 32 L38 52" stroke="#9fc4e0" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>"""
 
+## Directional arrows, drawn rather than typed.
+##
+## ThemeDB.fallback_font is Godot's bundled subset and carries NO arrows,
+## triangles, stars or emoji -- has_char() is false for U+2190..U+2194,
+## U+25B2/BC/C4/BA, U+2605 and every emoji codepoint. A desktop editor run can
+## paper over that with an OS font fallback; a web export cannot, so on the
+## deployed build each of those characters rendered as a .notdef box with its
+## hex digits inside (the "weird numbers" on the Finish Race button). Anything
+## symbolic in player-facing text is built from these instead.
+const ARROW_SVG: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<path d="M14 32 H48 M36 20 L48 32 L36 44" stroke="%s" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>"""
+
+## Double-headed arrow for "drag sideways" style gesture hints.
+const ARROW_BOTH_SVG: String = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<path d="M10 32 H54 M22 20 L10 32 L22 44 M42 20 L54 32 L42 44" stroke="%s" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>"""
+
+## Rotation (degrees) applied to ARROW_SVG per direction name.
+const ARROW_ROTATION: Dictionary = {
+	"right": 0.0, "down": 90.0, "left": 180.0, "up": 270.0,
+}
+
+static var _arrow_cache: Dictionary = {}
 static var _display_font: FontVariation = null
 static var _button_font: FontVariation = null
 static var _caption_font: FontVariation = null
@@ -1184,6 +1208,56 @@ static func make_icon(svg: String, scale: float = 1.0) -> ImageTexture:
 	if img.load_svg_from_string(svg, scale) != OK:
 		return null
 	return ImageTexture.create_from_image(img)
+
+
+## A drawn arrow. `dir` is "left", "right", "up", "down" or "both".
+##
+## One source path rotated in image space, so all five read as the same pen at
+## the same weight. Cached per direction/colour/size -- control hints rebuild
+## on every HUD and menu construction and this must not rasterize each time.
+static func arrow_texture(dir: String, color: Color = COLOR_TEXT, px: int = 40) -> ImageTexture:
+	var key := "%s|%s|%d" % [dir, color.to_html(true), px]
+	if _arrow_cache.has(key):
+		return _arrow_cache[key] as ImageTexture
+	var svg: String = ARROW_BOTH_SVG if dir == "both" else ARROW_SVG
+	var img := Image.new()
+	if img.load_svg_from_string(svg % ("#" + color.to_html(false)),
+			maxf(float(px), 8.0) / 64.0) != OK:
+		return null
+	match dir:
+		"down":
+			img.rotate_90(CLOCKWISE)
+		"up":
+			img.rotate_90(COUNTERCLOCKWISE)
+		"left":
+			img.rotate_180()
+	var tex := ImageTexture.create_from_image(img)
+	_arrow_cache[key] = tex
+	return tex
+
+
+## Arrow as a laid-out control, sized in logical pixels.
+static func arrow_icon(dir: String, side: float, color: Color = COLOR_TEXT) -> Control:
+	var tex := arrow_texture(dir, color, maxi(16, int(side * 2.0)))
+	if tex == null:
+		# SVG module unavailable: a plain ASCII stand-in still reads, where the
+		# Unicode arrow would have been an empty box.
+		var glyph := Label.new()
+		glyph.text = {"left": "<", "right": ">", "up": "^", "down": "v"}.get(dir, "<>")
+		glyph.add_theme_font_size_override("font_size", maxi(10, int(side)))
+		glyph.add_theme_color_override("font_color", color)
+		glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return glyph
+	var rect := TextureRect.new()
+	rect.texture = tex
+	rect.custom_minimum_size = Vector2(side, side)
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	rect.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return rect
 
 
 ## Rounded gradient fill texture for ProgressBar fills (StyleBoxFlat cannot

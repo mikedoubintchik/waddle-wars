@@ -13,6 +13,11 @@ extends Node
 ## One accent per lesson, shared with CourseTutorial._station_list() so each
 ## card matches the banner arch the player waddles under. Checkpoints has no
 ## arch; it borrows the glowing-post ice cyan.
+## Actions whose hint prints a drawn arrow instead of its letter binding.
+const ARROW_FOR_ACTION: Dictionary = {
+	"steer_left": "left", "steer_right": "right",
+}
+
 const STEP_ACCENTS: Array[Color] = [
 	Color(0.36, 0.8, 0.45),   # steering gates
 	Color(0.9, 0.45, 0.32),   # penguin hop
@@ -196,30 +201,11 @@ func _build_prompts() -> void:
 	_prompt_layer.add_child(_prompt_panel)
 
 
-## Small keyboard-keycap chip matching RaceHUD's onboarding-strip style
-## (light face, heavier bottom border). Touch devices reuse it for gestures.
+## Keycap chip for the lesson hint row. Shares RaceHUD's builder rather than
+## keeping a second copy: the two had already been maintained in parallel, and
+## only one of them would have learned about drawn arrow glyphs.
 func _make_keycap(text: String) -> PanelContainer:
-	var cap := PanelContainer.new()
-	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.9, 0.95, 1.0)
-	style.set_corner_radius_all(5)
-	style.set_border_width_all(1)
-	style.border_width_bottom = 3
-	style.border_color = Color(0.45, 0.6, 0.78)
-	style.content_margin_left = 8.0
-	style.content_margin_right = 8.0
-	style.content_margin_top = 1.0
-	style.content_margin_bottom = 2.0
-	cap.add_theme_stylebox_override("panel", style)
-	var label := Label.new()
-	label.text = text
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 16)
-	label.add_theme_color_override("font_color", Color(0.07, 0.14, 0.27))
-	cap.add_child(label)
-	return cap
+	return RaceHUD.make_keycap(text, 16)
 
 
 ## Two persistent one-shot sparkle bursts (small per-station, large finale)
@@ -284,11 +270,11 @@ func _make_burst(amount: int, lifetime: float, vel_min: float, vel_max: float,
 func _define_steps() -> void:
 	_steps = [
 		{"title": "Welcome to Waddle School!", "detail": "You waddle forward automatically — weave through the green gates! (Gamepad: steer with the left stick.)", "until_progress": 170.0,
-			"hint_actions": ["steer_left", "steer_right"], "hint_touch": ["Drag ↔"], "hint_verb": "Steer"},
+			"hint_actions": ["steer_left", "steer_right"], "hint_touch": ["arrow:both"], "hint_verb": "Steer"},
 		{"title": "Penguin Hop", "detail": "Hop over the red bars ahead. You can buffer a jump slightly early — the penguin forgives you.", "until_progress": 250.0,
-			"hint_actions": ["jump"], "hint_touch": ["Swipe ↑"], "hint_verb": "Jump"},
+			"hint_actions": ["jump"], "hint_touch": ["arrow:up"], "hint_verb": "Jump"},
 		{"title": "Belly Slide", "detail": "Slide under the low ice bars ahead — and remember: sliding downhill is FAST.", "until_progress": 330.0,
-			"hint_actions": ["slide"], "hint_touch": ["Hold ↓"], "hint_verb": "Hold to Slide"},
+			"hint_actions": ["slide"], "hint_touch": ["arrow:down"], "hint_verb": "Hold to Slide"},
 		{"title": "Know Your Snow", "detail": "Smooth ice is slick and fast — deep snow is a slog. Slide the ice, waddle the powder.", "until_progress": 470.0},
 		{"title": "Flipper Shove", "detail": "Coach Wobbles volunteered for this. Get close and give a friendly shove!", "tag": "shove",
 			"hint_actions": ["shove"], "hint_touch": ["SHOVE"], "hint_verb": "Shove"},
@@ -296,7 +282,7 @@ func _define_steps() -> void:
 			"hint_actions": ["use_item"], "hint_touch": ["ITEM"], "hint_verb": "Use Item"},
 		{"title": "Checkpoints", "detail": "Glowing posts mark checkpoints. Fall off or wipe out and you'll return to the last one — no big deal.", "tag": "checkpoint_auto"},
 		{"title": "The Home Slide", "detail": "One last downhill. Hold that slide and cross the finish line, champ!", "tag": "finish",
-			"hint_actions": ["slide"], "hint_touch": ["Hold ↓"], "hint_verb": "Hold to Slide"},
+			"hint_actions": ["slide"], "hint_touch": ["arrow:down"], "hint_verb": "Hold to Slide"},
 	]
 
 
@@ -344,6 +330,11 @@ func _set_hint(step: Dictionary) -> void:
 			_hint_row.add_child(_make_keycap(gesture))
 	else:
 		for action: String in actions:
+			# Steering prints as arrow keys, which say which way they turn you
+			# without being read; the arrow keys are bound alongside A/D.
+			if ARROW_FOR_ACTION.has(action):
+				_hint_row.add_child(_make_keycap("arrow:" + String(ARROW_FOR_ACTION[action])))
+				continue
 			var key := SettingsManager.describe_action_binding(action, "key")
 			_hint_row.add_child(_make_keycap(key if key != "—" else "?"))
 	var verb_label := Label.new()

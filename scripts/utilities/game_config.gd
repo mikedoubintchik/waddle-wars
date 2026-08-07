@@ -4,7 +4,7 @@ extends Node
 
 const GAME_NAME: String = "Waddle Wars"
 const GAME_VERSION: String = "1.0.0"
-const STUDIO_NAME: String = "Blubber & Byte"
+const STUDIO_NAME: String = "Ninja Consulting"
 const SAVE_VERSION: int = 1
 
 ## Physics layers (keep in sync with project.godot layer_names).

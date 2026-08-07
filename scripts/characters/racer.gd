@@ -29,6 +29,13 @@ const GRAVITY: float = 30.0
 const JUMP_VELOCITY: float = 11.0
 const BASE_SPEED: float = 12.5
 const SLIDE_MAX_SPEED: float = 26.0
+## Baseline braking after crossing the line -- a deliberate coast-down, not a
+## wall. _tick_finished raises it as far as the remaining runway demands.
+const FINISH_DECEL: float = 9.0
+## Metres of guide kept in hand past the stopping point.
+const FINISH_RUNWAY_MARGIN: float = 6.0
+## Over this much remaining runway the post-finish coast target tapers to zero.
+const FINISH_TAPER_DISTANCE: float = 38.0
 const SLOPE_SLIDE_ACCEL: float = 15.0
 const COYOTE_TIME: float = 0.14
 const JUMP_BUFFER: float = 0.16
@@ -188,9 +195,16 @@ func setup(key: String, name_text: String, player: bool, visual_config: Dictiona
 func _make_slide_audio() -> void:
 	if GameConfig.is_headless() or not AudioManager.has_sound("sfx_slide"):
 		return
-	var stream := AudioManager.get_stream("sfx_slide")
-	if stream == null:
+	var shared := AudioManager.get_stream("sfx_slide")
+	if shared == null:
 		return
+	# Duplicate before touching loop_mode. get_stream() hands back the one
+	# shared resource for that key, so looping it in place looped it for every
+	# other caller too -- including the wind zone's one-shot whoosh, which then
+	# never stopped and, one instance every 2.6 s, walked the whole SFX pool
+	# into permanently-busy loops. That is the "everything sounds broken and
+	# something is whooshing forever" bug; the copy is what makes it local.
+	var stream := shared.duplicate() as AudioStream
 	if stream is AudioStreamWAV:
 		var wav := stream as AudioStreamWAV
 		if wav.loop_mode == AudioStreamWAV.LOOP_DISABLED:
@@ -593,13 +607,26 @@ func _tick_recovering(delta: float) -> void:
 
 
 func _tick_finished(delta: float) -> void:
-	_finish_slowdown = maxf(_finish_slowdown - delta * 0.35, 0.0)
-	# Never coast off the end of the course after finishing.
+	_finish_slowdown = maxf(_finish_slowdown - delta * 0.9, 0.0)
+	var target := BASE_SPEED * 0.5 * _finish_slowdown
+	var decel := FINISH_DECEL
+	# Stop inside whatever track is actually left.
+	#
+	# The old rule braked at a flat 6 m/s^2 and only zeroed the coast target in
+	# the last 12 m. A racer crossing the line at full tilt needs roughly fifty
+	# metres to shed that, so on any course whose finish sits near the end of
+	# the guide the penguin sailed straight off the far edge. Now the coast
+	# target tapers over the final stretch and the brake is whatever rate the
+	# remaining runway demands, so the stop is guaranteed rather than hoped for.
 	if course != null and course.get("main_guide") != null:
 		var guide: PathGuide = course.get("main_guide")
-		if progress > guide.length - 12.0:
-			_finish_slowdown = 0.0
-	current_speed = move_toward(current_speed, BASE_SPEED * 0.5 * _finish_slowdown, 6.0 * delta)
+		var runway := maxf(guide.length - FINISH_RUNWAY_MARGIN - progress, 0.0)
+		target *= clampf(runway / FINISH_TAPER_DISTANCE, 0.0, 1.0)
+		if runway > 0.5:
+			decel = maxf(decel, (current_speed * current_speed) / (2.0 * runway))
+		else:
+			decel = maxf(decel, FINISH_DECEL * 6.0)
+	current_speed = move_toward(current_speed, target, decel * delta)
 	_steer_offset = lerpf(_steer_offset, 0.0, minf(delta * 4.0, 1.0))
 	_facing_yaw = _wrap_lerp_angle(_facing_yaw, _guide_yaw, minf(delta * 4.0, 1.0))
 	_velocity_yaw = _facing_yaw

@@ -14,6 +14,8 @@ var _sfx_3d_pool: Array[AudioStreamPlayer3D] = []
 var _sfx_next: int = 0
 var _sfx_3d_next: int = 0
 var _library: Dictionary = {}
+## Non-looping copies handed to the one-shot pools; see _one_shot_stream.
+var _one_shot_cache: Dictionary = {}
 var _missing_reported: Dictionary = {}
 var _muted: bool = false
 var _fade_tween: Tween
@@ -86,8 +88,42 @@ func preload_stream(name_key: String) -> void:
 ## The cached stream for a key, or null. For callers that need their own
 ## player rather than the shared pools -- a continuous positional loop, for
 ## instance, which a one-shot pool cannot hold.
+##
+## This is the ONE shared resource for that key. A caller that intends to
+## change playback properties (loop_mode above all) must duplicate() it first,
+## or every other user of the sound inherits the change.
 func get_stream(name_key: String) -> AudioStream:
 	return _get_stream(name_key)
+
+
+## A guaranteed non-looping copy of a sound, for the one-shot pools.
+##
+## play_music and any caller wanting a continuous loop set loop_mode on the
+## shared resource, and a looping stream in a one-shot pool player never
+## finishes: the player stays busy forever, the round-robin walks over it, and
+## within a minute the pool is a chorus of sounds that will not stop. Rather
+## than trusting every caller to duplicate first, the pools take their streams
+## from here, where looping is impossible by construction. Cached per key, so
+## the copy happens once and playback stays allocation-free.
+func _one_shot_stream(name_key: String) -> AudioStream:
+	if _one_shot_cache.has(name_key):
+		return _one_shot_cache[name_key] as AudioStream
+	var stream := _get_stream(name_key)
+	if stream == null:
+		return null
+	var looping := false
+	if stream is AudioStreamWAV:
+		looping = (stream as AudioStreamWAV).loop_mode != AudioStreamWAV.LOOP_DISABLED
+	elif stream is AudioStreamOggVorbis:
+		looping = (stream as AudioStreamOggVorbis).loop
+	if looping:
+		stream = stream.duplicate() as AudioStream
+		if stream is AudioStreamWAV:
+			(stream as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_DISABLED
+		elif stream is AudioStreamOggVorbis:
+			(stream as AudioStreamOggVorbis).loop = false
+	_one_shot_cache[name_key] = stream
+	return stream
 
 
 ## --- Music ----------------------------------------------------------------
@@ -137,7 +173,7 @@ func stop_music(fade_time: float = 0.8) -> void:
 ## --- SFX ------------------------------------------------------------------
 
 func play_sfx(name_key: String, pitch: float = 1.0, volume_db: float = 0.0) -> void:
-	var stream := _get_stream(name_key)
+	var stream := _one_shot_stream(name_key)
 	if stream == null:
 		return
 	var player := _sfx_pool[_sfx_next]
@@ -153,7 +189,7 @@ func play_sfx_varied(name_key: String, volume_db: float = 0.0) -> void:
 
 
 func play_sfx_3d(name_key: String, position: Vector3, pitch: float = 1.0, volume_db: float = 0.0) -> void:
-	var stream := _get_stream(name_key)
+	var stream := _one_shot_stream(name_key)
 	if stream == null:
 		return
 	var player := _sfx_3d_pool[_sfx_3d_next]

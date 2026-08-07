@@ -345,7 +345,11 @@ static func _make_fish_texture() -> ImageTexture:
 
 ## Small keyboard-keycap chip (light face, heavier bottom border) used for
 ## desktop input hints. Returns the panel; its Label child holds the text.
-static func _make_keycap(text: String, font_size: int) -> PanelContainer:
+##
+## `text` of the form "arrow:left" (also right/up/down/both) prints a drawn
+## arrow instead of a character. The bundled font has no arrow glyphs at all,
+## so a typed one is a .notdef box on the web build -- see UITheme.ARROW_SVG.
+static func make_keycap(text: String, font_size: int) -> PanelContainer:
 	var cap := PanelContainer.new()
 	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
@@ -359,6 +363,10 @@ static func _make_keycap(text: String, font_size: int) -> PanelContainer:
 	style.content_margin_top = 1.0
 	style.content_margin_bottom = 2.0
 	cap.add_theme_stylebox_override("panel", style)
+	if text.begins_with("arrow:"):
+		cap.add_child(UITheme.arrow_icon(
+			text.substr(6), float(font_size) * 1.15, UITheme.COLOR_BG_DEEP))
+		return cap
 	var label := Label.new()
 	label.text = text
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -379,16 +387,18 @@ static func build_controls_strip(hud_scale: float, max_per_row: int = 0) -> Cont
 	var hints: Array = []
 	if UITheme.is_touch():
 		hints = [
-			[["Drag ↔"], "Steer"],
-			[["Swipe ↑"], "Jump"],
-			[["Hold ↓"], "Slide"],
+			[["arrow:both"], "Drag to steer"],
+			[["arrow:up"], "Swipe to jump"],
+			[["arrow:down"], "Hold to slide"],
 			[["SHOVE"], "Bump rivals"],
 			[["ITEM"], "Use pickup"],
-			[["BACK v"], "Throw behind"],
+			[["BACK"], "Throw behind"],
 		]
 	else:
+		# Steering shows the arrow keys rather than the WASD letters: both are
+		# bound, and an arrow states the direction without having to be read.
 		hints = [
-			[["steer_left", "steer_right"], "Steer"],
+			[["arrow:left", "arrow:right"], "Steer"],
 			[["jump"], "Jump"],
 			[["slide"], "Slide"],
 			[["shove"], "Shove"],
@@ -415,10 +425,10 @@ static func build_controls_strip(hud_scale: float, max_per_row: int = 0) -> Cont
 		pair.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		for action: String in hint[0]:
 			var cap := action
-			if not UITheme.is_touch():
+			if not UITheme.is_touch() and not action.begins_with("arrow:"):
 				var key := SettingsManager.describe_action_binding(action, "key")
 				cap = key if key != "—" else "?"
-			pair.add_child(_make_keycap(cap, int(14 * hud_scale)))
+			pair.add_child(make_keycap(cap, int(14 * hud_scale)))
 		var verb := Label.new()
 		verb.text = String(hint[1])
 		verb.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -670,7 +680,7 @@ func _build_item_card(s: float) -> void:
 		_use_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_use_hint.modulate.a = 0.0
 		box.add_child(_use_hint)
-		var use_cap := _make_keycap("?", int(14 * s))
+		var use_cap := make_keycap("?", int(14 * s))
 		_use_key_label = use_cap.get_child(0) as Label
 		_use_hint.add_child(use_cap)
 		_use_verb_label = _caption_label("Use", 13 * s)
@@ -851,7 +861,7 @@ func _build_hints(s: float) -> void:
 		var pause_key := SettingsManager.describe_action_binding("pause", "key")
 		if pause_key == "—":
 			pause_key = "Esc"
-		esc_hint.add_child(_make_keycap(pause_key, int(13 * s)))
+		esc_hint.add_child(make_keycap(pause_key, int(13 * s)))
 		esc_hint.add_child(_caption_label("Pause", 13 * s))
 		_root.add_child(esc_hint)
 		_esc_hint = esc_hint
@@ -1018,8 +1028,16 @@ func _show_finish_button() -> void:
 	if _race_over or _finish_button != null or manager == null or not is_inside_tree():
 		return
 	var button_scale := clampf(_hud_scale, 0.85, 1.6)
-	_finish_button = UITheme.make_button("Finish Race →",
+	_finish_button = UITheme.make_button("Finish Race",
 		Vector2(250.0 * button_scale, 54.0 * button_scale), int(24.0 * button_scale))
+	# Drawn arrow, not "→": the bundled font has no arrow glyph, so the typed
+	# one printed a .notdef box on the web build.
+	var finish_arrow := UITheme.arrow_texture(
+		"right", UITheme.COLOR_TEXT, int(36.0 * button_scale))
+	if finish_arrow != null:
+		_finish_button.icon = finish_arrow
+		_finish_button.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		_finish_button.expand_icon = true
 	UITheme.hook_sounds(_finish_button)
 	_finish_button.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_finish_button.grow_horizontal = Control.GROW_DIRECTION_BOTH

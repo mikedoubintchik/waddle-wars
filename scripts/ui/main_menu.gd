@@ -16,6 +16,10 @@ const FISH_ICON_SVG := """<svg xmlns="http://www.w3.org/2000/svg" width="60" hei
 
 ## Authored width of the button column on the 1920x1080 desktop canvas.
 const COLUMN_BASE: float = 520.0
+## Account name budget in the status chip: characters before it is shortened to
+## "First L.", and the logical width it is finally trimmed to with an ellipsis.
+const AUTH_NAME_MAX_CHARS: int = 16
+const AUTH_NAME_MAX_WIDTH: float = 170.0
 
 ## Hero-button face: the saturated glacier blue of the menu icon set, one step
 ## deeper than UITheme's hover fill so Play reads as solid rather than washed.
@@ -207,7 +211,7 @@ func _daily_label() -> String:
 		return "Daily Done · %s" % RaceHUD.format_time(DailyChallenge.today_best())
 	var pending := DailyChallenge.pending_streak()
 	if pending > 1:
-		return "Daily · Day %d 🔥" % pending
+		return "Daily · Day %d" % pending
 	return "Daily Challenge"
 
 
@@ -353,11 +357,22 @@ func _build_status_chip(column: VBoxContainer) -> Control:
 		holder.add_child(chip)
 		host = holder
 	else:
-		chip.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-		chip.offset_left = -280.0
-		chip.offset_top = 16.0
+		# Pin the top-right CORNER and let the chip size itself from its own
+		# contents, growing leftward and downward. It used to be given a fixed
+		# rect (offset_left -280, later -560 when the auth controls appear),
+		# which ignores minimum size: a display name longer than that budget --
+		# any ordinary full name -- pushed "Sign Out" straight off the right
+		# edge of the screen.
+		chip.anchor_left = 1.0
+		chip.anchor_right = 1.0
+		chip.anchor_top = 0.0
+		chip.anchor_bottom = 0.0
+		chip.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		chip.grow_vertical = Control.GROW_DIRECTION_END
+		chip.offset_left = 0.0
 		chip.offset_right = -16.0
-		chip.offset_bottom = 70.0
+		chip.offset_top = 16.0
+		chip.offset_bottom = 0.0
 		add_child(chip)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", roundi(_u(16.0)))
@@ -402,13 +417,15 @@ func _build_status_chip(column: VBoxContainer) -> Control:
 	# Web: offer sign-in right on the menu — it backs up progress to the cloud
 	# and unlocks leaderboard posting. Chip widens to fit.
 	if LeaderboardClient.can_sign_in():
-		if not stacked:
-			chip.offset_left = -560.0
 		row.add_child(_chip_divider())
 		_auth_chip_label = Label.new()
 		_auth_chip_label.add_theme_font_size_override("font_size", _f(20))
 		_auth_chip_label.add_theme_color_override("font_color", Color(0.75, 0.85, 0.95))
 		_auth_chip_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		# Second guard on the same overflow: however the chip is laid out, one
+		# very long account name must not be allowed to set its width.
+		_auth_chip_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		_auth_chip_label.custom_minimum_size.x = _u(AUTH_NAME_MAX_WIDTH)
 		row.add_child(_auth_chip_label)
 		_auth_chip_button = UITheme.make_button(
 			"Sign In", _row_size(Vector2(150, 44)), _f(20))
@@ -443,11 +460,25 @@ func _refresh_auth_chip() -> void:
 	if _auth_chip_button == null:
 		return
 	if LeaderboardClient.signed_in:
-		_auth_chip_label.text = LeaderboardClient.display_name
+		_auth_chip_label.text = _short_account_name(LeaderboardClient.display_name)
 		_auth_chip_button.text = "Sign Out"
 	else:
 		_auth_chip_label.text = "Save progress online"
 		_auth_chip_button.text = "Sign In"
+
+
+## "Mike Doubintchik" -> "Mike D." A full name is the account's, not the
+## chip's, and the chip shares a corner with the wordmark.
+static func _short_account_name(full: String) -> String:
+	var name := full.strip_edges()
+	if name.length() <= AUTH_NAME_MAX_CHARS:
+		return name
+	var parts := name.split(" ", false)
+	if parts.size() > 1:
+		var shortened := "%s %s." % [parts[0], parts[parts.size() - 1].substr(0, 1)]
+		if shortened.length() <= AUTH_NAME_MAX_CHARS:
+			return shortened
+	return name.substr(0, AUTH_NAME_MAX_CHARS - 1) + "…"
 
 
 func _on_fish_changed(total: int) -> void:

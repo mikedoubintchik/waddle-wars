@@ -102,9 +102,16 @@ func _physics_process(delta: float) -> void:
 		var follow_dir := Vector3(-sin(_follow_yaw), 0.0, -cos(_follow_yaw))
 		var height := 2.5
 		var distance := 5.0
+		var look_lift := 0.9
 		if target.state == Racer.State.SLIDING:
-			height = 2.0
-			distance = 6.0
+			# Sliding used to DROP the camera (2.0) while the racer went prone
+			# and the look point stayed at head height, leaving barely six
+			# degrees of depression -- the fastest state in the game had the
+			# flattest, least readable view of the ground it was about to hit.
+			# Rise instead, and aim lower, so a slide looks down the track.
+			height = 3.15
+			distance = 6.2
+			look_lift = 0.55
 		elif target.state == Racer.State.SWIMMING:
 			height = 2.1
 			distance = 5.8
@@ -119,7 +126,7 @@ func _physics_process(delta: float) -> void:
 			height += 1.4
 			distance += 2.2
 		desired_pos = target.global_position - follow_dir * distance + Vector3.UP * height
-		look_point = target.global_position + follow_dir * (3.2 + speed_ratio * 3.2) + Vector3.UP * 0.9
+		look_point = target.global_position + follow_dir * (3.2 + speed_ratio * 3.2) + Vector3.UP * look_lift
 
 	if not _initialized:
 		_smoothed_pos = desired_pos

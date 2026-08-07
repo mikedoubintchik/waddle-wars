@@ -639,7 +639,7 @@ func _badge(unlocked: bool) -> Control:
 		return badge
 	# SVG module unavailable: keep the column, fall back to a glyph.
 	var glyph := Label.new()
-	glyph.text = "★" if unlocked else "🔒"
+	glyph.text = "*" if unlocked else "-"
 	glyph.add_theme_font_size_override("font_size", _f(30))
 	glyph.add_theme_color_override("font_color",
 		UITheme.COLOR_GOLD if unlocked else UITheme.COLOR_DISABLED)

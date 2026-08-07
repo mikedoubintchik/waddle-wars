@@ -829,7 +829,7 @@ func _build_endless(parent: Control) -> void:
 	var tint := UITheme.COLOR_GOLD if record else Color(0.95, 0.97, 1.0)
 	var hero := _hero(parent, "Endless Expedition", "Expedition Over!", 62, tint)
 	if record:
-		_badge(hero, "★  NEW HIGH SCORE  ★")
+		_badge(hero, "NEW HIGH SCORE")
 	var score := int(result.get("score", 0))
 	var stats: Array[Dictionary] = [
 		{"value": _fmt_int(score), "caption": "Score", "highlight": true},
@@ -849,7 +849,7 @@ func _build_time_trial(parent: Control) -> void:
 	var hero := _hero(parent, "%s · %s" % [_mode_name(), CoursesDB.display_name(Game.course_id)],
 		RaceHUD.format_time(time_value), 76, tint)
 	if record:
-		_badge(hero, "★  NEW RECORD  ★")
+		_badge(hero, "NEW RECORD")
 	# The run's time is already the headline, so the strip carries context
 	# instead of repeating it: the standing best and how far off it this run
 	# was. On a record run both of those *are* the headline, so only the fish
@@ -926,7 +926,7 @@ func _build_online_section(parent: Control, mode: String, course: String, value:
 					return
 				var rank := int(data.get("rank", 0))
 				if bool(data.get("improved", false)):
-					label.text = "★ Global rank #%d — new personal best posted!" % rank
+					label.text = "Global rank #%d — new personal best posted!" % rank
 				else:
 					label.text = "Global rank #%d (your best: %s)" % [
 						rank, LeaderboardClient.format_value(mode, int(data.get("best", value)))])

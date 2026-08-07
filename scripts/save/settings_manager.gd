@@ -41,6 +41,10 @@ var _governor_steps: int = 0
 var _render_scale_step: int = 0
 var _governor_fps_sum: float = 0.0
 var _governor_fps_count: int = 0
+## Consecutive healthy windows, counted toward giving resolution back.
+var _governor_good_windows: int = 0
+## Samples still to discard after a course load (see GOVERNOR_WARMUP_SAMPLES).
+var _governor_warmup: int = GOVERNOR_WARMUP_SAMPLES
 
 
 static func default_settings() -> Dictionary:
@@ -524,6 +528,16 @@ const GOVERNOR_SAMPLE_WINDOW: int = 8  # seconds of 1 Hz samples per decision
 ## the most common failure. 45 catches a halved 60 Hz client while staying clear
 ## of a healthy one.
 const GOVERNOR_MIN_FPS: float = 45.0
+## Comfortably above the trigger, so restoring resolution cannot immediately
+## re-trip the governor and leave the image oscillating.
+const GOVERNOR_RESTORE_FPS: float = 57.0
+## Consecutive healthy windows before resolution is given back. One good window
+## is noise (a shader finally linked, the tab regained focus); two is a trend.
+const GOVERNOR_RESTORE_WINDOWS: int = 2
+## Samples discarded after a course loads. The first seconds of a race are
+## shader links and streaming, not steady-state cost, and judging the whole
+## session on them was permanently softening healthy clients.
+const GOVERNOR_WARMUP_SAMPLES: int = 3
 ## high -> medium -> low, at most.
 const GOVERNOR_MAX_STEPS: int = 2
 
@@ -555,6 +569,10 @@ func _governor_tick(timer: Timer) -> void:
 		# the sampling window whenever no course is active.
 		_governor_fps_sum = 0.0
 		_governor_fps_count = 0
+		_governor_warmup = GOVERNOR_WARMUP_SAMPLES
+		return
+	if _governor_warmup > 0:
+		_governor_warmup -= 1
 		return
 	_governor_fps_sum += Engine.get_frames_per_second()
 	_governor_fps_count += 1
@@ -564,7 +582,22 @@ func _governor_tick(timer: Timer) -> void:
 	_governor_fps_sum = 0.0
 	_governor_fps_count = 0
 	if average >= GOVERNOR_MIN_FPS:
+		# Give resolution back once the client has proved it can hold a healthy
+		# frame rate. Without this the governor was a one-way ratchet: a single
+		# rough window during a shader link softened the image for the rest of
+		# the session, which is most of why the browser build stopped looking
+		# like the desktop one.
+		if _render_scale_step > 0 and average >= GOVERNOR_RESTORE_FPS:
+			_governor_good_windows += 1
+			if _governor_good_windows >= GOVERNOR_RESTORE_WINDOWS:
+				_governor_good_windows = 0
+				_render_scale_step -= 1
+				_apply_web_render_scale()
+				_apply_display("msaa", get_setting("display", "msaa"))
+		else:
+			_governor_good_windows = 0
 		return
+	_governor_good_windows = 0
 	# Resolution first. It is the cheapest thing to give up and the only lever
 	# that costs no content: a slightly softer image beats losing dressing,
 	# shadows and glow, and most devices that miss the budget miss it by a
