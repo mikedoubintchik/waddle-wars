@@ -99,6 +99,20 @@ window.__ww_tilt_ask = function () {
 // and Safari grants DeviceOrientation only to a request made from within one.
 // Asking from GDScript looked correct and was silently refused, with no prompt
 // shown and no error raised.
+// Explicit retry: try right now AND arm the next tap.
+//
+// The immediate attempt is worth making because the press that triggered it is
+// usually still inside the browser's activation window; the armed listener is
+// the fallback for when it is not. Before this, a retry could only ever work
+// on the tap AFTER the button, which is not what a button labelled "Try Again"
+// leads anyone to expect.
+window.__ww_tilt_retry = function () {
+	window.__ww_tilt._armed = 0;
+	window.__ww_tilt.state = 'idle';
+	window.__ww_tilt_arm();
+	window.__ww_tilt_ask();
+};
+
 window.__ww_tilt_arm = function () {
 	// Re-arm after a refusal. The first version returned early whenever it had
 	// ever been armed, which made the "Try Again" button a no-op -- it looked
@@ -145,11 +159,12 @@ static func supported() -> bool:
 
 ## Arms the sensor request against the next real DOM gesture. Safe to call
 ## repeatedly; the shim only arms once until it has fired.
-static func request_permission() -> void:
+static func request_permission(retry: bool = false) -> void:
 	if not OS.has_feature("web") or GameConfig.is_headless():
 		return
 	_install_shim()
-	JavaScriptBridge.eval("window.__ww_tilt_arm()", true)
+	JavaScriptBridge.eval(
+		"window.__ww_tilt_retry()" if retry else "window.__ww_tilt_arm()", true)
 
 
 ## Where the sensor currently stands, for the settings row to show. One of

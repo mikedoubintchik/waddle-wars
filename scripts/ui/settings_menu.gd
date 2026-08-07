@@ -852,12 +852,19 @@ func _add_tilt_status_row(body: VBoxContainer) -> void:
 				button.text = "Try Again"
 				button.visible = true
 				remedy.visible = true
-				remedy.text = ("On iPhone or iPad, turn on Settings → Apps → Safari"
-					+ " → Motion & Orientation Access, then reload this page."
-					+ " Every browser on iOS uses Safari underneath, so that"
-					+ " switch covers Chrome too. If it is already on, the site"
-					+ " has remembered an earlier refusal — clear this site's"
-					+ " data, or press Try Again and then tap the screen once.")
+				# No arrow glyphs here. ThemeDB.fallback_font has none, and a web
+				# export has no OS fallback, so a typed one is a .notdef box --
+				# which is exactly what shipped in the first version of this
+				# very paragraph.
+				remedy.text = ("iPhone: open Settings, tap Apps, tap Safari, and"
+					+ " look for Motion & Orientation Access. Turn it on, then"
+					+ " reload this page. Every browser on iOS is Safari"
+					+ " underneath, so that one switch covers Chrome too."
+					+ " If you cannot find it, your iOS version has no such"
+					+ " switch and always asks instead — in that case the site"
+					+ " is remembering an earlier refusal. Clear this site's"
+					+ " data (Settings, Apps, Safari, Advanced, Website Data),"
+					+ " then reload and allow motion when asked.")
 			"nosensor", "unsupported":
 				remedy.visible = false
 				status.text = "No motion sensor on this device"
@@ -871,7 +878,7 @@ func _add_tilt_status_row(body: VBoxContainer) -> void:
 				button.visible = true
 	refresh.call()
 	button.pressed.connect(func() -> void:
-		TiltSteering.request_permission()
+		TiltSteering.request_permission(true)
 		refresh.call())
 	# The browser answers asynchronously, so poll while this screen is open
 	# rather than leaving a stale label until the player navigates away.
