@@ -12,7 +12,16 @@ source /Users/ninja/Work/ninja-consulting-ai/.local/deploy.env
 # to the leaderboard's node_modules would not resolve.
 WRANGLER="$PWD/leaderboard/node_modules/.bin/wrangler"
 
+# Stamp the build so a screenshot can say which code it is. Restored after the
+# export so the working tree is not left dirty by a deploy.
+BUILD_ID=$(git rev-parse --short HEAD)
+CONFIG="scripts/utilities/game_config.gd"
+cp "$CONFIG" "$CONFIG.bak"
+sed -i '' "s/^const BUILD_ID: String = \".*\"/const BUILD_ID: String = \"$BUILD_ID\"/" "$CONFIG"
+
 godot --headless --export-release "Web" build/web/index.html
+
+command mv -f "$CONFIG.bak" "$CONFIG"
 command cp -f web/share.png build/web/share.png
 
 content_type() {

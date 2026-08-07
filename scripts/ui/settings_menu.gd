@@ -120,6 +120,7 @@ func _ready() -> void:
 	_build_gameplay_section()
 	_build_accessibility_section()
 	_build_online_section()
+	_build_about_footer()
 
 	# Closing note plus breathing room so the last card is never flush against
 	# the bottom edge of the scroll viewport.
@@ -367,6 +368,30 @@ func _divider() -> Control:
 
 ## Builds a section card and returns the VBox its rows go into. `id` is the
 ## SettingsManager section, which is also what the card's Reset restores.
+## Small print naming the exact build and the canvas it is laying out for.
+##
+## Every screenshot of a layout bug so far has been ambiguous about which of
+## those two things was wrong, and several turned out to be neither -- just a
+## cached build from before the fix. One line makes both answerable from a
+## photo of the screen.
+func _build_about_footer() -> void:
+	var line := Label.new()
+	var view := get_viewport_rect().size
+	var scale_size := Vector2i.ZERO
+	var window := get_window()
+	if window != null:
+		scale_size = window.content_scale_size
+	line.text = "Waddle Wars %s · build %s · canvas %d×%d · design %d×%d" % [
+		GameConfig.GAME_VERSION, GameConfig.BUILD_ID,
+		int(view.x), int(view.y), scale_size.x, scale_size.y]
+	line.add_theme_font_size_override("font_size", _f(14))
+	line.add_theme_color_override("font_color", Color(0.52, 0.62, 0.75, 0.75))
+	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sections.add_child(line)
+
+
 func _section(id: String, title: String) -> VBoxContainer:
 	var card := PanelContainer.new()
 	var style := UITheme.make_card_style()

@@ -4,6 +4,14 @@ extends Node
 
 const GAME_NAME: String = "Waddle Wars"
 const GAME_VERSION: String = "1.0.0"
+## Short git hash of the build, stamped by tools/deploy_cloudflare.sh at export
+## time. "dev" in a working tree.
+##
+## This exists because three separate bug reports this week turned out to be a
+## stale cached build rather than the defect described, and there was no way to
+## tell from a screenshot which code the player was actually running. Now there
+## is.
+const BUILD_ID: String = "dev"
 const STUDIO_NAME: String = "Ninja Consulting"
 const SAVE_VERSION: int = 1
 
