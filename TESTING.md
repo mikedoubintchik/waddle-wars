@@ -210,3 +210,25 @@ Each was validated alone in its own worktree before combining, which is what
 separated the real causes (low-speed steer assist; aggressive platform lurch
 config) from the subsystems blamed first.
 
+
+2026-08-07: units 63/63; menu_load 0 failures; race_sim PASS on all five
+courses (glacier, aurora, iceberg, cinder, hollow); tutorial_sim PASS;
+endless_sim PASS. Racer shader additionally verified under
+`--rendering-method gl_compatibility`, which is the actual web path.
+
+New QA harnesses this round:
+- `tests/prop_shot.tscn` — stands one hazard or prop in a neutral set with a
+  fixed camera (`prop=wind|icicle|bear`). Racing past an obstacle on autopilot
+  gives it to you for a third of a second at whatever angle the course happens
+  to offer; this is how the icicle's intersecting-plate collar and the wind
+  zone's missing structure were actually seen.
+- `screenshot_tour` gained `uiscale=` (layout bugs that only appear for players
+  who raise the accessibility scale are invisible at the default),
+  `shot=customize_buy` (opens the purchase confirmation) and
+  `shot=course_select` (advances to the course picker so poster art can be
+  checked rather than assumed).
+
+Lesson worth keeping: three separate visual defects this round were found ONLY
+by reading captured frames back — the icicle collar, the penguin's tail wedge
+rendering as a mouth, and the polar bears standing behind a translucent wall.
+None of them failed a test.

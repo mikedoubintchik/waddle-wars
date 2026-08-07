@@ -386,3 +386,71 @@ What changed, in order:
 
 The canonical URL did not change, so `ShareManager.SHARE_URL`, the OG/Twitter
 meta in `export_presets.cfg` and every shared link still resolve correctly.
+
+## 2026-08-07 — Reactive defect round, then a graphics/physics pass
+
+### Root causes found (each explained several reported symptoms)
+
+**Every SFX broken; endless whooshing.** `racer.gd` set `loop_mode =
+LOOP_FORWARD` on the *shared* `sfx_slide` resource so the belly scrape could
+loop. `AudioManager.get_stream()` returns one shared resource per key, so every
+one-shot use of that sound — the wind zone fired one every 2.6 s — looped
+forever, and a looping stream in a one-shot pool player never frees it. Within
+a minute the pool was a chorus of stuck loops. Fixed at both ends: the racer
+duplicates before looping, and the one-shot pools now take guaranteed
+non-looping copies (`AudioManager._one_shot_stream`), so no future caller can
+reintroduce it.
+
+**"Buttons are cut off."** `UITheme.apply_ui_scale` multiplied each screen
+root's *transform* by the accessibility `ui_scale`, on top of
+`SettingsManager._apply_ui_scale` already implementing it correctly by
+shrinking `content_scale_size`. The design-size route reflows; a Control
+transform cannot, it only magnifies about the pivot. At `ui_scale` 1.5 the
+layout was fitted to a 1280x720 canvas and then blown up 1.4x, pushing ~40% of
+every screen off the display — worse the more the player needed it. Reproduced
+at 1064x676 (`qa_shots/ui/customize_scale.png`), fixed, re-verified on
+customize/settings/results/main menu.
+
+**Arrows, stars and emoji rendered as hex boxes.** `ThemeDB.fallback_font`
+carries none of U+2190..2194, U+25B2/BC/C4/BA, U+2605 or any emoji, and a web
+export has no OS font fallback. Added `UITheme.arrow_texture/arrow_icon` and
+removed every typed symbol from in-engine strings. `share_manager` keeps its
+emoji — that text is rendered by the destination platform, not by Godot.
+
+**"Partially rendered acceleration pads."** Regression from the corner banking
+added the previous round: the ribbon banks, `guide.transform_at()` does not,
+and pads mounted on the unbanked frame sat crooked in the deck. Added
+`TrackBuilder.deck_transform_at()`.
+
+**Loading freeze.** Measured rather than guessed: course construction is
+30-65 ms headless across all five courses. The cost is GL program linking,
+which ANGLE charges in milliseconds. `ShaderWarmup` already spread that per
+frame but the overlay lifted after a fixed 3 frames, dumping the stall into the
+first seconds of play. The overlay now waits for the warmup (capped at 180
+frames).
+
+### Content and quality
+- Two new courses: **Cinder Coast** (`cinder`) and **Sapphire Hollow**
+  (`hollow`), with their own poster art and sky gradients. Roster is 5.
+- Leaderboard tabs now derive from `CoursesDB.ORDER` — the hand-written list
+  had left both new courses with no board.
+- Procedural **polar bears** on glacier. Placement is *searched*, not authored:
+  candidate sites must have ground under all four paws and a clear sightline
+  from the racing line. All five hand-picked sites failed both tests.
+- **Racer reads as a bird at distance**: mantle break baked into vertex colour,
+  dual-polarity edge (ink line for bright courses, emissive rim for dark),
+  per-racer identity tint. New `assets/shaders/penguin.gdshader`.
+- **Racer conforms to the surface** and shifts weight under acceleration; it
+  had been staying level on banked corners.
+- Shield power-up rebuilt as a fresnel shell — it had been an unshaded 30%
+  alpha sphere that erased the character wearing it.
+- Snow drifts have collision and plough (`SnowDriftField`); wind zones rebuilt
+  as gated course furniture; icicle mesh and shader rebuilt.
+
+### Known open
+- Loader still cannot animate through a genuinely blocking frame; the fix
+  removes the stall from gameplay, it does not make the block interruptible.
+- Glacier compresses the racer's mantle break more than aurora does; past ~20 m
+  identity is carried by hats rather than plumage.
+- `RESET_AT.txt` reads 2026-07-21, long elapsed. Deadline behaviour is not
+  being enforced.
