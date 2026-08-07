@@ -14,12 +14,24 @@ extends Control
 ## uppercase letter-spaced caption, and one promoted primary action in solid
 ## glacier blue (Challenge Friends) with every secondary kept quieter.
 
-const TABS: Array[Dictionary] = [
-	{"mode": "time", "course": "glacier", "label": "Glacier"},
-	{"mode": "time", "course": "aurora", "label": "Aurora"},
-	{"mode": "time", "course": "iceberg", "label": "Iceberg"},
-	{"mode": "endless", "course": "endless", "label": "Endless"},
-]
+## Board tabs: one per race course, plus Endless.
+##
+## Built from CoursesDB rather than hand-listed. The hand-listed version named
+## three courses, so the two added after it had no board at all -- a course you
+## can race but cannot post a time on is a course that quietly does not count.
+## Anything added to the roster from here on gets a tab for free.
+static func tabs() -> Array[Dictionary]:
+	var list: Array[Dictionary] = []
+	for id: String in CoursesDB.ORDER:
+		var info := CoursesDB.get_item(id)
+		# First word of the course name: "Glacier Gauntlet" -> "Glacier". Tabs
+		# share a row, so a full two-word name would not fit five of them.
+		var full := String(info.get("name", id.capitalize()))
+		var space := full.find(" ")
+		list.append({"mode": "time", "course": id,
+			"label": full.substr(0, space) if space > 0 else full})
+	list.append({"mode": "endless", "course": "endless", "label": "Endless"})
+	return list
 
 ## Authored width of the board column on the 1920x1080 desktop canvas.
 const CARD_WIDTH: float = 880.0
@@ -352,8 +364,9 @@ func _build_tabs(parent: Control) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", _gap(6))
 	strip.add_child(row)
-	for i: int in TABS.size():
-		var tab: Dictionary = TABS[i]
+	var tab_list := tabs()
+	for i: int in tab_list.size():
+		var tab: Dictionary = tab_list[i]
 		var button := UITheme.make_button(
 			String(tab["label"]), _row_size(Vector2(0, 48)), _f(21))
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -744,7 +757,7 @@ func _refresh_records() -> void:
 	for child in _records_box.get_children():
 		_records_box.remove_child(child)
 		child.queue_free()
-	var active_course := String(TABS[_tab_index]["course"])
+	var active_course := String(tabs()[_tab_index]["course"])
 	var index := 0
 	for course_id: String in CoursesDB.ORDER:
 		var best := Progression.best_time(course_id)
@@ -981,7 +994,7 @@ func _select_tab(index: int) -> void:
 	_tab_index = index
 	for i: int in _tab_buttons.size():
 		_tab_buttons[i].button_pressed = i == index
-	var tab: Dictionary = TABS[index]
+	var tab: Dictionary = tabs()[index]
 	var mode := String(tab["mode"])
 	_board_caption.text = ("%s · %s" % [
 		_board_name(tab), "Best Times" if mode == "time" else "High Scores"]).to_upper()

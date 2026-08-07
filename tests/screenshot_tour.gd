@@ -51,6 +51,13 @@ func _ready() -> void:
 			# scene, which frees the tour and every timer connected to it.
 			var opener := BuyDialogOpener.new()
 			get_tree().root.add_child.call_deferred(opener)
+		"course_select":
+			# Course-picker step of mode select, so the per-course poster art can
+			# be inspected. Same root-parented opener trick as customize_buy.
+			Game.mode = Game.Mode.QUICK_RACE
+			SceneRouter.go_to.call_deferred(Game.SCENE_MODE_SELECT)
+			var stepper := CourseStepOpener.new()
+			get_tree().root.add_child.call_deferred(stepper)
 		"achievements":
 			SceneRouter.go_to.call_deferred(Game.SCENE_ACHIEVEMENTS)
 		"leaderboard":
@@ -168,6 +175,39 @@ class BuyDialogOpener:
 			return node
 		for child: Node in node.get_children():
 			var found := _find_customize(child)
+			if found != null:
+				return found
+		return null
+
+
+## Advances mode select to its course-picker step once that screen exists.
+class CourseStepOpener:
+	extends Node
+
+	var _elapsed: float = 0.0
+	var _done: bool = false
+
+	func _process(delta: float) -> void:
+		if _done:
+			return
+		_elapsed += delta
+		if _elapsed < 0.8:
+			return
+		var screen := _find(get_tree().root)
+		if screen == null:
+			if _elapsed > 8.0:
+				_done = true
+				print("[shot] mode select never appeared")
+			return
+		_done = true
+		screen.call("_show_course_step")
+		print("[shot] advanced to course step")
+
+	func _find(node: Node) -> Node:
+		if node.has_method("_show_course_step") and node.has_method("_show_mode_step"):
+			return node
+		for child: Node in node.get_children():
+			var found := _find(child)
 			if found != null:
 				return found
 		return null
