@@ -58,6 +58,20 @@ uniform float ident_amt : hint_range(0.0, 1.0) = 0.45;
 // objects stuck to the back rather than as part of it. They get a low
 // edge_gain; the body and the parts that actually own silhouette keep 1.0.
 uniform float edge_gain : hint_range(0.0, 3.0) = 1.0;
+// Distance contrast hold. Bright sun plus the ACES shoulder compresses the
+// head/mantle break exactly where it matters most: near the racer there is
+// plenty of screen area to read detail from, and past ~20 m the body converges
+// to one cool grey and identity falls back on whatever hat is on top. This
+// expands local contrast about a fixed pivot as distance rises, so the break
+// that carries the whole silhouette survives to the range it is needed at.
+uniform float contrast_far : hint_range(1.0, 1.8) = 1.26;
+// Value the expansion pivots around -- between the near-black head and the
+// pale mantle, so one goes down and the other goes up rather than both sliding.
+uniform float contrast_pivot : hint_range(0.0, 1.0) = 0.34;
+// How far the body itself takes the racer's identity colour once feather
+// detail has stopped resolving. Identity has to migrate from texture to hue as
+// range increases, or eight racers converge on the same grey again.
+uniform float ident_body : hint_range(0.0, 1.0) = 0.26;
 
 varying vec3 v_obj;
 
@@ -66,7 +80,22 @@ void vertex() {
 }
 
 void fragment() {
+	float dist = length(VERTEX);                       // view-space depth
+	float near_k = 1.0 - smoothstep(5.0, 15.0, dist);  // barb scale
+	float mid_k = 1.0 - smoothstep(16.0, 40.0, dist);  // feather-tract scale
+	float far_k = smoothstep(3.0, 18.0, dist);         // edge-treatment ramp
+
 	vec3 base = COLOR.rgb * tint.rgb;
+	// Hold the head/mantle break open with distance, on the ALBEDO.
+	//
+	// The first attempt expanded the LIT colour, which on a sunlit course sits
+	// almost entirely above the pivot -- so it pushed nearly every fragment up
+	// and washed the racer out instead of separating it. The break is a
+	// property of the plumage, not of the lighting, so the expansion belongs
+	// here, before the light touches it: head albedo goes down, mantle albedo
+	// goes up, and every mask derived from lum below inherits the wider gap.
+	base = clamp(mix(vec3(contrast_pivot), base, mix(1.0, contrast_far, far_k)),
+		vec3(0.0), vec3(1.0));
 	float lum = dot(base, vec3(0.299, 0.587, 0.114));
 	// 1 on the dark head/rump feathers, fading off across the pale mantle and
 	// gone on the white belly.
@@ -79,11 +108,6 @@ void fragment() {
 	// untextured is what made the back read as glazed ceramic. Only the white
 	// belly opts out.
 	float feather_m = 1.0 - smoothstep(0.58, 0.90, lum);
-
-	float dist = length(VERTEX);                       // view-space depth
-	float near_k = 1.0 - smoothstep(5.0, 15.0, dist);  // barb scale
-	float mid_k = 1.0 - smoothstep(16.0, 40.0, dist);  // feather-tract scale
-	float far_k = smoothstep(3.0, 18.0, dist);         // edge-treatment ramp
 
 	// --- feather structure, two scales -------------------------------------
 	float barbs = sin(v_obj.x * 340.0 + v_obj.y * 110.0) * sin(v_obj.z * 300.0 - v_obj.y * 70.0);
@@ -150,6 +174,14 @@ void fragment() {
 		0.50 + 0.30 * sin(fres * 9.0 + 3.6),
 		0.70 + 0.25 * sin(fres * 9.0 + 5.2));
 
+	// --- distance identity hold ---------------------------------------------
+	// Both of these are no-ops up close (far_k is 0) and ramp in with range.
+	float body_lum = dot(col, vec3(0.299, 0.587, 0.114));
+	// Re-tint toward the racer's colour at constant luminance, so the hue
+	// carries identity without disturbing the value structure above.
+	float ident_lum = max(dot(ident.rgb, vec3(0.299, 0.587, 0.114)), 0.05);
+	vec3 id_col = ident.rgb * (body_lum / ident_lum);
+	col = mix(col, id_col, far_k * ident_body * rim_m);
 	ALBEDO = clamp(col, vec3(0.0), vec3(1.0));
 	// Rim + sheen + a tiny light-independent skylight floor on the sky-facing
 	// dorsal. The floor exists for the aurora course: with only a dim night
