@@ -54,6 +54,34 @@ func attach_to(racer: Racer) -> void:
 	target = racer
 	_mode_finish = false
 	_initialized = false
+	# Place the rig NOW rather than on the first physics tick.
+	#
+	# race.gd makes this camera current as soon as it is attached, so any frame
+	# drawn before _physics_process first runs is rendered from wherever the
+	# node happens to sit -- world origin. On most courses origin is close
+	# enough to the start that nobody notices; on Cinder Coast origin is under
+	# the sea plane, so the race opened on a frame shot from beneath the water
+	# looking up at the underside of the track. Snapping to a sane pose here
+	# means there is no such frame to catch.
+	if racer != null and racer.is_inside_tree():
+		_snap_behind_target()
+
+
+## Puts the rig immediately behind and above the target, without waiting for a
+## physics tick. Used on attach and by the first tick's own initialisation.
+func _snap_behind_target() -> void:
+	if target == null or not is_instance_valid(target):
+		return
+	var yaw := _heading_yaw()
+	_follow_yaw = yaw
+	_prev_follow_yaw = yaw
+	var follow_dir := Vector3(-sin(yaw), 0.0, -cos(yaw))
+	_smoothed_pos = target.global_position - follow_dir * 5.0 + Vector3.UP * 2.5
+	_smoothed_look = target.global_position + follow_dir * 3.2 + Vector3.UP * 0.9
+	_initialized = true
+	global_position = _smoothed_pos
+	if _smoothed_pos.distance_squared_to(_smoothed_look) > 0.01:
+		look_at(_smoothed_look, Vector3.UP)
 
 
 func add_shake(amount: float) -> void:
