@@ -856,15 +856,12 @@ func _add_tilt_status_row(body: VBoxContainer) -> void:
 				# export has no OS fallback, so a typed one is a .notdef box --
 				# which is exactly what shipped in the first version of this
 				# very paragraph.
-				remedy.text = ("iPhone: open Settings, tap Apps, tap Safari, and"
-					+ " look for Motion & Orientation Access. Turn it on, then"
-					+ " reload this page. Every browser on iOS is Safari"
-					+ " underneath, so that one switch covers Chrome too."
-					+ " If you cannot find it, your iOS version has no such"
-					+ " switch and always asks instead — in that case the site"
-					+ " is remembering an earlier refusal. Clear this site's"
-					+ " data (Settings, Apps, Safari, Advanced, Website Data),"
-					+ " then reload and allow motion when asked.")
+				remedy.text = ("Press Try Again, then lift your finger anywhere"
+					+ " on the screen — the browser only grants motion access"
+					+ " as a press ends. If no prompt appears after a couple of"
+					+ " tries, reload the page. Older iPhones also have a"
+					+ " switch under Settings, Apps, Safari called Motion &"
+					+ " Orientation Access; newer ones always ask instead.")
 			"nosensor", "unsupported":
 				remedy.visible = false
 				status.text = "No motion sensor on this device"

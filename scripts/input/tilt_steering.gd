@@ -76,10 +76,16 @@ window.__ww_tilt_ask = function () {
 				if (s === 'granted') {
 					window.__ww_tilt.state = 'listening';
 					window.__ww_tilt_listen();
-				} else {
-					window.__ww_tilt.state = 'denied';
+					return;
 				}
-			}).catch(function () { window.__ww_tilt.state = 'denied'; });
+				window.__ww_tilt.state = 'denied';
+				window.__ww_tilt_rearm();
+			}).catch(function () {
+				// A throw here usually means "not allowed from this context"
+				// rather than a real refusal, so it must not be terminal.
+				window.__ww_tilt.state = 'denied';
+				window.__ww_tilt_rearm();
+			});
 			return;
 		}
 	} catch (_) {
@@ -89,6 +95,17 @@ window.__ww_tilt_ask = function () {
 	// No permission gate (Android, desktop): just listen.
 	window.__ww_tilt.state = 'listening';
 	window.__ww_tilt_listen();
+};
+
+// A refusal is not necessarily the player's answer -- it is also what Safari
+// returns when the call was made outside an activation. Re-arm a couple of
+// times so a bad context costs one tap rather than the whole feature, while
+// still giving up rather than nagging somebody who really did say no.
+window.__ww_tilt_rearm = function () {
+	window.__ww_tilt.tries = (window.__ww_tilt.tries || 0) + 1;
+	if (window.__ww_tilt.tries >= 3) { return; }
+	window.__ww_tilt._armed = 0;
+	window.__ww_tilt_arm();
 };
 
 // Arms the ask on the next REAL DOM gesture.
@@ -121,15 +138,24 @@ window.__ww_tilt_arm = function () {
 	if (st === 'granted' || st === 'listening' || st === 'pending') { return; }
 	if (window.__ww_tilt._armed) { return; }
 	window.__ww_tilt._armed = 1;
+	// Arm on the END of a press, never the start.
+	//
+	// This is why the prompt never appeared. pointerdown fires first, so it was
+	// always the event that spent the arm -- and a press that has gone DOWN but
+	// not yet UP does not give the page transient activation for a gated API.
+	// Safari therefore rejected requestPermission() immediately, without ever
+	// showing a prompt, and the handler had already unhooked touchend and click
+	// so the events that WOULD have worked never got a turn. Reported as
+	// "Blocked" by a player who had never been asked anything.
 	var fire = function () {
-		window.removeEventListener('pointerdown', fire, true);
 		window.removeEventListener('touchend', fire, true);
+		window.removeEventListener('pointerup', fire, true);
 		window.removeEventListener('click', fire, true);
 		window.__ww_tilt._armed = 0;
 		window.__ww_tilt_ask();
 	};
-	window.addEventListener('pointerdown', fire, true);
 	window.addEventListener('touchend', fire, true);
+	window.addEventListener('pointerup', fire, true);
 	window.addEventListener('click', fire, true);
 };
 """
