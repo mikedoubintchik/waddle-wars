@@ -118,6 +118,12 @@ func _ready() -> void:
 			get_tree().quit())
 
 	var chip := _build_status_chip(vbox)
+	# Spend the one motion-permission ask on the player's next tap, whatever it
+	# happens to be. Tilt steering is on by default on a phone, but iOS will
+	# not grant the sensor to a page that has not asked from inside a real user
+	# gesture -- so without this the setting would be on and doing nothing.
+	TiltSteering.arm_permission_on_first_gesture(self)
+	_maybe_announce_tilt()
 	UITheme.attach_swipe_back(self, func() -> void:
 		SceneRouter.go_to(Game.SCENE_TITLE))
 	var entrance_items: Array[Control] = [title, tagline]
@@ -497,3 +503,57 @@ func _unhandled_input(event: InputEvent) -> void:
 		accept_event()
 		AudioManager.ui_click()
 		SceneRouter.go_to(Game.SCENE_TITLE)
+
+
+## One-time line telling a phone player that leaning steers, and where to turn
+## it off. A toast rather than a modal: the feature is already on and working,
+## so there is nothing to decide -- interrupting them to say so would be worse
+## than saying nothing.
+func _maybe_announce_tilt() -> void:
+	if GameConfig.is_headless() or not TiltSteering.supported():
+		return
+	if bool(SettingsManager.get_setting("gameplay", "tilt_seen")):
+		return
+	if not bool(SettingsManager.get_setting("gameplay", "tilt_steering")):
+		return
+	SettingsManager.set_setting("gameplay", "tilt_seen", true)
+
+	var toast := PanelContainer.new()
+	var style := UITheme.make_panel_style(
+		Color(0.055, 0.10, 0.18, 0.94), Color(UITheme.COLOR_ACCENT, 0.45))
+	style.set_corner_radius_all(14)
+	style.content_margin_left = _u(20.0)
+	style.content_margin_right = _u(20.0)
+	style.content_margin_top = _u(14.0)
+	style.content_margin_bottom = _u(14.0)
+	style.shadow_size = 10
+	toast.add_theme_stylebox_override("panel", style)
+	toast.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	toast.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	toast.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	toast.offset_bottom = -_u(28.0)
+	toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	toast.modulate.a = 0.0
+	add_child(toast)
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", roundi(_u(12.0)))
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	toast.add_child(row)
+	row.add_child(UITheme.arrow_icon("both", _u(26.0), UITheme.COLOR_ACCENT))
+	var text := Label.new()
+	text.text = "Tilt to steer is on — lean your phone. Change it in Settings."
+	text.add_theme_font_size_override("font_size", _f(18))
+	text.add_theme_color_override("font_color", UITheme.COLOR_TEXT)
+	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# Inset from the column so the toast reads as a card sitting on the
+	# screen rather than a bar welded to both edges.
+	text.custom_minimum_size.x = minf(_u(430.0), _column_width * 0.82)
+	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(text)
+
+	var tween := create_tween()
+	tween.tween_property(toast, "modulate:a", 1.0, 0.3)
+	tween.tween_interval(5.5)
+	tween.tween_property(toast, "modulate:a", 0.0, 0.5)
+	tween.tween_callback(toast.queue_free)

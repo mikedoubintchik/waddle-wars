@@ -98,14 +98,56 @@ static func supported() -> bool:
 	return GameConfig.is_mobile() or GameConfig.has_touchscreen()
 
 
+## True once this session has spent its one permission request.
+static var _asked: bool = false
+
+
 ## Asks the browser for sensor access. MUST be called from inside a real user
 ## gesture -- iOS grants nothing otherwise, and only ever asks once, so a
 ## wasted call costs the feature for that session.
 static func request_permission() -> void:
-	if not OS.has_feature("web") or GameConfig.is_headless():
+	if _asked or not OS.has_feature("web") or GameConfig.is_headless():
 		return
+	_asked = true
 	_install_shim()
 	JavaScriptBridge.eval("window.__ww_tilt_request()", true)
+
+
+## Fires the permission request on the player's NEXT real tap, then stops
+## listening. Nothing to dismiss and nothing extra to press.
+##
+## The setting is on by default, but iOS will not grant motion access to a page
+## that has not asked from inside a gesture -- and a page cannot manufacture
+## one. So rather than putting a modal in front of somebody just to harvest a
+## press, the ask rides whatever they were going to tap anyway. On Android and
+## desktop browsers there is no permission at all and this is a no-op beyond
+## installing the listener.
+static func arm_permission_on_first_gesture(host: Node) -> void:
+	if _asked or GameConfig.is_headless() or not supported():
+		return
+	if not bool(SettingsManager.get_setting("gameplay", "tilt_steering")):
+		return
+	var arm := GestureArm.new()
+	arm.name = "TiltPermissionArm"
+	host.add_child(arm)
+
+
+## Watches for one press, spends the permission ask on it, and frees itself.
+class GestureArm:
+	extends Node
+
+	func _ready() -> void:
+		process_mode = Node.PROCESS_MODE_ALWAYS
+
+	func _input(event: InputEvent) -> void:
+		var pressed := (event is InputEventScreenTouch
+				and (event as InputEventScreenTouch).pressed)
+		if not pressed and event is InputEventMouseButton:
+			pressed = (event as InputEventMouseButton).pressed
+		if not pressed:
+			return
+		TiltSteering.request_permission()
+		queue_free()
 
 
 static func _install_shim() -> void:

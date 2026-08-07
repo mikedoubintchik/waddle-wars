@@ -39,6 +39,9 @@ var _governor_override: String = ""
 var _governor_steps: int = 0
 ## How far the web render scale has been walked down by the governor.
 var _render_scale_step: int = 0
+## True only while apply_all() replays every setting at startup. Anything that
+## must happen on a real user gesture checks it.
+var _booting: bool = false
 var _governor_fps_sum: float = 0.0
 var _governor_fps_count: int = 0
 ## Consecutive healthy windows, counted toward giving resolution back.
@@ -71,8 +74,12 @@ static func default_settings() -> Dictionary:
 			"vibration": true,
 			"slide_toggle_mode": false,  # false = hold to slide
 			"tutorial_prompts": true,
-			"tilt_steering": false,   # lean the phone to steer (mobile only)
+			# On by default: leaning is the nicer way to play on a phone and a
+			# setting nobody discovers may as well not exist. Inert on desktop
+			# (PlayerController gates on TiltSteering.supported()).
+			"tilt_steering": true,
 			"tilt_sensitivity": 1.0,
+			"tilt_seen": false,       # one-time "leaning steers" notice
 			"tilt_invert": false,
 			"touch_controls": "auto",  # auto | on | off
 			"touch_scale": 1.0,
@@ -124,10 +131,12 @@ func set_setting(section: String, key: String, value: Variant) -> void:
 
 
 func apply_all() -> void:
+	_booting = true
 	for section: String in ["display", "audio", "gameplay", "accessibility"]:
 		var defaults: Dictionary = default_settings()[section]
 		for key: Variant in defaults.keys():
 			_apply_one(section, key, get_setting(section, key))
+	_booting = false
 	_apply_control_remaps()
 
 
@@ -315,14 +324,15 @@ func _apply_one(section: String, key: String, value: Variant) -> void:
 				for action: String in ["steer_left", "steer_right"]:
 					if InputMap.has_action(action):
 						InputMap.action_set_deadzone(action, clampf(float(value), 0.05, 0.6))
-			elif key == "tilt_steering" and bool(value):
-				# Ask for sensor access HERE, on the toggle's own press.
+			elif key == "tilt_steering" and bool(value) and not _booting:
+				# Ask for sensor access on the toggle's own press.
 				#
 				# iOS grants DeviceOrientation only to a request made inside a
 				# real user gesture, and it asks once. This runs synchronously
-				# on the button's handler, so the gesture is still live; firing
-				# it later -- when a race starts, say -- would be refused with
-				# no way to try again this session.
+				# on the button's handler, so the gesture is still live. The
+				# _booting guard matters now that the setting defaults to on:
+				# apply_all() runs at startup with no gesture behind it, and
+				# spending the one ask there would burn it for the session.
 				TiltSteering.request_permission()
 		"accessibility":
 			if key == "ui_scale":
