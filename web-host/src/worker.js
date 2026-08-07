@@ -27,6 +27,9 @@ const CONTENT_TYPES = {
 // If-None-Match handling below: without it, every reload re-downloads ~38 MB.
 function cacheControl(key) {
   if (key.endsWith('.png')) return 'public, max-age=86400';
+  // The entry document names the versioned pack URL, so holding a stale copy
+  // of it pins the whole build. It is 15 KB; never cache it.
+  if (key === 'index.html') return 'no-store';
   return 'public, max-age=0, must-revalidate';
 }
 
