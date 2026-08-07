@@ -316,9 +316,26 @@ func _apply_one(section: String, key: String, value: Variant) -> void:
 ## the 1920x1080 canvas shrunk onto a phone leaves menus physically tiny.
 const TOUCH_UI_BOOST: float = 1.35
 
+## Re-applies the UI scale whenever the window changes shape, so rotating a
+## phone swaps the design size with it rather than leaving a portrait device on
+## a landscape canvas.
+func _watch_orientation() -> void:
+	if GameConfig.is_headless():
+		return
+	var window := get_window()
+	if window == null or window.size_changed.is_connected(_on_window_resized):
+		return
+	window.size_changed.connect(_on_window_resized)
+
+
+func _on_window_resized() -> void:
+	_apply_ui_scale(float(get_setting("display", "ui_scale")))
+
+
 func _apply_ui_scale(user_scale: float) -> void:
 	if GameConfig.is_headless():
 		return
+	_watch_orientation()
 	var boost := TOUCH_UI_BOOST if GameConfig.has_touchscreen() or is_mobile_web() else 1.0
 	var window := get_window()
 	if window == null:
@@ -327,8 +344,18 @@ func _apply_ui_scale(user_scale: float) -> void:
 	# every resize — writing it is a no-op. Shrinking the design size is the
 	# reliable lever: smaller content_scale_size => larger on-screen UI.
 	var scale := clampf(user_scale, 0.8, 1.6) * boost
+	# Orientation-aware design size. The canvas is scaled by the narrow axis,
+	# so a fixed 1920-wide design on a 900-wide portrait phone renders every
+	# logical unit at 0.47 physical pixels: a 120-unit touch button lands near
+	# 33 CSS px, well under the ~44 pt a finger needs. Turning the design size
+	# on its side in portrait scales by 900/1080 instead, which is the
+	# difference between a usable phone layout and a doll's-house one.
+	var base := Vector2(1920.0, 1080.0)
+	var win_size := window.size
+	if win_size.y > win_size.x:
+		base = Vector2(1080.0, 1920.0)
 	window.content_scale_size = Vector2i(
-		roundi(1920.0 / scale), roundi(1080.0 / scale))
+		roundi(base.x / scale), roundi(base.y / scale))
 
 
 func _apply_display(key: String, value: Variant) -> void:
