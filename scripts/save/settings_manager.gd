@@ -37,6 +37,8 @@ var _binding_labels: Dictionary = {}
 ## user choice persists a quality change.
 var _governor_override: String = ""
 var _governor_steps: int = 0
+## How far the web render scale has been walked down by the governor.
+var _render_scale_step: int = 0
 var _governor_fps_sum: float = 0.0
 var _governor_fps_count: int = 0
 
@@ -427,18 +429,33 @@ func _apply_audio(key: String, value: Variant) -> void:
 ## pixelation work. At 0.75 the world still resolves ~1.5 device pixels per CSS
 ## pixel -- visibly sharper than the unscaled 1.0 the build used to ship -- for
 ## a little over half the fragment work.
+## Web starts at full native resolution and only gives it up if the device
+## proves it cannot hold a frame. Shipping 0.75 unconditionally was the wrong
+## trade: it bought the frame budget on every machine, including the many that
+## never needed it, and made the browser visibly softer than the desktop build.
+## The governor below is the safety net, and it now trims resolution before it
+## touches anything the player would notice as a loss of content.
 const WEB_RENDER_SCALE: Dictionary = {
-	"high": 0.75,
-	"medium": 0.7,
-	"low": 0.6,
+	"high": 1.0,
+	"medium": 0.85,
+	"low": 0.7,
 }
+## Steps the governor walks down before it starts cutting the quality preset.
+## Resolution is the cheapest thing to give up and the least structural: a
+## slightly softer image beats losing dressing, shadows and glow outright.
+const RENDER_SCALE_STEPS: PackedFloat32Array = [1.0, 0.85, 0.72, 0.62]
 
 
 ## Linear scale the 3D pass should render at, for this platform and preset.
 func render_scale_3d() -> float:
 	if not OS.has_feature("web") or GameConfig.is_headless():
 		return 1.0
-	return float(WEB_RENDER_SCALE.get(String(get_setting("display", "quality_preset")), 0.75))
+	var base := float(WEB_RENDER_SCALE.get(String(get_setting("display", "quality_preset")), 1.0))
+	# A governor step overrides the preset's own scale, never upward.
+	if _render_scale_step > 0:
+		var stepped := RENDER_SCALE_STEPS[mini(_render_scale_step, RENDER_SCALE_STEPS.size() - 1)]
+		return minf(base, stepped)
+	return base
 
 
 func _apply_web_render_scale() -> void:
@@ -462,6 +479,13 @@ func msaa_3d_mode() -> int:
 	# notch over its frame budget, and the 3D pass is bilinear-upscaled there
 	# anyway, which hides most of what MSAA would have bought.
 	if OS.has_feature("web"):
+		# Web keeps 2x on the high tier: at native resolution the aliasing on
+		# ice edges and track rails is exactly what made the browser build read
+		# as lower fidelity than desktop. 4x is still refused -- it resolves the
+		# whole buffer every frame for a difference nobody sees at this scale --
+		# and any tier below high drops it entirely.
+		if String(get_setting("display", "quality_preset")) == "high" and _render_scale_step == 0:
+			return Viewport.MSAA_2X
 		return Viewport.MSAA_DISABLED
 	match String(get_setting("display", "msaa")):
 		"off":
@@ -540,6 +564,15 @@ func _governor_tick(timer: Timer) -> void:
 	_governor_fps_sum = 0.0
 	_governor_fps_count = 0
 	if average >= GOVERNOR_MIN_FPS:
+		return
+	# Resolution first. It is the cheapest thing to give up and the only lever
+	# that costs no content: a slightly softer image beats losing dressing,
+	# shadows and glow, and most devices that miss the budget miss it by a
+	# little. Only once resolution is exhausted does the preset itself drop.
+	if _render_scale_step < RENDER_SCALE_STEPS.size() - 1:
+		_render_scale_step += 1
+		_apply_web_render_scale()
+		_apply_display("msaa", get_setting("display", "msaa"))
 		return
 	var lower := ""
 	match String(get_setting("display", "quality_preset")):
