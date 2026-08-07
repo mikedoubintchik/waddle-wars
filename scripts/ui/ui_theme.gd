@@ -264,21 +264,12 @@ static var _knob_textures: Dictionary = {}
 
 ## True when a touchscreen is present (phones, tablets, touch laptops).
 ## Headless runs always report false so sims stay deterministic.
-## QA override for the touch layout path. Nothing in the game sets it; the
-## screenshot harness does (`touch=1`).
-##
-## Every touch-only layout rule in the project is gated on this function, and
-## it reads the real hardware -- so on a desktop workstation the phone layout
-## simply cannot be rendered, and a phone-only overflow is invisible until
-## somebody opens the game on a phone. That is how the results screen shipped
-## running off both edges of an iPhone.
-static var force_touch: bool = false
-
-
 static func is_touch() -> bool:
 	if GameConfig.is_headless():
 		return false
-	return force_touch or DisplayServer.is_touchscreen_available()
+	# Single switch, in GameConfig, so forcing the phone layout also forces the
+	# canvas shrink that goes with it (see GameConfig.force_touch).
+	return GameConfig.has_touchscreen()
 
 
 ## Central reduced-motion gate for menu flourishes. The project exposes one

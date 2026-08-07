@@ -34,7 +34,13 @@ func _ready() -> void:
 			# Render the phone layout on a desktop box. Touch-only layout rules
 			# are gated on real hardware, so without this the phone paths are
 			# untestable here.
-			"touch": UITheme.force_touch = parts[1] == "1"
+			"touch": GameConfig.force_touch = parts[1] == "1"
+	# Pin the accessibility scale for every capture. It is persisted in
+	# settings.json, so a value left behind by an earlier `uiscale=` run
+	# silently changes the canvas of every later capture -- which is how a
+	# mobile layout fix got tuned against a canvas no phone has.
+	if not _has_arg("uiscale"):
+		SettingsManager.set_setting("accessibility", "ui_scale", 1.0)
 	DisplayServer.window_set_size(Vector2i(width, height))
 	DisplayServer.window_set_position(Vector2i(40, 60))
 
@@ -111,6 +117,13 @@ func _ready() -> void:
 			Game.start_endless.call_deferred()
 
 	_install_monitor()
+
+
+func _has_arg(key: String) -> bool:
+	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with(key + "="):
+			return true
+	return false
 
 
 func _install_monitor() -> void:

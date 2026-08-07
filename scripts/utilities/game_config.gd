@@ -60,5 +60,16 @@ static func is_web_chrome() -> bool:
 	return _web_chrome == 1
 
 
+## QA override for the touch/phone code paths. Nothing in the game sets it;
+## the screenshot harness does (`touch=1`).
+##
+## It has to live HERE rather than in UITheme, because the phone layout is
+## decided in two places: UITheme.is_touch() picks the touch metrics, and
+## SettingsManager._apply_ui_scale applies TOUCH_UI_BOOST, which shrinks the
+## design canvas. Forcing only the first gives a canvas no phone ever has --
+## which is exactly the mistake that made the last results-screen fix useless.
+static var force_touch: bool = false
+
+
 static func has_touchscreen() -> bool:
-	return DisplayServer.is_touchscreen_available()
+	return force_touch or DisplayServer.is_touchscreen_available()
