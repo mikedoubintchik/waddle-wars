@@ -47,6 +47,9 @@ const COL_FISH: float = 92.0
 
 ## Corner language for the screen: cards are soft, rows are tighter, chips are
 ## pills. Shared here so results never mixes radii by accident.
+## Below this horizontal fit the reward tiles stack instead of sitting in a row.
+const STACK_REWARDS_BELOW: float = 0.72
+
 const RADIUS_CARD: int = 18
 const RADIUS_ROW: int = 10
 
@@ -57,6 +60,9 @@ const PRIMARY_FILL_HOVER: Color = Color(0.192, 0.478, 0.741)
 var _buttons: Array[Button] = []
 ## Extra enlargement for tall/narrow (portrait) viewports — see _tall_boost().
 var _boost: float = 1.0
+## Share of the touch enlargement the viewport can actually afford across —
+## see _measure_fit().
+var _fit: float = 1.0
 var _card_width: float = CARD_WIDTH
 ## Rows/tiles that cascade in after the screen's blocks land, in build order.
 var _reveal_items: Array[Control] = []
@@ -67,6 +73,8 @@ func _ready() -> void:
 	UITheme.apply_ui_scale(self)
 	_boost = _tall_boost()
 	_card_width = _measure_card_width()
+	_fit = _measure_fit()
+
 	_add_celebration_glow()
 
 	var scroll := ScrollContainer.new()
@@ -147,19 +155,48 @@ func _tall_boost() -> float:
 	return clampf(view_height / design_height, 1.0, 1.85)
 
 
-## Authored font size -> on-screen size (touch step, then the tall step).
+## How much of the touch enlargement this viewport can actually pay for.
+##
+## content_width() clamps the results COLUMN to a fraction of the screen, but
+## everything inside it was still being sized at the full 1.45x touch step. On
+## a phone the standings columns alone (position + time + gap + fish) come to
+## 418 authored units, which is 606 after the step, and with the racer name and
+## the row padding on top that does not fit the ~929-unit column the clamp
+## allows -- so the table, the stat strip, the reward cards and the button row
+## all ran off BOTH edges of the screen. Nothing clips, so it simply spilled.
+##
+## This is the ratio between the width the metrics assume and the width the
+## column actually got. Horizontal metrics take it in full; fonts take about
+## half of it, because a phone that has to narrow its columns still wants its
+## text legible.
+func _measure_fit() -> float:
+	var want := UITheme.scaled(CARD_WIDTH)
+	if want <= 1.0:
+		return 1.0
+	return clampf(_card_width / want, 0.40, 1.0)
+
+
+## Authored font size -> on-screen size (touch step, tall step, then the
+## softened horizontal fit).
 func _f(size: int) -> int:
-	return maxi(1, roundi(float(UITheme.scaled_font(size)) * _boost))
+	return maxi(1, roundi(
+		float(UITheme.scaled_font(size)) * _boost * lerpf(1.0, _fit, 0.55)))
 
 
 ## Authored horizontal metric -> on-screen metric.
+##
+## Deliberately does NOT take _boost. That factor exists to spend a tall
+## viewport's SPARE HEIGHT on bigger controls; across, a portrait canvas has no
+## spare width at all, so multiplying horizontal metrics by it just guarantees
+## an overflow. This is the same mistake that had every screen running off the
+## edges at raised accessibility scale.
 func _u(value: float) -> float:
-	return UITheme.scaled(value) * _boost
+	return UITheme.scaled(value) * _fit
 
 
 ## Authored spacing step -> on-screen separation.
 func _gap(value: int) -> int:
-	return maxi(1, roundi(float(UITheme.spacing(value)) * _boost))
+	return maxi(1, roundi(float(UITheme.spacing(value)) * _boost * _fit))
 
 
 ## Width of the results column: the authored width on desktop landscape, the
@@ -966,7 +1003,10 @@ func _build_rewards(parent: Control) -> void:
 	stack.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
 	panel.add_child(stack)
 	_card_title(stack, "Rewards")
-	var tiles := HBoxContainer.new()
+	# Side by side needs about 815 units; a phone column is nearer 660. Stack
+	# them there rather than letting the XP tile hang off the screen.
+	var tiles: BoxContainer = VBoxContainer.new() if _fit < STACK_REWARDS_BELOW \
+		else HBoxContainer.new()
 	tiles.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
 	stack.add_child(tiles)
 	_fish_tile(tiles, fish_gain)
@@ -1094,9 +1134,13 @@ func _xp_tile(parent: Control, gain: int) -> void:
 ## --- Actions ----------------------------------------------------------------
 
 func _build_buttons(parent: Control) -> void:
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
-	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	# Flow, not a fixed row: on a phone three actions do not fit across, and a
+	# button you cannot see is a button you cannot press. This lays them out in
+	# one row where there is room and wraps to a second where there is not.
+	var hbox := HFlowContainer.new()
+	hbox.add_theme_constant_override("h_separation", _gap(UITheme.SPACE_S))
+	hbox.add_theme_constant_override("v_separation", _gap(UITheme.SPACE_S))
+	hbox.alignment = FlowContainer.ALIGNMENT_CENTER
 	parent.add_child(hbox)
 	if Game.mode == Game.Mode.GRAND_PRIX and Game.gp_round < CoursesDB.GRAND_PRIX_ORDER.size() - 1:
 		_add_button(hbox, "Next Race", func() -> void:
@@ -1176,7 +1220,12 @@ func _add_share_button(parent: Control) -> void:
 
 func _add_button(parent: Control, text: String, action: Callable, primary: bool) -> void:
 	var size := Vector2(270.0, 62.0) if primary else Vector2(210.0, 56.0)
-	var button := UITheme.make_button(text, UITheme.scaled_size(size), _f(28 if primary else 24))
+	# Width through the same fit as everything else. At full touch scale these
+	# three buttons demanded 1026 units on a canvas 771 wide -- on their own
+	# they were the single widest thing on the screen.
+	var button := UITheme.make_button(text,
+		Vector2(_u(size.x), UITheme.scaled_size(size).y), _f(28 if primary else 24))
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if primary:
 		_style_primary(button)
 	UITheme.hook_sounds(button)

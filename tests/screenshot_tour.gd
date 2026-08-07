@@ -31,6 +31,10 @@ func _ready() -> void:
 			# to be able to reach them.
 			"uiscale": SettingsManager.set_setting(
 				"accessibility", "ui_scale", float(parts[1]))
+			# Render the phone layout on a desktop box. Touch-only layout rules
+			# are gated on real hardware, so without this the phone paths are
+			# untestable here.
+			"touch": UITheme.force_touch = parts[1] == "1"
 	DisplayServer.window_set_size(Vector2i(width, height))
 	DisplayServer.window_set_position(Vector2i(40, 60))
 
