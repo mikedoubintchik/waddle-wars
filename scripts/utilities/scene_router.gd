@@ -22,6 +22,14 @@ var _perf: PerfTicker = null
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# Arm the motion-permission request at BOOT, not on the main menu.
+	#
+	# Armed from the menu, the first tap of the session -- Begin, on the title
+	# screen -- happened before any listener existed and was wasted, so the
+	# prompt could not appear until the second. Arming here, from an autoload,
+	# means the very first press the player makes carries it, whatever screen
+	# they land on. Deferred so the settings autoload is ready to be read.
+	(func() -> void: TiltSteering.arm_permission_on_first_gesture(self)).call_deferred()
 	# Profiling only: a frame-time line every couple of seconds, labelled with
 	# the current scene, so in-game performance can be read off the console
 	# instead of inferred from a browser task manager.
