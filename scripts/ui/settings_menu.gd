@@ -818,6 +818,17 @@ func _build_gameplay_section() -> void:
 	var body := _section("gameplay", "Gameplay")
 	_add_slider_row(body, "gameplay", "steer_sensitivity", "Steer Sensitivity",
 		0.5, 1.5, 0.05, true, "How sharply the penguin answers a turn.")
+	# Tilt only appears where a lean can actually be read. On a desktop it
+	# would be a control that does nothing, which is worse than an absent one.
+	if TiltSteering.supported():
+		_add_toggle_row(body, "gameplay", "tilt_steering", "Tilt Steering",
+			"Lean the phone left and right to steer. Dragging still works and "
+			+ "takes over whenever your finger is down.")
+		_add_slider_row(body, "gameplay", "tilt_sensitivity", "Tilt Sensitivity",
+			0.4, 2.0, 0.05, true, "How far you have to lean for a full turn.")
+		_add_toggle_row(body, "gameplay", "tilt_invert", "Invert Tilt",
+			"Swap which way the lean steers.")
+
 	_add_toggle_row(body, "gameplay", "slide_toggle_mode", "Slide: Toggle Mode",
 		"On: press once to keep sliding. Off: hold the button.")
 	_add_toggle_row(body, "gameplay", "tutorial_prompts", "Tutorial Prompts",

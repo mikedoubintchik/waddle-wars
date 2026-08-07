@@ -81,6 +81,12 @@ func _ready() -> void:
 			SceneRouter.go_to.call_deferred(Game.SCENE_LEADERBOARD)
 		"settings":
 			SceneRouter.go_to.call_deferred(Game.SCENE_SETTINGS)
+			if _has_arg("section"):
+				var jumper := SectionJumper.new()
+				for a: String in OS.get_cmdline_user_args():
+					if a.begins_with("section="):
+						jumper.section = a.split("=")[1]
+				get_tree().root.add_child.call_deferred(jumper)
 		"results":
 			Game.mode = Game.Mode.QUICK_RACE
 			Game.course_id = _course
@@ -275,3 +281,38 @@ class ShieldOpener:
 		if _elapsed > 25.0:
 			_done = true
 			print("[shot] no player racer found for shield")
+
+
+## Scrolls the settings screen to a named section, so a capture can inspect
+## rows that are not on the first screenful.
+class SectionJumper:
+	extends Node
+
+	var section: String = "gameplay"
+	var _elapsed: float = 0.0
+	var _done: bool = false
+
+	func _process(delta: float) -> void:
+		if _done:
+			return
+		_elapsed += delta
+		if _elapsed < 0.9:
+			return
+		var screen := _find(get_tree().root)
+		if screen == null:
+			if _elapsed > 8.0:
+				_done = true
+				print("[shot] settings screen never appeared")
+			return
+		_done = true
+		screen.call("_jump_to", section)
+		print("[shot] jumped to %s" % section)
+
+	func _find(node: Node) -> Node:
+		if node.has_method("_jump_to"):
+			return node
+		for child: Node in node.get_children():
+			var found := _find(child)
+			if found != null:
+				return found
+		return null

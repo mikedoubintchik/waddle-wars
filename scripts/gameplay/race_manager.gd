@@ -165,7 +165,13 @@ func _start_race() -> void:
 	for racer: Racer in racers:
 		racer.set_physics_process(true)
 		if racer.controller is PlayerController:
-			(racer.controller as PlayerController).input_enabled = true
+			var human := racer.controller as PlayerController
+			human.input_enabled = true
+			# However the player is holding the phone as the lights go out is
+			# what they mean by "straight ahead". Taking the neutral pose here
+			# rather than at load means it matches the grip they actually
+			# settled into, not the one they had while the menu was open.
+			human.recalibrate_tilt()
 	race_started.emit()
 
 

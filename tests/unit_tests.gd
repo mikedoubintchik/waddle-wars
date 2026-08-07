@@ -39,6 +39,7 @@ func _ready() -> void:
 	await _test_powerup_activation()
 	await _test_backward_snowball()
 	_test_daily_challenge()
+	_test_tilt_steering()
 	await _test_menu_scenes()
 	await _test_touch_controls()
 	print("[unit] DONE: %d passed, %d failed, %d skipped" % [_passes, _failures, _skips])
@@ -538,3 +539,35 @@ func _test_touch_controls() -> void:
 	touch.queue_free()
 	player_controller.queue_free()
 	await get_tree().process_frame
+
+
+## Tilt steering axis maths. Worth testing precisely because it is the one part
+## of that feature that cannot be checked by running the game on a desktop --
+## there is no sensor here, so without this the whole feel of it would be
+## shipped unverified.
+func _test_tilt_steering() -> void:
+	_check("tilt_neutral_is_zero",
+		is_zero_approx(TiltSteering.axis_for_lean(0.0, 1.0, false)),
+		"%f" % TiltSteering.axis_for_lean(0.0, 1.0, false))
+	# Inside the deadzone a resting hand must produce nothing at all.
+	_check("tilt_deadzone_silent",
+		is_zero_approx(TiltSteering.axis_for_lean(TiltSteering.DEADZONE_DEG - 0.1, 1.0, false)),
+		"%f" % TiltSteering.axis_for_lean(TiltSteering.DEADZONE_DEG - 0.1, 1.0, false))
+	# Right lean is positive, matching Input.get_axis("steer_left","steer_right").
+	var right := TiltSteering.axis_for_lean(12.0, 1.0, false)
+	var left := TiltSteering.axis_for_lean(-12.0, 1.0, false)
+	_check("tilt_sign_right_positive", right > 0.0, "%f" % right)
+	_check("tilt_symmetric", is_equal_approx(right, -left), "%f vs %f" % [right, left])
+	# A full lean must reach full lock, and nothing may exceed it.
+	var full := TiltSteering.axis_for_lean(TiltSteering.FULL_LOCK_DEG * 4.0, 1.0, false)
+	_check("tilt_clamped_to_one", is_equal_approx(full, 1.0), "%f" % full)
+	# Higher sensitivity must reach a given axis with LESS lean, not more.
+	var lo := TiltSteering.axis_for_lean(10.0, 0.6, false)
+	var hi := TiltSteering.axis_for_lean(10.0, 1.8, false)
+	_check("tilt_sensitivity_orders", hi > lo, "%f vs %f" % [hi, lo])
+	# Sensitivity is clamped, so absurd settings cannot invert or explode it.
+	var wild := TiltSteering.axis_for_lean(10.0, 99.0, false)
+	_check("tilt_sensitivity_clamped", wild > 0.0 and wild <= 1.0, "%f" % wild)
+	_check("tilt_invert_flips",
+		is_equal_approx(TiltSteering.axis_for_lean(12.0, 1.0, true), -right),
+		"%f" % TiltSteering.axis_for_lean(12.0, 1.0, true))

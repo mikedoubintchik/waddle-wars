@@ -71,6 +71,9 @@ static func default_settings() -> Dictionary:
 			"vibration": true,
 			"slide_toggle_mode": false,  # false = hold to slide
 			"tutorial_prompts": true,
+			"tilt_steering": false,   # lean the phone to steer (mobile only)
+			"tilt_sensitivity": 1.0,
+			"tilt_invert": false,
 			"touch_controls": "auto",  # auto | on | off
 			"touch_scale": 1.0,
 			"touch_opacity": 0.55,
@@ -312,6 +315,15 @@ func _apply_one(section: String, key: String, value: Variant) -> void:
 				for action: String in ["steer_left", "steer_right"]:
 					if InputMap.has_action(action):
 						InputMap.action_set_deadzone(action, clampf(float(value), 0.05, 0.6))
+			elif key == "tilt_steering" and bool(value):
+				# Ask for sensor access HERE, on the toggle's own press.
+				#
+				# iOS grants DeviceOrientation only to a request made inside a
+				# real user gesture, and it asks once. This runs synchronously
+				# on the button's handler, so the gesture is still live; firing
+				# it later -- when a race starts, say -- would be refused with
+				# no way to try again this session.
+				TiltSteering.request_permission()
 		"accessibility":
 			if key == "ui_scale":
 				_apply_ui_scale(float(value))
