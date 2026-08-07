@@ -249,6 +249,9 @@ func _build_shop(parent: HBoxContainer) -> void:
 		_tab_buttons[category] = tab
 
 	var scroll := ScrollContainer.new()
+	# Rows are buttons and sliders, which swallow touch drags before the
+	# ScrollContainer can see them; this restores dragging the list on a phone.
+	TouchScroll.attach(scroll)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.follow_focus = true

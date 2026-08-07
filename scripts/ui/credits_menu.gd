@@ -29,6 +29,9 @@ func _ready() -> void:
 	_reduced = UITheme.reduced_motion()
 
 	_scroll = ScrollContainer.new()
+	# Credits auto-scroll, but a reader who grabs the list should be able to
+	# drag it; without this the touch never reaches the ScrollContainer.
+	TouchScroll.attach(_scroll)
 	_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.follow_focus = true

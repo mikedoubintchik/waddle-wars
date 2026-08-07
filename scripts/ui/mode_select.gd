@@ -81,6 +81,9 @@ func _ready() -> void:
 	# lives in a scroll wrapper; while it fits, the expanding CenterContainer
 	# keeps the desktop composition perfectly centered.
 	var scroll := ScrollContainer.new()
+	# Rows are buttons and sliders, which swallow touch drags before the
+	# ScrollContainer can see them; this restores dragging the list on a phone.
+	TouchScroll.attach(scroll)
 	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.follow_focus = true
