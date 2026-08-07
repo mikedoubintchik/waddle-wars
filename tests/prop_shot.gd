@@ -12,6 +12,7 @@ extends Node3D
 
 var _out_path: String = "qa_shots/props/prop.png"
 var _prop: String = "wind"
+var _pose: String = "stand"
 var _wait: float = 2.0
 var _yaw_deg: float = 34.0
 var _elapsed: float = 0.0
@@ -27,6 +28,7 @@ func _ready() -> void:
 			continue
 		match parts[0]:
 			"prop": _prop = parts[1]
+			"pose": _pose = parts[1]
 			"out": _out_path = parts[1]
 			"w": width = int(parts[1])
 			"h": height = int(parts[1])
@@ -41,6 +43,8 @@ func _ready() -> void:
 			_build_wind()
 		"icicle":
 			_build_icicle()
+		"bear":
+			_build_bear()
 		_:
 			push_error("prop_shot: unknown prop '%s'" % _prop)
 
@@ -118,6 +122,35 @@ func _build_icicle() -> void:
 		spike.position = Vector3(-3.0 + float(i) * 3.0, 4.5, 0.0)
 		add_child(spike)
 	_place_camera(Vector3(0.0, 3.7, 0.0), 7.5, 0.02)
+
+
+## Trackside wildlife. The bear faces -Z, so yaw=180 is a face-on shot, yaw=90
+## a broadside and yaw=0 a rear view. A 1 m scale post stands beside it: a
+## procedural animal that reads fine in isolation is easy to build at completely
+## the wrong size for the course.
+##
+##   godot res://tests/prop_shot.tscn -- prop=bear pose=sit yaw=145 \
+##       out=qa_shots/props/bear_sit.png
+func _build_bear() -> void:
+	var bear := PolarBear.new()
+	match _pose:
+		"sit":
+			bear.configure(PolarBear.Pose.SITTING)
+		"lie":
+			bear.configure(PolarBear.Pose.LYING)
+		_:
+			bear.configure(PolarBear.Pose.STANDING)
+	add_child(bear)
+
+	var post := MeshInstance3D.new()
+	var post_mesh := BoxMesh.new()
+	post_mesh.size = Vector3(0.06, 1.0, 0.06)
+	post.mesh = post_mesh
+	post.material_override = VisualLibrary.rock_material(Color(0.85, 0.25, 0.2))
+	post.position = Vector3(1.9, 0.5, 0.6)
+	add_child(post)
+
+	_place_camera(Vector3(0.0, 0.78, -0.2), 4.6, 0.30)
 
 
 func _place_camera(look_at_point: Vector3, distance: float, lift: float) -> void:

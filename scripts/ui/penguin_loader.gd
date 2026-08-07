@@ -38,6 +38,8 @@ const SPIN_EVERY: int = 8
 var penguin_size: float = 200.0  ## Rendered square edge in logical pixels.
 
 var _viewport: SubViewport = null
+## Wall-clock origin for the routine (see _process).
+var _start_ms: int = 0
 var _penguin: PenguinVisual = null
 var _pivot: Node3D = null
 var _time: float = 0.0
@@ -69,6 +71,10 @@ func _on_visibility_changed() -> void:
 	if _viewport != null:
 		_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if showing \
 			else SubViewport.UPDATE_DISABLED
+	if showing:
+		# Restart the clock each time the overlay appears, so every transition
+		# opens on the same beat rather than wherever the session happens to be.
+		_start_ms = Time.get_ticks_msec()
 	set_process(showing and _viewport != null)
 
 
@@ -84,8 +90,11 @@ func _build() -> void:
 	_viewport.transparent_bg = true
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	# The loader is a small square of screen showing one hero asset, so it can
-	# afford multisampling even where the game world gives it up.
-	_viewport.msaa_3d = Viewport.MSAA_2X
+	# afford multisampling -- except on web, where this overlay is on screen
+	# exactly when frames are scarcest and a resolve every frame is competing
+	# with the work it is covering for.
+	_viewport.msaa_3d = Viewport.MSAA_DISABLED if OS.has_feature("web") \
+		else Viewport.MSAA_2X
 	container.add_child(_viewport)
 	UITheme.crisp_subviewport(_viewport, self)
 
@@ -136,10 +145,19 @@ func _build() -> void:
 	camera.look_at_from_position(Vector3(0.0, 1.02, -2.62), Vector3(0.0, 0.60, 0.0), Vector3.UP)
 
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	if _pivot == null:
 		return
-	_time += delta
+	# Wall clock, not accumulated delta.
+	#
+	# This overlay exists to cover a scene build, and on a single-threaded web
+	# build that build blocks the main loop outright -- no frames at all for as
+	# long as it takes. Integrating delta meant the routine resumed from
+	# wherever it had been frozen and then had to catch up, so a one-second
+	# stall showed as a stutter and a lurch. Reading the clock means the dance
+	# is always at the pose the elapsed time says it should be: the freeze is
+	# still a freeze, but what comes out the far side is continuous.
+	_time = float(Time.get_ticks_msec() - _start_ms) * 0.001
 	var amp := 0.35 if _reduced else 1.0
 	var phase := _time / CYCLE * TAU
 	var beat := int(_time / (CYCLE * 0.5))

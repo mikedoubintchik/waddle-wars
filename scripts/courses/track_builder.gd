@@ -203,6 +203,30 @@ static func _bank_at(guide: PathGuide, offset: float, p: Dictionary, p_next: Dic
 	return _auto_bank(guide, offset)
 
 
+## Guide transform ROLLED to match the racing surface, for anything that sits
+## on the deck rather than beside it.
+##
+## The ribbon banks its corners (see _bank_at), but the guide itself does not:
+## guide.transform_at() returns the unrolled frame. Anything mounted flat with
+## that frame is therefore tilted relative to the deck it is supposed to be
+## lying on, and on a real corner one edge buries itself in the ice while the
+## opposite edge lifts clear and shows its underside -- which is what made the
+## boost pads look half-drawn. Deck-mounted props use this instead.
+##
+## Only the automatic curvature bank is reproduced here. An explicit per-point
+## "bank" needs the layout points and the segment parameter, which a prop
+## placed by arc length does not have; those spans are rare and hand-authored.
+static func deck_transform_at(guide: PathGuide, offset: float) -> Transform3D:
+	var xform := guide.transform_at(offset)
+	var bank := deg_to_rad(_auto_bank(guide, offset))
+	if absf(bank) < 0.0001:
+		return xform
+	var forward := -xform.basis.z
+	if forward.length_squared() < 0.0001:
+		return xform
+	return Transform3D(xform.basis.rotated(forward.normalized(), bank), xform.origin)
+
+
 ## Curvature-driven bank, smoothed over a few samples. Heading change is
 ## measured across a fixed arc either side of the point and converted to
 ## radians per metre; the sign follows the turn so the outside always rises.
@@ -914,12 +938,17 @@ static var _pad_trigger_shape: BoxShape3D = null
 static func add_boost_pad(parent: Node3D, guide: PathGuide, offset: float, lateral: float = 0.0) -> void:
 	if _pad_deck_mesh == null:
 		_pad_deck_mesh = BoxMesh.new()
-		_pad_deck_mesh.size = Vector3(4.0, 0.15, 6.0)
+		# Thin, and sunk so only its face shows. At 0.15 tall and floating a
+		# further 0.1 clear of the deck, the slab's pale sides were visible from
+		# behind and the pad read as a tray dropped onto the ice.
+		_pad_deck_mesh.size = Vector3(4.0, 0.06, 6.0)
 		_pad_arrow_mesh = PlaneMesh.new()
 		_pad_arrow_mesh.size = Vector2(3.6, 5.6)
 		_pad_trigger_shape = BoxShape3D.new()
 		_pad_trigger_shape.size = Vector3(4.0, 2.0, 6.0)
-	var xform := guide.transform_at(offset)
+	# Deck frame, not the guide frame: on a banked corner the two differ by
+	# up to MAX_BANK_DEG and the pad would sit crooked in the racing surface.
+	var xform := deck_transform_at(guide, offset)
 	var pad := Area3D.new()
 	pad.collision_layer = GameConfig.LAYER_TRIGGERS
 	pad.collision_mask = GameConfig.LAYER_RACERS
@@ -946,7 +975,8 @@ static func add_boost_pad(parent: Node3D, guide: PathGuide, offset: float, later
 	var shape := CollisionShape3D.new()
 	shape.shape = _pad_trigger_shape
 	pad.add_child(shape)
-	pad.transform = Transform3D(xform.basis, xform.origin + xform.basis.x * lateral + xform.basis.y * 0.1)
+	pad.transform = Transform3D(xform.basis,
+		xform.origin + xform.basis.x * lateral + xform.basis.y * 0.035)
 	pad.body_entered.connect(func(body: Node3D) -> void:
 		if body is Racer:
 			(body as Racer).apply_boost(1.6, 1.5)

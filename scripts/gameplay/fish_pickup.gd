@@ -144,7 +144,9 @@ void fragment() {
 ## The mesh is authored at "anatomy" scale; the whole visual is then blown up
 ## so a fish is actually legible from a few car-lengths back. Kept as a
 ## constant because the collect pop tweens scale relative to it.
-const VISUAL_SCALE: float = 1.5
+## A collectable, not a character. At 1.5 the fish stood as tall as the penguin
+## chasing it, which read as a prop dropped in at the wrong scale.
+const VISUAL_SCALE: float = 0.95
 
 static var _fish_mesh: ArrayMesh = null
 static var _fish_mat_contrast: StandardMaterial3D = null

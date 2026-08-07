@@ -8,7 +8,7 @@ extends Area3D
 ## reason. It is now built like a piece of course furniture:
 ##
 ##   - WIND GATES mark the entry and exit on both flanks -- leaning pylons,
-##     guy wires and streaming banners. They are the thing you see first, they
+##     bunting and streaming banners. They are the thing you see first, they
 ##     say where the zone starts and ends, and the banners point down the push
 ##     vector, so the direction is legible before you are in it.
 ##   - AIR: velocity-aligned streak lines and a bed of swirling motes fill the
@@ -45,7 +45,6 @@ static var _spindrift_ramp: GradientTexture1D = null
 static var _banner_mesh: ArrayMesh = null
 static var _banner_shader: Shader = null
 static var _pylon_mat: StandardMaterial3D = null
-static var _wire_mat: StandardMaterial3D = null
 static var _bunting_mat: StandardMaterial3D = null
 
 ## Banner cloth. Waves travel along the streaming axis (+Z in banner space)
@@ -132,8 +131,7 @@ func _ready() -> void:
 
 ## Four gate pylons: one per flank at the entry and exit faces of the volume.
 ## These are the zone's signage. They lean away from the wind (a mast under
-## constant load does), carry a guy wire back into the ground on the windward
-## side, and fly a banner from the crossarm down the push vector.
+## constant load does) and fly a banner from the crossarm down the push vector.
 func _build_gates() -> void:
 	var half := zone_size * 0.5
 	# Push direction in the zone's own space: the banners stream along it and
@@ -224,8 +222,8 @@ func _build_pylon(base: Vector3, height: float, local_push: Vector3) -> void:
 
 	var mast := MeshInstance3D.new()
 	var pole := CylinderMesh.new()
-	pole.top_radius = 0.075
-	pole.bottom_radius = 0.16
+	pole.top_radius = 0.06
+	pole.bottom_radius = 0.12
 	pole.height = height
 	pole.radial_segments = 10
 	pole.rings = 1
@@ -246,22 +244,12 @@ func _build_pylon(base: Vector3, height: float, local_push: Vector3) -> void:
 	arm.basis = Basis(Vector3.UP, atan2(local_push.x, local_push.z))
 	pylon.add_child(arm)
 
-	# Guy wire back into the ground on the windward side: the detail that makes
-	# a pole read as rigged rather than planted.
-	var wire := MeshInstance3D.new()
-	var wire_mesh := BoxMesh.new()
-	# Kept short: a long thin line across open snow reads as a scratch on the
-	# screen rather than as rigging.
-	var anchor := -local_push * (height * 0.34)
-	var span := Vector3(anchor.x, -height * 0.66, anchor.z)
-	wire_mesh.size = Vector3(0.05, span.length(), 0.05)
-	wire.mesh = wire_mesh
-	wire.material_override = _get_wire_material()
-	wire.position = Vector3(0.0, height * 0.86, 0.0) + span * 0.5
-	wire.basis = Basis(Quaternion(Vector3.UP, span.normalized()))
-	wire.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	pylon.add_child(wire)
-
+	# No guy wires.
+	#
+	# They were there to make the mast read as rigged, and up close they did.
+	# At racing distance on a night course a 5 m hairline is just a dark
+	# scratch across the screen, and there are four of them per zone. The
+	# bunting already says "this is rigged"; the wires only said "aliasing".
 	var banner := MeshInstance3D.new()
 	banner.mesh = _get_banner_mesh()
 	var mat := ShaderMaterial.new()
@@ -584,19 +572,18 @@ static func _get_pylon_material() -> StandardMaterial3D:
 		_pylon_mat = StandardMaterial3D.new()
 		# Weathered marker-post orange: warm against every course palette, and
 		# the one hue in the game reserved for "course furniture".
-		_pylon_mat.albedo_color = Color(0.72, 0.36, 0.16)
+		_pylon_mat.albedo_color = Color(0.85, 0.47, 0.22)
 		_pylon_mat.roughness = 0.82
 		_pylon_mat.metallic = 0.05
+		# These zones live on a night course. Unlit, the shadowed face of a mast
+		# standing a few metres off the racing line went pure black and read as
+		# a hole cut out of the sky. A little self-emission keeps it a post.
+		_pylon_mat.emission_enabled = true
+		_pylon_mat.emission = Color(0.9, 0.52, 0.26)
+		_pylon_mat.emission_energy_multiplier = 0.35
 	return _pylon_mat
 
 
-static func _get_wire_material() -> StandardMaterial3D:
-	if _wire_mat == null:
-		_wire_mat = StandardMaterial3D.new()
-		_wire_mat.albedo_color = Color(0.45, 0.5, 0.58)
-		_wire_mat.roughness = 0.55
-		_wire_mat.metallic = 0.4
-	return _wire_mat
 
 
 static func _get_bunting_material() -> StandardMaterial3D:
@@ -610,5 +597,5 @@ static func _get_bunting_material() -> StandardMaterial3D:
 		# course this hazard actually lives on.
 		_bunting_mat.emission_enabled = true
 		_bunting_mat.emission = Color(0.5, 0.62, 0.8)
-		_bunting_mat.emission_energy_multiplier = 0.22
+		_bunting_mat.emission_energy_multiplier = 0.42
 	return _bunting_mat

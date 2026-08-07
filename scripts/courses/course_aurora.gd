@@ -543,7 +543,24 @@ func _decorate() -> void:
 	# Icicle cavern: crystalline ice arches + glow shards lining the walls.
 	var cavern_start := _arc_near(Vector3(48, 76.8, -502))
 	var cavern_end := _arc_near(Vector3(46, 68.4, -616))
-	var arch_mat := VisualLibrary.ice_material(Color(0.48, 0.62, 0.95), 0.5)
+	# The arches used the track's ice shader, which is authored for a deck seen
+	# from above under a sun. Wrapped around a ten-metre torus on a night
+	# course it had almost nothing to work with and the arches rendered as flat
+	# black holes punched through the sky -- the most conspicuously broken
+	# thing in the cavern. They now carry their own glacial material with
+	# enough self-emission to read as lit ice, matching the glow crystals
+	# already lining these walls.
+	var arch_mat := StandardMaterial3D.new()
+	arch_mat.albedo_color = Color(0.42, 0.62, 0.88, 0.93)
+	arch_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	arch_mat.roughness = 0.18
+	arch_mat.metallic = 0.0
+	arch_mat.emission_enabled = true
+	arch_mat.emission = Color(0.36, 0.66, 0.95)
+	arch_mat.emission_energy_multiplier = 0.55
+	arch_mat.rim_enabled = true
+	arch_mat.rim = 0.85
+	arch_mat.rim_tint = 0.4
 	var cave_offset := cavern_start
 	while cave_offset < cavern_end:
 		var xform := main_guide.transform_at(cave_offset)

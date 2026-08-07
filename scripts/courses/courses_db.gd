@@ -27,9 +27,25 @@ const ITEMS: Dictionary = {
 		"music": "music_iceberg",
 		"par_time": 160.0,
 	},
+	"cinder": {
+		"name": "Cinder Coast",
+		"desc": "Dusk on the volcanic shore: black sand, basking seals, drifting floes and six steam vents that launch you.",
+		"script": "res://scripts/courses/course_cinder.gd",
+		"theme_color": Color(0.95, 0.45, 0.22),
+		"music": "music_final",
+		"par_time": 155.0,
+	},
+	"hollow": {
+		"name": "Sapphire Hollow",
+		"desc": "A technical run deep inside the glacier: icicle galleries, a howling draught, rolling ice boulders and a cold swim.",
+		"script": "res://scripts/courses/course_hollow.gd",
+		"theme_color": Color(0.24, 0.6, 0.92),
+		"music": "music_aurora",
+		"par_time": 170.0,
+	},
 }
 
-const ORDER: PackedStringArray = ["glacier", "aurora", "iceberg"]
+const ORDER: PackedStringArray = ["glacier", "aurora", "iceberg", "cinder", "hollow"]
 const GRAND_PRIX_ORDER: PackedStringArray = ["glacier", "aurora", "iceberg"]
 
 
