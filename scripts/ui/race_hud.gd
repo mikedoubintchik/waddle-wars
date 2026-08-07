@@ -3,20 +3,50 @@ extends CanvasLayer
 ## In-race HUD: position, progress, item, fish, speed, countdown, time,
 ## messages, and an early "Finish Race" button once the player is done while
 ## AI are still on course. Scales with the accessibility HUD-scale setting.
-## Visual theme: deep navy rounded panels, ice-blue accents, warm yellow
-## position highlight, soft drop shadows.
+##
+## Visual system — deliberately small, so the overlay reads as one design
+## instead of a pile of separate widgets:
+##   * One card. Every panel (position, clock, item, fish, control strip) uses
+##     the same baked 9-patch: rounded navy body with a vertical gradient, an
+##     ice rim that is brightest along the top edge, and a soft drop shadow.
+##     Same radius, same edge weight, same shadow everywhere.
+##   * One rhythm. GUTTER from every screen edge, GAP_S inside a group, GAP_M
+##     between groups, and a single bottom baseline shared by the fish card and
+##     both gauges. The item card matches the minimap card's width so the whole
+##     right-hand column is one stack.
+##   * One type scale. UITheme.display_font for values (place, clock, fish,
+##     speed), the same font small/dim/uppercase for captions — a glance lands
+##     on the numbers, the captions only answer "what is this?" on purpose.
+##   * One palette: UITheme's. The HUD no longer carries its own colours.
 
-const PANEL_NAVY := Color(0.05, 0.09, 0.17, 0.86)
-const PANEL_NAVY_DEEP := Color(0.035, 0.065, 0.13, 0.72)
-const ACCENT_ICE := Color(0.55, 0.8, 1.0)
-const ACCENT_YELLOW := Color(1.0, 0.85, 0.25)
-const OUTLINE_NAVY := Color(0.07, 0.14, 0.27)
-const SHADOW_SOFT := Color(0.0, 0.0, 0.0, 0.32)
-const ITEM_ICON_EMPTY := Color(0.16, 0.26, 0.42)
+## --- Layout rhythm ----------------------------------------------------------
+const GUTTER: float = 24.0          ## Screen-edge margin (UITheme.SPACE_M).
+const GAP_S: int = 6                ## Inside a group.
+const GAP_M: int = 12               ## Between groups.
+const CARD_RADIUS: float = 14.0     ## Matches UITheme.make_panel_style.
+const BAR_HEIGHT: float = 20.0      ## Gauge capsule height at hud_scale 1.
+## Right-hand column width: RaceMinimap.BASE_SIZE, so the item slot and the map
+## below it share one edge. Capped on touch devices, where the pause button is
+## parked immediately left of this column.
+const COLUMN_WIDTH: float = 150.0
+const COLUMN_WIDTH_TOUCH_MAX: float = 158.0
+## Item card height, reserved up front (including the desktop "use" hint row)
+## so picking an item up never reflows the card. Stays clear of the minimap,
+## which drops in at RaceMinimap.TOP_CLEARANCE (156) * hud_scale.
+const ITEM_CARD_HEIGHT: float = 133.0
+const ITEM_CARD_HEIGHT_TOUCH: float = 110.0
 
-## Placeholder drawn in the item slot while the player carries nothing.
+## Baked card texture geometry: the shadow bleeds SHADOW_PAD outside the card
+## rect (drawn through expand margins) and the 9-patch corners hold the rim and
+## the ends of the body gradient.
+const CARD_TEX_SIZE: int = 96
+const CARD_TEX_PAD: float = 14.0
+
+## Placeholder drawn in the item slot while the player carries nothing: a
+## dashed slot outline reads as "empty on purpose" where the old flat square
+## read as a missing icon.
 const EMPTY_SLOT_SVG := """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-<rect x="10" y="10" width="44" height="44" rx="10" fill="#ffffff" opacity="0.5"/>
+<rect x="9" y="9" width="46" height="46" rx="13" fill="none" stroke="#ffffff" stroke-width="3.4" stroke-dasharray="10 8" stroke-linecap="round"/>
 </svg>"""
 
 const FISH_ICON_SVG := """<svg xmlns="http://www.w3.org/2000/svg" width="60" height="40" viewBox="0 0 60 40">
@@ -59,36 +89,52 @@ const ITEM_ICONS: Dictionary = {
 </svg>""",
 }
 
+## Shared card art (see _card_texture). Built once per run, reused by every
+## card style — the styles differ only in their content margins.
+static var _card_tex: ImageTexture = null
+
 var manager: RaceManager = null
 var player: Racer = null
 
-var _position_label: Label
-var _position_suffix: Label
+var _position_card: PanelContainer = null
+var _position_label: Label = null
+var _position_suffix: Label = null
+var _position_total: Label = null
+var _position_stripe: Panel = null
 var _time_label: Label
+var _time_caption: Label
 var _fish_label: Label
-var _item_panel: PanelContainer
+var _item_panel: Panel
+var _item_glow: Panel
+var _item_glow_style: StyleBoxFlat
 var _item_label: Label
 var _item_icon: TextureRect
-var _item_icon_size: float = 46.0
-var _item_style: StyleBoxFlat
+var _item_icon_size: float = 44.0
 var _item_pulse: Tween = null
 var _ammo_pips: Array[Panel] = []
 var _ammo_style_full: StyleBoxFlat
 var _ammo_style_empty: StyleBoxFlat
+var _groove_cache: StyleBoxTexture = null
 var _use_hint: HBoxContainer = null
 var _use_key_label: Label = null
 var _use_verb_label: Label = null
 var _held_item: bool = false
 var _ammo_count: int = 0
 var _speed_bar: ProgressBar
+var _speed_flag: Label
+var _speed_flagged: bool = false
 var _progress_bar: ProgressBar
+var _progress_value: Label
+var _progress_shown: int = -1
 var _center_label: Label
 var _checkpoint_label: Label
 var _controls_hint: PanelContainer = null
 var _bar_tags: Array[Label] = []
+var _esc_hint: Control = null
 var _finish_button: Button = null
 var _race_over: bool = false
 var _hud_scale: float = 1.0
+var _hint_bottom: float = -92.0
 var _root: Control
 
 
@@ -125,77 +171,176 @@ func _audio_cue(text: String) -> void:
 	if not bool(SettingsManager.get_setting("accessibility", "audio_visual_cues")):
 		return
 	_checkpoint_label.text = text
-	_checkpoint_label.modulate = Color(1.0, 0.9, 0.5, 1.0)
+	_checkpoint_label.modulate = Color(UITheme.COLOR_GOLD, 1.0)
 	var tween := create_tween()
 	tween.tween_interval(0.9)
 	tween.tween_property(_checkpoint_label, "modulate:a", 0.0, 0.4)
 
 
-## Shared rounded navy card style with soft drop shadow.
-func _panel_style(corner: float = 12.0, margin_h: float = 14.0, margin_v: float = 6.0) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = PANEL_NAVY
-	style.set_corner_radius_all(int(corner))
-	style.set_border_width_all(2)
-	style.border_color = Color(ACCENT_ICE, 0.45)
-	style.content_margin_left = margin_h
-	style.content_margin_right = margin_h
-	style.content_margin_top = margin_v
-	style.content_margin_bottom = margin_v
-	style.shadow_color = SHADOW_SOFT
-	style.shadow_size = 5
-	style.shadow_offset = Vector2(0, 3)
+## --- Shared visual language -------------------------------------------------
+
+## The one HUD card, baked once as a 9-patch: rounded navy body with a vertical
+## gradient (lighter crest, deeper foot), an ice rim strongest along the top
+## edge and fading down the sides, and a soft drop shadow that bleeds outside
+## the card rect. StyleBoxFlat can only manage a flat fill plus one border
+## colour, which is exactly why the old panels read as pasted-on rectangles.
+static func _card_texture() -> ImageTexture:
+	if _card_tex != null:
+		return _card_tex
+	var n := CARD_TEX_SIZE
+	var pad := CARD_TEX_PAD
+	var radius := CARD_RADIUS
+	var half := Vector2(n, n) * 0.5
+	var extent := half - Vector2(pad, pad) - Vector2(radius, radius)
+	var body_top := UITheme.COLOR_BG.lerp(UITheme.COLOR_ACCENT, 0.10)
+	var body_bottom := UITheme.COLOR_BG_DEEP
+	var rim := UITheme.COLOR_ACCENT
+	var img := Image.create_empty(n, n, false, Image.FORMAT_RGBA8)
+	for y: int in n:
+		# Gradient runs across the card body only; the 9-patch stretches its
+		# middle band, so the crest and foot keep their authored thickness.
+		var t := clampf((float(y) + 0.5 - pad) / (float(n) - 2.0 * pad), 0.0, 1.0)
+		var body := body_top.lerp(body_bottom, t)
+		var rim_strength := lerpf(0.60, 0.16, t)
+		for x: int in n:
+			var p := Vector2(float(x) + 0.5, float(y) + 0.5) - half
+			var d := _round_box_sdf(p, extent, radius)
+			var cover := clampf(0.5 - d, 0.0, 1.0)
+			# Rim sits just inside the edge so the card keeps a crisp outline.
+			var edge := clampf(1.0 - absf(d + 1.0) / 1.3, 0.0, 1.0)
+			var color := body.lerp(rim, edge * rim_strength)
+			var alpha := (0.86 + edge * rim_strength * 0.12) * cover
+			# Drop shadow, offset down, blurred by distance outside the card.
+			var ds := _round_box_sdf(p - Vector2(0.0, 3.0), extent, radius)
+			var shade := clampf(1.0 - ds / 11.0, 0.0, 1.0)
+			var shadow_a := shade * shade * 0.40
+			var out_a := alpha + shadow_a * (1.0 - alpha)
+			if out_a > 0.0001:
+				var rgb := (Vector3(color.r, color.g, color.b) * alpha) / out_a
+				img.set_pixel(x, y, Color(rgb.x, rgb.y, rgb.z, out_a))
+			else:
+				img.set_pixel(x, y, Color(0, 0, 0, 0))
+	_card_tex = ImageTexture.create_from_image(img)
+	return _card_tex
+
+
+## Signed distance to a rounded box centred on the origin (negative inside).
+static func _round_box_sdf(p: Vector2, extent: Vector2, radius: float) -> float:
+	var q := Vector2(absf(p.x), absf(p.y)) - extent
+	return Vector2(maxf(q.x, 0.0), maxf(q.y, 0.0)).length() + minf(maxf(q.x, q.y), 0.0) - radius
+
+
+## Card style for a panel, differing from every other card only in padding.
+func _card_style(pad_h: float, pad_v: float) -> StyleBoxTexture:
+	var style := StyleBoxTexture.new()
+	style.texture = _card_texture()
+	style.set_texture_margin_all(CARD_TEX_PAD + CARD_RADIUS + 2.0)
+	style.set_expand_margin_all(CARD_TEX_PAD)
+	style.content_margin_left = pad_h
+	style.content_margin_right = pad_h
+	style.content_margin_top = pad_v
+	style.content_margin_bottom = pad_v
 	return style
 
 
-## Rounded gradient fill for progress-style bars, baked into a texture so
-## the fill keeps soft corners (StyleBoxFlat cannot gradient).
-static func _make_gradient_fill(from: Color, to: Color) -> StyleBoxTexture:
-	var w := 96
-	var h := 16
-	var radius := 6.0
+## Value type: big, bright, emboldened, with a deep-navy outline so it survives
+## bright snow. Everything the racer reads at a glance is set in this.
+func _value_label(text: String, size: float, color: Color = UITheme.COLOR_TEXT) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_override("font", UITheme.display_font())
+	label.add_theme_font_size_override("font_size", maxi(int(size), 1))
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_constant_override("outline_size", maxi(int(size * 0.16), 4))
+	label.add_theme_color_override("font_outline_color", UITheme.COLOR_BG_DEEP)
+	return label
+
+
+## Caption type: small, uppercase, letter-spaced, dim. Names a gauge or a card
+## without ever competing with the value next to it.
+func _caption_label(text: String, size: float, alpha: float = 1.0) -> Label:
+	var label := Label.new()
+	label.text = text.to_upper()
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_override("font", UITheme.display_font())
+	label.add_theme_font_size_override("font_size", maxi(int(size), 1))
+	label.add_theme_color_override("font_color", Color(UITheme.COLOR_TEXT_DIM, alpha))
+	label.add_theme_constant_override("outline_size", 3)
+	label.add_theme_color_override("font_outline_color", Color(UITheme.COLOR_BG_DEEP, 0.9))
+	return label
+
+
+## Baked gauge groove: a capsule channel cut into the screen — denser along
+## its top lip (inner shadow), with the ice rim brightest along the *bottom*
+## lip, the inverse of the cards. Cards catch the light on top, grooves catch
+## it underneath, which is what makes one read as raised and the other as
+## recessed. Baked at the live bar height so it never stretches.
+func _groove_style(height: float) -> StyleBoxTexture:
+	if _groove_cache != null:
+		return _groove_cache
+	var pad := 6.0
+	var h := int(roundf(height)) + int(pad) * 2
+	var radius := (float(h) - pad * 2.0) * 0.5
+	var w := int(pad + radius + 2.0) * 2 + 4
+	var half := Vector2(float(w), float(h)) * 0.5
+	var extent := Vector2(half.x - pad - radius, 0.0)
 	var img := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
+	var base := UITheme.COLOR_BG_DEEP
+	var rim := UITheme.COLOR_ACCENT
 	for y: int in h:
-		# Subtle vertical shading: lighter crest at the top of the bar.
-		var shade := 1.0 + (0.5 - float(y) / float(h - 1)) * 0.28
+		var t := clampf((float(y) + 0.5 - pad) / maxf(float(h) - pad * 2.0, 1.0), 0.0, 1.0)
+		# Inner shadow along the top lip, and the rim highlight underneath.
+		var inner := clampf(1.0 - t * 3.2, 0.0, 1.0)
+		var rim_strength := lerpf(0.18, 0.72, t)
 		for x: int in w:
-			var color := from.lerp(to, float(x) / float(w - 1))
-			color.r = minf(color.r * shade, 1.0)
-			color.g = minf(color.g * shade, 1.0)
-			color.b = minf(color.b * shade, 1.0)
-			var ax := minf(float(x), float(w - 1 - x))
-			var ay := minf(float(y), float(h - 1 - y))
-			if ax < radius and ay < radius:
-				var dx := radius - ax
-				var dy := radius - ay
-				var dist := sqrt(dx * dx + dy * dy) - radius
-				color.a *= clampf(0.5 - dist, 0.0, 1.0)
-			img.set_pixel(x, y, color)
-	var sb := StyleBoxTexture.new()
-	sb.texture = ImageTexture.create_from_image(img)
-	sb.texture_margin_left = radius
-	sb.texture_margin_right = radius
-	return sb
+			var p := Vector2(float(x) + 0.5, float(y) + 0.5) - half
+			var d := _round_box_sdf(p, extent, radius)
+			var cover := clampf(0.5 - d, 0.0, 1.0)
+			var edge := clampf(1.0 - absf(d + 1.0) / 1.3, 0.0, 1.0)
+			var color := base.lerp(rim, edge * rim_strength)
+			var alpha := (0.60 + inner * 0.22 + edge * rim_strength * 0.30) * cover
+			img.set_pixel(x, y, Color(color.r, color.g, color.b, alpha))
+	var style := StyleBoxTexture.new()
+	style.texture = ImageTexture.create_from_image(img)
+	style.texture_margin_left = pad + radius + 2.0
+	style.texture_margin_right = pad + radius + 2.0
+	style.texture_margin_top = 0.0
+	style.texture_margin_bottom = 0.0
+	# Vertical 1:1: the drawn box is the bar plus its two pads, which is exactly
+	# the baked height, so the capsule ends stay circular at any hud scale.
+	style.expand_margin_left = pad
+	style.expand_margin_right = pad
+	style.expand_margin_top = pad
+	style.expand_margin_bottom = pad
+	style.set_content_margin_all(0.0)
+	_groove_cache = style
+	return style
 
 
-func _style_bar(bar: ProgressBar, fill_from: Color, fill_to: Color) -> void:
-	var bg := StyleBoxFlat.new()
-	bg.bg_color = PANEL_NAVY_DEEP
-	bg.set_corner_radius_all(8)
-	bg.set_border_width_all(1)
-	bg.border_color = Color(ACCENT_ICE, 0.35)
-	bg.shadow_color = SHADOW_SOFT
-	bg.shadow_size = 3
-	bg.shadow_offset = Vector2(0, 2)
-	bar.add_theme_stylebox_override("background", bg)
-	bar.add_theme_stylebox_override("fill", _make_gradient_fill(fill_from, fill_to))
+## One gauge: groove panel with the gradient fill inset inside it. Returns the
+## groove for the caller to place; its only child is the ProgressBar.
+func _make_gauge(height: float, inset: float, fill_from: Color, fill_to: Color) -> Panel:
+	var groove := Panel.new()
+	groove.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	groove.add_theme_stylebox_override("panel", _groove_style(height))
+	var bar := ProgressBar.new()
+	bar.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bar.offset_left = inset
+	bar.offset_top = inset
+	bar.offset_right = -inset
+	bar.offset_bottom = -inset
+	bar.max_value = 1.0
+	bar.show_percentage = false
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_theme_stylebox_override("background", StyleBoxEmpty.new())
+	bar.add_theme_stylebox_override("fill", UITheme.make_bar_fill(fill_from, fill_to))
+	groove.add_child(bar)
+	return groove
 
 
 static func _make_fish_texture() -> ImageTexture:
-	var img := Image.new()
-	if img.load_svg_from_string(FISH_ICON_SVG, 2.0) != OK:
-		return null
-	return ImageTexture.create_from_image(img)
+	return UITheme.make_icon(FISH_ICON_SVG, 2.0)
 
 
 ## Small keyboard-keycap chip (light face, heavier bottom border) used for
@@ -218,8 +363,9 @@ static func _make_keycap(text: String, font_size: int) -> PanelContainer:
 	label.text = text
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_override("font", UITheme.bold_font())
 	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", OUTLINE_NAVY)
+	label.add_theme_color_override("font_color", UITheme.COLOR_BG_DEEP)
 	cap.add_child(label)
 	return cap
 
@@ -252,20 +398,20 @@ static func build_controls_strip(hud_scale: float, max_per_row: int = 0) -> Cont
 	var column: VBoxContainer = null
 	if max_per_row > 0:
 		column = VBoxContainer.new()
-		column.add_theme_constant_override("separation", 8)
+		column.add_theme_constant_override("separation", GAP_S + 2)
 		column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var row: HBoxContainer = null
 	for i: int in hints.size():
 		if row == null or (max_per_row > 0 and i % max_per_row == 0):
 			row = HBoxContainer.new()
-			row.add_theme_constant_override("separation", 16)
+			row.add_theme_constant_override("separation", 18)
 			row.alignment = BoxContainer.ALIGNMENT_CENTER
 			row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			if column != null:
 				column.add_child(row)
 		var hint: Array = hints[i]
 		var pair := HBoxContainer.new()
-		pair.add_theme_constant_override("separation", 4)
+		pair.add_theme_constant_override("separation", 5)
 		pair.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		for action: String in hint[0]:
 			var cap := action
@@ -277,8 +423,10 @@ static func build_controls_strip(hud_scale: float, max_per_row: int = 0) -> Cont
 		verb.text = String(hint[1])
 		verb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		verb.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		verb.add_theme_font_size_override("font_size", int(14 * hud_scale))
-		verb.add_theme_color_override("font_color", Color(0.92, 0.96, 1.0))
+		verb.add_theme_font_size_override("font_size", int(15 * hud_scale))
+		verb.add_theme_color_override("font_color", UITheme.COLOR_TEXT)
+		verb.add_theme_constant_override("outline_size", 4)
+		verb.add_theme_color_override("font_outline_color", Color(UITheme.COLOR_BG_DEEP, 0.9))
 		pair.add_child(verb)
 		row.add_child(pair)
 	if column != null:
@@ -286,21 +434,9 @@ static func build_controls_strip(hud_scale: float, max_per_row: int = 0) -> Cont
 	return row
 
 
-## Tiny dim caption naming a HUD bar ("Course", "Speed"): low-contrast with a
-## thin navy outline so it reads over snow without drawing focus.
-func _make_bar_tag(text: String, hud_scale: float) -> Label:
-	var tag := Label.new()
-	tag.text = text
-	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tag.add_theme_font_size_override("font_size", int(12 * hud_scale))
-	tag.add_theme_color_override("font_color", Color(0.85, 0.93, 1.0, 0.62))
-	tag.add_theme_constant_override("outline_size", 4)
-	tag.add_theme_color_override("font_outline_color", Color(OUTLINE_NAVY, 0.85))
-	return tag
-
-
 ## Mirrors the minimap's narrow-portrait rule: when a logical pixel renders
-## physically tiny the 12 px captions are unreadable noise, so hide them.
+## physically tiny the gauge captions are unreadable noise rather than help,
+## so they hide and the capsules speak for themselves.
 func _update_bar_tags() -> void:
 	var window := get_window()
 	var viewport := get_viewport()
@@ -308,9 +444,14 @@ func _update_bar_tags() -> void:
 		return
 	var logical_width := maxf(viewport.get_visible_rect().size.x, 1.0)
 	var px_per_logical := float(window.size.x) / logical_width
+	var legible := px_per_logical >= 0.55
 	for tag: Label in _bar_tags:
-		tag.visible = px_per_logical >= 0.4
+		tag.visible = legible
+	if _esc_hint != null:
+		_esc_hint.visible = legible
 
+
+## --- Build ------------------------------------------------------------------
 
 func _build() -> void:
 	_root = Control.new()
@@ -320,285 +461,19 @@ func _build() -> void:
 	_hud_scale = hud_scale
 	add_child(_root)
 
-	# Position card (top left).
-	var pos_panel := PanelContainer.new()
-	pos_panel.position = Vector2(24, 20)
-	pos_panel.add_theme_stylebox_override("panel", _panel_style(14.0, 16.0, 2.0))
-	_root.add_child(pos_panel)
-	var pos_box := HBoxContainer.new()
-	pos_box.add_theme_constant_override("separation", 6)
-	pos_panel.add_child(pos_box)
-	_position_label = Label.new()
-	_position_label.add_theme_font_size_override("font_size", int(76 * hud_scale))
-	_position_label.add_theme_color_override("font_color", Color(1, 1, 1))
-	_position_label.add_theme_constant_override("outline_size", 8)
-	_position_label.add_theme_color_override("font_outline_color", OUTLINE_NAVY)
-	pos_box.add_child(_position_label)
-	_position_suffix = Label.new()
-	_position_suffix.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_position_suffix.add_theme_font_size_override("font_size", int(30 * hud_scale))
-	_position_suffix.add_theme_color_override("font_color", Color(ACCENT_ICE, 0.95))
-	pos_box.add_child(_position_suffix)
-	# Seed with the real grid slot so the countdown shows actual data instead
-	# of placeholders (Time Trial reads 1st / 1).
-	_set_position_display(maxi(manager.racers.find(player) + 1, 1), maxi(manager.racers.size(), 1))
-
-	# Time pill (top center).
-	var time_panel := PanelContainer.new()
-	time_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	time_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	time_panel.offset_left = 0
-	time_panel.offset_right = 0
-	time_panel.offset_top = 20
-	time_panel.add_theme_stylebox_override("panel", _panel_style(18.0, 18.0, 5.0))
-	_root.add_child(time_panel)
-	_time_label = Label.new()
-	_time_label.text = format_time(0.0)
-	_time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_time_label.add_theme_font_size_override("font_size", int(34 * hud_scale))
-	_time_label.add_theme_color_override("font_color", Color(1, 1, 1))
-	_time_label.add_theme_constant_override("outline_size", 6)
-	_time_label.add_theme_color_override("font_outline_color", OUTLINE_NAVY)
-	time_panel.add_child(_time_label)
-
-	# Item slot (top right); border pulses while an item is held.
-	_item_panel = PanelContainer.new()
-	_item_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_item_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_item_panel.offset_left = -170
-	_item_panel.offset_top = 20
-	_item_panel.offset_right = -24
-	_item_style = _panel_style(14.0, 12.0, 8.0)
-	_item_style.border_color = Color(ACCENT_ICE, 0.55)
-	_item_panel.add_theme_stylebox_override("panel", _item_style)
-	var item_box := VBoxContainer.new()
-	item_box.add_theme_constant_override("separation", 4)
-	item_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	_item_panel.add_child(item_box)
-	var icon_center := CenterContainer.new()
-	item_box.add_child(icon_center)
-	_item_icon_size = 46.0 * hud_scale
-	_item_icon = TextureRect.new()
-	_item_icon.custom_minimum_size = Vector2(_item_icon_size, _item_icon_size)
-	_item_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_item_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_item_icon.modulate = ITEM_ICON_EMPTY
-	icon_center.add_child(_item_icon)
-	_set_item_icon("")
-	_item_label = Label.new()
-	_item_label.text = "No Item"
-	_item_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_item_label.add_theme_font_size_override("font_size", int(17 * hud_scale))
-	_item_label.add_theme_color_override("font_color", Color(0.85, 0.93, 1.0))
-	item_box.add_child(_item_label)
-	# Snowball ammo pips: collected throwable snowballs, up to 3.
-	var ammo_box := HBoxContainer.new()
-	ammo_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	ammo_box.add_theme_constant_override("separation", 6)
-	item_box.add_child(ammo_box)
-	var pip_size := 13.0 * hud_scale
-	_ammo_style_full = StyleBoxFlat.new()
-	_ammo_style_full.bg_color = Color(0.96, 0.98, 1.0)
-	_ammo_style_full.set_corner_radius_all(int(pip_size * 0.5))
-	_ammo_style_full.set_border_width_all(1)
-	_ammo_style_full.border_color = Color(ACCENT_ICE, 0.9)
-	_ammo_style_empty = StyleBoxFlat.new()
-	_ammo_style_empty.bg_color = Color(ITEM_ICON_EMPTY, 0.55)
-	_ammo_style_empty.set_corner_radius_all(int(pip_size * 0.5))
-	_ammo_style_empty.set_border_width_all(1)
-	_ammo_style_empty.border_color = Color(ACCENT_ICE, 0.3)
-	for i: int in Racer.MAX_SNOWBALL_AMMO:
-		var pip := Panel.new()
-		pip.custom_minimum_size = Vector2(pip_size, pip_size)
-		pip.add_theme_stylebox_override("panel", _ammo_style_empty)
-		ammo_box.add_child(pip)
-		_ammo_pips.append(pip)
-	# Desktop-only "how do I use this?" hint: keycap with the actual bound
-	# key under the item slot, shown while an item or snowball ammo is held.
-	# Touch devices have a dedicated item button, so no hint there.
-	if not UITheme.is_touch():
-		_use_hint = HBoxContainer.new()
-		_use_hint.alignment = BoxContainer.ALIGNMENT_CENTER
-		_use_hint.add_theme_constant_override("separation", 5)
-		_use_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_use_hint.visible = false
-		item_box.add_child(_use_hint)
-		var use_cap := _make_keycap("?", int(15 * hud_scale))
-		_use_key_label = use_cap.get_child(0) as Label
-		_use_hint.add_child(use_cap)
-		_use_verb_label = Label.new()
-		_use_verb_label.text = "Use"
-		_use_verb_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_use_verb_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		_use_verb_label.add_theme_font_size_override("font_size", int(15 * hud_scale))
-		_use_verb_label.add_theme_color_override("font_color", Color(0.85, 0.93, 1.0, 0.9))
-		_use_hint.add_child(_use_verb_label)
-	_root.add_child(_item_panel)
-
-	# Fish counter card (bottom left) with generated fish icon.
-	var fish_panel := PanelContainer.new()
-	fish_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	fish_panel.grow_horizontal = Control.GROW_DIRECTION_END
-	fish_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	fish_panel.offset_left = 24
-	fish_panel.offset_top = -80
-	fish_panel.offset_bottom = -24
-	fish_panel.add_theme_stylebox_override("panel", _panel_style(14.0, 14.0, 5.0))
-	_root.add_child(fish_panel)
-	var fish_box := HBoxContainer.new()
-	fish_box.add_theme_constant_override("separation", 8)
-	fish_panel.add_child(fish_box)
-	var fish_tex := _make_fish_texture()
-	if fish_tex != null:
-		var fish_icon := TextureRect.new()
-		fish_icon.texture = fish_tex
-		fish_icon.custom_minimum_size = Vector2(40 * hud_scale, 27 * hud_scale)
-		fish_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		fish_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		fish_box.add_child(fish_icon)
-	else:
-		# SVG module unavailable: fall back to a glyph so the counter
-		# still reads correctly.
-		var fish_glyph := Label.new()
-		fish_glyph.text = "><>"
-		fish_glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		fish_glyph.add_theme_font_size_override("font_size", int(30 * hud_scale))
-		fish_glyph.add_theme_color_override("font_color", Color(0.55, 0.85, 0.95))
-		fish_box.add_child(fish_glyph)
-	_fish_label = Label.new()
-	_fish_label.text = "0"
-	_fish_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_fish_label.add_theme_font_size_override("font_size", int(34 * hud_scale))
-	_fish_label.add_theme_color_override("font_color", Color(1, 1, 1))
-	_fish_label.add_theme_constant_override("outline_size", 6)
-	_fish_label.add_theme_color_override("font_outline_color", OUTLINE_NAVY)
-	fish_box.add_child(_fish_label)
-
-	# Speed bar (bottom right): ice blue rising to warm yellow at top speed.
-	_speed_bar = ProgressBar.new()
-	_speed_bar.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_speed_bar.offset_left = -230
-	_speed_bar.offset_top = -56
-	_speed_bar.offset_right = -30
-	_speed_bar.offset_bottom = -38
-	_speed_bar.max_value = 1.0
-	_speed_bar.show_percentage = false
-	_style_bar(_speed_bar, Color(0.35, 0.65, 0.95), ACCENT_YELLOW)
-	_root.add_child(_speed_bar)
-	# Tiny dim caption naming the bar (playtest: its meaning wasn't obvious).
-	var boost_tag := _make_bar_tag("Speed", hud_scale)
-	boost_tag.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	boost_tag.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	boost_tag.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	boost_tag.offset_right = -30
-	boost_tag.offset_bottom = -58
-	_root.add_child(boost_tag)
-	_bar_tags.append(boost_tag)
-
-	# Course progress (bottom center): deep ice to bright ice gradient.
-	_progress_bar = ProgressBar.new()
-	_progress_bar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_progress_bar.anchor_left = 0.32
-	_progress_bar.anchor_right = 0.68
-	_progress_bar.offset_top = -46
-	_progress_bar.offset_bottom = -30
-	_progress_bar.max_value = 1.0
-	_progress_bar.show_percentage = false
-	_style_bar(_progress_bar, Color(0.3, 0.6, 0.95), Color(0.62, 0.9, 1.0))
-	_root.add_child(_progress_bar)
-	var course_tag := _make_bar_tag("Course", hud_scale)
-	course_tag.anchor_left = 0.32
-	course_tag.anchor_right = 0.32
-	course_tag.anchor_top = 1.0
-	course_tag.anchor_bottom = 1.0
-	course_tag.grow_horizontal = Control.GROW_DIRECTION_END
-	course_tag.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	course_tag.offset_bottom = -48
-	_root.add_child(course_tag)
-	_bar_tags.append(course_tag)
-	# Same narrow-portrait rule as the minimap: hide the captions when logical
-	# pixels render physically tiny.
+	_build_position_card(hud_scale)
+	_build_time_card(hud_scale)
+	_build_item_card(hud_scale)
+	_build_fish_card(hud_scale)
+	_build_gauges(hud_scale)
+	_build_messages(hud_scale)
+	_build_hints(hud_scale)
+	# Same narrow-portrait rule as the minimap: drop the micro-captions and the
+	# pause reminder when logical pixels render physically tiny, where they are
+	# unreadable noise rather than help.
 	if not GameConfig.is_headless():
 		get_viewport().size_changed.connect(_update_bar_tags)
 		_update_bar_tags()
-
-	_checkpoint_label = Label.new()
-	_checkpoint_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_checkpoint_label.anchor_left = 0.5
-	_checkpoint_label.anchor_right = 0.5
-	_checkpoint_label.offset_left = -150
-	_checkpoint_label.offset_right = 150
-	_checkpoint_label.offset_top = -80
-	_checkpoint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_checkpoint_label.add_theme_font_size_override("font_size", int(24 * hud_scale))
-	_checkpoint_label.add_theme_constant_override("outline_size", 5)
-	_checkpoint_label.add_theme_color_override("font_outline_color", OUTLINE_NAVY)
-	_checkpoint_label.modulate.a = 0.0
-	_root.add_child(_checkpoint_label)
-
-	# Center message / countdown.
-	_center_label = Label.new()
-	_center_label.set_anchors_preset(Control.PRESET_CENTER)
-	_center_label.anchor_left = 0.5
-	_center_label.anchor_right = 0.5
-	_center_label.anchor_top = 0.35
-	_center_label.anchor_bottom = 0.35
-	_center_label.offset_left = -320
-	_center_label.offset_right = 320
-	_center_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_center_label.add_theme_font_size_override("font_size", int(120 * hud_scale))
-	_center_label.add_theme_constant_override("outline_size", 12)
-	_center_label.add_theme_color_override("font_outline_color", OUTLINE_NAVY)
-	_root.add_child(_center_label)
-
-	# Desktop-only pause hint (bottom right, under the speed bar): shows the
-	# actual bound pause key at low opacity. Hidden on touch devices.
-	if not UITheme.is_touch():
-		var esc_hint := HBoxContainer.new()
-		esc_hint.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-		esc_hint.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-		esc_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		esc_hint.offset_right = -30
-		esc_hint.offset_bottom = -10
-		esc_hint.add_theme_constant_override("separation", 5)
-		esc_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		esc_hint.modulate.a = 0.5
-		var pause_key := SettingsManager.describe_action_binding("pause", "key")
-		if pause_key == "—":
-			pause_key = "Esc"
-		esc_hint.add_child(_make_keycap(pause_key, int(14 * hud_scale)))
-		var pause_label := Label.new()
-		pause_label.text = "Pause"
-		pause_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		pause_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		pause_label.add_theme_font_size_override("font_size", int(14 * hud_scale))
-		pause_label.add_theme_color_override("font_color", Color(0.85, 0.93, 1.0))
-		esc_hint.add_child(pause_label)
-		_root.add_child(esc_hint)
-
-	# Onboarding strip (bottom center): shown through the countdown and faded
-	# shortly after GO. Keyboard players get live keycap bindings; touch
-	# players get the gesture + button cheat sheet (SHOVE/ITEM explained).
-	if bool(SettingsManager.get_setting("gameplay", "tutorial_prompts")):
-		# Dark chip behind the strip: over bright snow the bare labels washed
-		# out (screenshot QA).
-		_controls_hint = PanelContainer.new()
-		_controls_hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-		_controls_hint.grow_horizontal = Control.GROW_DIRECTION_BOTH
-		_controls_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		_controls_hint.offset_left = 0
-		_controls_hint.offset_right = 0
-		_controls_hint.offset_bottom = -96
-		_controls_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_controls_hint.modulate.a = 0.92
-		var strip_style := UITheme.make_panel_style(Color(0.05, 0.09, 0.16, 0.78))
-		strip_style.content_margin_left = 16.0
-		strip_style.content_margin_right = 16.0
-		strip_style.content_margin_top = 8.0
-		strip_style.content_margin_bottom = 8.0
-		_controls_hint.add_theme_stylebox_override("panel", strip_style)
-		_controls_hint.add_child(build_controls_strip(hud_scale))
-		_root.add_child(_controls_hint)
 
 	# Course minimap (top-right card under the item slot; hides itself on
 	# tiny viewports and when gameplay/show_minimap is off).
@@ -607,17 +482,409 @@ func _build() -> void:
 	minimap.setup(manager, hud_scale)
 
 
+## Position card (top left): a podium-coloured edge stripe, the place numeral
+## as the loudest thing on screen, and a quiet ordinal/field column beside it.
+## Hidden outright when there is nobody to be ahead of (Time Trial, Endless) —
+## "1st of 1" is furniture, and the clock deserves the attention instead.
+func _build_position_card(s: float) -> void:
+	if manager.single_racer_mode or manager.racers.size() <= 1:
+		return
+	_position_card = PanelContainer.new()
+	_position_card.position = Vector2(GUTTER, GUTTER)
+	_position_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_position_card.add_theme_stylebox_override("panel", _card_style(14.0 * s, 8.0 * s))
+	_root.add_child(_position_card)
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(10 * s))
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_position_card.add_child(row)
+
+	_position_stripe = Panel.new()
+	_position_stripe.custom_minimum_size = Vector2(4.0 * s, 0.0)
+	_position_stripe.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_position_stripe.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(_position_stripe)
+
+	_position_label = _value_label("1", 66 * s)
+	# Fixed numeral box: the card must not twitch wider when the place changes.
+	_position_label.custom_minimum_size = Vector2(44.0 * s, 0.0)
+	_position_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	row.add_child(_position_label)
+
+	var ordinal := VBoxContainer.new()
+	ordinal.add_theme_constant_override("separation", 0)
+	ordinal.alignment = BoxContainer.ALIGNMENT_CENTER
+	ordinal.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(ordinal)
+	_position_suffix = _value_label("ST", 22 * s, UITheme.COLOR_ACCENT)
+	ordinal.add_child(_position_suffix)
+	_position_total = _caption_label("of 8", 14 * s)
+	ordinal.add_child(_position_total)
+
+	# Seed with the real grid slot so the countdown shows actual data instead
+	# of placeholders.
+	_set_position_display(maxi(manager.racers.find(player) + 1, 1), maxi(manager.racers.size(), 1))
+
+
+## Clock card (top centre): caption above, monospaced-feeling numerals below.
+func _build_time_card(s: float) -> void:
+	var card := PanelContainer.new()
+	card.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	card.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.offset_left = 0
+	card.offset_right = 0
+	card.offset_top = GUTTER
+	card.add_theme_stylebox_override("panel", _card_style(20.0 * s, 6.0 * s))
+	_root.add_child(card)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 0)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(box)
+	_time_caption = _caption_label("Time", 12 * s)
+	_time_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(_time_caption)
+	_time_label = _value_label(format_time(0.0), 34 * s)
+	_time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(_time_label)
+
+
+## Item card (top right): a recessed well holding the pickup glyph, the pickup
+## name, ammo pips, and (desktop) the live "use" keycap. Fixed height with the
+## hint row reserved, so the card never reflows mid-race; width matches the
+## minimap card below it so the right column reads as one stack.
+func _build_item_card(s: float) -> void:
+	var width := COLUMN_WIDTH * s
+	if UITheme.is_touch():
+		# The touch pause button parks just left of this column.
+		width = minf(width, COLUMN_WIDTH_TOUCH_MAX)
+	var height := (ITEM_CARD_HEIGHT_TOUCH if UITheme.is_touch() else ITEM_CARD_HEIGHT) * s
+
+	_item_panel = Panel.new()
+	_item_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_item_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_item_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_item_panel.offset_left = -GUTTER - width
+	_item_panel.offset_right = -GUTTER
+	_item_panel.offset_top = GUTTER
+	_item_panel.offset_bottom = GUTTER + height
+	_item_panel.add_theme_stylebox_override("panel", _card_style(8.0 * s, 8.0 * s))
+	_root.add_child(_item_panel)
+
+	# Warm ring behind the card, faded in while an item is held. Kept as its
+	# own node so the card art itself stays a plain shared style.
+	_item_glow = Panel.new()
+	_item_glow.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_item_glow.offset_left = -3.0
+	_item_glow.offset_top = -3.0
+	_item_glow.offset_right = 3.0
+	_item_glow.offset_bottom = 3.0
+	_item_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_item_glow.modulate.a = 0.0
+	_item_glow_style = StyleBoxFlat.new()
+	_item_glow_style.draw_center = false
+	_item_glow_style.set_corner_radius_all(int(CARD_RADIUS + 3.0))
+	_item_glow_style.set_border_width_all(2)
+	_item_glow_style.border_color = Color(UITheme.COLOR_GOLD, 0.9)
+	_item_glow_style.shadow_color = Color(UITheme.COLOR_GOLD, 0.35)
+	_item_glow_style.shadow_size = 10
+	_item_glow.add_theme_stylebox_override("panel", _item_glow_style)
+	_item_panel.add_child(_item_glow)
+
+	var box := VBoxContainer.new()
+	box.set_anchors_preset(Control.PRESET_FULL_RECT)
+	box.offset_left = 8.0 * s
+	box.offset_right = -8.0 * s
+	box.offset_top = 8.0 * s
+	box.offset_bottom = -8.0 * s
+	box.add_theme_constant_override("separation", int(5 * s))
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_item_panel.add_child(box)
+
+	# Recessed well: gives the glyph a socket to sit in instead of floating.
+	_item_icon_size = 40.0 * s
+	var well := Panel.new()
+	well.custom_minimum_size = Vector2(_item_icon_size + 14.0 * s, _item_icon_size + 14.0 * s)
+	well.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	well.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var well_style := StyleBoxFlat.new()
+	well_style.bg_color = Color(UITheme.COLOR_BG_DEEP, 0.55)
+	well_style.set_corner_radius_all(int(10 * s))
+	well_style.set_border_width_all(1)
+	well_style.border_color = Color(UITheme.COLOR_ACCENT, 0.18)
+	well.add_theme_stylebox_override("panel", well_style)
+	box.add_child(well)
+
+	_item_icon = TextureRect.new()
+	_item_icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_item_icon.offset_left = 7.0 * s
+	_item_icon.offset_top = 7.0 * s
+	_item_icon.offset_right = -7.0 * s
+	_item_icon.offset_bottom = -7.0 * s
+	_item_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_item_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_item_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	well.add_child(_item_icon)
+	_set_item_icon("")
+
+	_item_label = _caption_label("No Item", 14 * s)
+	_item_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_item_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_item_label.clip_text = true
+	box.add_child(_item_label)
+
+	# Snowball ammo pips: collected throwable snowballs, up to 3.
+	var ammo_box := HBoxContainer.new()
+	ammo_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	ammo_box.add_theme_constant_override("separation", int(6 * s))
+	ammo_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(ammo_box)
+	var pip_size := 10.0 * s
+	_ammo_style_full = StyleBoxFlat.new()
+	_ammo_style_full.bg_color = Color(0.96, 0.98, 1.0)
+	_ammo_style_full.set_corner_radius_all(int(pip_size * 0.5))
+	_ammo_style_full.set_border_width_all(1)
+	_ammo_style_full.border_color = Color(UITheme.COLOR_ACCENT, 0.9)
+	_ammo_style_empty = StyleBoxFlat.new()
+	_ammo_style_empty.bg_color = Color(UITheme.COLOR_BG_DEEP, 0.7)
+	_ammo_style_empty.set_corner_radius_all(int(pip_size * 0.5))
+	_ammo_style_empty.set_border_width_all(1)
+	_ammo_style_empty.border_color = Color(UITheme.COLOR_ACCENT, 0.28)
+	for i: int in Racer.MAX_SNOWBALL_AMMO:
+		var pip := Panel.new()
+		pip.custom_minimum_size = Vector2(pip_size, pip_size)
+		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pip.add_theme_stylebox_override("panel", _ammo_style_empty)
+		ammo_box.add_child(pip)
+		_ammo_pips.append(pip)
+
+	# Desktop-only "how do I use this?" hint: keycap with the actual bound key,
+	# shown while an item or snowball ammo is held. Touch devices have a
+	# dedicated item button, so no hint there.
+	if not UITheme.is_touch():
+		_use_hint = HBoxContainer.new()
+		_use_hint.alignment = BoxContainer.ALIGNMENT_CENTER
+		_use_hint.add_theme_constant_override("separation", int(5 * s))
+		_use_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_use_hint.modulate.a = 0.0
+		box.add_child(_use_hint)
+		var use_cap := _make_keycap("?", int(14 * s))
+		_use_key_label = use_cap.get_child(0) as Label
+		_use_hint.add_child(use_cap)
+		_use_verb_label = _caption_label("Use", 13 * s)
+		_use_verb_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_use_hint.add_child(_use_verb_label)
+
+
+## Fish counter (bottom left), on the same baseline as both gauges.
+func _build_fish_card(s: float) -> void:
+	var card := PanelContainer.new()
+	card.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	card.grow_horizontal = Control.GROW_DIRECTION_END
+	card.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.offset_left = GUTTER
+	card.offset_bottom = -GUTTER
+	card.add_theme_stylebox_override("panel", _card_style(13.0 * s, 5.0 * s))
+	_root.add_child(card)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(9 * s))
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(row)
+	var fish_tex := _make_fish_texture()
+	if fish_tex != null:
+		var fish_icon := TextureRect.new()
+		fish_icon.texture = fish_tex
+		fish_icon.custom_minimum_size = Vector2(38 * s, 26 * s)
+		fish_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fish_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		fish_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(fish_icon)
+	else:
+		# SVG module unavailable: fall back to a glyph so the counter still
+		# reads correctly.
+		var fish_glyph := _value_label("><>", 26 * s, UITheme.COLOR_ACCENT)
+		fish_glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(fish_glyph)
+	_fish_label = _value_label("0", 30 * s)
+	_fish_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(_fish_label)
+
+
+## Course and speed gauges. Both are the same capsule with the same caption
+## row above them, sitting on the same bottom baseline as the fish card, so the
+## bottom edge of the screen reads as one instrument rail instead of two
+## unrelated slabs. On touch the speed gauge moves to the left column, because
+## the bottom-right corner belongs to the SHOVE / ITEM buttons.
+func _build_gauges(s: float) -> void:
+	var bar_h := BAR_HEIGHT * s
+	var cap_h := 17.0 * s
+	var rail_h := bar_h + 4.0 * s + cap_h
+	_hint_bottom = -(GUTTER + rail_h + float(GAP_M))
+
+	# Course progress (bottom centre): caption left, percentage right.
+	var course_caption := HBoxContainer.new()
+	course_caption.anchor_left = 0.32
+	course_caption.anchor_right = 0.68
+	course_caption.anchor_top = 1.0
+	course_caption.anchor_bottom = 1.0
+	course_caption.offset_top = -(GUTTER + rail_h)
+	course_caption.offset_bottom = -(GUTTER + bar_h + 4.0 * s)
+	course_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(course_caption)
+	var course_tag := _caption_label("Course", 13 * s)
+	course_tag.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	course_caption.add_child(course_tag)
+	_bar_tags.append(course_tag)
+	_progress_value = _caption_label("0%", 13 * s)
+	_progress_value.add_theme_color_override("font_color", UITheme.COLOR_TEXT)
+	_progress_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	course_caption.add_child(_progress_value)
+	_bar_tags.append(_progress_value)
+
+	var course_groove := _make_gauge(bar_h, 3.0 * s,
+		UITheme.COLOR_ACCENT.darkened(0.18), UITheme.COLOR_ACCENT.lightened(0.55))
+	course_groove.anchor_left = 0.32
+	course_groove.anchor_right = 0.68
+	course_groove.anchor_top = 1.0
+	course_groove.anchor_bottom = 1.0
+	course_groove.offset_top = -(GUTTER + bar_h)
+	course_groove.offset_bottom = -GUTTER
+	_root.add_child(course_groove)
+	_progress_bar = course_groove.get_child(0) as ProgressBar
+
+	# Speed gauge: right column on desktop, above the fish card on touch.
+	var speed_w := 210.0 * s
+	var touch := UITheme.is_touch()
+	var speed_bottom := -GUTTER if not touch else -(GUTTER + 52.0 * s + float(GAP_M))
+	var speed_caption := HBoxContainer.new()
+	speed_caption.anchor_top = 1.0
+	speed_caption.anchor_bottom = 1.0
+	if touch:
+		speed_caption.anchor_left = 0.0
+		speed_caption.anchor_right = 0.0
+		speed_caption.offset_left = GUTTER
+		speed_caption.offset_right = GUTTER + speed_w
+	else:
+		speed_caption.anchor_left = 1.0
+		speed_caption.anchor_right = 1.0
+		speed_caption.offset_left = -GUTTER - speed_w
+		speed_caption.offset_right = -GUTTER
+	speed_caption.offset_top = speed_bottom - rail_h
+	speed_caption.offset_bottom = speed_bottom - bar_h - 4.0 * s
+	speed_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(speed_caption)
+	var speed_tag := _caption_label("Speed", 13 * s)
+	speed_tag.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	speed_caption.add_child(speed_tag)
+	_bar_tags.append(speed_tag)
+	# Lights up only at the top of the gauge, so peak speed reads without a
+	# number to parse.
+	_speed_flag = _caption_label("Max", 13 * s)
+	_speed_flag.add_theme_color_override("font_color", UITheme.COLOR_GOLD)
+	_speed_flag.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_speed_flag.modulate.a = 0.0
+	speed_caption.add_child(_speed_flag)
+
+	var speed_groove := _make_gauge(bar_h, 3.0 * s,
+		UITheme.COLOR_ACCENT.darkened(0.12), UITheme.COLOR_GOLD)
+	speed_groove.anchor_top = 1.0
+	speed_groove.anchor_bottom = 1.0
+	if touch:
+		speed_groove.anchor_left = 0.0
+		speed_groove.anchor_right = 0.0
+		speed_groove.offset_left = GUTTER
+		speed_groove.offset_right = GUTTER + speed_w
+	else:
+		speed_groove.anchor_left = 1.0
+		speed_groove.anchor_right = 1.0
+		speed_groove.offset_left = -GUTTER - speed_w
+		speed_groove.offset_right = -GUTTER
+	speed_groove.offset_top = speed_bottom - bar_h
+	speed_groove.offset_bottom = speed_bottom
+	_root.add_child(speed_groove)
+	_speed_bar = speed_groove.get_child(0) as ProgressBar
+
+
+## Countdown / message / checkpoint text, stacked clear of the control strip.
+func _build_messages(s: float) -> void:
+	_checkpoint_label = _value_label("", 24 * s, UITheme.COLOR_ACCENT)
+	_checkpoint_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_checkpoint_label.anchor_left = 0.5
+	_checkpoint_label.anchor_right = 0.5
+	_checkpoint_label.offset_left = -180
+	_checkpoint_label.offset_right = 180
+	_checkpoint_label.offset_top = _hint_bottom - 52.0
+	_checkpoint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_checkpoint_label.modulate.a = 0.0
+	_root.add_child(_checkpoint_label)
+
+	_center_label = _value_label("", 120 * s)
+	_center_label.set_anchors_preset(Control.PRESET_CENTER)
+	_center_label.anchor_left = 0.5
+	_center_label.anchor_right = 0.5
+	_center_label.anchor_top = 0.35
+	_center_label.anchor_bottom = 0.35
+	_center_label.offset_left = -320
+	_center_label.offset_right = 320
+	_center_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_center_label.add_theme_constant_override("outline_size", 12)
+	_root.add_child(_center_label)
+
+
+## Pause reminder and the onboarding control strip.
+func _build_hints(s: float) -> void:
+	# Desktop-only pause hint: sits above the speed gauge at low opacity with
+	# the actual bound key. Hidden on touch devices (they get a pause button).
+	if not UITheme.is_touch():
+		var esc_hint := HBoxContainer.new()
+		esc_hint.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+		esc_hint.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		esc_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		esc_hint.offset_right = -GUTTER
+		esc_hint.offset_bottom = _hint_bottom - 6.0
+		esc_hint.add_theme_constant_override("separation", int(5 * s))
+		esc_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		esc_hint.modulate.a = 0.45
+		var pause_key := SettingsManager.describe_action_binding("pause", "key")
+		if pause_key == "—":
+			pause_key = "Esc"
+		esc_hint.add_child(_make_keycap(pause_key, int(13 * s)))
+		esc_hint.add_child(_caption_label("Pause", 13 * s))
+		_root.add_child(esc_hint)
+		_esc_hint = esc_hint
+
+	# Onboarding strip (bottom centre, above the rail): shown through the
+	# countdown and faded a while after GO. Keyboard players get live keycap
+	# bindings; touch players get the gesture + button cheat sheet.
+	if bool(SettingsManager.get_setting("gameplay", "tutorial_prompts")):
+		_controls_hint = PanelContainer.new()
+		_controls_hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+		_controls_hint.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		_controls_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		_controls_hint.offset_left = 0
+		_controls_hint.offset_right = 0
+		_controls_hint.offset_bottom = _hint_bottom
+		_controls_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_controls_hint.add_theme_stylebox_override("panel", _card_style(16.0 * s, 7.0 * s))
+		_controls_hint.add_child(build_controls_strip(s))
+		_root.add_child(_controls_hint)
+
+
 ## Endless mode: time label doubles as score/distance/storm readout.
 var _endless_mode: bool = false
 
 
 func set_endless_status(score: int, distance: float, storm_gap: float) -> void:
 	_endless_mode = true
+	_time_caption.text = "ENDLESS"
 	_time_label.text = "Score %d   •   %dm   •   Storm %dm" % [score, int(distance), int(storm_gap)]
 	if storm_gap < 25.0:
 		_time_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.4))
 	else:
-		_time_label.add_theme_color_override("font_color", Color(1, 1, 1))
+		_time_label.add_theme_color_override("font_color", UITheme.COLOR_TEXT)
 
 
 ## Screen-edge speed lines shown while boosted / at slide top speed.
@@ -665,11 +932,25 @@ func _process(_delta: float) -> void:
 	var over_speed := clampf((player.current_speed / Racer.BASE_SPEED - 1.25) * 1.4, 0.0, 1.0)
 	var target_alpha := 0.0 if reduced else over_speed * 0.6
 	_speed_lines.modulate.a = lerpf(_speed_lines.modulate.a, target_alpha, 0.15)
-	_speed_bar.value = clampf(player.current_speed / Racer.SLIDE_MAX_SPEED, 0.0, 1.0)
+	var speed_ratio := clampf(player.current_speed / Racer.SLIDE_MAX_SPEED, 0.0, 1.0)
+	_speed_bar.value = speed_ratio
+	# "MAX" tag with hysteresis so it never flickers at the threshold.
+	if speed_ratio > 0.97 and not _speed_flagged:
+		_speed_flagged = true
+		_speed_flag.modulate.a = 1.0
+	elif speed_ratio < 0.92 and _speed_flagged:
+		_speed_flagged = false
+		_speed_flag.modulate.a = 0.0
 	if player.course != null and player.course is CourseBase:
 		var course := player.course as CourseBase
 		if course.main_guide != null and course.main_guide.length > 1.0:
-			_progress_bar.value = clampf(player.progress / course.finish_offset, 0.0, 1.0)
+			var ratio := clampf(player.progress / course.finish_offset, 0.0, 1.0)
+			_progress_bar.value = ratio
+			# Only touch the label when the rounded value actually moves.
+			var pct := int(ratio * 100.0)
+			if pct != _progress_shown:
+				_progress_shown = pct
+				_progress_value.text = "%d%%" % pct
 	# Keyboard/controller reachability: the finish button is the HUD's only
 	# focusable, so reclaim focus if a pause-menu round trip dropped it.
 	if _finish_button != null and is_instance_valid(_finish_button) \
@@ -743,7 +1024,7 @@ func _show_finish_button() -> void:
 	_finish_button.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_finish_button.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_finish_button.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_finish_button.offset_bottom = -96
+	_finish_button.offset_bottom = _hint_bottom
 	_finish_button.pressed.connect(_on_finish_button_pressed)
 	_root.add_child(_finish_button)
 	if UITheme.reduced_motion():
@@ -777,7 +1058,7 @@ func _on_race_completed() -> void:
 
 func show_message(text: String) -> void:
 	_center_label.text = text
-	_center_label.modulate = Color(1.0, 0.9, 0.4)
+	_center_label.modulate = UITheme.COLOR_GOLD
 	var tween := create_tween()
 	tween.tween_interval(1.6)
 	tween.tween_property(_center_label, "modulate:a", 0.0, 0.5)
@@ -790,18 +1071,30 @@ func _on_positions(_standings: Array[Racer]) -> void:
 	_set_position_display(player.race_position, manager.racers.size())
 
 
-## Position card ("2nd / 8") with podium colours; also seeds the pre-race grid slot.
+## Position card ("2 ND / of 8") with podium colours on the numeral, the
+## ordinal and the edge stripe; also seeds the pre-race grid slot.
 func _set_position_display(pos: int, total: int) -> void:
+	if _position_label == null:
+		return
 	_position_label.text = str(pos)
-	var suffix := "th"
+	var suffix := "TH"
 	match pos:
-		1: suffix = "st"
-		2: suffix = "nd"
-		3: suffix = "rd"
-	_position_suffix.text = "%s / %d" % [suffix, total]
-	var colors := [Color(1.0, 0.85, 0.2), Color(0.8, 0.85, 0.9), Color(0.8, 0.6, 0.4)]
-	_position_label.add_theme_color_override("font_color",
-		colors[pos - 1] if pos >= 1 and pos <= 3 else Color(1, 1, 1))
+		1: suffix = "ST"
+		2: suffix = "ND"
+		3: suffix = "RD"
+	_position_suffix.text = suffix
+	_position_total.text = "OF %d" % total
+	var accent := UITheme.COLOR_TEXT
+	match pos:
+		1: accent = UITheme.COLOR_GOLD
+		2: accent = Color(0.82, 0.87, 0.94)
+		3: accent = Color(0.85, 0.62, 0.42)
+	_position_label.add_theme_color_override("font_color", accent)
+	_position_suffix.add_theme_color_override("font_color", accent)
+	var stripe := StyleBoxFlat.new()
+	stripe.bg_color = Color(accent, 0.9)
+	stripe.set_corner_radius_all(int(2.0 * _hud_scale))
+	_position_stripe.add_theme_stylebox_override("panel", stripe)
 
 
 func _on_fish(_racer: Racer, _value: int) -> void:
@@ -814,7 +1107,8 @@ func _on_fish(_racer: Racer, _value: int) -> void:
 
 func _on_item_received(_racer: Racer, item_id: String) -> void:
 	var info := PowerupsDB.get_item(item_id)
-	_item_label.text = String(info.get("name", item_id))
+	_item_label.text = String(info.get("name", item_id)).to_upper()
+	_item_label.add_theme_color_override("font_color", UITheme.COLOR_TEXT)
 	_set_item_icon(String(info.get("icon", "")))
 	var tween := create_tween()
 	_item_panel.scale = Vector2.ONE * 1.15
@@ -826,7 +1120,8 @@ func _on_item_received(_racer: Racer, item_id: String) -> void:
 
 
 func _on_item_used(_racer: Racer, _item_id: String) -> void:
-	_item_label.text = "No Item"
+	_item_label.text = "NO ITEM"
+	_item_label.add_theme_color_override("font_color", UITheme.COLOR_TEXT_DIM)
 	_set_item_icon("")
 	_stop_item_pulse()
 	_held_item = false
@@ -847,62 +1142,57 @@ func _on_snowball_ammo(_racer: Racer, ammo: int) -> void:
 
 ## Desktop keycap hint under the item slot: visible while the player holds
 ## an item ("Use") or, with no item, snowball ammo ("Throw"). Rereads the
-## live binding each time so remaps show correctly.
+## live binding each time so remaps show correctly. The row keeps its space
+## either way, so the card never reflows.
 func _update_use_hint() -> void:
 	if _use_hint == null:
 		return
 	var should_show := _held_item or _ammo_count > 0
-	_use_hint.visible = should_show
+	_use_hint.modulate.a = 1.0 if should_show else 0.0
 	if should_show:
 		var key := SettingsManager.describe_action_binding("use_item", "key")
 		_use_key_label.text = key if key != "—" else "Q"
-		_use_verb_label.text = "Use" if _held_item else "Throw"
+		_use_verb_label.text = "USE" if _held_item else "THROW"
 
 
-## Slow warm glow pulse on the item frame while an item is held. With
-## reduced flashing enabled the frame holds a static bright highlight.
+## Slow warm glow pulse around the item card while an item is held. With
+## reduced flashing enabled the ring holds a static highlight instead.
 func _start_item_pulse() -> void:
 	_stop_item_pulse()
 	if bool(SettingsManager.get_setting("accessibility", "reduced_flashing")):
-		_item_style.border_color = ACCENT_YELLOW
+		_item_glow.modulate.a = 0.85
 		return
 	_item_pulse = create_tween()
 	_item_pulse.set_loops()
-	_item_pulse.tween_method(_set_item_glow, 0.0, 1.0, 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_item_pulse.tween_method(_set_item_glow, 1.0, 0.0, 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_item_pulse.tween_property(_item_glow, "modulate:a", 1.0, 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_item_pulse.tween_property(_item_glow, "modulate:a", 0.28, 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
 func _stop_item_pulse() -> void:
 	if _item_pulse != null and _item_pulse.is_valid():
 		_item_pulse.kill()
 	_item_pulse = null
-	_set_item_glow(0.0)
-
-
-func _set_item_glow(amount: float) -> void:
-	_item_style.border_color = Color(ACCENT_ICE, 0.55).lerp(ACCENT_YELLOW, amount)
-	_item_style.shadow_color = SHADOW_SOFT.lerp(Color(ACCENT_YELLOW, 0.4), amount)
+	_item_glow.modulate.a = 0.0
 
 
 func _on_checkpoint(_racer: Racer, index: int) -> void:
 	_checkpoint_label.text = "Checkpoint %d" % (index + 1)
-	_checkpoint_label.modulate = Color(0.6, 0.95, 1.0, 1.0)
+	_checkpoint_label.modulate = Color(UITheme.COLOR_ACCENT, 1.0)
 	AudioManager.play_sfx("sfx_checkpoint", 1.0, -6.0)
 	var tween := create_tween()
 	tween.tween_interval(1.0)
 	tween.tween_property(_checkpoint_label, "modulate:a", 0.0, 0.5)
 
 
-## Swaps the item-slot glyph. An empty id draws the dimmed placeholder square
-## so the slot still reads as a slot when the player is carrying nothing.
+## Swaps the item-slot glyph. An empty id draws the dashed placeholder so the
+## slot still reads as a slot when the player is carrying nothing.
 func _set_item_icon(icon_id: String) -> void:
 	if _item_icon == null:
 		return
 	var svg := String(ITEM_ICONS.get(icon_id, ""))
 	if svg.is_empty():
 		_item_icon.texture = UITheme.make_icon(EMPTY_SLOT_SVG, 1.0)
-		_item_icon.modulate = ITEM_ICON_EMPTY
+		_item_icon.modulate = Color(UITheme.COLOR_ACCENT, 0.34)
 		return
 	_item_icon.texture = UITheme.make_icon(svg, 1.0)
 	_item_icon.modulate = Color.WHITE
-
