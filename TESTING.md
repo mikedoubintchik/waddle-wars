@@ -232,3 +232,21 @@ Lesson worth keeping: three separate visual defects this round were found ONLY
 by reading captured frames back — the icicle collar, the penguin's tail wedge
 rendering as a mouth, and the polar bears standing behind a translucent wall.
 None of them failed a test.
+
+2026-08-07 (later): units 71/71 (adds 8 tilt-axis checks); menu_load 0
+failures; race_sim PASS on all five courses with 8/8 finishers and no DNFs;
+tutorial_sim PASS.
+
+New harness capability: `GameConfig.force_touch` plus `touch=1` on
+screenshot_tour renders the PHONE layout on a desktop box. Every touch-only
+layout rule is gated on real hardware, so before this the phone layouts were
+literally unrenderable here — which is how the results screen shipped running
+off both edges despite being captured several times.
+
+Two lessons from this round, both about verifying the wrong thing:
+- `uiscale=` persists to settings.json, so a value left by an earlier capture
+  silently changes every later one. A mobile fix got tuned against a canvas no
+  phone has. The harness now pins ui_scale on every capture.
+- Forcing `UITheme.is_touch()` alone was not enough: the canvas shrink lives in
+  SettingsManager behind `GameConfig.has_touchscreen()`. Half-forcing the phone
+  path produced a canvas that exists nowhere.

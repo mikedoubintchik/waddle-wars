@@ -455,3 +455,51 @@ frames).
 - The weekly-reset deadline was retired on 2026-08-07: `RESET_AT.txt` had
   been elapsed for over two weeks and the deadline clauses in CLAUDE.md were
   removed with it. Work is paced by scope now, not by a clock.
+
+## 2026-08-07 (later) — Tilt steering, and two bugs that hid behind caching
+
+### Tilt steering (shipped, confirmed good on device)
+Lean the phone to steer. On by default on touch devices; drag always overrides
+it, so a finger on the screen wins and the feature can never leave a player
+unable to steer. Settings → Gameplay carries Tilt Steering, Tilt Sensitivity,
+Invert Tilt and a live **Motion Access** state row.
+
+Confirmed by the user on an iPhone: prompt appears, direction correct by
+default, feel good at the default sensitivity. Axis maths is unit-tested
+(8 checks) because a desktop has no sensor to test against.
+
+Three non-obvious things it had to get right, each of which failed first:
+- **Activation event.** The permission ask was armed on `pointerdown`, which
+  always arrived first and spent the arm — but a press that has gone down and
+  not up grants no transient activation, so Safari rejected it silently and the
+  handler had already unhooked `touchend`/`click`. Now armed on press-END only.
+- **Where the ask lives.** It was called from GDScript `_input`. Godot QUEUES
+  browser input and dispatches it in its own main loop, so the call was outside
+  the DOM handler entirely. The request now happens in JavaScript, from a real
+  DOM listener.
+- **When it arms.** Armed from the main menu, the first press of the session
+  (Begin, on the title screen) predated the listener and was wasted. Armed at
+  boot from an autoload now.
+
+### AI gap detection
+Racers jumped only where a course called `add_hint(offset, "jump")`. Iceberg
+Bay lays out its floe runs with ~12 `"gap"` control points and three hints, so
+the field piled up at the first unhinted edge and stayed there. Racers now
+probe for missing ground along their own heading (two probes, near and far, so
+drifting wide does not trigger it) and jump. Hints still fire first.
+
+Last-place finisher after the change: glacier 145.8, aurora 179.2, iceberg
+158.7, cinder 173.7, hollow 136.6, 8/8 finishers. Iceberg's tail was 324 s in
+an earlier sweep.
+
+### Cache: stop asking, start versioning
+Three bug reports in a row were a stale build rather than the defect described.
+Verified the origin and edge were both correct — current build, `max-age=0,
+must-revalidate`, proper 304s — and a phone still ran code from several deploys
+earlier. A fresh export stamped with the same BUILD_ID was byte-identical to
+what the site served, so the deploy was never at fault.
+
+`index.html` is now `no-store` and names `index.pck?v=<hash>` via
+`GODOT_CONFIG.mainPack`. That URL has never been fetched, so it cannot be
+cached by any client under any policy. Settings also shows build hash and both
+canvas sizes, so a screenshot answers "which code is this" without a round trip.
