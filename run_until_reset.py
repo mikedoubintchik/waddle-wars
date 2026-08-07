@@ -28,7 +28,7 @@ CLAUDE_COMMAND = [
     "-p",
     "Read GAME_SPEC.md and CLAUDE.md in the current directory, then execute "
     "the mission autonomously until the acceptance criteria are satisfied or "
-    "the RESET_AT.txt cutoff is reached.",
+    "the session cutoff is reached.",
 ]
 
 

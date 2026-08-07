@@ -452,5 +452,6 @@ frames).
   removes the stall from gameplay, it does not make the block interruptible.
 - Glacier compresses the racer's mantle break more than aurora does; past ~20 m
   identity is carried by hats rather than plumage.
-- `RESET_AT.txt` reads 2026-07-21, long elapsed. Deadline behaviour is not
-  being enforced.
+- The weekly-reset deadline was retired on 2026-08-07: `RESET_AT.txt` had
+  been elapsed for over two weeks and the deadline clauses in CLAUDE.md were
+  removed with it. Work is paced by scope now, not by a clock.

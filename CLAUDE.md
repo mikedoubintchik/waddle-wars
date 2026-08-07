@@ -12,9 +12,9 @@ The project is not complete merely because it launches. Completion requires the 
 
 ## Primary objective
 
-Build the strongest complete version of Waddle Wars possible before the deadline recorded in RESET_AT.txt.
+Build the strongest complete version of Waddle Wars possible.
 
-Before that deadline, continue improving the game even after a first playable or apparently complete build exists. Use remaining time for implementation, testing, visual review, debugging, optimization, game-feel improvements, accessibility, content polish, and documentation.
+Continue improving the game even after a first playable or apparently complete build exists. Use the time available for implementation, testing, visual review, debugging, optimization, game-feel improvements, accessibility, content polish, and documentation.
 
 ## Autonomous behavior
 
@@ -53,8 +53,7 @@ During every work cycle:
 10. Fix defects rather than merely documenting them.
 11. Update BUILD_STATUS.md and TESTING.md with exact evidence.
 12. Create a checkpoint commit after a stable body of work.
-13. Check the current local time against RESET_AT.txt.
-14. Continue with the next highest-impact task while time remains.
+13. Continue with the next highest-impact task.
 
 ## Quality rules
 
@@ -89,24 +88,3 @@ Suitable independent workstreams include:
 Avoid simultaneous edits to the same files. Use isolated worktrees or clearly separated file ownership for parallel implementation.
 
 Every subagent result must be reviewed, integrated, and tested by the primary agent.
-
-## Deadline behavior
-
-RESET_AT.txt contains the exact weekly reset timestamp in ISO 8601 format with its UTC offset.
-
-At the end of every turn, run a local clock command and report:
-- Current timestamp.
-- Reset timestamp.
-- Remaining time.
-- Latest validation result.
-- Current checkpoint status.
-
-Two minutes before the reset timestamp:
-- Stop beginning large new changes.
-- Save all current files.
-- Run the fastest meaningful validation.
-- Update BUILD_STATUS.md and TESTING.md.
-- Create a final checkpoint commit if Git is available.
-- End the session cleanly.
-
-Do not perform additional model requests after the cutoff.
