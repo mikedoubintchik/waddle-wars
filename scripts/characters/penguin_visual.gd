@@ -22,7 +22,7 @@ const BODY_SEGS: int = 48         # lathe radial segments (hero-asset smooth)
 const FLIPPER_SEGS: int = 16      # blade cross-section segments
 const HEAD_Y: float = 0.85        # head-sphere center height (anchor rest)
 const FOOT_Y: float = 0.018       # foot rest height
-const FOOT_Z: float = -0.015      # foot rest z: heels sit back so they peek past the body from behind
+const FOOT_Z: float = 0.014       # foot rest z: heels sit back so they peek past the body from behind
 const FOOT_X: float = 0.155       # foot rest half-stance: kicked out past the tapered belly skirt
 
 ## The eight playable/AI penguin species. Colors are authored for the
@@ -32,11 +32,28 @@ const FOOT_X: float = 0.155       # foot rest half-stance: kicked out past the t
 ##   patch/ear_patch ("emperor"/"king"), chest_wash + chest_wash_amount,
 ##   eye_ring (bool), headphone (bool), face_white (bool), chinstrap (bool),
 ##   crest ("rockhopper"/"macaroni") + crest_color, eye_color, foot_color,
-##   bill_len/bill_girth/bill_hook/bill_color/mandible_color, scale (Vector3).
+##   bill_len/bill_girth/bill_hook/bill_color/mandible_color, scale (Vector3),
+##   mantle (Color), ident (Color).
+##
+## "mantle" is the single most important readability color in this file. Real
+## penguins are NOT one dark mass: the head and nape are near-black while the
+## back between the shoulders and the rump is a markedly PALER blue-gray. The
+## chase camera looks at the dorsal side essentially 100% of the time, so with
+## one flat dorsal tone every racer renders as a featureless egg. Baking the
+## head/back break in gives three values inside the silhouette -- dark head
+## ball, pale back, dark base -- which is what makes it read as a bird at
+## 8-30 m. Each species gets its own mantle value AND hue, so the eight racers
+## are also distinguishable from each other at that distance.
+##
+## "ident" is the racer's identity color. It tints the rim light (see
+## penguin.gdshader), so who just shoved you is legible from the outline
+## alone. Values match PersonalitiesDB accent_color where one exists, so the
+## minimap dot and the racer agree.
 const SPECIES: Dictionary = {
 	"emperor": {
 		"name": "Emperor",
 		"dorsal": Color(0.13, 0.16, 0.22), "ventral": Color(0.95, 0.94, 0.9),
+		"mantle": Color(0.22, 0.27, 0.36), "ident": Color(1.0, 0.84, 0.55),
 		"patch": Color(0.98, 0.76, 0.22), "ear_patch": "emperor",
 		"chest_wash": Color(1.0, 0.88, 0.55), "chest_wash_amount": 0.20,
 		"bill_len": 1.0, "bill_hook": true,
@@ -47,6 +64,7 @@ const SPECIES: Dictionary = {
 	"king": {
 		"name": "King",
 		"dorsal": Color(0.16, 0.18, 0.21), "ventral": Color(0.97, 0.95, 0.90),
+		"mantle": Color(0.29, 0.31, 0.37), "ident": Color(0.85, 0.45, 0.85),
 		"patch": Color(1.0, 0.50, 0.06), "ear_patch": "king",
 		"chest_wash": Color(1.0, 0.62, 0.12), "chest_wash_amount": 0.40,
 		"bill_len": 1.0, "bill_hook": true,
@@ -56,6 +74,7 @@ const SPECIES: Dictionary = {
 	"adelie": {
 		"name": "Adelie",
 		"dorsal": Color(0.06, 0.06, 0.07), "ventral": Color(0.97, 0.97, 0.96),
+		"mantle": Color(0.12, 0.14, 0.20), "ident": Color(0.72, 0.55, 0.30),
 		"eye_ring": true,
 		"bill_len": 0.62, "bill_girth": 1.12,
 		"bill_color": Color(0.13, 0.11, 0.12), "mandible_color": Color(0.16, 0.13, 0.14),
@@ -65,6 +84,7 @@ const SPECIES: Dictionary = {
 	"gentoo": {
 		"name": "Gentoo",
 		"dorsal": Color(0.10, 0.11, 0.13), "ventral": Color(0.96, 0.96, 0.95),
+		"mantle": Color(0.16, 0.22, 0.32), "ident": Color(0.30, 0.62, 0.92),
 		"headphone": true,
 		"bill_len": 0.85,
 		"bill_color": Color(0.95, 0.44, 0.10), "mandible_color": Color(0.85, 0.36, 0.10),
@@ -74,6 +94,7 @@ const SPECIES: Dictionary = {
 	"chinstrap": {
 		"name": "Chinstrap",
 		"dorsal": Color(0.12, 0.13, 0.15), "ventral": Color(0.97, 0.96, 0.94),
+		"mantle": Color(0.26, 0.30, 0.39), "ident": Color(0.94, 0.30, 0.34),
 		"face_white": true, "chinstrap": true,
 		"bill_len": 0.78,
 		"bill_color": Color(0.10, 0.10, 0.12), "mandible_color": Color(0.13, 0.12, 0.14),
@@ -83,6 +104,7 @@ const SPECIES: Dictionary = {
 	"rockhopper": {
 		"name": "Rockhopper",
 		"dorsal": Color(0.16, 0.14, 0.13), "ventral": Color(0.98, 0.95, 0.86),
+		"mantle": Color(0.27, 0.24, 0.21), "ident": Color(0.98, 0.76, 0.20),
 		"crest": "rockhopper", "crest_color": Color(0.98, 0.82, 0.2),
 		"eye_color": Color(0.50, 0.15, 0.10),
 		"bill_len": 0.80, "bill_girth": 1.1,
@@ -93,6 +115,7 @@ const SPECIES: Dictionary = {
 	"macaroni": {
 		"name": "Macaroni",
 		"dorsal": Color(0.13, 0.11, 0.10), "ventral": Color(0.97, 0.94, 0.88),
+		"mantle": Color(0.19, 0.17, 0.19), "ident": Color(0.32, 0.88, 0.52),
 		"crest": "macaroni", "crest_color": Color(0.99, 0.66, 0.10),
 		"eye_color": Color(0.55, 0.17, 0.10),
 		"bill_len": 0.92, "bill_girth": 1.15,
@@ -103,6 +126,7 @@ const SPECIES: Dictionary = {
 	"little_blue": {
 		"name": "Little Blue",
 		"dorsal": Color(0.45, 0.53, 0.62), "ventral": Color(0.96, 0.97, 0.97),
+		"mantle": Color(0.41, 0.48, 0.60), "ident": Color(0.40, 0.92, 0.86),
 		"bill_len": 0.72,
 		"bill_color": Color(0.28, 0.33, 0.40), "mandible_color": Color(0.45, 0.50, 0.56),
 		"foot_color": Color(0.90, 0.80, 0.72),
@@ -110,13 +134,19 @@ const SPECIES: Dictionary = {
 	},
 }
 
+const PLUMAGE_SHADER_PATH: String = "res://assets/shaders/penguin.gdshader"
+const IDENT_DEFAULT: Color = Color(0.64, 0.79, 1.0)
+
 static var _material_cache: Dictionary = {}
 static var _mesh_cache: Dictionary = {}
 static var _species_by_dorsal: Dictionary = {}  # canonical dorsal html -> id
 static var _bill_shader: Shader = null  # shared by all bill materials
+static var _plumage_shader: Shader = null  # shared by every plumage material
 
 var pose: Pose = Pose.IDLE
 var anim_speed: float = 1.0
+
+var _ident: Color = IDENT_DEFAULT  # per-racer rim identity, resolved in setup()
 
 var _scale_root: Node3D  # static per-species proportions wrapper
 var _root: Node3D  # animated body root (bobs / tilts)
@@ -146,9 +176,11 @@ var _squash: float = 1.0
 # sines, but filtering the final applied values guarantees C1-smooth motion
 # across pose/speed changes — nothing ever snaps.
 var _gait_roll: float = 0.0
+var _gait_yaw: float = 0.0
 var _gait_sway: float = 0.0
 var _gait_bob: float = 0.0
 var _head_osc: Vector3 = Vector3.ZERO   # smoothed head counter-osc: x yaw, y roll, z bob
+var _lean: float = 0.0                  # smoothed body roll read back off this node (turn lean)
 var _foot_pos_l: Vector3 = Vector3(-FOOT_X, FOOT_Y, FOOT_Z)
 var _foot_pos_r: Vector3 = Vector3(FOOT_X, FOOT_Y, FOOT_Z)
 var _foot_rot_l: Vector2 = Vector2.ZERO  # x: ankle pitch, y: ankle roll
@@ -213,134 +245,26 @@ static func get_body_material(color: Color, roughness: float = 0.68, rim: float 
 
 
 ## Shared feather material for all vertex-colored penguin meshes (body,
-## flippers, feet). The baked vertex colors carry the palette, so one material
-## covers every variant — 8 racers share this single ShaderMaterial, so the
-## whole treatment below costs draw calls nothing and is pure fragment ALU.
+## flippers, feet). The baked vertex colors carry the palette and the head /
+## mantle / rump value break, so ONE compiled program covers every variant.
+## Cached per identity color, so a full grid of eight racers costs eight
+## ShaderMaterials over a single Shader — same program, different uniform
+## buffer, so they still batch and the whole treatment is pure fragment ALU.
 ##
-## Four layers, in the order they solve the "near-black featureless blob at
-## race distance" problem:
-##
-##  1. FORM (hemispheric countershading). A world-space up/down term derived
-##     from the normal multiplies the baked color: sky-facing plumage lifts,
-##     ground-facing plumage sinks. It is multiplicative and roughly
-##     mean-preserving, so the body does NOT go gray — the tonal RANGE across
-##     it roughly triples instead, which is what turns a flat egg into a
-##     rounded, weighted mass. A small additive sky bounce tints the upper
-##     back cool so it reads as light from above rather than a paint gradient.
-##  2. RIM / EDGE LIGHT, distance-adaptive. A Fresnel band in EMISSION (so it
-##     survives any light direction, including the aurora course's near-black
-##     key) tightens to a crisp edge in close-ups and deliberately BROADENS
-##     and strengthens with distance, because a 1-pixel rim is invisible on a
-##     racer that is 30 px tall. Weighted to the upper silhouette so it reads
-##     as sky light spilling over the back instead of a sticker outline, and
-##     masked off the white belly, which needs no help separating.
-##  3. FEATHER STRUCTURE at two scales: fine barb striations (visible inside
-##     ~15 m) and broad overlapping feather tracts big enough to survive to
-##     ~40 m, so mid-pack rivals still show plumage instead of a smooth mass.
-##  4. SATIN SHEEN: roughness tightens toward the sky-facing back so the sun
-##     lays a real specular sweep along the dorsal, plus the green-blue-violet
-##     structural iridescence of real penguin plumage at grazing angles.
-##
-## WebGL2/gl_compatibility-safe: pure math, no screen or depth reads, and
-## object-space detail so nothing swims when the body animates.
-static func _get_plumage_material() -> Material:
-	var key := "penguin_plumage_vtx"
+## The shader itself lives in assets/shaders/penguin.gdshader; the reasoning
+## for each of its layers (form, dual-polarity edge, feather structure, sheen,
+## identity rim) is documented at the top of that file.
+static func _get_plumage_material(ident: Color = IDENT_DEFAULT, edge_gain: float = 1.0) -> Material:
+	var key := "penguin_plumage_%s_%.2f" % [ident.to_html(false), edge_gain]
 	if _material_cache.has(key):
 		return _material_cache[key]
-	var shader := Shader.new()
-	shader.code = """
-shader_type spatial;
-
-// Solid (non-vertex-colored) plumage parts — tail wedge, shoulder mounds,
-// brow ridges, crest quills — reuse this exact shader with tint set to their
-// color and COLOR left at white. Same compiled program, different uniform
-// buffer, so they batch with the body instead of needing a second shader.
-// Deliberately NOT ": source_color": that hint applies an sRGB->linear decode,
-// but mesh vertex colors are handed to the shader raw. Tagging it would put
-// the solid parts roughly a stop and a half below the body they are welded to
-// — which is exactly what made the shoulder mounds read as dark lumps and the
-// tail as a black hole back when they used StandardMaterial3D.albedo_color
-// (which does decode). Raw keeps every plumage part in one color space.
-uniform vec4 tint = vec4(1.0, 1.0, 1.0, 1.0);
-
-varying vec3 v_obj;
-
-void vertex() {
-	v_obj = VERTEX;
-}
-
-void fragment() {
-	vec3 base = COLOR.rgb * tint.rgb;
-	float lum = dot(base, vec3(0.299, 0.587, 0.114));
-	// 1 on the dark dorsal feathers, 0 on the white belly.
-	float dark_m = 1.0 - smoothstep(0.18, 0.55, lum);
-	// Rim mask: everything that is not near-white takes an edge light, so the
-	// orange feet and bill zones separate too; only the bright belly opts out.
-	float rim_m = 1.0 - smoothstep(0.52, 0.88, lum);
-
-	float dist = length(VERTEX);
-	float near_k = 1.0 - smoothstep(5.0, 15.0, dist);   // barb scale
-	float mid_k = 1.0 - smoothstep(16.0, 40.0, dist);   // feather-tract scale
-
-	// --- feather structure, two scales -------------------------------------
-	float barbs = sin(v_obj.x * 340.0 + v_obj.y * 110.0) * sin(v_obj.z * 300.0 - v_obj.y * 70.0);
-	float rows = sin(v_obj.y * 96.0 + sin(v_obj.x * 34.0 + v_obj.z * 27.0) * 2.2);
-	float grain = (barbs * 0.55 + rows * 0.45) * near_k;
-	float tract = sin(v_obj.y * 27.0 + sin(v_obj.x * 8.0 + v_obj.z * 7.0) * 1.8)
-		* (0.55 + 0.45 * sin(v_obj.x * 14.0 - v_obj.z * 11.0));
-	float group = tract * mid_k;
-
-	// --- form: hemispheric countershading ----------------------------------
-	// World "up" component of the (view-space) fragment normal, for one dot
-	// product and no extra varying: the second row of the inverse-view
-	// rotation IS world up expressed in view space.
-	// NOTE: do NOT reach for MODEL_NORMAL_MATRIX in vertex() here — it is not
-	// emitted in every gl_compatibility vertex specialization, and the aurora
-	// course's additive light passes then fail to link ("input of fragment
-	// shader not written by vertex shader"), dropping every racer to an
-	// unshaded black silhouette.
-	vec3 world_up = vec3(INV_VIEW_MATRIX[0][1], INV_VIEW_MATRIX[1][1], INV_VIEW_MATRIX[2][1]);
-	float up = clamp(dot(NORMAL, world_up) * 0.5 + 0.5, 0.0, 1.0);
-	float shade = up * up * (3.0 - 2.0 * up);
-	// Bright surfaces (white belly, orange feet and bill zones) take the
-	// downward darkening for grounding but only a muted upward lift — pushed
-	// the full amount they wash out toward paper white instead of reading as
-	// saturated feet against snow.
-	float form = mix(0.50, mix(1.10, 1.34, dark_m), shade);
-	vec3 col = base * (form + (grain * 0.055 + group * 0.06) * dark_m);
-	col += vec3(0.09, 0.13, 0.22) * (shade * shade * shade * 0.16) * dark_m;
-
-	// --- rim / edge light, distance-adaptive --------------------------------
-	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
-	float far_k = smoothstep(7.0, 30.0, dist);
-	float rim = pow(1.0 - ndv, mix(4.5, 2.1, far_k));
-	float rim_w = mix(0.50, 0.74, far_k) * (0.42 + 0.58 * up);
-
-	// --- structural iridescence --------------------------------------------
-	float fres = pow(1.0 - ndv, 3.0);
-	vec3 irid = vec3(
-		0.30 + 0.30 * sin(fres * 9.0 + 1.8),
-		0.50 + 0.30 * sin(fres * 9.0 + 3.6),
-		0.70 + 0.25 * sin(fres * 9.0 + 5.2));
-
-	ALBEDO = clamp(col, vec3(0.0), vec3(1.0));
-	// Rim + a tiny light-independent skylight floor on the sky-facing dorsal.
-	// The floor exists for the aurora course: with only a dim night key, an
-	// albedo-0.1 back renders as literal black no matter how good the albedo
-	// gradient is, so the form has to be carried by something that does not
-	// go through the light loop. It is far below the direct sun on glacier,
-	// where it changes nothing.
-	EMISSION = vec3(0.64, 0.79, 1.0) * (rim * rim_w * rim_m)
-		+ vec3(0.30, 0.42, 0.62) * (0.07 * shade * dark_m)
-		+ irid * (dark_m * 0.09 * fres);
-	// Dorsal feathers carry a satin sheen that tightens toward the sky-facing
-	// back, where the sun lays its highlight; the belly stays matte.
-	ROUGHNESS = mix(0.72, mix(0.70, 0.56, shade) + grain * 0.09, dark_m);
-	SPECULAR = mix(0.38, 0.46, dark_m);
-}
-"""
+	if _plumage_shader == null:
+		_plumage_shader = load(PLUMAGE_SHADER_PATH) as Shader
 	var mat := ShaderMaterial.new()
-	mat.shader = shader
+	mat.shader = _plumage_shader
+	mat.set_shader_parameter("ident", ident)
+	if not is_equal_approx(edge_gain, 1.0):
+		mat.set_shader_parameter("edge_gain", edge_gain)
 	_material_cache[key] = mat
 	return mat
 
@@ -349,16 +273,20 @@ void fragment() {
 ## vertex colors (tail wedge, shoulder mounds, brow ridges, crest quills).
 ## Same Shader object -> same compiled program -> they batch with the body and
 ## pick up the identical countershading + rim, so no flat patch breaks the
-## form. Cached per color; there are only ~a dozen distinct ones across all
-## eight species, shared by every racer.
-static func _get_plumage_tinted(color: Color) -> Material:
-	var key := "plumage_tint_" + color.to_html(false)
+## form. Cached per color + identity; there are only ~a dozen distinct ones
+## across all eight species.
+static func _get_plumage_tinted(color: Color, ident: Color = IDENT_DEFAULT, edge_gain: float = 1.0) -> Material:
+	var key := "plumage_tint_%s_%s_%.2f" % [color.to_html(false), ident.to_html(false), edge_gain]
 	if _material_cache.has(key):
 		return _material_cache[key]
-	var src := _get_plumage_material() as ShaderMaterial
+	if _plumage_shader == null:
+		_plumage_shader = load(PLUMAGE_SHADER_PATH) as Shader
 	var mat := ShaderMaterial.new()
-	mat.shader = src.shader
+	mat.shader = _plumage_shader
 	mat.set_shader_parameter("tint", color)
+	mat.set_shader_parameter("ident", ident)
+	if not is_equal_approx(edge_gain, 1.0):
+		mat.set_shader_parameter("edge_gain", edge_gain)
 	_material_cache[key] = mat
 	return mat
 
@@ -439,6 +367,32 @@ static func _tune_dorsal(color: Color) -> Color:
 		clampf(color.v * 0.46, 0.035, 0.28),
 		color.a
 	)
+
+
+## The paler back tone that sits between the near-black head/nape and the
+## darker rump. Takes the species' authored mantle VALUE (that spread is the
+## per-racer field mark that makes eight racers distinguishable at 20 m) but
+## re-hues it toward whatever dorsal the config actually asked for, so custom
+## and legacy palettes keep their own color instead of snapping to the
+## species'. See the SPECIES doc comment for why this exists at all.
+static func _mantle_for(dorsal: Color, sp: Dictionary) -> Color:
+	var m := sp.get("mantle", Color(0.20, 0.24, 0.32)) as Color
+	return Color.from_hsv(
+		dorsal.h,
+		clampf(m.s * 0.65 + dorsal.s * 0.30, 0.0, 0.78),
+		m.v,
+		1.0
+	)
+
+
+## Per-racer identity color, used to tint the silhouette rim. Explicit config
+## accent wins (nothing forwards one today, but the plumbing costs nothing),
+## then the species entry, then a neutral skylight blue.
+static func _ident_for(config: Dictionary, sp: Dictionary) -> Color:
+	var c := config.get("accent_color", sp.get("ident", IDENT_DEFAULT)) as Color
+	# Rim tints must stay bright or they read as dirt on the edge rather than
+	# light; saturation is capped so no racer gets a neon outline.
+	return Color.from_hsv(c.h, clampf(c.s, 0.0, 0.85), clampf(c.v, 0.55, 1.0), 1.0)
 
 
 func _mesh(parent: Node3D, mesh: Mesh, color: Color, pos: Vector3 = Vector3.ZERO, rot: Vector3 = Vector3.ZERO, scl: Vector3 = Vector3.ONE, mat: Material = null) -> MeshInstance3D:
@@ -529,15 +483,21 @@ static func _grain(col: Color, pos: Vector3) -> Color:
 ## Plumage color at a lathe vertex. theta_deg: 0 at the front (-Z), 180 back.
 ## sp is a SPECIES entry: it selects the ventral boundary curve and which
 ## vertex-color markings (ear patch, chest wash, headphone band) are baked.
-static func _plumage_at(y: float, theta_deg: float, pos: Vector3, dorsal: Color, ventral: Color, patch: Color, sp: Dictionary) -> Color:
-	# Dorsal sheen: back feathers read lighter toward the shoulders and crown,
-	# darker down the flanks. This is baked countershading along the body's
-	# LENGTH; the shader adds the view-independent up/down term on top. Two
-	# axes of tonal variation is what stops the dorsal reading as one flat
-	# mass — but the lift is kept under ~9% so the base still reads dark once
-	# bright glacier ambient stacks on it.
-	var sheen := clampf((y - 0.28) / 0.72, 0.0, 1.0) * 0.55
-	var dors := dorsal.lerp(dorsal.lightened(0.16), sheen)
+static func _plumage_at(y: float, theta_deg: float, pos: Vector3, dorsal: Color, ventral: Color, patch: Color, mantle: Color, sp: Dictionary) -> Color:
+	# MANTLE BREAK — the load-bearing readability feature of the whole model.
+	# A real penguin's back is a distinctly paler blue-gray than its near-black
+	# head and nape; the rump darkens off again toward the tail. Baking that in
+	# gives three values stacked up the silhouette (dark head ball / pale back /
+	# dark base) instead of the single flat tone that made every racer render as
+	# a featureless egg from the chase camera. It is also where per-racer color
+	# identity lives: each species carries its own mantle hue and value, so you
+	# can tell the eight of them apart at 20 m.
+	var mant := smoothstep(0.14, 0.38, y) * (1.0 - smoothstep(0.62, 0.86, y))
+	var dors := dorsal.lerp(mantle, mant)
+	# Along-length countershading on top of the break: the very top of the back
+	# and the crown catch more sky than the flanks below them.
+	var sheen := clampf((y - 0.28) / 0.72, 0.0, 1.0) * 0.40
+	dors = dors.lerp(dors.lightened(0.12), sheen)
 	# Structural-color hint: head/neck feathers pick up a faint cool
 	# green-blue cast where the surface grazes the light (the sides) — a
 	# cheap baked stand-in for feather iridescence. Kept subtle so the head
@@ -555,25 +515,34 @@ static func _plumage_at(y: float, theta_deg: float, pos: Vector3, dorsal: Color,
 	# default closes above the chin so the head reads fully dark; chinstrap
 	# ("face_white") instead keeps a white face and cheeks with a dark cap
 	# and nape, which is where its strap accessory reads against white.
+	#
+	# The belly limit runs to 84 deg rather than the anatomically tidier 76,
+	# which widens the white front on three-quarter views (overtakes, the grid,
+	# results) without touching the silhouette. It was tried at 96 to get a
+	# white sliver visible from DIRECTLY behind, and that does not work at any
+	# value: near the silhouette the lathe is foreshortened so hard that the
+	# last several degrees of arc are under a pixel wide. Read from directly
+	# behind has to come from the head/mantle/rump value stack and the limbs,
+	# not from the belly.
 	var limit: float
 	if bool(sp.get("face_white", false)):
 		if y < 0.50:
-			limit = 76.0
+			limit = 84.0
 		elif y < 0.68:
-			limit = lerpf(76.0, 94.0, (y - 0.50) / 0.18)
+			limit = lerpf(84.0, 98.0, (y - 0.50) / 0.18)
 		elif y < 0.90:
-			limit = lerpf(94.0, 118.0, (y - 0.68) / 0.22)
+			limit = lerpf(100.0, 118.0, (y - 0.68) / 0.22)
 		elif y < 0.955:
 			limit = lerpf(118.0, 8.0, (y - 0.90) / 0.055)
 		else:
 			limit = -1.0
 	else:
 		if y < 0.50:
-			limit = 76.0
+			limit = 84.0
 		elif y < 0.72:
-			limit = lerpf(76.0, 48.0, (y - 0.50) / 0.22)
+			limit = lerpf(84.0, 52.0, (y - 0.50) / 0.22)
 		elif y < 0.815:
-			limit = lerpf(48.0, 12.0, (y - 0.72) / 0.095)
+			limit = lerpf(52.0, 12.0, (y - 0.72) / 0.095)
 		else:
 			limit = -1.0
 	var col := dors
@@ -585,7 +554,7 @@ static func _plumage_at(y: float, theta_deg: float, pos: Vector3, dorsal: Color,
 		var edge := limit + sin(y * 57.0) * 1.8 + sin(y * 23.0) * 1.2
 		var w := 1.0 - smoothstep(edge - 8.0, edge + 8.0, theta_deg)
 		# The white shades faintly cooler where it wraps toward the sides.
-		var vent := ventral.lerp(ventral.darkened(0.06), clampf(theta_deg / 90.0, 0.0, 1.0))
+		var vent := ventral.lerp(ventral.darkened(0.16), clampf(theta_deg / 90.0, 0.0, 1.0))
 		col = dors.lerp(vent, w)
 		var wash_amount := float(sp.get("chest_wash_amount", 0.0))
 		if wash_amount > 0.0:
@@ -595,7 +564,7 @@ static func _plumage_at(y: float, theta_deg: float, pos: Vector3, dorsal: Color,
 	match String(sp.get("ear_patch", "")):
 		"emperor":
 			# Broad ear patch behind the eye with a soft lobe down the neck.
-			var du := (theta_deg - 102.0) / 26.0
+			var du := (theta_deg - 108.0) / 28.0
 			var dv := (y - 0.83) / 0.075
 			var pm := 1.0 - smoothstep(0.35, 1.0, sqrt(du * du + dv * dv))
 			var du2 := (theta_deg - 70.0) / 30.0
@@ -611,7 +580,7 @@ static func _plumage_at(y: float, theta_deg: float, pos: Vector3, dorsal: Color,
 		"king":
 			# Slimmer teardrop: tight ellipse behind the eye tapering forward
 			# and down toward the throat, more saturated than emperor.
-			var du := (theta_deg - 100.0) / 18.0
+			var du := (theta_deg - 106.0) / 20.0
 			var dv := (y - 0.85) / 0.055
 			var pm := 1.0 - smoothstep(0.30, 1.0, sqrt(du * du + dv * dv))
 			var du2 := (theta_deg - 80.0) / 13.0
@@ -655,22 +624,22 @@ static func _plumage_at(y: float, theta_deg: float, pos: Vector3, dorsal: Color,
 	#   * a grounding gradient under the belly skirt, deepened so the body
 	#     sits INTO the snow with contact weight instead of floating on it.
 	# Applied before grain so the darkening stays feathered.
-	var du_f := (theta_deg - 92.0) / 24.0
-	var dv_f := (y - 0.585) / 0.09
-	var ao := exp(-(du_f * du_f + dv_f * dv_f)) * 0.18
-	var dn := (y - 0.752) / 0.052
-	ao += exp(-dn * dn) * 0.17
-	ao += (1.0 - smoothstep(0.03, 0.24, y)) * 0.30
+	var du_f := (theta_deg - 92.0) / 26.0
+	var dv_f := (y - 0.585) / 0.10
+	var ao := exp(-(du_f * du_f + dv_f * dv_f)) * 0.22
+	var dn := (y - 0.755) / 0.058
+	ao += exp(-dn * dn) * 0.24
+	ao += (1.0 - smoothstep(0.03, 0.22, y)) * 0.26
 	if ao > 0.003:
-		col = col.darkened(minf(ao, 0.36))
+		col = col.darkened(minf(ao, 0.46))
 	return _grain(col, pos)
 
 
 ## Body + head as one continuous 48-segment lathe: rounded head, slight neck
 ## taper, plump teardrop torso widest below middle. The head rings shift
 ## forward slightly for posture. Cached per species + palette.
-static func _build_body_mesh(species_id: String, dorsal: Color, ventral: Color, patch: Color) -> ArrayMesh:
-	var key := "pbody_%s_%s_%s_%s" % [species_id, dorsal.to_html(false), ventral.to_html(false), patch.to_html(false)]
+static func _build_body_mesh(species_id: String, dorsal: Color, ventral: Color, patch: Color, mantle: Color) -> ArrayMesh:
+	var key := "pbody_%s_%s_%s_%s_%s" % [species_id, dorsal.to_html(false), ventral.to_html(false), patch.to_html(false), mantle.to_html(false)]
 	if _mesh_cache.has(key):
 		return _mesh_cache[key]
 	var sp: Dictionary = SPECIES[species_id]
@@ -711,7 +680,7 @@ static func _build_body_mesh(species_id: String, dorsal: Color, ventral: Color, 
 			var pos := Vector3(sin(ang) * r, y, cz - cos(ang) * r)
 			ring.append(pos)
 			var theta := absf(rad_to_deg(wrapf(ang, -PI, PI)))
-			col.append(_plumage_at(y, theta, pos, dorsal, ventral, patch, sp))
+			col.append(_plumage_at(y, theta, pos, dorsal, ventral, patch, mantle, sp))
 		rings.append(ring)
 		colors.append(col)
 	var mesh := _grid_mesh(rings, colors)
@@ -757,7 +726,7 @@ static func _build_flipper_mesh(dorsal: Color, ventral: Color, flip: float = 1.0
 			if lead > 0.0:
 				c = c.lerp(dorsal.darkened(0.25), edge_k * 0.45)
 			else:
-				c = c.lerp(ventral, edge_k * 0.5)
+				c = c.lerp(ventral, edge_k * 0.30)
 			col.append(_grain(c, pos + Vector3(0.7, 0.0, 0.0)))
 		rings.append(ring)
 		colors.append(col)
@@ -862,7 +831,11 @@ func setup(config: Dictionary) -> void:
 	var body_color := _tune_dorsal(config.get("body_color", sp["dorsal"]) as Color)
 	var belly_color := _saturate(config.get("belly_color", sp["ventral"]) as Color)
 	var patch_color := _saturate(config.get("patch_color", sp.get("patch", Color(0.98, 0.76, 0.22))) as Color)
-	var plumage := _get_plumage_material()
+	# Paler back tone (see _mantle_for / the SPECIES doc comment) and the
+	# racer's identity color, which tints the silhouette rim.
+	var mantle_color := _mantle_for(body_color, sp)
+	_ident = _ident_for(config, sp)
+	var plumage := _get_plumage_material(_ident)
 
 	# Species proportions live on a wrapper node: tick() animates _root's
 	# position/rotation/scale (squash), so the static species scale must sit
@@ -881,8 +854,10 @@ func setup(config: Dictionary) -> void:
 	_head_rot = Vector3.ZERO
 	_waddle = 0.0
 	_gait_roll = 0.0
+	_gait_yaw = 0.0
 	_gait_sway = 0.0
 	_gait_bob = 0.0
+	_lean = 0.0
 	_head_osc = Vector3.ZERO
 	_foot_pos_l = Vector3(-FOOT_X, FOOT_Y, FOOT_Z)
 	_foot_pos_r = Vector3(FOOT_X, FOOT_Y, FOOT_Z)
@@ -890,7 +865,7 @@ func setup(config: Dictionary) -> void:
 	_foot_rot_r = Vector2.ZERO
 
 	# Body + head: one continuous smooth lathe with baked plumage.
-	_body = _mesh(_root, _build_body_mesh(species_id, body_color, belly_color, patch_color), body_color, Vector3.ZERO, Vector3.ZERO, Vector3.ONE, plumage)
+	_body = _mesh(_root, _build_body_mesh(species_id, body_color, belly_color, patch_color, mantle_color), body_color, Vector3.ZERO, Vector3.ZERO, Vector3.ONE, plumage)
 
 	# Tail: a flat wedge that HUGS the rump rather than sticking out of it.
 	# Verified with a debug-tinted build: from the chase camera a protruding
@@ -908,7 +883,27 @@ func setup(config: Dictionary) -> void:
 	tail_mesh.height = 0.26
 	tail_mesh.radial_segments = 20
 	tail_mesh.rings = 12
-	_prop(_root, tail_mesh, body_color, Vector3(0, 0.268, 0.286), Vector3(deg_to_rad(-22), 0, 0), Vector3(0.82, 0.24, 0.98), _get_plumage_tinted(body_color))
+	# The rump it hugs is now part-way into the mantle (y 0.268 sits on the
+	# ramp), so the tail is tinted to match that blend and NOT the near-black
+	# base dorsal, or the old "black ellipse punched into the back" returns —
+	# this time against a pale back, where it would be twice as loud.
+	# Two fixes over the old tuck, both driven by race captures:
+	#   * the tilt is +10 deg, not -22. Tilted the old way the plate's rear face
+	#     pointed down-AND-back, so the only surface the chase camera could see
+	#     was one the sun never reaches: it rendered as a near-black horizontal
+	#     slit across the lower back (measured srgb 8 against a body at ~110 on
+	#     glacier), and with the flipper stubs above it the racer read as a face
+	#     with a mouth.
+	#   * edge_gain 0.15: a small flat plate is nearly all grazing angle, so at
+	#     full strength the ink+rim treatment outlined it and it read as a
+	#     separate object stuck onto the back.
+	#   * it is pulled forward to z 0.246 so it barely clears the rump. Every
+	#     intermediate tuck still resolved, at 8 m, as a dark ellipse sitting ON
+	#     the back rather than as part of it — a ~10 px feature has no room to
+	#     read as anything but a blemish. Tucked, it lifts the profile and
+	#     swings clear in the SLIDE pose, which is all it was ever for.
+	var tail_color := body_color.lerp(mantle_color, 0.75)
+	_prop(_root, tail_mesh, tail_color, Vector3(0, 0.258, 0.246), Vector3(deg_to_rad(10), 0, 0), Vector3(0.82, 0.24, 0.98), _get_plumage_tinted(tail_color, _ident, 0.15))
 
 	# Head anchor at the head-sphere center (the lathe's upper bulge).
 	_head_anchor = Node3D.new()
@@ -919,29 +914,35 @@ func setup(config: Dictionary) -> void:
 	_face_anchor.position = Vector3(0, 0, -0.20)
 	_head_anchor.add_child(_face_anchor)
 
-	# Eyes: small and dark at real-penguin proportions, set beside the bill,
-	# each yawed outward along the head surface, with an emissive catchlight.
+	# Eyes, set beside the bill and each yawed outward along the head surface.
+	# The whole assembly runs ~18% over real-penguin proportions, which is
+	# deliberate for a racer: at true scale the eye is a 2 px dark dot on a
+	# near-black head by 12 m. 18% is where it stops: a 30% build plus a pale
+	# orbital rim was tried and, verified in the dressing room, it turned every
+	# species googly — big enough to read at distance is not worth a face that
+	# is wrong in every close-up, podium and results shot. What actually
+	# carries the eye at distance is the emissive catchlight, not the size.
 	var eye_mesh := SphereMesh.new()
-	eye_mesh.radius = 0.030
-	eye_mesh.height = 0.060
+	eye_mesh.radius = 0.035
+	eye_mesh.height = 0.070
 	eye_mesh.radial_segments = 16
 	eye_mesh.rings = 10
 	var catchlight := SphereMesh.new()
-	catchlight.radius = 0.0085
-	catchlight.height = 0.017
+	catchlight.radius = 0.0105
+	catchlight.height = 0.021
 	catchlight.radial_segments = 8
 	catchlight.rings = 4
 	# Cornea bulge: a glossy near-black pupil sphere proud of the iris ball,
 	# rimmed by a thin dark limbal ring — up close the eye reads as a wet
 	# dome instead of a painted dot.
 	var pupil_mesh := SphereMesh.new()
-	pupil_mesh.radius = 0.019
-	pupil_mesh.height = 0.038
+	pupil_mesh.radius = 0.0225
+	pupil_mesh.height = 0.045
 	pupil_mesh.radial_segments = 14
 	pupil_mesh.rings = 8
 	var limbal_mesh := TorusMesh.new()
-	limbal_mesh.inner_radius = 0.014
-	limbal_mesh.outer_radius = 0.021
+	limbal_mesh.inner_radius = 0.0165
+	limbal_mesh.outer_radius = 0.0248
 	limbal_mesh.rings = 16
 	limbal_mesh.ring_segments = 8
 	# Iris color is per species (rockhopper/macaroni have red-brown eyes).
@@ -956,21 +957,25 @@ func setup(config: Dictionary) -> void:
 	# species get a near-black surround; the chinstrap's white face gets a
 	# soft gray shadow so the socket reads as depth, not a spot.
 	var socket_mesh := SphereMesh.new()
-	socket_mesh.radius = 0.047
-	socket_mesh.height = 0.094
+	socket_mesh.radius = 0.055
+	socket_mesh.height = 0.110
 	socket_mesh.radial_segments = 14
 	socket_mesh.rings = 8
 	var socket_color := Color(0.05, 0.05, 0.06)
 	if bool(sp.get("face_white", false)):
 		socket_color = Color(0.76, 0.76, 0.78)
 	var socket_mat := get_material(socket_color, 0.0, 0.88)
-	# Adelie: distinctive white sclera ring around each eye.
+	# Adelie: distinctive white sclera ring around each eye. Adelie only — a
+	# pale orbital rim was tried on every species to keep the eye locatable on
+	# a near-black head, and in the dressing room it read as an enormous grey
+	# sclera on all seven of them. Adelie is the one species that genuinely
+	# has the field mark.
 	var ring_mesh: TorusMesh = null
 	var ring_mat: StandardMaterial3D = null
 	if bool(sp.get("eye_ring", false)):
 		ring_mesh = TorusMesh.new()
-		ring_mesh.inner_radius = 0.031
-		ring_mesh.outer_radius = 0.044
+		ring_mesh.inner_radius = 0.036
+		ring_mesh.outer_radius = 0.050
 		ring_mat = get_material(Color(0.96, 0.96, 0.97), 0.0, 0.6)
 	# Eyes sit ~6 mm deeper than the old sticker placement (z 0.015 -> 0.021)
 	# so the socket patch shades their rim and they read as set into the head.
@@ -985,15 +990,15 @@ func setup(config: Dictionary) -> void:
 	for eye: Node3D in [_eye_l, _eye_r]:
 		_mesh(eye, socket_mesh, socket_color, Vector3(0, 0, 0.006), Vector3.ZERO, Vector3(1.15, 1.0, 0.5), socket_mat)
 		_prop(eye, eye_mesh, Color.BLACK, Vector3.ZERO, Vector3.ZERO, Vector3.ONE, eye_mat)
-		_prop(eye, pupil_mesh, Color.BLACK, Vector3(0, 0.002, -0.014), Vector3.ZERO, Vector3.ONE, pupil_mat)
-		_prop(eye, limbal_mesh, Color.BLACK, Vector3(0, 0.002, -0.026), Vector3(deg_to_rad(90), 0, 0), Vector3.ONE, limbal_mat)
-		_prop(eye, catchlight, Color.WHITE, Vector3(0.008, 0.010, -0.024), Vector3.ZERO, Vector3.ONE, gleam_mat)
+		_prop(eye, pupil_mesh, Color.BLACK, Vector3(0, 0.0024, -0.0165), Vector3.ZERO, Vector3.ONE, pupil_mat)
+		_prop(eye, limbal_mesh, Color.BLACK, Vector3(0, 0.0024, -0.031), Vector3(deg_to_rad(90), 0, 0), Vector3.ONE, limbal_mat)
+		_prop(eye, catchlight, Color.WHITE, Vector3(0.0095, 0.0118, -0.028), Vector3.ZERO, Vector3.ONE, gleam_mat)
 		# Secondary soft glint opposite the main catchlight sells the wet dome.
-		_prop(eye, catchlight, Color.WHITE, Vector3(-0.009, -0.007, -0.0225), Vector3.ZERO, Vector3(0.55, 0.55, 0.55), glint_mat)
+		_prop(eye, catchlight, Color.WHITE, Vector3(-0.0106, -0.0083, -0.0266), Vector3.ZERO, Vector3(0.55, 0.55, 0.55), glint_mat)
 		if ring_mesh != null:
 			# Torus axis is +Y; pitch it 90 deg so the ring faces along the
 			# eye's outward -Z and hugs the head surface around the eyeball.
-			_mesh(eye, ring_mesh, Color.WHITE, Vector3(0, 0, -0.008), Vector3(deg_to_rad(90), 0, 0), Vector3.ONE, ring_mat)
+			_mesh(eye, ring_mesh, Color.WHITE, Vector3(0, 0, -0.009), Vector3(deg_to_rad(90), 0, 0), Vector3.ONE, ring_mat)
 
 	# Brow ridges: slim feather ridges, slightly lighter than the crown so the
 	# expression reads on a dark head; tilted for emotion in tick().
@@ -1002,8 +1007,11 @@ func setup(config: Dictionary) -> void:
 	brow_mesh.height = 0.068
 	brow_mesh.radial_segments = 12
 	brow_mesh.rings = 6
-	var brow_color := body_color.lerp(belly_color, 0.18)
-	var brow_mat := _get_plumage_tinted(brow_color)
+	# Lifted further off the crown than before (0.18 -> 0.30): the head is now
+	# the DARKEST part of the body, so a brow that only just clears the base
+	# dorsal has no expression left at race distance.
+	var brow_color := body_color.lerp(belly_color, 0.30)
+	var brow_mat := _get_plumage_tinted(brow_color, _ident)
 	_brow_l = _mesh(_face_anchor, brow_mesh, brow_color, Vector3(-0.112, 0.058, 0.020), Vector3(0, 0, BROW_REST), Vector3(1.3, 0.30, 0.55), brow_mat)
 	_brow_r = _mesh(_face_anchor, brow_mesh, brow_color, Vector3(0.112, 0.058, 0.020), Vector3(0, 0, -BROW_REST), Vector3(1.3, 0.30, 0.55), brow_mat)
 
@@ -1027,7 +1035,7 @@ func setup(config: Dictionary) -> void:
 	var mandible_mat := _get_bill_material(bill_pink, bill_pink.lerp(Color(0.85, 0.38, 0.30), 0.5), -0.35 * mand_h, -0.05 * mand_h, 0.24)
 	var bill_mesh := CylinderMesh.new()
 	bill_mesh.top_radius = 0.005  # sharper tip than the old 0.008 blunt cut
-	bill_mesh.bottom_radius = 0.050 * bill_girth
+	bill_mesh.bottom_radius = 0.058 * bill_girth
 	bill_mesh.height = bill_h
 	bill_mesh.radial_segments = 24
 	_beak = _mesh(_face_anchor, bill_mesh, bill_dark, Vector3(0, -0.005, -0.058 + 0.10 * (1.0 - bill_len)), Vector3(deg_to_rad(-95), 0, 0), Vector3(1.1, 1.0, 0.62), bill_mat)
@@ -1040,7 +1048,7 @@ func setup(config: Dictionary) -> void:
 		_mesh(_face_anchor, hook_mesh, bill_dark, Vector3(0, -0.022, -0.148 + 0.20 * (1.0 - bill_len)), Vector3(deg_to_rad(-118), 0, 0), Vector3(0.85, 1.0, 0.7), hook_mat)
 	var mandible_mesh := CylinderMesh.new()
 	mandible_mesh.top_radius = 0.0045
-	mandible_mesh.bottom_radius = 0.040 * bill_girth
+	mandible_mesh.bottom_radius = 0.046 * bill_girth
 	mandible_mesh.height = mand_h
 	mandible_mesh.radial_segments = 20
 	_beak_lower = _mesh(_face_anchor, mandible_mesh, bill_pink, Vector3(0, -0.035, -0.045 + 0.075 * (1.0 - bill_len)), Vector3(deg_to_rad(-100), 0, 0), Vector3(0.9, 1.0, 0.5), mandible_mat)
@@ -1056,15 +1064,19 @@ func setup(config: Dictionary) -> void:
 		_mesh(_head_anchor, strap_mesh, Color.BLACK, Vector3(0, -0.012, 0), Vector3(deg_to_rad(-20.0), 0, 0), Vector3.ONE, strap_mat)
 
 	# Flippers: flat tapered blades hugging the body, dark out / white in.
-	_flipper_l = _make_flipper(body_color, belly_color, -1.0)
-	_flipper_r = _make_flipper(body_color, belly_color, 1.0)
+	# Blades stay closer to the near-black base dorsal than the pale mantle
+	# behind them, so from directly behind the two limbs read as separate dark
+	# shapes crossing a light back instead of vanishing into it.
+	var flipper_color := body_color.lerp(mantle_color, 0.62)
+	_flipper_l = _make_flipper(flipper_color, belly_color, mantle_color, -1.0)
+	_flipper_r = _make_flipper(flipper_color, belly_color, mantle_color, 1.0)
 
 	# Feet: webbed wedges with three toe ridges, toed out; tint per species.
 	# Scaled up 25% and planted wider / further back than the old tucked
 	# stance (with the tapered lower skirt) so heels and toes stay visible
 	# from the chase camera behind and above.
 	var foot_mesh := _build_foot_mesh(sp.get("foot_color", Color(0.93, 0.52, 0.33)) as Color)
-	var foot_scale := Vector3(1.25, 1.25, 1.25)
+	var foot_scale := Vector3(1.26, 1.26, 1.26)
 	_foot_l = _mesh(_root, foot_mesh, Color.WHITE, Vector3(-FOOT_X, FOOT_Y, FOOT_Z), Vector3(0, deg_to_rad(14), 0), foot_scale, plumage)
 	_foot_r = _mesh(_root, foot_mesh, Color.WHITE, Vector3(FOOT_X, FOOT_Y, FOOT_Z), Vector3(0, deg_to_rad(-14), 0), foot_scale, plumage)
 
@@ -1075,8 +1087,8 @@ func setup(config: Dictionary) -> void:
 	var crest_style := String(sp.get("crest", ""))
 	if crest_style != "":
 		var crest_color := _saturate(config.get("crest_color", sp.get("crest_color", Color(0.98, 0.82, 0.2))) as Color)
-		var crest_mat := _get_plumage_tinted(crest_color)
-		var crest_deep := _get_plumage_tinted(crest_color.darkened(0.22))
+		var crest_mat := _get_plumage_tinted(crest_color, _ident)
+		var crest_deep := _get_plumage_tinted(crest_color.darkened(0.22), _ident)
 		var quill := CylinderMesh.new()
 		quill.top_radius = 0.0
 		quill.bottom_radius = 0.016
@@ -1092,7 +1104,7 @@ func setup(config: Dictionary) -> void:
 				# Spiky yellow fans flaring up-and-out above each brow, backed
 				# by finer shadowed strands, plus the rockhopper's short black
 				# occipital crest spiking off the crown (hidden under hats).
-				var crown_mat := _get_plumage_tinted(body_color)
+				var crown_mat := _get_plumage_tinted(body_color, _ident)
 				for side: float in [-1.0, 1.0]:
 					_prop(_head_anchor, quill, crest_color, Vector3(0.105 * side, 0.095, -0.045), Vector3(deg_to_rad(-14), 0, deg_to_rad(46.0 * side)), Vector3(1.0, 1.0, 1.0), crest_mat)
 					_prop(_head_anchor, quill, crest_color, Vector3(0.115 * side, 0.085, -0.02), Vector3(deg_to_rad(2), 0, deg_to_rad(58.0 * side)), Vector3(0.9, 0.85, 0.9), crest_mat)
@@ -1126,7 +1138,7 @@ func setup(config: Dictionary) -> void:
 	_apply_cosmetic(String(config.get("goggles", "")))
 
 
-func _make_flipper(body_color: Color, belly_color: Color, side: float) -> Node3D:
+func _make_flipper(body_color: Color, belly_color: Color, mantle_color: Color, side: float) -> Node3D:
 	# Pivot sits INSIDE the torso (side radius ~0.27 at shoulder height) so the
 	# blade root stays embedded in every pose. tick() drives pivot rotation.
 	var pivot := Node3D.new()
@@ -1138,18 +1150,31 @@ func _make_flipper(body_color: Color, belly_color: Color, side: float) -> Node3D
 	shoulder_mesh.height = 0.14
 	shoulder_mesh.radial_segments = 16
 	shoulder_mesh.rings = 8
-	_mesh(pivot, shoulder_mesh, body_color, Vector3(0.015 * side, -0.015, 0), Vector3.ZERO, Vector3(0.75, 0.95, 0.9), _get_plumage_tinted(body_color))
+	# Shoulder height (y 0.60) is squarely inside the mantle band, so the mound
+	# takes the mantle tone; tinted with the flipper's darker base it read as a
+	# pair of black lumps bolted onto a pale back.
+	_mesh(pivot, shoulder_mesh, mantle_color, Vector3(0.015 * side, -0.015, 0), Vector3.ZERO, Vector3(0.75, 0.95, 0.9), _get_plumage_tinted(mantle_color, _ident))
 	# Blade: shared two-tone mesh; the left side is the same mesh yawed PI so
 	# its dark face points outward (the cross-section is Z-symmetric; the
 	# per-side flip keeps the pale trailing-edge border facing backward).
-	var blade := _mesh(pivot, _build_flipper_mesh(body_color, belly_color, side), Color.WHITE, Vector3(0.012 * side, -0.02, 0), Vector3.ZERO, Vector3.ONE, _get_plumage_material())
-	if side < 0.0:
-		blade.rotation.y = PI
-	# Match tick()'s rest targets (l: -21, r: +21) so static frames (previews,
+	var blade := _mesh(pivot, _build_flipper_mesh(body_color, belly_color, side), Color.WHITE, Vector3(0.012 * side, -0.02, 0), Vector3.ZERO, Vector3.ONE, _get_plumage_material(_ident, 0.45))
+	# The blade is a flat plate whose faces point sideways, so from the chase
+	# camera — dead astern — you see it edge-on: a 4 px vertical wire on either
+	# side of the body, which is how the limbs read as insect legs rather than
+	# flippers. Yawing each blade 30 deg turns its face partly aft and roughly
+	# doubles the apparent width without moving the tip or the pivot, so the
+	# silhouette keeps its proportions and the limb finally reads as a limb.
+	# The blade also takes a reduced edge_gain (0.45): a thin plate is nearly all
+	# grazing angle, so at full strength the rim lit its whole area and the
+	# swept-back slide pose grew two white ski poles.
+	blade.rotation.y = (PI if side < 0.0 else 0.0) - deg_to_rad(24.0) * side
+	# Match tick()'s rest targets (l: -26, r: +26) so static frames (previews,
 	# first frame before tick) already show the correct outward-flared rest.
-	# 21 deg (was 16) is the smallest flare that visibly breaks the egg
-	# silhouette from directly behind, where the chase camera lives.
-	pivot.rotation.z = deg_to_rad(21.0 * side)
+	# 26 deg (was 21, before that 16): with the blade yawed to show its face
+	# aft, the extra flare is what lifts the limb clear of the body from dead
+	# astern — at 21 the two blades still resolved as a pair of dark beads at
+	# the shoulders rather than as flippers.
+	pivot.rotation.z = deg_to_rad(26.0 * side)
 	return pivot
 
 
@@ -1279,8 +1304,8 @@ func tick(delta: float, speed_ratio: float) -> void:
 	# so this rate lands the step cadence around ~2-3 steps/s across the
 	# speed range — a real penguin waddle — instead of the old ~6 Hz buzz.
 	var wave := _time * (3.2 + 2.8 * speed_ratio)
-	var flipper_l_target := deg_to_rad(-21.0)
-	var flipper_r_target := deg_to_rad(21.0)
+	var flipper_l_target := deg_to_rad(-26.0)
+	var flipper_r_target := deg_to_rad(26.0)
 	var flipper_swing := 0.0
 	var brow_target := BROW_REST
 	var step_lift := 0.0
@@ -1300,9 +1325,9 @@ func tick(delta: float, speed_ratio: float) -> void:
 			# Flippers counter-swing against the stance side, trailing the
 			# body rock by ~0.6 rad so they read as loose mass flung by the
 			# waddle rather than metronome levers.
-			flipper_swing = sin(wave - 0.6) * deg_to_rad(26.0) * clampf(speed_ratio, 0.3, 1.0)
+			flipper_swing = sin(wave - 0.6) * deg_to_rad(33.0) * clampf(speed_ratio, 0.3, 1.0)
 			brow_target = deg_to_rad(-12.0)
-			step_lift = 0.085 * clampf(speed_ratio, 0.0, 1.0)
+			step_lift = 0.10 * clampf(speed_ratio, 0.0, 1.0)
 		Pose.IDLE:
 			target_tilt.z = sin(_time * 1.6) * deg_to_rad(2.0)
 			target_y = sin(_time * 2.2) * 0.01
@@ -1324,9 +1349,13 @@ func tick(delta: float, speed_ratio: float) -> void:
 			# The belly-press squash thins the prone body (local Z, see the
 			# scale block), so drop slightly with speed to keep it skimming.
 			target_y = 0.14 - 0.012 * clampf(speed_ratio, 0.0, 1.0)
-			flipper_l_target = deg_to_rad(-52.0)
-			flipper_r_target = deg_to_rad(52.0)
-			flipper_swing = sin(_time * 3.0) * deg_to_rad(3.0)
+			# Flippers sweep back along the body and paddle-flutter faster with
+			# speed. From directly behind a prone penguin is a flat oval with
+			# nothing moving on it, and the flutter plus the carve terms further
+			# down are what keep the slide reading as travel, not a still frame.
+			flipper_l_target = deg_to_rad(-58.0)
+			flipper_r_target = deg_to_rad(58.0)
+			flipper_swing = sin(_time * (5.0 + 4.0 * speed_ratio)) * deg_to_rad(7.0) * clampf(speed_ratio, 0.25, 1.0)
 			brow_target = deg_to_rad(-14.0)
 			# Head-up alertness: crane the head out of the prone line, more
 			# at speed, so the slide reads alive rather than ragdoll.
@@ -1368,6 +1397,7 @@ func tick(delta: float, speed_ratio: float) -> void:
 	# on exit instead of snapping.
 	_waddle = lerpf(_waddle, 1.0 if pose == Pose.RUN else 0.0, minf(delta * 6.0, 1.0))
 	var rock_roll := 0.0
+	var rock_yaw := 0.0
 	var sway_x := 0.0
 	var bob_y := 0.0
 	var head_yaw_osc := 0.0
@@ -1376,29 +1406,54 @@ func tick(delta: float, speed_ratio: float) -> void:
 	if _waddle > 0.001:
 		var sway := clampf(speed_ratio, 0.2, 1.0) * _waddle
 		var rock := sin(wave)
-		rock_roll = -rock * deg_to_rad(11.0) * sway  # ~9 deg applied after the low-pass
-		sway_x = rock * 0.042 * sway                 # hips shift over the stance foot
-		bob_y = rock * rock * 0.05 * speed_ratio * _waddle  # sin^2 midstance rise (smooth)
+		# Amplitudes are set by what survives the chase camera, not by what
+		# looks right in a close-up: at 8-30 m and 30 px tall, the previous
+		# 9 deg roll / 4 cm sway was a shimmer. Roll and sway are up ~25% and
+		# a torso YAW twist is added — from directly behind, a twist alternately
+		# shows each flank and is far more legible than roll alone, which mostly
+		# just rocks a symmetric silhouette in place.
+		rock_roll = -rock * deg_to_rad(14.0) * sway  # ~11 deg applied after the low-pass
+		rock_yaw = rock * deg_to_rad(7.0) * sway     # torso counter-twist over the stance foot
+		sway_x = rock * 0.053 * sway                 # hips shift over the stance foot
+		bob_y = rock * rock * 0.062 * speed_ratio * _waddle  # sin^2 midstance rise (smooth)
 		# Gaze stabilization: the head counter-rolls most of the body rock
 		# away at the neck and counter-yaws slightly, so the face holds
 		# near-steady while the body metronomes under it — real penguins
 		# stabilize their gaze exactly this way.
 		head_roll_osc = -rock_roll * 0.75
-		head_yaw_osc = rock * deg_to_rad(5.0) * sway
-		head_bob_osc = sin(wave * 2.0) * 0.010 * sway
+		head_yaw_osc = rock * deg_to_rad(5.0) * sway - rock_yaw * 0.8
+		head_bob_osc = sin(wave * 2.0) * 0.012 * sway
 	# Low-pass everything the gait applies (~14/s): the oscillators above
 	# are already smooth at the ~2-3 steps/s cadence, and filtering the
 	# final applied values guarantees nothing snaps on pose or speed
 	# changes and rounds off any residual high-frequency energy.
 	var smooth_k := minf(delta * 14.0, 1.0)
 	_gait_roll = lerpf(_gait_roll, rock_roll, smooth_k)
+	_gait_yaw = lerpf(_gait_yaw, rock_yaw, smooth_k)
 	_gait_sway = lerpf(_gait_sway, sway_x, smooth_k)
 	_gait_bob = lerpf(_gait_bob, bob_y, smooth_k)
 	_head_osc = _head_osc.lerp(Vector3(head_yaw_osc, head_roll_osc, head_bob_osc), smooth_k)
 
+	# LEAN INTO TURNS. Racer drives this node's own rotation.z (steering bank +
+	# surface conform) before calling tick(), so the body roll is readable from
+	# right here without reaching back into the racer. Two responses hang off
+	# it, and both are things a real bird does under roll:
+	#   * the head partially LEVELS against the roll and turns into the corner,
+	#     which is the difference between a penguin leaning through a turn and
+	#     a rigid model being rotated by the game,
+	#   * the flippers set asymmetrically — outer one up and out, inner one
+	#     tucked down — which from behind is the clearest single frame-by-frame
+	#     signal that the racer is cornering at all.
+	# Low-passed so surface chatter never twitches the head.
+	_lean = lerpf(_lean, clampf(rotation.z, -0.55, 0.55), minf(delta * 6.0, 1.0))
+	var lean_head_roll := -_lean * 0.45
+	var lean_head_yaw := _lean * 0.40
+	var lean_flipper := _lean * 0.55
+
 	_current_tilt = _current_tilt.lerp(target_tilt, minf(delta * 8.0, 1.0))
 	_root.rotation = _current_tilt
 	_root.rotation.z += _gait_roll
+	_root.rotation.y += _gait_yaw
 	_base_pos.y = lerpf(_base_pos.y, target_y, minf(delta * 8.0, 1.0))
 	_base_pos.x = lerpf(_base_pos.x, target_x, minf(delta * 8.0, 1.0))
 	_root.position.y = _base_pos.y + _gait_bob
@@ -1428,13 +1483,16 @@ func tick(delta: float, speed_ratio: float) -> void:
 	_head_rot.y = lerpf(_head_rot.y, head_yaw, minf(delta * 2.2, 1.0))
 	_head_rot.z = lerpf(_head_rot.z, head_roll, minf(delta * 8.0, 1.0))
 	_head_anchor.rotation.x = _head_rot.x
-	_head_anchor.rotation.y = _head_rot.y + _head_osc.x
-	_head_anchor.rotation.z = _head_rot.z + _head_osc.y
+	_head_anchor.rotation.y = _head_rot.y + _head_osc.x + lean_head_yaw
+	_head_anchor.rotation.z = _head_rot.z + _head_osc.y + lean_head_roll
 	_head_anchor.position.y += _head_osc.z
 
 	if _flipper_l != null:
-		_flipper_l.rotation.z = lerpf(_flipper_l.rotation.z, flipper_l_target + flipper_swing, minf(delta * 10.0, 1.0))
-		_flipper_r.rotation.z = lerpf(_flipper_r.rotation.z, flipper_r_target - flipper_swing, minf(delta * 10.0, 1.0))
+		# Both targets take +lean_flipper, not a mirrored pair: the left pivot
+		# rests at a NEGATIVE angle and the right at a positive one, so a single
+		# signed offset opens the outer blade and tucks the inner one.
+		_flipper_l.rotation.z = lerpf(_flipper_l.rotation.z, flipper_l_target + flipper_swing + lean_flipper, minf(delta * 10.0, 1.0))
+		_flipper_r.rotation.z = lerpf(_flipper_r.rotation.z, flipper_r_target - flipper_swing + lean_flipper, minf(delta * 10.0, 1.0))
 		_flipper_l.rotation.x = flipper_swing * 0.5
 		_flipper_r.rotation.x = -flipper_swing * 0.5
 
@@ -1456,7 +1514,7 @@ func tick(delta: float, speed_ratio: float) -> void:
 		var swing_r := maxf(0.0, -sin(wave))
 		var hop_l := swing_l * swing_l * _waddle
 		var hop_r := swing_r * swing_r * _waddle
-		var stride := 0.115 * clampf(speed_ratio, 0.25, 1.0) * _waddle
+		var stride := 0.135 * clampf(speed_ratio, 0.25, 1.0) * _waddle
 		var t_pos_l := Vector3(
 			-FOOT_X - hop_l * 0.018,
 			FOOT_Y + hop_l * step_lift,

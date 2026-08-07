@@ -1088,22 +1088,61 @@ func apply_blizzard_slip(duration: float) -> void:
 	_blizzard_slip_timer = duration
 
 
+## Shield bubble: a fresnel shell, opaque only where it turns away.
+##
+## The old shield was an UNSHADED sphere at a flat 30% alpha. Unshaded means no
+## falloff, so it laid an even milky wash across the whole racer -- and the
+## rim_enabled it was relying on to make an edge does nothing on an unshaded
+## StandardMaterial3D. In practice the power-up erased the character wearing
+## it, which is a bad trade in a game where you need to see who you are.
+##
+## A bubble is glass: nearly invisible face-on, bright at the grazing edge.
+## Driving alpha off fresnel gives exactly that, so the shell reads as a sphere
+## while leaving the middle -- where the penguin is -- clear. depth_draw off
+## and cull disabled let the far side contribute its own rim, which is what
+## makes it read as volume rather than as a disc. gl_compatibility-safe.
+const SHIELD_SHADER_CODE := """shader_type spatial;
+render_mode blend_mix, depth_draw_never, cull_disabled, unshaded;
+
+uniform vec4 shell_color : source_color = vec4(0.55, 0.86, 1.0, 1.0);
+
+void fragment() {
+	float fres = pow(1.0 - clamp(abs(dot(NORMAL, VIEW)), 0.0, 1.0), 2.6);
+	// A slow band travelling up the shell so an active shield reads as powered
+	// rather than as a static bauble.
+	float band = 0.5 + 0.5 * sin(UV.y * 12.0 - TIME * 2.4);
+	float a = clamp(fres * 0.92 + band * fres * 0.35, 0.0, 0.85);
+	ALBEDO = shell_color.rgb;
+	EMISSION = shell_color.rgb * (0.35 + band * 0.3) * fres;
+	ALPHA = a;
+}
+"""
+
+static var _shield_shader: Shader = null
+
+
+static func _get_shield_shader() -> Shader:
+	if _shield_shader == null:
+		_shield_shader = Shader.new()
+		_shield_shader.code = SHIELD_SHADER_CODE
+	return _shield_shader
+
+
 func give_shield() -> void:
 	_has_shield = true
 	if _shield_visual == null and visual != null:
 		var sphere := SphereMesh.new()
 		sphere.radius = 0.85
 		sphere.height = 1.7
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = Color(0.5, 0.85, 1.0, 0.3)
-		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mat.rim_enabled = true
-		mat.rim = 0.8
+		sphere.radial_segments = 24
+		sphere.rings = 12
+		var mat := ShaderMaterial.new()
+		mat.shader = _get_shield_shader()
 		sphere.material = mat
 		_shield_visual = MeshInstance3D.new()
 		_shield_visual.mesh = sphere
 		_shield_visual.position.y = 0.55
+		_shield_visual.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(_shield_visual)
 	if _shield_visual != null:
 		_shield_visual.visible = true
