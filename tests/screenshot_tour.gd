@@ -26,6 +26,11 @@ func _ready() -> void:
 			"h": height = int(parts[1])
 			"course": _course = parts[1]
 			"wait": _wait = float(parts[1])
+			# Accessibility UI scale. Layout bugs that only appear for players
+			# who have turned this up are invisible at the default, so QA needs
+			# to be able to reach them.
+			"uiscale": SettingsManager.set_setting(
+				"accessibility", "ui_scale", float(parts[1]))
 	DisplayServer.window_set_size(Vector2i(width, height))
 	DisplayServer.window_set_position(Vector2i(40, 60))
 
@@ -38,6 +43,14 @@ func _ready() -> void:
 			SceneRouter.go_to.call_deferred(Game.SCENE_MODE_SELECT)
 		"customize":
 			SceneRouter.go_to.call_deferred(Game.SCENE_CUSTOMIZE)
+		"customize_buy":
+			# Customize with the purchase confirmation open, so the dialog can
+			# be inspected without driving clicks through the UI.
+			SceneRouter.go_to.call_deferred(Game.SCENE_CUSTOMIZE)
+			# Parented to the root, not to this node: go_to replaces the current
+			# scene, which frees the tour and every timer connected to it.
+			var opener := BuyDialogOpener.new()
+			get_tree().root.add_child.call_deferred(opener)
 		"achievements":
 			SceneRouter.go_to.call_deferred(Game.SCENE_ACHIEVEMENTS)
 		"leaderboard":
@@ -70,6 +83,10 @@ func _ready() -> void:
 			CourseEndless.run_seed = 424242
 			Game.start_endless.call_deferred()
 
+	_install_monitor()
+
+
+func _install_monitor() -> void:
 	var monitor := ShotMonitor.new()
 	monitor.out_path = _out_path
 	monitor.wait_time = _wait
@@ -112,3 +129,45 @@ class ShotMonitor:
 		var err := image.save_png(out_path)
 		print("[shot] saved %s (%dx%d) err=%d" % [out_path, image.get_width(), image.get_height(), err])
 		get_tree().quit(0 if err == OK else 1)
+
+
+## Opens the customize screen's purchase confirmation once that screen exists.
+##
+## Lives on the tree root because SceneRouter.go_to frees the current scene --
+## anything parented to the tour itself dies with it mid-transition.
+class BuyDialogOpener:
+	extends Node
+
+	var _elapsed: float = 0.0
+	var _done: bool = false
+
+	func _process(delta: float) -> void:
+		if _done:
+			return
+		_elapsed += delta
+		if _elapsed < 0.8:
+			return
+		var screen := _find_customize(get_tree().root)
+		if screen == null:
+			if _elapsed > 8.0:
+				_done = true
+				print("[shot] customize screen never appeared")
+			return
+		_done = true
+		Progression.add_fish(5000)
+		for id: String in CosmeticsDB.items_in_category("hat"):
+			if not Progression.is_cosmetic_unlocked(id):
+				screen.call("_select_category", "hat")
+				screen.call("_on_item_pressed", id)
+				print("[shot] opened buy dialog for %s" % id)
+				return
+		print("[shot] no locked hat to buy")
+
+	func _find_customize(node: Node) -> Node:
+		if node.has_method("_open_buy_dialog") and node.has_method("_on_item_pressed"):
+			return node
+		for child: Node in node.get_children():
+			var found := _find_customize(child)
+			if found != null:
+				return found
+		return null

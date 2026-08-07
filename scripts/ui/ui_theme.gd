@@ -1696,8 +1696,26 @@ static func _add_vignette(parent: Control) -> void:
 	parent.add_child(_full_rect(_vignette_texture))
 
 
-## Applies the accessibility ui_scale setting to a screen root.
+## Screen roots call this on entry. It now only guarantees an identity
+## transform -- the accessibility ui_scale is applied elsewhere, and applying
+## it here as well was cutting every menu off at its edges.
+##
+## SettingsManager._apply_ui_scale already implements the setting the right
+## way: it SHRINKS window.content_scale_size, which makes each logical unit
+## cover more physical pixels while leaving the layout a smaller logical canvas
+## to reflow into. Containers then genuinely re-fit -- columns narrow, grids
+## drop to fewer columns, text wraps.
+##
+## This function used to multiply the screen root's transform by the same
+## setting on top of that. A Control transform cannot reflow anything; it just
+## magnifies about the pivot, so at ui_scale 1.5 the layout was first fitted
+## correctly to a 1280x720 canvas and then blown up 1.4x about the centre,
+## pushing roughly forty per cent of every screen past the edges of the
+## display. Tabs, cards, the Back button and the account chip all lost their
+## outer edges, and the larger the player set the scale -- that is, the more
+## they needed to read it -- the more of the screen went missing.
+##
+## Kept as a no-op rather than deleted so the eleven screens that call it stay
+## explicit about resetting any inherited scale.
 static func apply_ui_scale(root: Control) -> void:
-	var scale_value := clampf(float(SettingsManager.get_setting("accessibility", "ui_scale")), 0.8, 1.4)
-	root.scale = Vector2(scale_value, scale_value)
-	root.pivot_offset = root.get_viewport_rect().size * 0.5
+	root.scale = Vector2.ONE

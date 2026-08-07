@@ -57,6 +57,8 @@ var _detail_desc: Label
 var _detail_action: Button
 var _selected_id: String = ""
 var _pending_buy_id: String = ""
+## Live purchase-confirmation modal, or null (see _open_buy_dialog).
+var _buy_dialog: Control = null
 var _preview_trail: GPUParticles3D = null
 var _sway_time: float = 0.0
 ## Extra enlargement for tall/narrow (portrait) viewports — see _tall_boost().
@@ -682,6 +684,7 @@ func _make_item_tile(id: String) -> Button:
 	var desc := "Wear nothing in this category." if is_none else String(info.get("desc", ""))
 
 	var button := Button.new()
+	button.set_meta("cosmetic_id", id)
 	button.custom_minimum_size = Vector2(0.0, _u(152.0))
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.tooltip_text = desc
@@ -968,24 +971,126 @@ func _on_item_pressed(id: String) -> void:
 		else:
 			Progression.equip(category, id)
 		return
-	# Spending fish is irreversible — require a second press to confirm.
-	if _pending_buy_id != id:
-		_pending_buy_id = id
-		AudioManager.ui_click()
-		var cost := int(info.get("cost", 0))
-		if Progression.get_fish() < cost:
-			_show_item_desc("Not enough fish — %s costs %d." % [String(info.get("name", id)), cost])
-			_pending_buy_id = ""
-		else:
-			_select_item(id)
-			_show_item_desc("Buy %s for %d fish? Press again to confirm." % [
-				String(info.get("name", id)), cost])
+	# Spending fish is irreversible, so it takes a real confirmation.
+	#
+	# This used to be "press the same control again", with the question printed
+	# in the detail bar at the bottom of the screen. Two presses on a tile is
+	# how a player browses -- click to look, click again because nothing
+	# obvious happened -- and the question was nowhere near the thing being
+	# clicked, so the fish were gone before it had been read. A dialog costs
+	# one deliberate action and cannot be triggered by a double click.
+	var cost := int(info.get("cost", 0))
+	AudioManager.ui_click()
+	_select_item(id)
+	if Progression.get_fish() < cost:
+		_show_item_desc("Not enough fish — %s costs %d." % [String(info.get("name", id)), cost])
 		return
+	_open_buy_dialog(id, category, String(info.get("name", id)), cost)
+
+
+## Modal purchase confirmation: what is being bought, what it costs, and what
+## the player is left with. Cancel takes focus, so a stray Enter or a tap on
+## the scrim backs out rather than spending.
+func _open_buy_dialog(id: String, category: String, item_name: String, cost: int) -> void:
+	if _buy_dialog != null:
+		return
+	_pending_buy_id = id
+
+	_buy_dialog = Control.new()
+	_buy_dialog.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_buy_dialog.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(_buy_dialog)
+
+	var scrim := ColorRect.new()
+	scrim.color = Color(0.01, 0.02, 0.05, 0.72)
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_buy_dialog.add_child(scrim)
+	scrim.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
+			_close_buy_dialog())
+
+	var centre := CenterContainer.new()
+	centre.set_anchors_preset(Control.PRESET_FULL_RECT)
+	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_buy_dialog.add_child(centre)
+
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", UITheme.make_card_style())
+	card.custom_minimum_size.x = _u(430.0)
+	centre.add_child(card)
+
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", _gap(12))
+	card.add_child(column)
+
+	_caption(column, "CONFIRM PURCHASE", 14, Color(UITheme.COLOR_ACCENT, 0.85),
+		HORIZONTAL_ALIGNMENT_CENTER)
+
+	var title := Label.new()
+	title.text = item_name
+	title.add_theme_font_override("font", UITheme.display_font())
+	title.add_theme_font_size_override("font_size", _f(30))
+	title.add_theme_color_override("font_color", UITheme.COLOR_TEXT)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(title)
+
+	var price := Label.new()
+	price.text = "%d fish — you'll have %d left" % [cost, maxi(Progression.get_fish() - cost, 0)]
+	price.add_theme_font_size_override("font_size", _f(19))
+	price.add_theme_color_override("font_color", UITheme.COLOR_GOLD)
+	price.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	price.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(price)
+
+	var buttons := HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", _gap(10))
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_child(buttons)
+
+	var cancel := UITheme.make_button("Cancel", Vector2(_u(170.0), _u(50.0)), _f(20))
+	UITheme.hook_sounds(cancel)
+	cancel.pressed.connect(_close_buy_dialog)
+	buttons.add_child(cancel)
+
+	var confirm := UITheme.make_button("Buy", Vector2(_u(170.0), _u(50.0)), _f(20))
+	UITheme.style_primary(confirm)
+	UITheme.hook_sounds(confirm)
+	confirm.pressed.connect(func() -> void: _commit_buy(id, category))
+	buttons.add_child(confirm)
+
+	cancel.grab_focus()
+
+
+func _close_buy_dialog() -> void:
 	_pending_buy_id = ""
+	if _buy_dialog == null:
+		return
+	_buy_dialog.queue_free()
+	_buy_dialog = null
+	var tile := _tile_for_id(_selected_id)
+	if tile != null:
+		tile.grab_focus()
+
+
+func _commit_buy(id: String, category: String) -> void:
+	_close_buy_dialog()
 	if Progression.try_unlock_cosmetic(id):
 		Progression.equip(category, id)
 	else:
+		# Balance changed underneath the dialog (another screen paid out).
 		AudioManager.play_sfx("sfx_ui_select", 0.6, -6.0)
+		_show_item_desc("Purchase failed — not enough fish.")
+
+
+func _tile_for_id(id: String) -> Control:
+	if _item_grid == null:
+		return null
+	for child: Node in _item_grid.get_children():
+		if child is Control and (child as Control).has_meta("cosmetic_id") \
+				and String((child as Control).get_meta("cosmetic_id")) == id:
+			return child as Control
+	return null
 
 
 func _on_cosmetics_changed() -> void:
@@ -1026,4 +1131,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		accept_event()
 		AudioManager.ui_click()
+		# Escape backs out of the purchase first; leaving the whole screen
+		# while a confirmation is open would be a surprising second meaning.
+		if _buy_dialog != null:
+			_close_buy_dialog()
+			return
 		_go_back()
