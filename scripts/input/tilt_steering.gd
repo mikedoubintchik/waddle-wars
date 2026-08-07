@@ -100,12 +100,18 @@ window.__ww_tilt_ask = function () {
 // Asking from GDScript looked correct and was silently refused, with no prompt
 // shown and no error raised.
 window.__ww_tilt_arm = function () {
+	// Re-arm after a refusal. The first version returned early whenever it had
+	// ever been armed, which made the "Try Again" button a no-op -- it looked
+	// like a retry and did nothing at all.
+	var st = window.__ww_tilt.state;
+	if (st === 'granted' || st === 'listening' || st === 'pending') { return; }
 	if (window.__ww_tilt._armed) { return; }
 	window.__ww_tilt._armed = 1;
 	var fire = function () {
 		window.removeEventListener('pointerdown', fire, true);
 		window.removeEventListener('touchend', fire, true);
 		window.removeEventListener('click', fire, true);
+		window.__ww_tilt._armed = 0;
 		window.__ww_tilt_ask();
 	};
 	window.addEventListener('pointerdown', fire, true);

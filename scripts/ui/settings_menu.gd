@@ -808,6 +808,18 @@ func _add_link_row(body: VBoxContainer, label_text: String, description: String,
 func _add_tilt_status_row(body: VBoxContainer) -> void:
 	var slot := _row(body, "Motion Access",
 		"Leaning needs the browser's permission to read the phone's motion.")
+	# The blocked case needs its own paragraph, because on iOS the browser
+	# remembers a refusal per site and stops prompting entirely -- so "try
+	# again" on its own is a dead end and the player has to be told where the
+	# actual switch is. Every browser on an iPhone is Safari underneath, so
+	# Safari's setting governs Chrome too, which is not obvious.
+	var remedy := Label.new()
+	remedy.add_theme_font_size_override("font_size", _f(15))
+	remedy.add_theme_color_override("font_color", Color(0.98, 0.80, 0.62))
+	remedy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	remedy.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	remedy.visible = false
+	body.add_child(remedy)
 	var status := Label.new()
 	status.add_theme_font_size_override("font_size", _f(17))
 	status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -825,23 +837,34 @@ func _add_tilt_status_row(body: VBoxContainer) -> void:
 		var state := TiltSteering.permission_state()
 		match state:
 			"granted":
+				remedy.visible = false
 				status.text = "Working"
 				status.add_theme_color_override("font_color", Color(0.55, 0.88, 0.62))
 				button.visible = false
 			"listening", "pending":
+				remedy.visible = false
 				status.text = "Waiting for the sensor…"
 				status.add_theme_color_override("font_color", UITheme.COLOR_TEXT_DIM)
 				button.visible = false
 			"denied":
-				status.text = "Blocked by the browser"
+				status.text = "Blocked"
 				status.add_theme_color_override("font_color", Color(1.0, 0.62, 0.55))
 				button.text = "Try Again"
 				button.visible = true
+				remedy.visible = true
+				remedy.text = ("On iPhone or iPad, turn on Settings → Apps → Safari"
+					+ " → Motion & Orientation Access, then reload this page."
+					+ " Every browser on iOS uses Safari underneath, so that"
+					+ " switch covers Chrome too. If it is already on, the site"
+					+ " has remembered an earlier refusal — clear this site's"
+					+ " data, or press Try Again and then tap the screen once.")
 			"nosensor", "unsupported":
+				remedy.visible = false
 				status.text = "No motion sensor on this device"
 				status.add_theme_color_override("font_color", UITheme.COLOR_TEXT_DIM)
 				button.visible = false
 			_:
+				remedy.visible = false
 				status.text = "Not granted yet"
 				status.add_theme_color_override("font_color", UITheme.COLOR_TEXT_DIM)
 				button.text = "Allow"
