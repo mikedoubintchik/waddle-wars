@@ -916,7 +916,18 @@ func _build_skyline_band(band: Dictionary, look: Dictionary, plane_y: float, den
 				_bake_form(chunks[key], kind, pos, footprint, height, form, 0)
 		station += 1
 		offset += step
-	var material := VisualLibrary.rock_material(Color(1.0, 1.0, 1.0))
+	# Terrain shader, not a flat rock material.
+	#
+	# The skyline is the largest mass in most frames and every one of its faces
+	# was a single flat value, which is what made it read as folded paper no
+	# matter how good the silhouettes were. The terrain shader adds world-Y
+	# strata, a slope-gated snow catch on upward faces and its own distance
+	# ramp -- the same treatment the cliffs got -- so a face has internal
+	# structure instead of one tone. Structure eases off with the band's haze:
+	# the far ring should read as atmosphere, not as detail.
+	var band_haze := float(band.get("haze", 0.0))
+	var material := VisualLibrary.terrain_material(
+		Color(1.0, 1.0, 1.0), clampf(1.0 - band_haze * 1.4, 0.15, 1.0), band_haze)
 	for key: Variant in chunks:
 		var st: SurfaceTool = chunks[key]
 		st.generate_normals()

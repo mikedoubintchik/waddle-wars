@@ -519,10 +519,21 @@ func _note(body: VBoxContainer, text: String) -> Label:
 func _fits_segmented(options: Array) -> bool:
 	if options.size() > 3:
 		return false
+	var total := 0
 	for pair: Array in options:
-		if String(pair[1]).length() > 10:
+		var length := String(pair[1]).length()
+		if length > 12:
 			return false
-	return true
+		total += length
+	# Budget against the control column's ACTUAL width, not a flat character
+	# count. Window Mode is three options of eight to ten characters each --
+	# every one of them inside the old per-label limit -- and on a phone, where
+	# the touch step enlarges the type but the column does not grow with it,
+	# they rendered as "Windowe" and "Borderles". A picker has room for the
+	# whole word, so long sets fall back to one.
+	var per_char := float(_f(18)) * 0.56
+	var padding := _u(20.0) * float(options.size())
+	return float(total) * per_char + padding <= _u(CONTROL_COLUMN)
 
 
 ## Value comparison that survives the JSON round trip (ints arriving as floats)

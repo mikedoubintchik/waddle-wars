@@ -1449,7 +1449,9 @@ func _icefall_mesh(seed_value: int) -> ArrayMesh:
 		var x1 := -0.5 + float(i + 1) / float(cols)
 		var z := mrng.randf_range(0.06, 0.11) * FALL_DEPTH_RATIO
 		var lip := mrng.randf_range(0.86, 0.93)
-		var tip_y := mrng.randf_range(0.02, 0.12)
+		# Tightened from 0.02-0.12: a wide spread here is what made the
+		# bottom edge read as teeth once the apron beds them.
+		var tip_y := mrng.randf_range(0.13, 0.20)
 		var streak := mrng.randf_range(0.8, 1.1)
 		var hi := Color(flow_hi.r * streak, flow_hi.g * (0.85 + 0.15 * streak), flow_hi.b)
 		var lo := Color(flow_lo.r * streak, flow_lo.g * (0.85 + 0.15 * streak), flow_lo.b)
@@ -1494,6 +1496,30 @@ func _icefall_mesh(seed_value: int) -> ArrayMesh:
 				Vector3(x0 + groove_w, hi_y, z), Vector3(x0, hi_y, zmid), rec_lo, rec)
 		prev_z = z
 		prev_lip = lip
+
+	# Back sheet and apron: make the cascade a MASS, not a comb.
+	#
+	# Every surface above was a per-column front, so the silhouette was ten
+	# separate teeth with sky visible between them and a ragged bottom edge
+	# where each column ended at its own tip height. At distance that reads as
+	# a picket fence rather than a frozen waterfall. Two additions fix it
+	# without touching the column detail that reads well up close: a full-width
+	# sheet set behind the columns so a groove never opens onto sky, and an
+	# apron sweeping from the base of the wall out to the column fronts so the
+	# cascade lands in something instead of ending in points.
+	var back_z := -0.16 * FALL_DEPTH_RATIO
+	_cgrad(st, Vector3(-0.5, 0.0, back_z), Vector3(0.5, 0.0, back_z),
+		Vector3(0.5, 1.0, back_z), Vector3(-0.5, 1.0, back_z),
+		recess.darkened(0.25), flow_lo.lerp(crown, 0.35))
+	# Apron. Rises to just under the lowest tip so it beds the columns rather
+	# than hiding them, and leans outward so it catches the key light instead
+	# of reading as one more vertical face.
+	var apron_top := 0.11
+	var apron_out := 0.30 * FALL_DEPTH_RATIO
+	_cgrad(st, Vector3(-0.5, 0.0, back_z), Vector3(0.5, 0.0, back_z),
+		Vector3(0.5, apron_top, apron_out), Vector3(-0.5, apron_top, apron_out),
+		flow_lo.lerp(recess, 0.4), flow_hi.lerp(crown, 0.3))
+
 	st.generate_normals()
 	return st.commit()
 
