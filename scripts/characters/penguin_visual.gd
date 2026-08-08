@@ -18,6 +18,12 @@ extends Node3D
 enum Pose { RUN, SLIDE, AIR, SWIM, STUN, IDLE, CELEBRATE, DEFEAT }
 
 const BROW_REST: float = -0.1745  # ~-10 deg: relaxed determined slope
+## Attacker lunge: short enough to read as a jab, long enough to see at 30 px.
+const LUNGE_TIME: float = 0.40
+## Victim tumble. Outlasts the racer's own STUMBLE_TIME on purpose -- the
+## control lockout ends before the animation does, so the recovery is played
+## rather than cut.
+const TUMBLE_TIME: float = 1.05
 const BODY_SEGS: int = 48         # lathe radial segments (hero-asset smooth)
 const FLIPPER_SEGS: int = 16      # blade cross-section segments
 const HEAD_Y: float = 0.85        # head-sphere center height (anchor rest)
@@ -172,6 +178,13 @@ var _base_pos: Vector2 = Vector2.ZERO   # smoothed _root x/y before waddle offse
 var _head_rot: Vector3 = Vector3.ZERO   # smoothed head rotation before waddle counter-terms
 var _waddle: float = 0.0                # RUN-gait weight; eases the waddle in/out on pose changes
 var _squash: float = 1.0
+## Shove impulses. Both are elapsed-time cursors: a trigger sets them to 0.0,
+## tick() advances them and drives a one-shot envelope, and they park at -1.0
+## when spent. Kept as envelopes layered onto the running pose rather than as
+## poses of their own, so a shove never interrupts a slide or a jump.
+var _lunge_t: float = -1.0
+var _tumble_t: float = -1.0
+var _tumble_dir: float = 1.0
 # Low-passed applied gait values (~14/s): the waddle oscillators are pure
 # sines, but filtering the final applied values guarantees C1-smooth motion
 # across pose/speed changes — nothing ever snaps.
@@ -1290,12 +1303,56 @@ func trigger_squash(amount: float = 0.72) -> void:
 	_squash = amount
 
 
+## Attacker's shove: a whole-body lunge with both flippers thrust forward.
+##
+## The shove used to be a sound and nothing else on the attacking side, which
+## on a behind-the-back chase camera meant the player's own throw was invisible
+## -- you pressed the button and the world simply changed. This is the swing.
+func trigger_lunge() -> void:
+	_lunge_t = 0.0
+
+
+## Victim's shove: spun off balance, flippers flung wide, head snapped back.
+## `dir` is the side it came from (-1 / +1); the spin goes with the push.
+##
+## Layered over the running pose rather than replacing it, because a shove does
+## not stop the victim -- they keep waddling, badly, which is the joke.
+func trigger_tumble(dir: float) -> void:
+	_tumble_t = 0.0
+	_tumble_dir = 1.0 if dir >= 0.0 else -1.0
+
+
 ## Drives all animation. speed_ratio: 0..1.5 of normal speed.
 func tick(delta: float, speed_ratio: float) -> void:
 	if _root == null:
 		return
 	_time += delta * (0.6 + anim_speed)
 	_pose_blend = minf(_pose_blend + delta * 5.0, 1.0)
+
+	# Shove envelopes, evaluated before the pose so their offsets can be folded
+	# into the pose's own targets instead of fighting the low-pass filters that
+	# apply them.
+	var lunge := 0.0
+	if _lunge_t >= 0.0:
+		_lunge_t += delta
+		if _lunge_t >= LUNGE_TIME:
+			_lunge_t = -1.0
+		else:
+			# Thrust out fast, draw back slower: pow() skews the half-sine so the
+			# peak lands early, which is what makes it read as a strike rather
+			# than a stretch.
+			lunge = sin(pow(_lunge_t / LUNGE_TIME, 0.45) * PI)
+	var tumble := 0.0
+	if _tumble_t >= 0.0:
+		_tumble_t += delta
+		if _tumble_t >= TUMBLE_TIME:
+			_tumble_t = -1.0
+		else:
+			# Full deflection on the first frame -- an impact IS a snap, and the
+			# existing squash already behaves this way -- then an unwinding
+			# wobble as balance comes back.
+			var v := _tumble_t / TUMBLE_TIME
+			tumble = pow(1.0 - v, 1.7) * cos(v * 6.5)
 
 	var target_tilt := Vector3.ZERO
 	var target_y := 0.0
@@ -1388,6 +1445,30 @@ func tick(delta: float, speed_ratio: float) -> void:
 			_head_anchor.position.y = HEAD_Y - 0.05
 			brow_target = deg_to_rad(18.0)
 
+	# Shove offsets, folded into the pose's targets so the existing low-pass
+	# filters carry them instead of being fought by them.
+	if lunge > 0.001:
+		# Both flippers swing forward together (rotation.x), and the blades open
+		# outward -- the left pivot rests negative and the right positive, so
+		# the signed pair widens the stance into a shove rather than a hug.
+		flipper_l_target -= deg_to_rad(34.0) * lunge
+		flipper_r_target += deg_to_rad(34.0) * lunge
+		flipper_swing += deg_to_rad(52.0) * lunge
+		# Chest drives into it and the brow sets: this is effort, not a stumble.
+		target_tilt.x -= deg_to_rad(24.0) * lunge
+		target_y -= 0.03 * lunge
+		brow_target = deg_to_rad(-24.0) * lunge + brow_target * (1.0 - lunge)
+		head_pitch -= deg_to_rad(14.0) * lunge
+	if absf(tumble) > 0.001:
+		# Flippers fly up and wide, the head whips back, and the brow goes up in
+		# alarm -- all the things a body does when something hits it.
+		flipper_l_target -= deg_to_rad(62.0) * absf(tumble)
+		flipper_r_target += deg_to_rad(62.0) * absf(tumble)
+		target_tilt.x += deg_to_rad(26.0) * absf(tumble)
+		head_pitch += deg_to_rad(22.0) * absf(tumble)
+		head_yaw += deg_to_rad(30.0) * tumble * _tumble_dir
+		brow_target = deg_to_rad(20.0) * absf(tumble) + brow_target * (1.0 - absf(tumble))
+
 	# Waddle core: sin(wave) > 0 lifts the LEFT foot, so the body rolls and
 	# the hips translate onto the planted right (+X) foot — an inverted
 	# pendulum vaulting over the stance leg, rising slightly at each
@@ -1454,6 +1535,16 @@ func tick(delta: float, speed_ratio: float) -> void:
 	_root.rotation = _current_tilt
 	_root.rotation.z += _gait_roll
 	_root.rotation.y += _gait_yaw
+	# The spin goes on straight rather than through _current_tilt's lerp: the
+	# whole point of the tumble is that the silhouette swings the instant the
+	# hit lands. Roll leans away from the push, yaw whips with it.
+	if absf(tumble) > 0.001:
+		_root.rotation.y += deg_to_rad(58.0) * tumble * _tumble_dir
+		_root.rotation.z += deg_to_rad(30.0) * tumble * -_tumble_dir
+	# The lunge shifts the body forward on its feet, not just rotates it.
+	# Assigned unconditionally (not +=) because nothing else writes position.z,
+	# so a conditional offset would never be taken back off.
+	_root.position.z = -0.10 * lunge
 	_base_pos.y = lerpf(_base_pos.y, target_y, minf(delta * 8.0, 1.0))
 	_base_pos.x = lerpf(_base_pos.x, target_x, minf(delta * 8.0, 1.0))
 	_root.position.y = _base_pos.y + _gait_bob

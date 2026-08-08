@@ -22,8 +22,15 @@ signal item_received(racer: Racer, item_id: String)
 signal item_used(racer: Racer, item_id: String)
 signal snowball_ammo_changed(racer: Racer, ammo: int)
 signal shove_landed(attacker: Racer, victim: Racer)
+## Fired on the VICTIM of a connected shove. shove_landed fires on the
+## attacker and is what progression counts; this is the other half, so the
+## camera and the controller can react when the hit is taken rather than dealt.
+signal shoved(racer: Racer, attacker: Racer)
 signal respawned(racer: Racer)
 signal stunned_changed(racer: Racer, is_stunned: bool)
+## Fired whenever the ice shield starts, is broken, or runs out. `active` is
+## the new state; the HUD reads shield_remaining() for the countdown.
+signal shield_changed(racer: Racer, active: bool)
 
 const GRAVITY: float = 30.0
 const JUMP_VELOCITY: float = 11.0
@@ -88,6 +95,18 @@ const STUN_TIME: float = 1.1
 const STUMBLE_TIME: float = 0.55
 const RECOVER_TIME: float = 0.9
 const MAX_SNOWBALL_AMMO: int = 3
+## Seconds an unused ice shield lasts. It still blocks exactly one hit; this is
+## the window in which it is available to do so.
+##
+## Without a clock a shield taken on a clean run simply never ended, so the
+## player carried a glowing bubble to the finish and the power-up read as
+## broken. 8s sits with the rest of the table -- magnet 6s, blizzard cloud 5s --
+## and is long enough to cover the stretch after a pickup where an attack is
+## actually likely.
+const SHIELD_DURATION: float = 8.0
+## Tail of SHIELD_DURATION during which the shell visibly winds down, so the
+## shield never vanishes without warning.
+const SHIELD_WARN: float = 2.5
 
 var racer_key: String = "player"
 var display_name: String = "You"
@@ -141,6 +160,8 @@ var _water_areas: Array[Area3D] = []
 var _water_surface_y: float = 0.0
 var _has_shield: bool = false
 var _shield_visual: MeshInstance3D = null
+var _shield_material: ShaderMaterial = null
+var _shield_timer: float = 0.0
 var _was_on_floor: bool = false
 var _airborne_from_jump: bool = false
 var _knock_velocity: Vector3 = Vector3.ZERO  # decaying shove/bump slide
@@ -340,6 +361,15 @@ func _update_timers(delta: float) -> void:
 	_stumble_timer = maxf(0.0, _stumble_timer - delta)
 	_blizzard_slip_timer = maxf(0.0, _blizzard_slip_timer - delta)
 	_wall_sfx_cooldown = maxf(0.0, _wall_sfx_cooldown - delta)
+	if _has_shield:
+		_shield_timer = maxf(0.0, _shield_timer - delta)
+		# The shell reads its own remaining life, so the last seconds thin and
+		# flicker rather than the bubble simply blinking out of existence.
+		if _shield_material != null:
+			_shield_material.set_shader_parameter(
+				"charge", clampf(_shield_timer / SHIELD_WARN, 0.0, 1.0))
+		if _shield_timer <= 0.0:
+			_expire_shield()
 	if _knock_velocity != Vector3.ZERO:
 		_knock_velocity = _knock_velocity.move_toward(Vector3.ZERO, KNOCK_DECAY * delta)
 	if _boost_timer <= 0.0 and boost_mult > 1.0:
@@ -989,7 +1019,11 @@ func _update_visual(delta: float) -> void:
 
 func _attempt_shove() -> void:
 	_shove_cooldown = SHOVE_COOLDOWN
-	AudioManager.play_sfx_3d("sfx_shove", global_position, randf_range(0.9, 1.1))
+	# The swing happens whether or not it connects. A shove that misses used to
+	# produce a sound over a completely unchanged penguin, which reads as the
+	# button not working rather than as a miss.
+	if visual != null:
+		visual.trigger_lunge()
 	var best: Racer = null
 	var best_distance := SHOVE_RANGE
 	for node: Node in get_tree().get_nodes_in_group(GameConfig.GROUP_RACERS):
@@ -1000,15 +1034,28 @@ func _attempt_shove() -> void:
 		if distance < best_distance:
 			best = other
 			best_distance = distance
-	if best != null and best.receive_shove(self):
+	var landed := best != null and best.receive_shove(self)
+	# A whiff is a thinner, higher swing with no impact behind it. Played after
+	# the scan rather than before, because the sound has to know whether it hit
+	# -- previously both outcomes played the identical cue at identical volume,
+	# so a miss and a hit were audibly the same event.
+	if landed:
+		AudioManager.play_sfx_3d("sfx_shove", global_position, randf_range(0.9, 1.02))
 		shove_landed.emit(self, best)
+	else:
+		AudioManager.play_sfx_3d("sfx_shove", global_position, randf_range(1.2, 1.35), -7.0)
 
 
 ## Returns true if the shove connected.
 func receive_shove(attacker: Racer) -> bool:
-	if _shove_immunity > 0.0 or _invuln_timer > 0.0 or _has_shield:
-		if _has_shield:
-			break_shield()
+	# Immunity is checked BEFORE the shield, not alongside it. Folding all
+	# three into one condition meant a shove thrown at someone already inside
+	# their i-frames still ate the shield -- a shield spent blocking a hit that
+	# could not have landed in the first place.
+	if _shove_immunity > 0.0 or _invuln_timer > 0.0 or state == State.FINISHED:
+		return false
+	if _has_shield:
+		break_shield()
 		return false
 	_shove_immunity = 2.2
 	# Steering lockout and the forced slide both scale with the attacker's
@@ -1023,12 +1070,136 @@ func receive_shove(attacker: Racer) -> bool:
 	# Crisp impulse + short victim slide through move_and_slide (never a
 	# position teleport, so a shove can't press anyone through walls).
 	_knock_velocity = push * (4.0 + attacker.current_speed * 0.28)
-	_steer_offset += signf(push.dot(_yaw_to_dir(_velocity_yaw + PI / 2.0))) * deg_to_rad(25.0)
+	var side := signf(push.dot(_yaw_to_dir(_velocity_yaw + PI / 2.0)))
+	_steer_offset += side * deg_to_rad(25.0)
 	current_speed *= 0.72
 	if visual != null:
 		visual.trigger_squash(0.8)
+		visual.trigger_tumble(side)
+	# Impact FX at the contact point rather than on either penguin, so the hit
+	# is visible even when both bodies are off-frame or hidden behind the
+	# camera's own racer -- which, on a behind-the-back chase camera, is most of
+	# the time.
+	_spawn_shove_impact((global_position + attacker.global_position) * 0.5 + Vector3.UP * 0.55)
 	AudioManager.play_sfx_3d("sfx_stumble", global_position, randf_range(0.9, 1.1))
+	AudioManager.play_sfx_3d("sfx_impact", global_position, randf_range(1.15, 1.3), -5.0)
+	shoved.emit(self, attacker)
 	return true
+
+
+## --- Shove impact FX ---------------------------------------------------------
+## A ground shockwave ring, a billboard flash, and a kick of snow spray at the
+## contact point. All unshaded and additive (gl_compatibility-safe); the meshes
+## and materials are built once and shared, so a hit costs two nodes and one
+## tween.
+##
+## This exists because the shove's whole feedback budget used to be spent on
+## the two penguins, and the camera sits behind one of them: the player's own
+## shove happened somewhere past their own back, out of frame. A world-space
+## flash at the contact point is visible from anywhere.
+##
+## The ring lies FLAT. A first pass stood it upright facing along the push,
+## which is a better idea on paper -- and on screen it was a white croquet hoop
+## planted in the snow, because the bottom half sank through the deck and what
+## was left read as a solid arch of scenery rather than as a wave. Flat on the
+## ground it cannot intersect anything, and it is the shape every racing game
+## uses for an impact for exactly that reason.
+
+static var _impact_ring_mesh: TorusMesh = null
+static var _impact_flash_mesh: QuadMesh = null
+static var _impact_ring_material: StandardMaterial3D = null
+static var _impact_flash_material: StandardMaterial3D = null
+
+
+static func _get_impact_ring_mesh() -> TorusMesh:
+	if _impact_ring_mesh == null:
+		_impact_ring_mesh = TorusMesh.new()
+		# Thin: a fat ring reads as a solid object, and this has to read as a
+		# wave that is on its way out.
+		_impact_ring_mesh.inner_radius = 0.46
+		_impact_ring_mesh.outer_radius = 0.50
+		_impact_ring_mesh.rings = 28
+		_impact_ring_mesh.ring_segments = 5
+	return _impact_ring_mesh
+
+
+static func _get_impact_flash_mesh() -> QuadMesh:
+	if _impact_flash_mesh == null:
+		_impact_flash_mesh = QuadMesh.new()
+		_impact_flash_mesh.size = Vector2(1.5, 1.5)
+	return _impact_flash_mesh
+
+
+func _spawn_shove_impact(pos: Vector3) -> void:
+	if GameConfig.is_headless() or course == null or not is_instance_valid(course):
+		return
+	# Reduced flashing drops the additive flash but KEEPS the ring. The ring is
+	# an expanding shape, not a brightness spike, and it is the only part of
+	# this that survives the player's own penguin blocking the view -- taking it
+	# away would leave that setting with no shove feedback at all.
+	var reduced := bool(SettingsManager.get_setting("accessibility", "reduced_flashing"))
+	if _impact_ring_material == null:
+		_impact_ring_material = StandardMaterial3D.new()
+		_impact_ring_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_impact_ring_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_impact_ring_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		_impact_ring_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_impact_ring_material.disable_receive_shadows = true
+		_impact_flash_material = VisualLibrary.billboard_puff_material(
+			Color(1.0, 0.96, 0.86, 0.95), 32, 0.9, true).duplicate() as StandardMaterial3D
+		_impact_flash_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+
+	# Ring on the deck under the contact, flash at chest height.
+	var ground := Vector3(pos.x, global_position.y + 0.12, pos.z)
+
+	var ring := MeshInstance3D.new()
+	ring.mesh = _get_impact_ring_mesh()
+	ring.material_override = _impact_ring_material.duplicate() as StandardMaterial3D
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ring.position = ground
+	ring.scale = Vector3(0.6, 1.0, 0.6)
+	course.add_child(ring)
+
+	var ring_mat := ring.material_override as StandardMaterial3D
+	# Cyan rather than white. Additive white on a snow course either vanishes
+	# into the ground or blows out to a flat slab; a cool tint keeps a readable
+	# edge against everything this game is set on.
+	ring_mat.albedo_color = Color(0.38, 0.82, 1.0, 0.5 if reduced else 0.8)
+
+	# Tweened from the COURSE, not from the racer: these nodes are the course's
+	# children, and a tween owned by a racer that gets freed mid-flight would
+	# stop without ever running the callback that removes them.
+	var tween := course.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(ring, "scale", Vector3(3.2, 1.0, 3.2), 0.26) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(ring_mat, "albedo_color:a", 0.0, 0.26)
+
+	if not reduced:
+		var flash := MeshInstance3D.new()
+		flash.mesh = _get_impact_flash_mesh()
+		flash.material_override = _impact_flash_material.duplicate() as StandardMaterial3D
+		flash.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		flash.position = pos
+		flash.scale = Vector3.ONE * 0.5
+		course.add_child(flash)
+		var flash_mat := flash.material_override as StandardMaterial3D
+		tween.tween_property(flash, "scale", Vector3.ONE * 1.9, 0.16) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tween.tween_property(flash_mat, "albedo_color:a", 0.0, 0.16)
+		tween.chain().tween_callback(func() -> void:
+			if is_instance_valid(flash):
+				flash.queue_free())
+
+	tween.chain().tween_callback(func() -> void:
+		if is_instance_valid(ring):
+			ring.queue_free())
+
+	# Snow kicked up by the scuffle, through the course's existing pooled puff
+	# emitters -- the same burst a hard landing throws, so a shove sits in the
+	# visual language the course already speaks.
+	if course.has_method("spawn_land_puff"):
+		course.call("spawn_land_puff", ground)
 
 
 ## Comedic stumble away from a world position (seal bumps, soft hazards).
@@ -1082,6 +1253,12 @@ func apply_boost(duration: float, mult: float = 1.45) -> void:
 
 
 func apply_blizzard_slip(duration: float) -> void:
+	# The only damage entry point that had neither guard. A blizzard cloud
+	# re-checks its overlaps every 0.4 s, so without these a racer standing in
+	# one loses a shield to a hit their i-frames were already absorbing, and a
+	# finished racer coasting through the cloud is still affected by it.
+	if _invuln_timer > 0.0 or state == State.FINISHED:
+		return
 	if _has_shield:
 		break_shield()
 		return
@@ -1105,6 +1282,17 @@ const SHIELD_SHADER_CODE := """shader_type spatial;
 render_mode blend_mix, depth_draw_never, cull_disabled, unshaded;
 
 uniform vec4 shell_color : source_color = vec4(0.30, 0.78, 1.0, 1.0);
+// 1.0 for most of the shield's life, falling to 0.0 across its last seconds.
+// Drives the whole wind-down, so a shield that is about to lapse looks
+// different from a fresh one -- otherwise the timer would be invisible and the
+// bubble would just blink out.
+uniform float charge : hint_range(0.0, 1.0) = 1.0;
+// 0.0 under the reduced-flashing accessibility setting, which replaces the
+// end-of-life stutter with a smooth fade. The stutter is a hard 6 Hz on/off on
+// both alpha and emission -- exactly the kind of thing that setting exists to
+// suppress -- and the wind-down still reads without it, through the thinning
+// shell and the band speeding up.
+uniform float flicker : hint_range(0.0, 1.0) = 1.0;
 
 void fragment() {
 	// Exponent sets how much of the shell is visible. 2.6 confined it to a
@@ -1112,15 +1300,21 @@ void fragment() {
 	// erasing the racer to giving no feedback at all, which is its own bug.
 	float fres = pow(1.0 - clamp(abs(dot(NORMAL, VIEW)), 0.0, 1.0), 1.7);
 	// A slow band travelling up the shell so an active shield reads as powered
-	// rather than as a static bauble.
-	float band = 0.5 + 0.5 * sin(UV.y * 12.0 - TIME * 2.4);
+	// rather than as a static bauble. It accelerates as the charge drains, so
+	// the shell looks agitated before it goes.
+	float band = 0.5 + 0.5 * sin(UV.y * 12.0 - TIME * (2.4 + (1.0 - charge) * 7.0));
 	// A hard bright line right at the silhouette, so the bubble has an edge
 	// you can find on a white course, over a softer body that stays clear
 	// where the penguin is.
 	float lip = smoothstep(0.72, 0.97, fres);
 	float a = clamp(fres * 0.55 + lip * 0.75 + band * fres * 0.25, 0.0, 0.92);
+	// Failing shell: a fast stutter that only bites in the last of the charge,
+	// plus an overall thinning. Both are gated on (1.0 - charge) so a shield
+	// with time left is completely unaffected by any of this.
+	float stutter = mix(1.0, 0.35 + 0.65 * step(0.35, fract(TIME * 6.0)), (1.0 - charge) * flicker);
+	a *= mix(0.45, 1.0, charge) * stutter;
 	ALBEDO = shell_color.rgb;
-	EMISSION = shell_color.rgb * (0.6 + band * 0.5) * (fres + lip * 0.8);
+	EMISSION = shell_color.rgb * (0.6 + band * 0.5) * (fres + lip * 0.8) * stutter;
 	ALPHA = a;
 }
 """
@@ -1136,35 +1330,66 @@ static func _get_shield_shader() -> Shader:
 
 
 func give_shield() -> void:
+	var was_active := _has_shield
 	_has_shield = true
+	# Taking a second shield refreshes the clock rather than stacking, which is
+	# the only sane reading of a one-hit shield you already have.
+	_shield_timer = SHIELD_DURATION
 	if _shield_visual == null and visual != null:
 		var sphere := SphereMesh.new()
 		sphere.radius = 0.85
 		sphere.height = 1.7
 		sphere.radial_segments = 24
 		sphere.rings = 12
-		var mat := ShaderMaterial.new()
-		mat.shader = _get_shield_shader()
-		sphere.material = mat
+		_shield_material = ShaderMaterial.new()
+		_shield_material.shader = _get_shield_shader()
+		sphere.material = _shield_material
 		_shield_visual = MeshInstance3D.new()
 		_shield_visual.mesh = sphere
 		_shield_visual.position.y = 0.55
 		_shield_visual.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(_shield_visual)
+	if _shield_material != null:
+		_shield_material.set_shader_parameter("charge", 1.0)
+		_shield_material.set_shader_parameter("flicker",
+			0.0 if bool(SettingsManager.get_setting("accessibility", "reduced_flashing")) else 1.0)
 	if _shield_visual != null:
 		_shield_visual.visible = true
+	if not was_active:
+		shield_changed.emit(self, true)
 
 
 func has_shield() -> bool:
 	return _has_shield
 
 
+## Seconds of shield left, 0.0 when there is none. Drives the HUD countdown.
+func shield_remaining() -> float:
+	return _shield_timer if _has_shield else 0.0
+
+
 func break_shield() -> void:
-	_has_shield = false
-	if _shield_visual != null:
-		_shield_visual.visible = false
+	_clear_shield()
 	AudioManager.play_sfx_3d("sfx_shield_break", global_position)
 	_invuln_timer = maxf(_invuln_timer, 0.8)
+
+
+## Ran out of time rather than absorbing anything. Deliberately quieter than
+## break_shield and grants no invulnerability: nothing hit you, so nothing
+## should follow. The distinct sound is what tells the player the difference.
+func _expire_shield() -> void:
+	_clear_shield()
+	AudioManager.play_sfx_3d("sfx_shield_break", global_position, 1.45, -9.0)
+
+
+func _clear_shield() -> void:
+	if not _has_shield:
+		return
+	_has_shield = false
+	_shield_timer = 0.0
+	if _shield_visual != null:
+		_shield_visual.visible = false
+	shield_changed.emit(self, false)
 
 
 func collect_fish(value: int) -> void:
@@ -1285,6 +1510,11 @@ func finish_race_now(time_seconds: float) -> void:
 		return
 	finish_time = time_seconds
 	_finish_slowdown = 1.0
+	# Drop any shield at the line. _update_timers runs in every state, so a
+	# shield taken late otherwise stays lit through the celebration and then
+	# pops sfx_shield_break partway through it -- a break sound for a hit that
+	# never happened, over a racer who has already won.
+	_clear_shield()
 	state = State.FINISHED
 	state_changed.emit(State.FINISHED)
 	race_finished.emit(self)

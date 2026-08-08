@@ -503,3 +503,75 @@ what the site served, so the deploy was never at fault.
 `GODOT_CONFIG.mainPack`. That URL has never been fetched, so it cannot be
 cached by any client under any policy. Settings also shows build hash and both
 canvas sizes, so a screenshot answers "which code is this" without a round trip.
+
+### Aurora: mountains through the deck, measured rather than eyeballed
+Reported as "the mountains overlap the course in several places". A new
+harness, `tests/overlap_probe.tscn`, walks every guide, builds the racing
+corridor (half-width either side, deck-1m to deck+6m) and triangle-tests every
+mesh in the course against it, excluding the track ribbon, triggers and hazard
+classes and reporting what it excluded.
+
+Aurora went from **17 offenders to 9**, and everything left is either overhead
+(the cavern arches at 5.8 m, a lamp arm at 5.9 m) or the ridge berms, which are
+a deliberate channel. Three root causes:
+
+- **Peak rings placed at a fixed radius.** Both silhouette rings sat 380-620 m
+  and 700-980 m from (20, 0, -520), but the course itself reaches ~560 m from
+  that centre fore and aft. Four of the sixteen near peaks — 300-460 m wide —
+  were planted straight through the deck at the start line, the geyser
+  downhill, the corkscrew and the finish straight, each reaching 8.4-9.9 m
+  inboard of a 9-10 m half-width. Radius is now derived per bearing from the
+  course's own reach (`_peak_ring_distance`), so the range rings the valley
+  instead of crossing it.
+- **`track_edge_lateral()` probed from the unbanked frame.** Rays started at
+  `origin.y + 0.4` taken from `guide.transform_at()`, which does not include
+  bank, so on a banked corner the ray began *under* the raised deck edge, found
+  no floor, and returned a short lateral — planting the prop on the racing
+  surface. Four station poles stood 2.9-5.0 m inboard on aurora's three banked
+  corners. Now probed from `TrackBuilder.deck_transform_at()`, each sample
+  starting above its own expected deck point. This also cut **glacier from 32
+  offenders to 21** (flags, rocks, sastrugi and snowbanks all pulled off the
+  deck), so it was never an aurora-only bug.
+- **Flank scatters only knew about the main guide.** Snowdrift mounds and the
+  crystal field place themselves by lateral offset from the main line, and near
+  the ridge shortcut the far side of that offset is deck. `clear_of_track()`
+  on CourseBase now tests a candidate against every guide, main and branch.
+
+### Ice shield: it had no clock at all
+Reported as "the ice shield doesn't expire", and that was literally true —
+`_has_shield` had no companion timer and the only writer of `false` was
+`break_shield()`, reachable solely from the four damage handlers. A clean run
+carried a lit bubble to the finish.
+
+`SHIELD_DURATION = 8.0` (sits with magnet 6 s and blizzard 5 s), with the last
+`SHIELD_WARN = 2.5` s driving a `charge` uniform that thins the shell and
+speeds its travelling band, plus a HUD pill under the position card showing the
+countdown. Timing out is deliberately distinguishable from being broken: a
+quieter, higher sound and **no** invulnerability, because nothing hit you.
+
+Three further defects came out of the audit, all now fixed and unit-tested:
+immunity is checked before the shield so a hit already absorbed by i-frames no
+longer also spends it; `apply_blizzard_slip` gained the invuln/FINISHED guards
+it never had; and the shell's end-of-life stutter is a hard 6 Hz on/off, so it
+is now gated on `reduced_flashing` and falls back to a smooth fade.
+
+### Shove: legible with no penguin in frame
+Reported as needing a stronger animation "especially so people can see that
+something is happening when not actually showing a penguin" — the chase camera
+sits behind the player, so their own shove happened past their own back.
+
+The attacker now lunges (`PenguinVisual.trigger_lunge`, whether or not it
+connects, so a miss stops reading as a dead button), the victim is spun off
+balance (`trigger_tumble`, layered over the running pose rather than replacing
+it), and the contact point spawns a flat cyan ground shockwave, a billboard
+flash and a kick of snow spray through the course's existing puff pool. Both
+halves of the hit kick the camera; taking one hits harder than landing one, and
+`Racer.shoved` exists so the victim side has a signal at all. A whiff now plays
+a thinner, higher, quieter swing instead of the identical cue.
+
+The ring was first built standing upright facing along the push. On screen that
+was a white croquet hoop planted in the snow — the bottom half sank through the
+deck and what remained read as scenery. Flat on the ground it cannot intersect
+anything. Caught by capture, not by review: `shot=race_shove` and
+`pose_check -- impulse=` both save a *strip* of frames across the impulse,
+because a 0.4 s one-shot cannot be judged from a single still.

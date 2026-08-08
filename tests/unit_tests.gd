@@ -38,6 +38,8 @@ func _ready() -> void:
 	_test_path_guide()
 	await _test_powerup_activation()
 	await _test_backward_snowball()
+	await _test_shield_lifetime()
+	await _test_shove_animation()
 	_test_daily_challenge()
 	_test_tilt_steering()
 	await _test_menu_scenes()
@@ -356,6 +358,137 @@ func _test_powerup_activation() -> void:
 	await get_tree().physics_frame
 	_check("powerup_effects_tick", is_instance_valid(racer) and is_instance_valid(powerups))
 	arena.queue_free()
+	await get_tree().process_frame
+
+
+## --- 11c. Ice shield lifetime ----------------------------------------------
+
+## The shield used to end only by absorbing a hit, so a clean run carried a
+## glowing bubble to the finish line and the power-up read as broken. It must
+## now also lapse on its own -- and lapsing has to stay distinguishable from
+## being broken, because only one of the two grants the post-hit grace window.
+##
+## Driven through _update_timers directly rather than through physics frames:
+## _physics_process returns early without a course, and the point here is the
+## clock, not the movement around it.
+func _test_shield_lifetime() -> void:
+	var racer := Racer.new()
+	add_child(racer)
+	racer.setup("shield_racer", "Shieldy", false, {}, RacerController.new(), null)
+	await get_tree().physics_frame
+
+	racer.give_shield()
+	_check("shield_starts_active", racer.has_shield())
+	_check("shield_starts_full",
+		absf(racer.shield_remaining() - Racer.SHIELD_DURATION) < 0.001,
+		"remaining=%f" % racer.shield_remaining())
+
+	for _i: int in int(Racer.SHIELD_DURATION * 0.5 / 0.05):
+		racer._update_timers(0.05)
+	_check("shield_survives_midlife", racer.has_shield())
+	_check("shield_clock_runs",
+		racer.shield_remaining() < Racer.SHIELD_DURATION * 0.6,
+		"remaining=%f" % racer.shield_remaining())
+
+	# A second pickup refreshes the window; it does not stack a second shield.
+	racer.give_shield()
+	_check("shield_refresh_resets_clock",
+		absf(racer.shield_remaining() - Racer.SHIELD_DURATION) < 0.001,
+		"remaining=%f" % racer.shield_remaining())
+
+	for _i: int in int(Racer.SHIELD_DURATION / 0.05) + 4:
+		racer._update_timers(0.05)
+	_check("shield_expires", not racer.has_shield())
+	_check("shield_expiry_reports_zero", racer.shield_remaining() == 0.0,
+		"remaining=%f" % racer.shield_remaining())
+	_check("shield_expiry_grants_no_invuln", racer._invuln_timer <= 0.0,
+		"invuln=%f" % racer._invuln_timer)
+
+	# Absorbing a hit still works exactly as before, grace window included.
+	racer.give_shield()
+	_check("shield_blocks_stun", not racer.apply_stun())
+	_check("shield_consumed_by_hit", not racer.has_shield())
+	_check("shield_break_grants_invuln", racer._invuln_timer > 0.0,
+		"invuln=%f" % racer._invuln_timer)
+
+	# A hit that the racer's own i-frames already absorb must not ALSO spend
+	# the shield. All three guards used to share one condition, so any blocked
+	# hit consumed a shield that was never needed.
+	racer.give_shield()
+	racer._invuln_timer = 1.0
+	_check("shield_survives_stun_during_iframes",
+		not racer.apply_stun() and racer.has_shield())
+	racer.apply_blizzard_slip(1.0)
+	_check("shield_survives_blizzard_during_iframes", racer.has_shield())
+	var attacker := Racer.new()
+	add_child(attacker)
+	attacker.setup("shield_attacker", "Bully", false, {}, RacerController.new(), null)
+	await get_tree().physics_frame
+	_check("shield_survives_shove_during_iframes",
+		not racer.receive_shove(attacker) and racer.has_shield())
+	# With the i-frames gone the same shove spends it, as it should.
+	racer._invuln_timer = 0.0
+	racer._shove_immunity = 0.0
+	_check("shield_blocks_live_shove",
+		not racer.receive_shove(attacker) and not racer.has_shield())
+
+	attacker.queue_free()
+	racer.queue_free()
+	await get_tree().process_frame
+
+
+## --- 11d. Shove animation envelopes ----------------------------------------
+
+## Both shove impulses must deflect the body and then put it back. The return
+## is the half worth testing: _root.position.z is written by nothing else in
+## tick(), so an offset applied only while the envelope runs would never be
+## taken off again and the penguin would stay leaning forever.
+func _test_shove_animation() -> void:
+	var racer := Racer.new()
+	add_child(racer)
+	racer.setup("shove_racer", "Shovey", false, {}, RacerController.new(), null)
+	await get_tree().physics_frame
+	var visual := racer.visual
+	if visual == null or visual._root == null:
+		_check("shove_animation_visual_built", false, "no visual root")
+		racer.queue_free()
+		await get_tree().process_frame
+		return
+
+	visual.trigger_lunge()
+	var peak_z := 0.0
+	for _i: int in 6:
+		visual.tick(0.03, 1.0)
+		peak_z = minf(peak_z, visual._root.position.z)
+	_check("lunge_drives_body_forward", peak_z < -0.01, "peak_z=%f" % peak_z)
+	for _i: int in int(PenguinVisual.LUNGE_TIME / 0.03) + 6:
+		visual.tick(0.03, 1.0)
+	_check("lunge_returns_to_rest", absf(visual._root.position.z) < 0.001,
+		"z=%f" % visual._root.position.z)
+
+	visual.set_pose(PenguinVisual.Pose.RUN)
+	visual.trigger_tumble(1.0)
+	visual.tick(0.016, 1.0)
+	var hit_yaw := absf(visual._root.rotation.y)
+	_check("tumble_swings_silhouette", hit_yaw > deg_to_rad(20.0),
+		"yaw=%.1f deg" % rad_to_deg(hit_yaw))
+	for _i: int in int(PenguinVisual.TUMBLE_TIME / 0.016) + 8:
+		visual.tick(0.016, 1.0)
+	# Settles back to the gait's own yaw (~7 deg), not to exactly zero.
+	_check("tumble_settles", absf(visual._root.rotation.y) < deg_to_rad(12.0),
+		"yaw=%.1f deg" % rad_to_deg(visual._root.rotation.y))
+
+	# Direction has to follow the push, or a shove from the left spins the
+	# victim into the attacker.
+	visual.trigger_tumble(-1.0)
+	visual.tick(0.016, 1.0)
+	var left_yaw := visual._root.rotation.y
+	visual.trigger_tumble(1.0)
+	visual.tick(0.016, 1.0)
+	_check("tumble_direction_follows_push", signf(left_yaw) != signf(visual._root.rotation.y),
+		"left=%.3f right=%.3f" % [left_yaw, visual._root.rotation.y])
+
+	racer.queue_free()
 	await get_tree().process_frame
 
 

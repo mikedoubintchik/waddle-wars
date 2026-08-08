@@ -331,6 +331,78 @@ func build_course() -> void:
 	})
 
 
+## --- Peak rings ---------------------------------------------------------------
+## Both silhouette rings are centred here and sized by how far the COURSE
+## reaches in each direction, rather than by a fixed radius.
+##
+## A fixed radius was the bug the player reported as "the mountains overlap the
+## course". Aurora is a switchback climb 1065 m long and 320 m wide, so its own
+## reach from this centre runs from about 190 m out to the sides to 560 m fore
+## and aft -- and the near ring was authored at 380-620 m, a radius SMALLER
+## than the course in the directions where the course is longest. Four of the
+## sixteen peaks were consequently planted straight through the deck: one over
+## the start line, one over the geyser downhill, one over the corkscrew and one
+## over the finish straight, each reaching 8.4-9.9 m inboard of a 9-10 m half
+## width, which is to say across the whole racing line. Measured with
+## tests/overlap_probe.tscn; re-run it after touching anything here.
+const PEAK_CENTRE: Vector3 = Vector3(20.0, 0.0, -520.0)
+## Half-extent of berg_mesh in its own unit space, so a peak's world footprint
+## is this times its scale. Measured from the probe's reported AABBs.
+const PEAK_UNIT_HALF: float = 1.45
+## Clear air demanded between a peak's footprint and the widest deck edge.
+const PEAK_MARGIN: float = 45.0
+## Bearing window searched for the course's reach. Wide enough that a peak
+## cannot slip past the shoulder of a leg just outside its own bearing.
+const PEAK_ARC_WINDOW: float = 0.45
+
+
+var _peak_reach: PackedFloat32Array = PackedFloat32Array()
+
+
+## Distance from PEAK_CENTRE at which a peak of `scale` may stand on `angle`
+## without touching the course, never closer than `minimum`.
+func _peak_ring_distance(angle: float, scale: Vector3, minimum: float) -> float:
+	var footprint := maxf(scale.x, scale.z) * PEAK_UNIT_HALF
+	return maxf(minimum, _course_reach(angle) + footprint + PEAK_MARGIN)
+
+
+## Furthest the racing line gets from PEAK_CENTRE within PEAK_ARC_WINDOW of
+## `angle`, including the widest half-width there. Built once from every guide
+## and bucketed by bearing.
+func _course_reach(angle: float) -> float:
+	if _peak_reach.is_empty():
+		_build_peak_reach()
+	var buckets := _peak_reach.size()
+	var span := int(ceil(PEAK_ARC_WINDOW / (TAU / float(buckets))))
+	var centre_bucket := int(floor(fposmod(angle, TAU) / (TAU / float(buckets))))
+	var reach := 0.0
+	for i: int in range(centre_bucket - span, centre_bucket + span + 1):
+		reach = maxf(reach, _peak_reach[posmod(i, buckets)])
+	return reach
+
+
+func _build_peak_reach() -> void:
+	_peak_reach.resize(72)
+	_peak_reach.fill(0.0)
+	var guides: Array[PathGuide] = [main_guide]
+	for branch: Dictionary in branches:
+		var g: PathGuide = branch.get("guide")
+		if g != null:
+			guides.append(g)
+	for guide: PathGuide in guides:
+		var step := 4.0
+		var offset := 0.0
+		while offset <= guide.length:
+			var origin := guide.transform_at(offset).origin
+			# Half-width is not tracked per sample here, so the widest span on
+			# the course is added to every sample -- cheap, and erring outward
+			# is the whole point.
+			var to := Vector2(origin.x - PEAK_CENTRE.x, origin.z - PEAK_CENTRE.z)
+			var bucket := int(floor(fposmod(atan2(to.x, to.y), TAU) / (TAU / 72.0)))
+			_peak_reach[bucket] = maxf(_peak_reach[bucket], to.length() + 10.0)
+			offset += step
+
+
 ## True arc-length offset, the space point_at/transform_at expect.
 func _arc_near(point: Vector3) -> float:
 	var idx := int(main_guide.nearest(point, -1)["index"])
@@ -592,13 +664,14 @@ func _decorate() -> void:
 	var peak_mat := VisualLibrary.rock_material(Color(0.3, 0.36, 0.6))
 	for i: int in 16:
 		var angle := TAU * float(i) / 16.0 + rng.randf_range(-0.15, 0.15)
-		var dist := rng.randf_range(380.0, 620.0)
 		var peak := MeshInstance3D.new()
 		peak.mesh = VisualLibrary.berg_mesh(rng.randi())
 		peak.material_override = peak_mat
 		var width := rng.randf_range(90.0, 170.0)
 		peak.scale = Vector3(width * rng.randf_range(0.9, 1.4), rng.randf_range(70.0, 130.0), width)
-		peak.position = Vector3(20.0 + sin(angle) * dist, -30.0, -520.0 + cos(angle) * dist)
+		var dist := _peak_ring_distance(angle, peak.scale, 380.0)
+		peak.position = Vector3(PEAK_CENTRE.x + sin(angle) * dist, -30.0,
+			PEAK_CENTRE.z + cos(angle) * dist)
 		peak.rotation.y = rng.randf() * TAU
 		peak.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(peak)
@@ -608,30 +681,44 @@ func _decorate() -> void:
 	var far_peak_mat := VisualLibrary.rock_material(Color(0.17, 0.21, 0.4))
 	for i: int in 11:
 		var angle := TAU * float(i) / 11.0 + rng.randf_range(-0.2, 0.2)
-		var dist := rng.randf_range(700.0, 980.0)
 		var peak := MeshInstance3D.new()
 		peak.mesh = VisualLibrary.berg_mesh(rng.randi())
 		peak.material_override = far_peak_mat
 		var width := rng.randf_range(140.0, 240.0)
 		peak.scale = Vector3(width * rng.randf_range(0.9, 1.4), rng.randf_range(110.0, 190.0), width)
-		peak.position = Vector3(20.0 + sin(angle) * dist, -32.0, -520.0 + cos(angle) * dist)
+		var dist := _peak_ring_distance(angle, peak.scale, 700.0)
+		peak.position = Vector3(PEAK_CENTRE.x + sin(angle) * dist, -32.0,
+			PEAK_CENTRE.z + cos(angle) * dist)
 		peak.rotation.y = rng.randf() * TAU
 		peak.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(peak)
 
 	# Snowdrift mounds fill the course flanks so the slopes never read empty.
+	# Each candidate is checked against every racing line, not just the one it
+	# was measured from: the ridge shortcut runs parallel to the main descent,
+	# close enough that a 28 m lateral off the main guide can land on it.
 	var drift_mesh := VisualLibrary.snow_drift_mesh()
 	var drift_mat := VisualLibrary.rock_material(Color(0.62, 0.68, 0.92))
 	for i: int in 30:
-		var drift_offset := rng.randf_range(30.0, main_guide.length - 50.0)
-		var drift_xform := main_guide.transform_at(drift_offset)
-		var drift_lateral := rng.randf_range(12.0, 28.0) * (1.0 if rng.randf() > 0.5 else -1.0)
+		var drift_scale := rng.randf_range(1.6, 4.2)
+		var drift_wide := drift_scale * rng.randf_range(0.9, 1.5)
+		var drift_pos := Vector3.ZERO
+		var drift_ok := false
+		for _attempt: int in 6:
+			var drift_offset := rng.randf_range(30.0, main_guide.length - 50.0)
+			var drift_xform := main_guide.transform_at(drift_offset)
+			var drift_lateral := rng.randf_range(12.0, 28.0) * (1.0 if rng.randf() > 0.5 else -1.0)
+			drift_pos = drift_xform.origin + drift_xform.basis.x * drift_lateral + Vector3.DOWN * 0.8
+			if clear_of_track(drift_pos, maxf(drift_wide, drift_scale)):
+				drift_ok = true
+				break
+		if not drift_ok:
+			continue
 		var drift := MeshInstance3D.new()
 		drift.mesh = drift_mesh
 		drift.material_override = drift_mat
-		var drift_scale := rng.randf_range(1.6, 4.2)
-		drift.scale = Vector3(drift_scale * rng.randf_range(0.9, 1.5), drift_scale * rng.randf_range(0.5, 0.9), drift_scale)
-		drift.position = drift_xform.origin + drift_xform.basis.x * drift_lateral + Vector3.DOWN * 0.8
+		drift.scale = Vector3(drift_wide, drift_scale * rng.randf_range(0.5, 0.9), drift_scale)
+		drift.position = drift_pos
 		drift.rotation.y = rng.randf() * TAU
 		drift.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(drift)
@@ -1791,6 +1878,10 @@ func _add_crystal_field() -> void:
 				* Basis(Vector3.UP, rng.randf() * TAU) \
 				* Basis.from_scale(Vector3(h * rng.randf_range(0.5, 0.8), h, h * rng.randf_range(0.5, 0.8)))
 			var pos := xform.origin + xform.basis.x * lateral + Vector3.DOWN * 0.6
+			# Same branch trap as the drifts: this lateral is measured off the
+			# main line, and near the shortcut the far side of it is deck.
+			if not clear_of_track(pos, h * 0.4):
+				continue
 			_add_flank_contact_patch(pos, h * 0.24)
 			if rng.randf() > 0.5:
 				green_transforms.append(Transform3D(shard_basis, pos))

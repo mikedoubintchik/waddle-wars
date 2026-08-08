@@ -54,8 +54,16 @@ func _ready() -> void:
 		if is_stunned:
 			camera_rig.add_shake(0.5)
 			_vibrate(0.5, 0.8, 0.4))
+	# Both halves of a shove kick the camera. Landing one is the player's own
+	# action and gets the lighter tap; taking one is something done TO them and
+	# hits harder, which is also the only cue when the attacker came from
+	# behind and was never in frame.
 	manager.player.shove_landed.connect(func(_attacker: Racer, _victim: Racer) -> void:
+		camera_rig.add_shake(0.32)
 		_vibrate(0.2, 0.4, 0.15))
+	manager.player.shoved.connect(func(_racer: Racer, _attacker: Racer) -> void:
+		camera_rig.add_shake(0.55)
+		_vibrate(0.45, 0.7, 0.3))
 	manager.player_finished.connect(func(_racer: Racer) -> void:
 		_vibrate(0.4, 0.6, 0.5))
 

@@ -250,3 +250,46 @@ Two lessons from this round, both about verifying the wrong thing:
 - Forcing `UITheme.is_touch()` alone was not enough: the canvas shrink lives in
   SettingsManager behind `GameConfig.has_touchscreen()`. Half-forcing the phone
   path produced a canvas that exists nowhere.
+
+2026-08-08: units 91/91 (adds 12 ice-shield lifetime/i-frame checks and 5 shove
+animation-envelope checks); menu_load 0 failures; race_sim PASS on all five
+courses; time_trial ghost, endless_sim, tutorial_sim, grand_prix_sim PASS.
+`./run_tests.sh` RESULT: ALL PASSED.
+
+New QA harness this round:
+- `tests/overlap_probe.tscn` — measures scenery that intrudes into the racing
+  corridor, instead of hoping someone notices it while driving past.
+
+  ```sh
+  godot --path . res://tests/overlap_probe.tscn -- course=aurora
+  ```
+
+  Walks every guide (main and branches), builds the corridor from the deck
+  half-width and a deck-1m..deck+6m headroom band, and triangle-tests every
+  mesh against it. Reports each offender with its node path, world AABB,
+  nearest arc offset, how far inboard of the deck edge it reaches and over how
+  many samples — and prints the exclusions it applied (track ribbon, Area3D
+  triggers, hazard classes, named furniture) so false negatives are auditable
+  rather than silent. Flat decals and translucent VFX are listed separately
+  from solid intrusions, because a reflection quad on the deck is not a defect
+  and a mountain through it is.
+
+  Run it on glacier as a control before trusting a threshold: glacier's
+  offenders are almost all snowbanks and sastrugi sitting at or below deck
+  level, so a run that flags them the same way it flags a mountain is
+  mis-tuned.
+
+  Baselines after this round's fixes: aurora 9 (was 17), glacier 21 (was 32),
+  cinder 6. Aurora's nine are the six cavern arches and a lamp arm at 5.8-5.9 m
+  overhead, plus the two ridge berms, which are the intentional wind channel.
+
+- `screenshot_tour` gained `shot=race_shove`, and `pose_check` gained
+  `impulse=lunge|tumble` and `view=behind`. Both save a *strip* of frames
+  across the impulse rather than one still: a shove is a 0.4-1.0 s one-shot,
+  and a single screenshot that misses the peak looks identical to the effect
+  not existing. `view=behind` puts the camera where ChaseCamera actually sits,
+  which is the only angle a player judges their own animation from.
+
+Lesson worth keeping, again: the shove impact ring passed every test and read
+as a white croquet hoop planted in the snow the first time it was captured.
+Tests prove an effect fires; only a frame shows what it looks like.

@@ -347,25 +347,65 @@ func track_edge_lateral(guide: PathGuide, offset: float, side: float,
 	var key := "%d_%d_%d" % [guide.get_instance_id(), int(roundf(offset)), int(sign_side)]
 	if _edge_cache.has(key):
 		return float(_edge_cache[key])
-	var xform := guide.transform_at(offset)
-	var from_y := xform.origin.y + GROUND_PROBE_START
+	# Probe from the BANKED deck frame, not the flat guide frame.
+	#
+	# guide.transform_at() returns the unrolled frame, so on a banked corner the
+	# raised outer edge sits ABOVE origin.y + 0.4 and a ray starting there began
+	# underneath the deck it was trying to find. The bisection then read "no
+	# floor out here", returned a short lateral, and the caller planted its prop
+	# that far out -- which is to say, on the racing surface. Measured on aurora:
+	# four station poles standing 2.9-5.0 m inboard of the deck edge, right in
+	# the driving line, on exactly the three banked corners.
+	#
+	# Each probe now starts above its OWN expected deck point rather than above
+	# the centreline, so the start height rises with the bank instead of needing
+	# a blanket raise that would start catching arches and overhead dressing.
+	var deck := TrackBuilder.deck_transform_at(guide, offset)
 	var depth := GROUND_MAX_DROP + GROUND_PROBE_START
-	var centre := xform.origin
-	if _raw_ground(centre.x, centre.z, from_y, depth) == -INF:
+	var centre := deck.origin
+	if _raw_ground(centre.x, centre.z, centre.y + GROUND_PROBE_START, depth) == -INF:
 		_edge_cache[key] = fallback
 		return fallback
-	var dir := xform.basis.x * sign_side
+	var dir := deck.basis.x * sign_side
 	var lo := 0.0
 	var hi := limit
 	for _i: int in 7:
 		var mid := (lo + hi) * 0.5
 		var p := centre + dir * mid
-		if _raw_ground(p.x, p.z, from_y, depth) != -INF:
+		if _raw_ground(p.x, p.z, p.y + GROUND_PROBE_START, depth) != -INF:
 			lo = mid
 		else:
 			hi = mid
 	_edge_cache[key] = lo
 	return lo
+
+
+## BUILD TIME ONLY. True when a prop of horizontal radius `radius` may stand at
+## `pos` without reaching any racing line -- the main one AND every branch.
+##
+## Flank dressing is placed by lateral offset from the main guide, which is
+## only a statement about the main guide. On a course that folds back on itself
+## or carries a shortcut running parallel to the main line, "28 m to the side
+## of the main line" can also be "on the branch". Aurora had exactly that: a
+## snowdrift mound and a patch of crystal field standing 4 m inboard of the
+## ridge-shortcut deck, in the driving line, because nothing in their placement
+## had ever heard of the branch.
+##
+## Distance is measured in 3D on purpose. A prop under a deck is separated by
+## height rather than by plan distance, and this course stacks its own legs
+## vertically -- a purely horizontal test would reject most of the valley.
+func clear_of_track(pos: Vector3, radius: float, margin: float = 2.0) -> bool:
+	var need := radius + margin
+	if main_guide != null:
+		if float(main_guide.nearest(pos, -1)["distance"]) < need + 10.0:
+			return false
+	for branch: Dictionary in branches:
+		var guide: PathGuide = branch.get("guide")
+		if guide == null:
+			continue
+		if float(guide.nearest(pos, -1)["distance"]) < need + 5.0:
+			return false
+	return true
 
 
 ## --- Racer guide queries ----------------------------------------------------

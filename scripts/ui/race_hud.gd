@@ -96,6 +96,10 @@ static var _card_tex: ImageTexture = null
 var manager: RaceManager = null
 var player: Racer = null
 
+var _left_stack: VBoxContainer = null
+var _shield_pill: PanelContainer = null
+var _shield_bar: ProgressBar = null
+var _shield_time: Label = null
 var _position_card: PanelContainer = null
 var _position_label: Label = null
 var _position_suffix: Label = null
@@ -165,6 +169,10 @@ func setup(p_manager: RaceManager, p_player: Racer) -> void:
 		_audio_cue("Shove landed!"))
 	player.respawned.connect(func(_racer: Racer) -> void:
 		_audio_cue("Back on track"))
+	player.shield_changed.connect(func(_racer: Racer, active: bool) -> void:
+		if _shield_pill != null:
+			_shield_pill.visible = active
+		_audio_cue("Shield up!" if active else "Shield gone"))
 
 
 func _audio_cue(text: String) -> void:
@@ -471,7 +479,17 @@ func _build() -> void:
 	_hud_scale = hud_scale
 	add_child(_root)
 
+	# Top-left column. The position card and the timed-effect pill share it so
+	# the pill can appear and vanish mid-race without anything being measured
+	# or repositioned by hand -- the VBox collapses the hidden child for free.
+	_left_stack = VBoxContainer.new()
+	_left_stack.position = Vector2(GUTTER, GUTTER)
+	_left_stack.add_theme_constant_override("separation", int(GAP_M * hud_scale))
+	_left_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(_left_stack)
+
 	_build_position_card(hud_scale)
+	_build_shield_pill(hud_scale)
 	_build_time_card(hud_scale)
 	_build_item_card(hud_scale)
 	_build_fish_card(hud_scale)
@@ -500,10 +518,10 @@ func _build_position_card(s: float) -> void:
 	if manager.single_racer_mode or manager.racers.size() <= 1:
 		return
 	_position_card = PanelContainer.new()
-	_position_card.position = Vector2(GUTTER, GUTTER)
+	_position_card.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_position_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_position_card.add_theme_stylebox_override("panel", _card_style(14.0 * s, 8.0 * s))
-	_root.add_child(_position_card)
+	_left_stack.add_child(_position_card)
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(10 * s))
@@ -535,6 +553,62 @@ func _build_position_card(s: float) -> void:
 	# Seed with the real grid slot so the countdown shows actual data instead
 	# of placeholders.
 	_set_position_display(maxi(manager.racers.find(player) + 1, 1), maxi(manager.racers.size(), 1))
+
+
+## Timed-effect pill, under the position card. Only the ice shield uses it so
+## far, and it is hidden whenever nothing is running.
+##
+## The shield now expires on a clock, and a clock the player cannot see is
+## indistinguishable from one that stops at random. The 3D shell winds down
+## visibly too, but the shell is around the player's own penguin -- often
+## partly behind it from the chase camera -- so the number lives up here.
+func _build_shield_pill(s: float) -> void:
+	_shield_pill = PanelContainer.new()
+	_shield_pill.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_shield_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_shield_pill.add_theme_stylebox_override("panel", _card_style(10.0 * s, 7.0 * s))
+	_shield_pill.visible = false
+	_left_stack.add_child(_shield_pill)
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(8 * s))
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_shield_pill.add_child(row)
+
+	var icon := TextureRect.new()
+	icon.texture = UITheme.make_icon(String(ITEM_ICONS.get("shield", "")), 1.0)
+	icon.custom_minimum_size = Vector2(22.0 * s, 22.0 * s)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(icon)
+
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", int(3 * s))
+	column.custom_minimum_size = Vector2(96.0 * s, 0.0)
+	column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(column)
+
+	var caption_row := HBoxContainer.new()
+	caption_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(caption_row)
+	var tag := _caption_label("Shield", 13 * s)
+	tag.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	caption_row.add_child(tag)
+	_bar_tags.append(tag)
+	_shield_time = _caption_label("0.0s", 13 * s)
+	_shield_time.add_theme_color_override("font_color", UITheme.COLOR_TEXT)
+	_shield_time.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	caption_row.add_child(_shield_time)
+	_bar_tags.append(_shield_time)
+
+	var groove := _make_gauge(BAR_HEIGHT * 0.5 * s, 2.0 * s,
+		Color(0.20, 0.55, 0.78), Color(0.55, 0.92, 1.0))
+	groove.custom_minimum_size = Vector2(96.0 * s, BAR_HEIGHT * 0.5 * s)
+	column.add_child(groove)
+	_shield_bar = groove.get_child(0) as ProgressBar
 
 
 ## Clock card (top centre): caption above, monospaced-feeling numerals below.
@@ -951,6 +1025,14 @@ func _process(_delta: float) -> void:
 	elif speed_ratio < 0.92 and _speed_flagged:
 		_speed_flagged = false
 		_speed_flag.modulate.a = 0.0
+	if _shield_pill != null and _shield_pill.visible:
+		var left := player.shield_remaining()
+		_shield_bar.value = clampf(left / Racer.SHIELD_DURATION, 0.0, 1.0)
+		_shield_time.text = "%.1fs" % left
+		# Goes gold under the shell's own warning window, so the pill and the
+		# bubble start shouting at the same moment.
+		_shield_time.add_theme_color_override("font_color",
+			UITheme.COLOR_GOLD if left <= Racer.SHIELD_WARN else UITheme.COLOR_TEXT)
 	if player.course != null and player.course is CourseBase:
 		var course := player.course as CourseBase
 		if course.main_guide != null and course.main_guide.length > 1.0:

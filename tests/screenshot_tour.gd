@@ -108,6 +108,20 @@ func _ready() -> void:
 			SceneRouter.go_to.call_deferred(Game.SCENE_RACE)
 			var shielder := ShieldOpener.new()
 			get_tree().root.add_child.call_deferred(shielder)
+		"race_shove":
+			# Stages a shove and captures a STRIP of frames across it. A single
+			# screenshot cannot inspect a 0.4 s impulse -- the odds of landing
+			# on the peak are poor, and a miss looks exactly like the effect
+			# not existing, which is not a result worth acting on.
+			Game.mode = Game.Mode.QUICK_RACE
+			Game.course_id = _course
+			Game.difficulty_id = "competitive"
+			RaceManager.autopilot_player = true
+			SceneRouter.go_to.call_deferred(Game.SCENE_RACE)
+			var shover := ShoveStrip.new()
+			shover.out_path = _out_path
+			get_tree().root.add_child.call_deferred(shover)
+			return
 		"race":
 			Game.mode = Game.Mode.QUICK_RACE
 			Game.course_id = _course
@@ -175,6 +189,90 @@ class ShotMonitor:
 		var err := image.save_png(out_path)
 		print("[shot] saved %s (%dx%d) err=%d" % [out_path, image.get_width(), image.get_height(), err])
 		get_tree().quit(0 if err == OK else 1)
+
+
+## Drags a rival alongside the player, throws a shove, and captures a strip of
+## frames across the impulse so the animation can actually be looked at.
+##
+## The rival is teleported rather than waited for: two autopilot racers come
+## within SHOVE_RANGE of each other only by luck, and a capture that depends on
+## luck is a capture that mostly returns an ordinary frame of racing.
+class ShoveStrip:
+	extends Node
+
+	## Seconds after the shove at which each frame is taken. Spans the lunge
+	## (LUNGE_TIME 0.40) and most of the tumble (TUMBLE_TIME 1.05).
+	const OFFSETS: PackedFloat32Array = [0.05, 0.18, 0.36, 0.70]
+
+	var out_path: String = ""
+	var _elapsed: float = 0.0
+	var _shoved: bool = false
+	var _shot: int = 0
+	var _since_shove: float = 0.0
+
+	func _ready() -> void:
+		process_mode = Node.PROCESS_MODE_ALWAYS
+
+	func _process(delta: float) -> void:
+		_elapsed += delta
+		if not _shoved:
+			# Late enough that the grid has broken up. On the start line every
+			# racer is inside shove range of several others, so the capture
+			# frames a crowd instead of one legible hit.
+			if _elapsed < 12.0:
+				return
+			if not _stage_shove() and _elapsed < 30.0:
+				return
+			_shoved = true
+			return
+		_since_shove += delta
+		if _shot >= OFFSETS.size():
+			return
+		if _since_shove < OFFSETS[_shot]:
+			return
+		await RenderingServer.frame_post_draw
+		var image := get_viewport().get_texture().get_image()
+		var path := "%s_%d.png" % [out_path.get_basename(), _shot]
+		DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+		var err := image.save_png(path)
+		print("[shot] saved %s t=+%.2fs err=%d" % [path, OFFSETS[_shot], err])
+		_shot += 1
+		if _shot >= OFFSETS.size():
+			get_tree().quit(0 if err == OK else 1)
+
+	## Returns true once the shove has been thrown.
+	func _stage_shove() -> bool:
+		var player: Node = null
+		var victim: Node = null
+		for racer: Node in get_tree().get_nodes_in_group(&"racers"):
+			if racer.get("is_player") == true:
+				player = racer
+			elif victim == null:
+				victim = racer
+		if player == null or victim == null:
+			return false
+		# Park the victim just inside SHOVE_RANGE, off to the player's right so
+		# the tumble direction is unambiguous in the capture.
+		var xform: Transform3D = player.global_transform
+		victim.global_position = xform.origin + xform.basis.x * 1.5 - xform.basis.z * 0.6
+		victim.set("current_speed", player.get("current_speed"))
+		player.call("_attempt_shove")
+		print("[shot] shove: %s -> %s at %.1fm, camera racer=%s" % [
+			player.get("racer_key"), victim.get("racer_key"),
+			(player.global_position as Vector3).distance_to(victim.global_position),
+			_camera_racer_key()])
+		return true
+
+	## Which racer the chase camera is actually looking at -- the capture is
+	## only meaningful if that is the one doing the shoving.
+	func _camera_racer_key() -> String:
+		var cam := get_viewport().get_camera_3d()
+		if cam == null or cam.get_parent() == null:
+			return "(no camera)"
+		var rig: Variant = cam.get_parent().get("target")
+		if rig == null or not is_instance_valid(rig):
+			return "(no target)"
+		return String((rig as Node).get("racer_key"))
 
 
 ## Opens the customize screen's purchase confirmation once that screen exists.
