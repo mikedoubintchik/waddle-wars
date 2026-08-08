@@ -395,15 +395,23 @@ func track_edge_lateral(guide: PathGuide, offset: float, side: float,
 ## height rather than by plan distance, and this course stacks its own legs
 ## vertically -- a purely horizontal test would reject most of the valley.
 func clear_of_track(pos: Vector3, radius: float, margin: float = 2.0) -> bool:
-	var need := radius + margin
-	if main_guide != null:
-		if float(main_guide.nearest(pos, -1)["distance"]) < need + 10.0:
-			return false
+	if main_guide != null and float(main_guide.nearest(pos, -1)["distance"]) < radius + margin + 10.0:
+		return false
+	return clear_of_branches(pos, radius, margin)
+
+
+## The branch half of clear_of_track, on its own.
+##
+## Dressing that is deliberately placed close to the main line -- trackside
+## props seated just outside the deck edge by track_edge_lateral() -- would fail
+## the main-guide half by construction, but still needs the branch check, since
+## "just outside the main deck" says nothing about where a shortcut runs.
+func clear_of_branches(pos: Vector3, radius: float, margin: float = 2.0) -> bool:
 	for branch: Dictionary in branches:
 		var guide: PathGuide = branch.get("guide")
 		if guide == null:
 			continue
-		if float(guide.nearest(pos, -1)["distance"]) < need + 5.0:
+		if float(guide.nearest(pos, -1)["distance"]) < radius + margin + 5.0:
 			return false
 	return true
 
