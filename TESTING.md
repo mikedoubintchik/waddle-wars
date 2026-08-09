@@ -293,3 +293,22 @@ New QA harness this round:
 Lesson worth keeping, again: the shove impact ring passed every test and read
 as a white croquet hoop planted in the snow the first time it was captured.
 Tests prove an effect fires; only a frame shows what it looks like.
+
+2026-08-08 (later): units 107/107 (adds 12 pause/settings round-trip checks and
+5 setup-entry-step checks); `./run_tests.sh` RESULT: ALL PASSED.
+
+`screenshot_tour` gained `pause=settings`, which opens the pause menu and then
+the settings overlay, so the in-race settings screen can be inspected.
+
+Worth keeping: the pause/settings work is a case where a screenshot proves the
+wrong half. A capture shows that settings RENDERS over the paused race; it
+cannot show that Back hands the race back rather than unloading it, that the
+tree is still paused underneath, or that Escape does not close settings and
+unpause in one press. Those are the three ways this feature can be broken, and
+all three are unit-tested.
+
+The phone course-list overflow was diagnosed by measuring, not by looking. Two
+guesses from the screenshot alone (the title Label's minimum width, then the
+column width) were both wrong; printing `get_combined_minimum_size()` down the
+tree found it immediately — card 647, inner content 720. When a layout overflows
+and the cause is not obvious, walk the tree and print the minimums.

@@ -575,3 +575,50 @@ deck and what remained read as scenery. Flat on the ground it cannot intersect
 anything. Caught by capture, not by review: `shot=race_shove` and
 `pose_check -- impulse=` both save a *strip* of frames across the impulse,
 because a 0.4 s one-shot cannot be judged from a single still.
+
+### Settings from the pause menu, and a way back to the course list
+Two reported navigation dead ends.
+
+**Settings mid-race.** The pause menu carried volume sliders and a mute toggle
+and nothing else, so display, gameplay, accessibility and tilt settings were
+unreachable once a race started. The settings screen is now MOUNTED over the
+paused race rather than routed to — routing would unload the race, which is the
+one thing a player adjusting their controls mid-race cannot afford. Its only
+tie to being the current scene was where Back went, so that became an injected
+callback (`on_back`); everything else was already self-contained. The tree stays
+paused underneath, and the pause panel is hidden rather than freed so it comes
+back with its state intact. It is rebuilt on return, because settings can change
+`hud_scale` and `ui_scale` and the panel was built against the old values.
+
+Pause also swallows the cancel gesture while settings is up, or one Escape would
+close settings and unpause the race in the same press.
+
+**Back to course selection.** Three routes were missing, and the underlying
+cause was different in each:
+
+- The setup breadcrumb (`MODE › COURSE › DIFFICULTY`) was drawn as a breadcrumb
+  and was pure decoration — every pill was `MOUSE_FILTER_IGNORE`. Pressing
+  "COURSE" to change your mind, which is the first thing anyone tries, did
+  nothing at all. Completed pills now carry a transparent full-rect Button
+  (the pill's own two-label art stays as authored) and a brighter rim.
+- Pause and results had no route to the course list. Both now offer "Change
+  Course", via `Game.setup_entry_step`, a one-shot that opens the setup flow at
+  a named step. Previously this meant quitting to the main menu and walking the
+  whole flow again.
+- On a phone the step's Back button was the last child of a scrolling column
+  five course cards tall, so it sat a full screen below the fold — reported,
+  accurately, as there being no way back at all. Back now lives in a pinned
+  footer outside the scroll, over a gradient scrim, with a spacer reserving its
+  height at the end of the column so the last card can still clear it.
+
+**Course list on a phone, found while verifying the above.** Measured on a
+430x932 canvas (logical 800 wide, column 647): the card's inner content demanded
+720, and a Button does not clip its children, so the whole gallery drew off the
+right edge with every course name and time cut in half. Poster (220) plus two
+side-by-side record tiles (431) does not fit in 647 at any readable font size,
+so the portrait row now carries one tile with the par time as its caption. The
+breadcrumb rail wanted 794 of 800 and lost its last pill to the screen edge; it
+is an HFlowContainer now and wraps. Row height went 148 -> 190 (content measured
+at 336 against a 262 card, so the record caption was clipped off the bottom of
+every card) and the poster 0.34 -> 0.29 so full course names fit without
+ellipsis.

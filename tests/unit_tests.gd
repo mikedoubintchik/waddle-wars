@@ -40,6 +40,8 @@ func _ready() -> void:
 	await _test_backward_snowball()
 	await _test_shield_lifetime()
 	await _test_shove_animation()
+	await _test_pause_settings_round_trip()
+	await _test_setup_entry_step()
 	_test_daily_challenge()
 	_test_tilt_steering()
 	await _test_menu_scenes()
@@ -489,6 +491,94 @@ func _test_shove_animation() -> void:
 		"left=%.3f right=%.3f" % [left_yaw, visual._root.rotation.y])
 
 	racer.queue_free()
+	await get_tree().process_frame
+
+
+## --- 11e. Settings from the pause menu -------------------------------------
+
+## Settings has to open OVER the paused race and hand it back. Routing to the
+## settings scene would unload the race, which is the whole reason this is an
+## overlay -- so the test that matters is the round trip, not that the screen
+## appears. A screenshot can show the second thing and never the first.
+func _test_pause_settings_round_trip() -> void:
+	# The tree is about to be paused by the menu under test; without this the
+	# suite would be pausing itself.
+	var restore_mode := process_mode
+	process_mode = Node.PROCESS_MODE_ALWAYS
+
+	var menu := PauseMenu.new()
+	add_child(menu)
+	await get_tree().process_frame
+
+	menu.toggle()
+	await get_tree().process_frame
+	_check("pause_opens_paused", get_tree().paused)
+	_check("pause_panel_built", menu._panel != null)
+
+	menu._open_settings()
+	await get_tree().process_frame
+	_check("pause_settings_mounts", menu._settings_panel != null)
+	_check("pause_settings_hides_panel",
+		menu._panel != null and not menu._panel.visible)
+	# The race must still be frozen underneath, not resumed behind the screen.
+	_check("pause_settings_keeps_tree_paused", get_tree().paused)
+	# Pause must not also fire while settings owns cancel, or one Escape would
+	# close settings and unpause the race together.
+	menu.toggle()
+	_check("pause_toggle_inert_under_settings",
+		menu._settings_panel != null and get_tree().paused)
+
+	menu._close_settings()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_check("pause_settings_closes", menu._settings_panel == null)
+	_check("pause_panel_returns", menu._panel != null and menu._panel.visible)
+	_check("pause_still_paused_after_settings", get_tree().paused)
+
+	menu.toggle()
+	await get_tree().process_frame
+	_check("pause_resume_unpauses", not get_tree().paused)
+	_check("pause_panel_freed", menu._panel == null)
+
+	menu.queue_free()
+	await get_tree().process_frame
+	get_tree().paused = false
+	process_mode = restore_mode
+
+
+## --- 11f. Setup flow entry step --------------------------------------------
+
+## "Change Course" drops the player onto the course list instead of the top of
+## the flow. The step is one-shot: an ordinary Play press afterwards must still
+## start at mode selection.
+func _test_setup_entry_step() -> void:
+	Game.setup_entry_step = "course"
+	_check("setup_entry_step_reads", Game.take_setup_entry_step() == "course")
+	_check("setup_entry_step_clears", Game.setup_entry_step == "mode",
+		"left as %s" % Game.setup_entry_step)
+	_check("setup_entry_step_default_is_mode", Game.take_setup_entry_step() == "mode")
+
+	var packed: PackedScene = load(Game.SCENE_MODE_SELECT) as PackedScene
+	if packed == null:
+		_check("setup_entry_step_scene_loads", false)
+		return
+	Game.mode = Game.Mode.QUICK_RACE
+	Game.setup_entry_step = "course"
+	var screen := packed.instantiate()
+	add_child(screen)
+	await get_tree().process_frame
+	_check("setup_entry_opens_on_course", String(screen.get("_step")) == "course",
+		"step=%s" % String(screen.get("_step")))
+	screen.queue_free()
+	await get_tree().process_frame
+
+	# And with nothing pending it still opens at the top.
+	var plain := packed.instantiate()
+	add_child(plain)
+	await get_tree().process_frame
+	_check("setup_default_opens_on_mode", String(plain.get("_step")) == "mode",
+		"step=%s" % String(plain.get("_step")))
+	plain.queue_free()
 	await get_tree().process_frame
 
 

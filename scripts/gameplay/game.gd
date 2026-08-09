@@ -194,6 +194,29 @@ func quit_race_to_menu() -> void:
 	SceneRouter.go_to(SCENE_MAIN_MENU)
 
 
+## Which step the setup flow opens on: "mode", "course" or "difficulty".
+## Consumed and reset by mode_select, so it only ever affects the next entry.
+##
+## Exists so somewhere other than the top of the flow can send a player back
+## into it. Wanting a different course used to mean quitting to the main menu
+## and walking the whole flow again, with the mode and difficulty re-picked on
+## the way past.
+var setup_entry_step: String = "mode"
+
+
+## Leaves a race for the setup flow, at whatever step setup_entry_step names.
+func quit_race_to_setup() -> void:
+	daily_active = false
+	SceneRouter.go_to(SCENE_MODE_SELECT)
+
+
+## Reads and clears the pending entry step.
+func take_setup_entry_step() -> String:
+	var step := setup_entry_step
+	setup_entry_step = "mode"
+	return step
+
+
 func _grant_race_rewards(player_row: Dictionary) -> void:
 	var position := int(player_row.get("position", 8))
 	var fish_collected := int(player_row.get("fish", 0))

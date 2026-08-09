@@ -1151,6 +1151,12 @@ func _build_buttons(parent: Control) -> void:
 	else:
 		_add_button(hbox, "Race Again", func() -> void:
 			SceneRouter.go_to(Game.SCENE_RACE), true)
+		# "Race Again" repeats the same course, and the only other exit was the
+		# main menu -- so trying a different one meant walking the whole setup
+		# flow from the top. This drops straight onto the course list.
+		_add_button(hbox, "Change Course", func() -> void:
+			Game.setup_entry_step = "course"
+			SceneRouter.go_to(Game.SCENE_MODE_SELECT), false)
 	_add_share_button(hbox)
 	_add_button(hbox, "Main Menu", func() -> void:
 		SceneRouter.go_to(Game.SCENE_MAIN_MENU), false)

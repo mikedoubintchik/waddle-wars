@@ -174,6 +174,8 @@ var _step: String = "mode"  # mode | course | difficulty
 var _chosen_mode: Game.Mode = Game.Mode.QUICK_RACE
 var _chosen_course: String = "glacier"
 var _content: VBoxContainer
+## Pinned bottom bar holding the step's Back button, outside the scroll.
+var _footer: MarginContainer = null
 var _buttons: Array[Button] = []
 var _card_width: float = COLUMN_BASE
 ## Extra enlargement for tall/narrow (portrait) viewports — see _tall_boost().
@@ -208,7 +210,55 @@ func _ready() -> void:
 	_content.custom_minimum_size.x = _card_width
 	_content.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
 	center.add_child(_content)
-	_show_mode_step()
+
+	# Back lives OUTSIDE the scroll, pinned to the bottom.
+	#
+	# It used to be the last child of the scrolling column, which is fine on a
+	# desktop where the whole step fits on screen. On a portrait phone the
+	# course gallery is five stacked cards tall, so Back sat a full screen below
+	# the fold -- reported, accurately, as there being no way back at all. A
+	# footer cannot go below the fold.
+	_footer = MarginContainer.new()
+	_footer.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_footer.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_footer.add_theme_constant_override("margin_bottom", _gap(UITheme.SPACE_S))
+	_footer.add_theme_constant_override("margin_left", UITheme.screen_margin())
+	_footer.add_theme_constant_override("margin_right", UITheme.screen_margin())
+	_footer.mouse_filter = Control.MOUSE_FILTER_PASS
+	# Scrim under the footer so cards scrolling beneath it fade out rather than
+	# running into the button. Without it the Back control reads as an unrelated
+	# thing dropped on top of the list.
+	var scrim := TextureRect.new()
+	var fade := Gradient.new()
+	fade.colors = PackedColorArray([Color(0.02, 0.04, 0.09, 0.0), Color(0.02, 0.04, 0.09, 0.92)])
+	fade.offsets = PackedFloat32Array([0.0, 1.0])
+	var fade_tex := GradientTexture2D.new()
+	fade_tex.gradient = fade
+	fade_tex.fill_from = Vector2(0.0, 0.0)
+	fade_tex.fill_to = Vector2(0.0, 1.0)
+	scrim.texture = fade_tex
+	scrim.stretch_mode = TextureRect.STRETCH_SCALE
+	scrim.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	scrim.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	# Tall enough to actually be a fade. A strip only as tall as the button
+	# reads as a hard edge rather than content receding under a bar.
+	scrim.offset_top = -(_u(52.0) * 2.6 + float(_gap(UITheme.SPACE_L)))
+	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(scrim)
+	add_child(_footer)
+	# Normally the top of the flow, but a caller can send the player straight to
+	# a later step -- "Change Course" from a pause menu or the results screen
+	# opens here rather than walking mode/course/difficulty again.
+	match Game.take_setup_entry_step():
+		"course":
+			_chosen_mode = Game.mode
+			_show_course_step()
+		"difficulty":
+			_chosen_mode = Game.mode
+			_chosen_course = Game.course_id
+			_show_difficulty_step()
+		_:
+			_show_mode_step()
 	UITheme.attach_swipe_back(self, _go_back_step)
 
 
@@ -509,9 +559,14 @@ func _build_rail() -> void:
 		"difficulty":
 			current = steps.size() - 1
 	var values := {"Mode": _mode_name(_chosen_mode), "Course": CoursesDB.display_name(_chosen_course)}
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", _gap(8))
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	# Flow, not a fixed row: three pills plus their separators want 794 logical
+	# units, and a portrait phone's canvas is 800 wide before margins, so the
+	# last pill was clipped against the screen edge. Wrapping to a second line
+	# costs nothing and keeps every step readable.
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", _gap(8))
+	row.add_theme_constant_override("v_separation", _gap(6))
+	row.alignment = FlowContainer.ALIGNMENT_CENTER
 	_content.add_child(row)
 	for i: int in steps.size():
 		if i > 0:
@@ -522,13 +577,30 @@ func _build_rail() -> void:
 			sep.add_theme_color_override("font_color", Color(0.55, 0.68, 0.82, 0.7))
 			sep.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			row.add_child(sep)
-		_rail_pill(row, String(steps[i]), String(values.get(steps[i], "")), i, current)
+		_rail_pill(row, String(steps[i]), String(values.get(steps[i], "")), i, current,
+			_rail_jump(String(steps[i])))
+
+
+## Where a completed rail pill goes when pressed, or an empty Callable when it
+## is not a step you can return to.
+##
+## The rail reads as a breadcrumb and was drawn as one, but every pill was
+## MOUSE_FILTER_IGNORE -- pressing "COURSE" to go back and change your mind did
+## nothing at all, which is the single most obvious thing to try.
+func _rail_jump(step_name: String) -> Callable:
+	match step_name:
+		"Mode":
+			return _show_mode_step
+		"Course":
+			return _show_course_step
+	return Callable()
 
 
 func _rail_pill(parent: Control, name_text: String, value_text: String,
-		index: int, current: int) -> void:
+		index: int, current: int, jump: Callable = Callable()) -> void:
 	var done := index < current
 	var live := index == current
+	var can_jump := done and jump.is_valid()
 	var pill := PanelContainer.new()
 	var style := StyleBoxFlat.new()
 	if live:
@@ -546,6 +618,10 @@ func _rail_pill(parent: Control, name_text: String, value_text: String,
 	style.content_margin_right = _u(16.0)
 	style.content_margin_top = _u(5.0)
 	style.content_margin_bottom = _u(5.0)
+	if can_jump:
+		# A pill you can press has to look like one, or it is just as invisible
+		# as it was when it did nothing.
+		style.border_color = Color(UITheme.COLOR_ACCENT, 0.45)
 	pill.add_theme_stylebox_override("panel", style)
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(pill)
@@ -553,6 +629,22 @@ func _rail_pill(parent: Control, name_text: String, value_text: String,
 	stack.add_theme_constant_override("separation", 0)
 	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pill.add_child(stack)
+	if can_jump:
+		# A transparent button over the whole pill: the pill's own art stays as
+		# authored (two stacked labels, which no Button can lay out), and the
+		# button supplies hit-testing, focus, hover and the click sound.
+		var hit := Button.new()
+		hit.flat = true
+		hit.set_anchors_preset(Control.PRESET_FULL_RECT)
+		hit.focus_mode = Control.FOCUS_ALL
+		hit.tooltip_text = "Change %s" % name_text.to_lower()
+		UITheme.hook_sounds(hit)
+		hit.pressed.connect(jump)
+		pill.add_child(hit)
+		# Deliberately NOT added to _buttons: the rail is built before the step's
+		# own cards, so registering it would make _focus_first() land on a
+		# breadcrumb instead of the first course. Godot's directional focus still
+		# reaches it.
 	if done and not value_text.is_empty():
 		_caption(stack, name_text, 12, Color(0.55, 0.68, 0.82), HORIZONTAL_ALIGNMENT_CENTER)
 		var value := Label.new()
@@ -711,7 +803,10 @@ func _show_course_step() -> void:
 			else:
 				_show_difficulty_step()
 		if portrait:
-			_course_row(grid, Vector2(width, _u(148.0)), course_id, pick)
+			# 148 was shorter than the row's own content (measured: card 262,
+			# content 336), so the record tile's caption was clipped off the
+			# bottom of every card.
+			_course_row(grid, Vector2(width, _u(190.0)), course_id, pick)
 		else:
 			_course_tile(grid, Vector2(width, _u(330.0)), course_id, pick)
 
@@ -768,16 +863,35 @@ func _course_art(parent: Control, id: String, min_size: Vector2) -> Control:
 
 ## Records line shared by both course layouts: personal best against par, so
 ## the number always has something to mean.
-func _course_records(parent: Control, id: String, info: Dictionary, tint: Color) -> void:
+## `compact` drops to a single tile with the par time as its caption.
+##
+## Two side-by-side tiles have a minimum width the portrait row cannot afford.
+## Measured on a 430x932 phone (logical 800 wide, column 647): the card's inner
+## content demanded 720, the Button does not clip its children, and the whole
+## gallery drew off the right edge with every course name and time cut in half.
+## Poster 220 + two tiles 431 does not fit in 647 at any font size worth
+## reading, so on a phone the row carries one number instead of two.
+func _course_records(parent: Control, id: String, info: Dictionary, tint: Color,
+		compact: bool = false) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", _gap(8))
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(row)
 	var best := Progression.best_time(id)
+	var par := float(info.get("par_time", 0.0))
+	if compact:
+		var caption := "no record"
+		if best > 0.0:
+			caption = "your best"
+		elif par > 0.0:
+			caption = "par %s" % RaceHUD.format_time(par)
+		var only := _stat_tile(row, RaceHUD.format_time(best) if best > 0.0 else "—",
+			caption, tint, best > 0.0)
+		only.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		return
 	var tile := _stat_tile(row, RaceHUD.format_time(best) if best > 0.0 else "—",
 		"your best" if best > 0.0 else "no record", tint, best > 0.0)
 	tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var par := float(info.get("par_time", 0.0))
 	if par > 0.0:
 		var par_tile := _stat_tile(row, RaceHUD.format_time(par), "par time", tint, false)
 		par_tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -790,6 +904,15 @@ func _course_title(parent: Control, info: Dictionary, size: int) -> void:
 	label.add_theme_font_size_override("font_size", _f(size))
 	label.add_theme_color_override("font_color", UITheme.COLOR_TEXT)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# A Label with no wrap or clip reports its FULL text width as its minimum
+	# size, and that minimum propagates up through the row, the card and the
+	# grid. On a portrait phone "Glacier Gauntlet" at this size is wider than
+	# the column, so the card grew past the screen edge and every course name
+	# was cut off mid-word -- on the one screen whose entire job is telling you
+	# which course is which.
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	label.clip_text = true
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	parent.add_child(label)
 
 
@@ -821,7 +944,9 @@ func _course_row(parent: Control, tile: Vector2, id: String, action: Callable) -
 	host.add_child(row)
 	# Explicit height: the poster sits directly in the row, so it has to carry
 	# its own size rather than inherit one from a stretching column.
-	_course_art(row, id, Vector2(tile.x * 0.34, tile.y - _u(28.0)))
+	# 0.34 left the name column too narrow to hold "Glacier Gauntlet" without
+	# ellipsis, which is a poor trade on the screen whose job is naming courses.
+	_course_art(row, id, Vector2(tile.x * 0.29, tile.y - _u(28.0)))
 	var column := VBoxContainer.new()
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override("separation", _gap(6))
@@ -830,7 +955,7 @@ func _course_row(parent: Control, tile: Vector2, id: String, action: Callable) -
 	_course_title(column, info, 25)
 	var blurb := _body_text(column, String(info.get("desc", "")), 16, 2)
 	blurb.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_course_records(column, id, info, tint)
+	_course_records(column, id, info, tint, true)
 
 
 ## --- Step 3: difficulty -----------------------------------------------------
@@ -999,7 +1124,7 @@ func _difficulty_icon(id: String, tier: int) -> String:
 func _build_back_row(text: String, action: Callable) -> void:
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	_content.add_child(row)
+	_footer.add_child(row)
 	var button := UITheme.make_button(
 		text, UITheme.scaled_size(Vector2(220.0, 52.0)), _f(20))
 	button.custom_minimum_size.y = _u(52.0)
@@ -1014,6 +1139,12 @@ func _build_back_row(text: String, action: Callable) -> void:
 	button.pressed.connect(action)
 	row.add_child(button)
 	_buttons.append(button)
+	# Reserve the footer's height at the end of the scrolling column, so the
+	# last card can be scrolled clear of it instead of living underneath it.
+	var spacer := Control.new()
+	spacer.custom_minimum_size.y = _u(52.0) + float(_gap(UITheme.SPACE_M))
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_content.add_child(spacer)
 
 
 func _clear() -> void:
@@ -1021,6 +1152,10 @@ func _clear() -> void:
 	for child in _content.get_children():
 		_content.remove_child(child)
 		child.queue_free()
+	if _footer != null:
+		for child in _footer.get_children():
+			_footer.remove_child(child)
+			child.queue_free()
 
 
 func _focus_first() -> void:

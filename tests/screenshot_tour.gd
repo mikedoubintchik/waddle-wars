@@ -153,6 +153,8 @@ func _install_monitor() -> void:
 	for arg: String in OS.get_cmdline_user_args():
 		if arg == "pause=1":
 			monitor.open_pause = true
+		elif arg == "pause=settings":
+			monitor.open_pause_settings = true
 	get_tree().root.add_child.call_deferred(monitor)
 
 
@@ -162,9 +164,13 @@ class ShotMonitor:
 	var out_path: String = ""
 	var wait_time: float = 2.5
 	var open_pause: bool = false
+	## Also presses Settings inside the pause menu, so the in-race settings
+	## overlay can be inspected. Implies open_pause.
+	var open_pause_settings: bool = false
 	var _elapsed: float = 0.0
 	var _done: bool = false
 	var _paused_sent: bool = false
+	var _settings_sent: bool = false
 
 	func _ready() -> void:
 		process_mode = Node.PROCESS_MODE_ALWAYS  # keep capturing while paused
@@ -173,12 +179,24 @@ class ShotMonitor:
 		if _done:
 			return
 		_elapsed += delta
-		if open_pause and not _paused_sent and _elapsed > wait_time - 1.0:
+		if (open_pause or open_pause_settings) and not _paused_sent \
+				and _elapsed > wait_time - 1.4:
 			_paused_sent = true
 			var press := InputEventAction.new()
 			press.action = "pause"
 			press.pressed = true
 			Input.parse_input_event(press)
+		if open_pause_settings and _paused_sent and not _settings_sent \
+				and _elapsed > wait_time - 0.7:
+			_settings_sent = true
+			# Called directly rather than by driving focus to the button: this
+			# is verifying what the overlay LOOKS like, and synthesizing a click
+			# at the right pixel would be testing the harness, not the screen.
+			var menu := _find_pause_menu(get_tree().root)
+			if menu != null:
+				menu.call("_open_settings")
+			else:
+				print("[shot] no pause menu found")
 		if _elapsed < wait_time:
 			return
 		_done = true
@@ -189,6 +207,15 @@ class ShotMonitor:
 		var err := image.save_png(out_path)
 		print("[shot] saved %s (%dx%d) err=%d" % [out_path, image.get_width(), image.get_height(), err])
 		get_tree().quit(0 if err == OK else 1)
+
+	func _find_pause_menu(node: Node) -> Node:
+		if node is PauseMenu:
+			return node
+		for child: Node in node.get_children():
+			var found := _find_pause_menu(child)
+			if found != null:
+				return found
+		return null
 
 
 ## Drags a rival alongside the player, throws a shove, and captures a strip of

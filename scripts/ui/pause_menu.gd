@@ -4,6 +4,7 @@ extends CanvasLayer
 ## reference (shared with RaceHUD's onboarding strip) / quit.
 
 var _panel: Control = null
+var _settings_panel: Control = null
 var _paused: bool = false
 var _buttons: Array[Button] = []
 var _quit_button: Button = null
@@ -33,12 +34,19 @@ func _on_joy_connection_changed(_device: int, connected: bool) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	# While settings is up it owns the back/cancel gesture, and pause must not
+	# also fire -- Escape would otherwise close settings and unpause the race in
+	# the same press.
+	if _settings_panel != null:
+		return
 	if event.is_action_pressed("pause"):
 		toggle()
 		get_viewport().set_input_as_handled()
 
 
 func toggle() -> void:
+	if _settings_panel != null:
+		return
 	if _paused:
 		_close()
 	else:
@@ -125,6 +133,14 @@ func _open() -> void:
 	var strip := RaceHUD.build_controls_strip(hud_scale, 3)
 	strip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	vbox.add_child(strip)
+	_add_button(vbox, "Settings", _open_settings)
+	# Straight back to the course list rather than out to the main menu, so
+	# "this course was a mistake" costs one press instead of four.
+	if Game.mode == Game.Mode.QUICK_RACE or Game.mode == Game.Mode.TIME_TRIAL:
+		_add_button(vbox, "Change Course", func() -> void:
+			get_tree().paused = false
+			Game.setup_entry_step = "course"
+			Game.quit_race_to_setup())
 	_quit_armed = false
 	_quit_button = _add_button(vbox, "Quit to Menu", _on_quit_pressed)
 	# Edge swipe resumes, mirroring the Resume button for touch players.
@@ -157,9 +173,66 @@ func _on_quit_pressed() -> void:
 	Game.quit_race_to_menu()
 
 
+## The full settings screen, mounted over the paused race instead of routed to.
+##
+## Routing would unload the race, which is the one thing a player adjusting
+## their controls mid-race cannot afford. The settings scene is otherwise
+## self-contained -- its only tie to being the current scene was where Back
+## went, and that is now an injectable callback.
+##
+## The pause panel is hidden rather than freed, so returning restores it with
+## its quit-confirm state and focus intact.
+func _open_settings() -> void:
+	if _settings_panel != null:
+		return
+	var packed: PackedScene = load(Game.SCENE_SETTINGS) as PackedScene
+	if packed == null:
+		return
+	var screen := packed.instantiate() as Control
+	if screen == null:
+		return
+	if _panel != null:
+		_panel.visible = false
+	screen.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# Instanced under this CanvasLayer, which is PROCESS_MODE_ALWAYS, so the
+	# inherited mode keeps the screen live while the tree is paused.
+	screen.set("on_back", Callable(self, "_close_settings"))
+	_settings_panel = screen
+	add_child(screen)
+
+
+func _close_settings() -> void:
+	if _settings_panel != null:
+		_settings_panel.queue_free()
+		_settings_panel = null
+	if _panel != null:
+		_panel.visible = true
+	# Settings can change hud_scale, ui_scale or the control scheme, and the
+	# pause panel was built against the old values. Rebuilding it is cheaper
+	# than teaching every widget to refresh, and it is the only screen the
+	# player is looking at when they come back.
+	if _paused:
+		_rebuild_panel()
+	elif not _buttons.is_empty():
+		_buttons[0].grab_focus()
+
+
+## Tears the pause panel down and builds it again at current settings, without
+## touching the paused state around it.
+func _rebuild_panel() -> void:
+	if _panel != null:
+		_panel.queue_free()
+		_panel = null
+	_paused = false
+	_open()
+
+
 func _close() -> void:
 	_paused = false
 	get_tree().paused = false
+	if _settings_panel != null:
+		_settings_panel.queue_free()
+		_settings_panel = null
 	if _panel != null:
 		_panel.queue_free()
 		_panel = null

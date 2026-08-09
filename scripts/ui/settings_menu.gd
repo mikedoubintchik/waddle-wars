@@ -1017,7 +1017,17 @@ func _on_setting_changed(key: String, value: Variant) -> void:
 		(refresher as Callable).call(value)
 
 
+## Overrides where Back goes. Set by a host that has embedded this screen
+## rather than routed to it -- the pause menu mounts it over a paused race, and
+## must get the race back rather than have the scene swapped out from under it.
+## Unset, Back behaves as it always has.
+var on_back: Callable = Callable()
+
+
 func _go_back() -> void:
+	if on_back.is_valid():
+		on_back.call()
+		return
 	SceneRouter.go_to(Game.SCENE_MAIN_MENU)
 
 
