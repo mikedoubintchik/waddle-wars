@@ -633,11 +633,18 @@ func _governor_tick(timer: Timer) -> void:
 			_governor_good_windows = 0
 		return
 	_governor_good_windows = 0
-	# Resolution first. It is the cheapest thing to give up and the only lever
-	# that costs no content: a slightly softer image beats losing dressing,
-	# shadows and glow, and most devices that miss the budget miss it by a
-	# little. Only once resolution is exhausted does the preset itself drop.
-	if _render_scale_step < RENDER_SCALE_STEPS.size() - 1:
+	# The ladder: step 1 trades MSAA for FXAA at full native resolution; the
+	# downscale steps beyond it are PHONE-ONLY. A desktop player sits close to
+	# a large screen, and a desktop that misses the budget under Chrome's
+	# ANGLE translation misses it during races -- exactly when the governor
+	# used to soften the whole world, which is why "even the highest quality
+	# looks pixelated" kept being reported on machines whose settings said
+	# high. Desktop web now stays native-sharp no matter what; sustained
+	# pressure there falls through to the preset drop below, which costs
+	# dressing and shadows but never the pixels.
+	var scale_floor := RENDER_SCALE_STEPS.size() - 1 \
+		if (GameConfig.has_touchscreen() or is_mobile_web()) else 1
+	if _render_scale_step < scale_floor:
 		_render_scale_step += 1
 		_apply_web_render_scale()
 		_apply_display("msaa", get_setting("display", "msaa"))

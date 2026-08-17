@@ -381,9 +381,15 @@ func _build_about_footer() -> void:
 	var window := get_window()
 	if window != null:
 		scale_size = window.content_scale_size
-	line.text = "Waddle Wars %s · build %s · canvas %d×%d · design %d×%d" % [
+	# The 3D scale is the number that answers "why does it look pixelated": a
+	# screenshot of this footer now says whether the auto-governor took the
+	# resolution down, without a single follow-up question.
+	var vp := get_viewport()
+	var scale_3d := 1.0 if vp == null else vp.scaling_3d_scale
+	line.text = "Waddle Wars %s · build %s · canvas %d×%d · design %d×%d · 3D %d%%" % [
 		GameConfig.GAME_VERSION, GameConfig.BUILD_ID,
-		int(view.x), int(view.y), scale_size.x, scale_size.y]
+		int(view.x), int(view.y), scale_size.x, scale_size.y,
+		int(round(scale_3d * 100.0))]
 	line.add_theme_font_size_override("font_size", _f(14))
 	line.add_theme_color_override("font_color", Color(0.52, 0.62, 0.75, 0.75))
 	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
