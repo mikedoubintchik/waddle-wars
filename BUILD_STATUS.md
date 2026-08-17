@@ -678,3 +678,17 @@ The material is LIT matte, not unshaded: unshaded read perfectly on glacier
 and would have glowed on aurora, where a 0.5-value decal outshines the
 moonlit deck. Verified on both: glacier shows a trampled field, aurora shows
 dark footprints with no glow.
+
+### Course-matched water reflections + glacial walls
+The water shader had a full sun-lane and sky-reflection system, but
+`reflect_tint` was never passed: every sea reflected the shared default's pale
+daylight blue. Under iceberg's orange sunset that rendered the entire ocean as
+a dead grey-mauve sheet -- the wrong sky is the loudest tell on any water.
+Each course now hands its water its own horizon: iceberg's sunset amber,
+cinder's ember dusk, hollow's dark cavern teal.
+
+Edge walls gained a depth story: absorption toward saturated teal at the base
+(deep ice loses red first), vertical fracture veins -- dark crack shadows plus
+sparse bright refraction planes -- wind-polished facet relief tilting the
+normal so the sun lays real moving highlights, and a grazing internal glow
+scaled by the body colour so night courses cannot overglow.

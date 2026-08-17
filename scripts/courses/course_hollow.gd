@@ -380,7 +380,11 @@ func _retint_track() -> void:
 func _restyle_lake(lake: Node3D) -> void:
 	if GameConfig.is_headless():
 		return
-	var water := VisualLibrary.water_material(Color(0.005, 0.05, 0.09), Color(0.1, 0.42, 0.5), 0.1, 0.3)
+	var water := VisualLibrary.water_material(
+		Color(0.005, 0.05, 0.09), Color(0.1, 0.42, 0.5), 0.1, 0.3).duplicate() as ShaderMaterial
+	# A cave lake cannot reflect a bright daylight sky: it mirrors the dark
+	# teal of the cavern above it.
+	water.set_shader_parameter("reflect_tint", Color(0.05, 0.16, 0.25, 0.85))
 	for child: Node in lake.get_children():
 		var mesh := child as MeshInstance3D
 		if mesh == null:

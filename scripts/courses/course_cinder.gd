@@ -247,8 +247,12 @@ func build_course() -> void:
 
 	# The sea goes down before anything else: the surf bands, the sea stacks,
 	# the far cone and every skyline form seat themselves on it.
-	add_ground_plane(SEA_Y, Color(0.05, 0.12, 0.16), 4000.0,
-		VisualLibrary.water_material(Color(0.02, 0.07, 0.10), Color(0.30, 0.42, 0.40), 0.14, 0.06), true)
+	var sea_mat := VisualLibrary.water_material(
+		Color(0.02, 0.07, 0.10), Color(0.30, 0.42, 0.40), 0.14, 0.06).duplicate() as ShaderMaterial
+	# Grazing water reflects the ember dusk band, not the shared default's
+	# daylight blue: the wrong sky is the loudest tell on any water sheet.
+	sea_mat.set_shader_parameter("reflect_tint", Color(0.80, 0.36, 0.17, 0.8))
+	add_ground_plane(SEA_Y, Color(0.05, 0.12, 0.16), 4000.0, sea_mat, true)
 	_retint_track()
 	_decorate()
 	# Dusk on a dark coast: ember band low on the horizon under a cooling

@@ -382,6 +382,10 @@ func build_course() -> void:
 			OCEAN_DEEP, OCEAN_SHALLOW, 1.0, 0.014).duplicate() as ShaderMaterial
 		far_mat.set_shader_parameter("sun_direction", _sun_dir_3d())
 		far_mat.set_shader_parameter("sun_glint_strength", 1.25)
+		# The sea reflects THIS course's sunset sky, not the shared default's
+		# pale blue one -- the wrong-colored sheet is what made the whole ocean
+		# read as dead grey plastic under an orange horizon.
+		far_mat.set_shader_parameter("reflect_tint", Color(1.0, 0.62, 0.42, 0.9))
 		add_ground_plane(OCEAN_Y - 1.6, Color(0.1, 0.3, 0.45), 4000.0, far_mat, true)
 		_add_ocean_detail()
 
@@ -904,6 +908,7 @@ func _add_ocean_detail() -> void:
 	ocean_mat.set_shader_parameter("sun_direction", _sun_dir_3d())
 	ocean_mat.set_shader_parameter("sun_glint_strength", 1.45)
 	ocean_mat.set_shader_parameter("sun_glint_power", 220.0)
+	ocean_mat.set_shader_parameter("reflect_tint", Color(1.0, 0.62, 0.42, 0.9))
 	sheet.material_override = ocean_mat
 	sheet.position = Vector3((min_x + max_x) * 0.5, OCEAN_Y, (min_z + max_z) * 0.5)
 	sheet.extra_cull_margin = 4.0  # flat PlaneMesh AABB + vertex displacement
@@ -1852,6 +1857,7 @@ func _upgrade_water_surface(water_root: Node3D) -> void:
 			var chan_mat := VisualLibrary.water_material(
 				CHANNEL_DEEP, CHANNEL_SHALLOW, 0.18, 0.35).duplicate() as ShaderMaterial
 			chan_mat.set_shader_parameter("sun_direction", _sun_dir_3d())
+			chan_mat.set_shader_parameter("reflect_tint", Color(1.0, 0.62, 0.42, 0.7))
 			(child as MeshInstance3D).material_override = chan_mat
 			return
 
