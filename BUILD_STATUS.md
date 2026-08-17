@@ -656,3 +656,25 @@ lighting (ambient 1.0 -> 0.55) so its verdicts match what the game shows.
 
 Also killed two `shield_probe` godot processes a workflow agent leaked on
 Aug 8 — 91 CPU-hours each, and they were why captures crawled.
+
+### The snow answers back: carved trails
+A snow world that does not respond to the racers reads as painted scenery no
+matter how good its shader is. Every racer now lays a persistent track --
+footprint stipple while waddling, a carved groove while belly-sliding --
+fading over ~9 s, pausing across ice so the ribbon breaks exactly where the
+surface changes. scripts/gameplay/snow_trail.gd: one MultiMesh ring buffer per
+racer (96 streaks ~= the last 55 m), a drop writes ONE instance transform,
+aging runs only on drop ticks, zero per-frame rebuilds.
+
+Two invisible-trail bugs found by isolating (tests/trail_shot.tscn renders
+hand-dropped streaks in seconds instead of minutes per race boot):
+- `heading.cross(floor_n)` built a negative-determinant basis: the quad's
+  winding mirrored, the streak faced INTO the snow, and back-face culling
+  removed every perfectly valid instance. Order flipped, culling disabled.
+- The MultiMesh AABB was computed while all instances parked at the origin, so
+  the whole trail frustum-culled the moment the origin left view. Explicit
+  whole-course custom_aabb.
+The material is LIT matte, not unshaded: unshaded read perfectly on glacier
+and would have glowed on aurora, where a 0.5-value decal outshines the
+moonlit deck. Verified on both: glacier shows a trampled field, aurora shows
+dark footprints with no glow.

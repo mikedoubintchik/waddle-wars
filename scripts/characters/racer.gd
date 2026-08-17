@@ -171,6 +171,7 @@ var _platform_prev_origin: Vector3 = Vector3.ZERO
 var _platform_velocity: Vector3 = Vector3.ZERO
 var _platform_carry_timer: float = 0.0  # keeps inherited momentum after leaving
 var _slide_particles: GPUParticles3D = null
+var _snow_trail: SnowTrail = null
 var _slide_audio: AudioStreamPlayer3D = null
 var _bubble_particles: GPUParticles3D = null
 var _finish_slowdown: float = 1.0
@@ -221,6 +222,12 @@ func setup(key: String, name_text: String, player: bool, visual_config: Dictiona
 		var trail := TrailEffect.create(trail_id)
 		if trail != null:
 			add_child(trail)
+	# Carved snow groove behind every racer. Child of the racer so it dies with
+	# it, top_level so the carved line stays where it was carved.
+	if not GameConfig.is_headless():
+		_snow_trail = SnowTrail.new()
+		add_child(_snow_trail)
+		_snow_trail.setup()
 	_facing_yaw = rotation.y
 	_velocity_yaw = rotation.y
 	_prev_facing_yaw = rotation.y
@@ -323,6 +330,11 @@ func _physics_process(delta: float) -> void:
 	_update_guide()
 	_detect_surface()
 	_update_platform_carry(delta)
+	if _snow_trail != null:
+		_snow_trail.tick(global_position, get_floor_normal() if is_on_floor() else Vector3.UP,
+			is_on_floor() and (current_surface == SurfacesDB.Surface.PACKED_SNOW
+				or current_surface == SurfacesDB.Surface.DEEP_SNOW),
+			state == State.SLIDING, current_speed)
 
 	match state:
 		State.FINISHED:

@@ -125,7 +125,13 @@ func _ready() -> void:
 		"race":
 			Game.mode = Game.Mode.QUICK_RACE
 			Game.course_id = _course
+			# Overridable: emperor drops the autopilot player mid-pack, which is
+			# the only way a forward-looking capture can show rival racers (and
+			# whatever they leave on the snow) AHEAD of the camera.
 			Game.difficulty_id = "competitive"
+			for a: String in OS.get_cmdline_user_args():
+				if a.begins_with("difficulty="):
+					Game.difficulty_id = a.split("=")[1]
 			RaceManager.autopilot_player = true
 			SceneRouter.go_to.call_deferred(Game.SCENE_RACE)
 		"tutorial":
