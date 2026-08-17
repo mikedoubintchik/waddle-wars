@@ -1050,7 +1050,13 @@ func _bake_form(st: SurfaceTool, kind: String, pos: Vector3, footprint: float,
 ## dappled through the transition band, white above.
 func _bake_peak(st: SurfaceTool, pos: Vector3, footprint: float, height: float,
 		look: Dictionary, depth: int) -> void:
-	var sides := _env_rng.randi_range(9, 13)
+	# Tessellation scales with the quality preset: at the old fixed 9-13 sides
+	# and 4 rings a massif is a faceted slab whatever the coloring does — the
+	# single loudest "placeholder geometry" tell left in a frame. High quality
+	# roughly doubles both directions (a skyline chunk stays a few thousand
+	# triangles, baked once); low keeps the old counts and the old cost.
+	var detail := VisualLibrary.shader_detail_level()
+	var sides := _env_rng.randi_range(9, 13) + int(round(detail * 8.0))
 	# Biased concave: a profile of 1.0 is a straight-sided cone, and a field of
 	# those is the low-poly-placeholder look. Under 1.0 the flanks flare into
 	# shoulders, over it they blunt into mesas — both beat a ruled triangle.
@@ -1058,11 +1064,19 @@ func _bake_peak(st: SurfaceTool, pos: Vector3, footprint: float, height: float,
 	if _env_rng.randf() < 0.6:
 		profile = _env_rng.randf_range(0.45, 0.85)
 	var ring_t: Array[float] = [0.0, 0.3, 0.58, 0.81]
+	if detail > 0.65:
+		ring_t = [0.0, 0.16, 0.30, 0.45, 0.58, 0.70, 0.81, 0.90]
+	elif detail > 0.25:
+		ring_t = [0.0, 0.22, 0.42, 0.58, 0.72, 0.84]
 	var lean := Vector2(_env_rng.randf_range(-0.32, 0.32), _env_rng.randf_range(-0.32, 0.32))
 	var phase_a := _env_rng.randf() * TAU
 	var phase_b := _env_rng.randf() * TAU
+	var phase_c := _env_rng.randf() * TAU
 	var amp_a := _env_rng.randf_range(0.09, 0.2)
 	var amp_b := _env_rng.randf_range(0.04, 0.1)
+	# Fine third octave: the crag detail the two broad octaves cannot make.
+	# Only meaningful once the side count can actually express it.
+	var amp_c := _env_rng.randf_range(0.02, 0.05) * detail
 	var spurs: Array[float] = []
 	var streaks: Array[float] = []
 	for i: int in sides:
@@ -1074,7 +1088,8 @@ func _bake_peak(st: SurfaceTool, pos: Vector3, footprint: float, height: float,
 		var ring := PackedVector3Array()
 		for i: int in sides:
 			var angle := TAU * float(i) / float(sides)
-			var noise := 1.0 + amp_a * sin(angle * 2.0 + phase_a) + amp_b * sin(angle * 5.0 + phase_b)
+			var noise := 1.0 + amp_a * sin(angle * 2.0 + phase_a) + amp_b * sin(angle * 5.0 + phase_b) \
+				+ amp_c * sin(angle * 9.0 + phase_c + t * 2.6)
 			# Spurs are strongest at the base and dissolve toward the summit.
 			var spur := 1.0 + (spurs[i] - 1.0) * (1.0 - t * 0.55)
 			var radius := footprint * pow(1.0 - t, profile) * noise * spur * _env_rng.randf_range(0.93, 1.07)
