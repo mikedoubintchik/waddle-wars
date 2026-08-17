@@ -739,40 +739,112 @@ static func _pennant_mesh() -> ArrayMesh:
 	return _pennant_cache
 
 
-static var _rock_mesh: SphereMesh = null
-static var _rock_cap_mesh: SphereMesh = null
+static var _rock_variants: Array[ArrayMesh] = []
+
+
+## Boulder variants: a handful of cached displaced meshes shared by every rock
+## in the game, picked per call. The old rock was an 8-segment sphere with a
+## second sphere hovering over it as a "snow cap" -- two draw calls of egg.
+## These are real boulders: multi-octave radial displacement for facets and
+## overhangs, a flattened seat, and the snow baked into the vertex colors
+## (up-facing surfaces with a noisy melt boundary), so the cap follows the
+## rock's own shape and the second instance disappears entirely.
+const ROCK_VARIANTS: int = 5
+
+
+static func _build_rock_mesh(seed_val: int) -> ArrayMesh:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_val
+	var segs := 18
+	var rings := 12
+	var p1 := rng.randf() * TAU
+	var p2 := rng.randf() * TAU
+	var p3 := rng.randf() * TAU
+	var a1 := rng.randf_range(0.10, 0.20)
+	var a2 := rng.randf_range(0.06, 0.13)
+	var a3 := rng.randf_range(0.03, 0.07)
+	# The mesh's built y-span runs ~0.2..0.9 after the +0.35 lift; snow only
+	# holds on the crown, so the line sits in the top third of that span.
+	var snowline := rng.randf_range(0.74, 0.86)
+	# Warm-neutral dark granite. The first authoring (0.42,0.45,0.52) was both
+	# too bright and blue-dominant: under the warm sun + blue sky ambient it lit
+	# to the same blue-white as the snow around it and the whole boulder read as
+	# one more drift. Rock must sit a full stop darker than snow and lean WARM,
+	# or the countershading eats it.
+	var rock_col := Color(0.29, 0.27, 0.26)
+	var snow_col := Color(0.95, 0.97, 1.0)
+	var foot_col := Color(0.14, 0.13, 0.13)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_smooth_group(0)
+	var rows: Array[PackedVector3Array] = []
+	var cols: Array[PackedColorArray] = []
+	for r: int in rings + 1:
+		var v := float(r) / float(rings)
+		var phi := v * PI
+		var row := PackedVector3Array()
+		var col := PackedColorArray()
+		for s: int in segs:
+			var theta := TAU * float(s) / float(segs)
+			# Multi-octave radial displacement: broad lobes, mid facets, fine
+			# chips. Frequencies are non-integer so no octave tiles visibly.
+			var n := 1.0 \
+				+ a1 * sin(theta * 2.0 + phi * 1.7 + p1) \
+				+ a2 * sin(theta * 4.6 - phi * 3.3 + p2) \
+				+ a3 * sin(theta * 8.3 + phi * 6.1 + p3)
+			var radius := 0.8 * n * sin(phi)
+			var y := 0.55 * n * cos(phi)
+			# Flatten the seat: everything below the waist squashes toward a
+			# grounded base instead of continuing into a buried hemisphere.
+			if y < -0.15:
+				y = -0.15 + (y + 0.15) * 0.35
+			row.append(Vector3(cos(theta) * radius, y + 0.35, sin(theta) * radius))
+			# Snow on the up-facing crown with a noisy melt boundary; rock walls
+			# carry a vertical tonal streak; the seat darkens into its shadow.
+			var jitter := sin(theta * 3.0 + p2) * 0.08 + sin(theta * 7.0 + p3) * 0.05
+			var c: Color
+			if y + 0.35 > snowline + jitter:
+				c = snow_col.darkened(rng.randf_range(0.0, 0.05))
+			else:
+				var streak := 0.82 + 0.18 * sin(theta * 5.0 + p1)
+				c = Color(rock_col.r * streak, rock_col.g * streak, rock_col.b * (0.90 + 0.10 * streak))
+				if y + 0.35 < 0.30:
+					c = c.lerp(foot_col, 0.7)
+			col.append(c)
+		rows.append(row)
+		cols.append(col)
+	for r: int in rings:
+		for s: int in segs:
+			var s2 := (s + 1) % segs
+			# Poles are degenerate rows; skip zero-area quads there.
+			var quad := [rows[r][s], rows[r][s2], rows[r + 1][s2], rows[r + 1][s]]
+			var cq := [cols[r][s], cols[r][s2], cols[r + 1][s2], cols[r + 1][s]]
+			st.set_color(cq[0]); st.add_vertex(quad[0])
+			st.set_color(cq[2]); st.add_vertex(quad[2])
+			st.set_color(cq[1]); st.add_vertex(quad[1])
+			st.set_color(cq[0]); st.add_vertex(quad[0])
+			st.set_color(cq[3]); st.add_vertex(quad[3])
+			st.set_color(cq[2]); st.add_vertex(quad[2])
+	st.generate_normals()
+	st.index()
+	return st.commit()
 
 
 static func add_rock(parent: Node3D, pos: Vector3, scale_factor: float = 1.0, rng: RandomNumberGenerator = null) -> void:
-	# Shared unit meshes, sized per instance via node scale — one rock mesh +
-	# one cap mesh for every rock in the game instead of two per call.
-	if _rock_mesh == null:
-		_rock_mesh = SphereMesh.new()
-		_rock_mesh.radius = 0.8
-		_rock_mesh.height = 1.1
-		_rock_mesh.radial_segments = 8
-		_rock_mesh.rings = 5
-		_rock_cap_mesh = SphereMesh.new()
-		_rock_cap_mesh.radius = 0.7
-		_rock_cap_mesh.height = 0.5
+	if _rock_variants.is_empty():
+		for i: int in ROCK_VARIANTS:
+			_rock_variants.append(_build_rock_mesh(7919 + i * 104729))
 	var rock := MeshInstance3D.new()
-	rock.mesh = _rock_mesh
-	rock.material_override = prop_material(Color(0.45, 0.48, 0.54))
-	rock.position = pos + Vector3.UP * 0.3 * scale_factor
+	var pick := 0 if rng == null else rng.randi_range(0, ROCK_VARIANTS - 1)
+	rock.mesh = _rock_variants[pick]
+	rock.material_override = VisualLibrary.rock_material(Color.WHITE)
+	rock.position = pos
 	rock.scale = Vector3.ONE * scale_factor
 	if rng != null:
 		rock.rotation.y = rng.randf() * TAU
 		rock.scale = Vector3(rng.randf_range(0.8, 1.4), rng.randf_range(0.6, 1.0), rng.randf_range(0.8, 1.4)) * scale_factor
 	VisualLibrary.apply_dressing_range(rock)
 	parent.add_child(rock)
-	# Snow cap.
-	var cap := MeshInstance3D.new()
-	cap.mesh = _rock_cap_mesh
-	cap.material_override = prop_material(Color(0.96, 0.98, 1.0))
-	cap.position = pos + Vector3.UP * 0.75 * scale_factor
-	cap.scale = rock.scale
-	VisualLibrary.apply_dressing_range(cap)
-	parent.add_child(cap)
 
 
 static var _crystal_mesh: CylinderMesh = null

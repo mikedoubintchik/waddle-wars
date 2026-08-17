@@ -692,3 +692,28 @@ Edge walls gained a depth story: absorption toward saturated teal at the base
 sparse bright refraction planes -- wind-polished facet relief tilting the
 normal so the sun lays real moving highlights, and a grazing internal glow
 scaled by the body colour so night courses cannot overglow.
+
+### "The game looks pixelated": sharpness is now the last thing sacrificed
+Two compounding causes, both on web:
+- The auto-quality governor's FIRST lever was render resolution. Any browser
+  that missed the frame budget by one notch immediately rendered the 3D world
+  at 85% (and walked down to 62%) of native -- which players read, accurately,
+  as "the game looks pixelated". The ladder now goes: step 1 drops MSAA and
+  turns on FXAA at FULL native resolution; only steps 2+ start scaling, and
+  the restore path gives resolution back first. FXAA is applied only at native
+  scale -- FXAA over a bilinear upscale is blurring a blur.
+- The web shell capped devicePixelRatio at 2, chosen when the art was flat
+  shaded. On a dpr-3 phone that is 67% linear resolution -- visibly soft now
+  that the art carries real detail. Cap raised to 2.5 (83% linear), with the
+  governor as the safety net for devices that cannot pay for it.
+
+### Boulders instead of eggs
+TrackBuilder.add_rock was an 8-segment sphere with a second sphere hovering
+over it as a snow cap. Now: five cached displaced-boulder variants (multi-
+octave radial displacement, flattened seat), snow baked into vertex colors on
+the crown with a noisy melt line, dark foot band -- and one draw call instead
+of two. Debugging note for the file: the first captures looked "all white"
+and the mesh data proved the colors were fine -- the elevated QA camera saw
+mostly snow crowns, and the first rock albedo (0.42,0.45,0.52) was so bright
+and blue that lit flanks converged with the snow. Judge rocks from racer
+height, and author rock albedo dark and WARM (now 0.29,0.27,0.26).

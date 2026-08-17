@@ -60,6 +60,13 @@ func _ready() -> void:
 			_build_bear()
 		"bearcourse":
 			_build_bear_course()
+		"rock":
+			var rng := RandomNumberGenerator.new()
+			rng.seed = 5
+			for i: int in 4:
+				TrackBuilder.add_rock(self, Vector3(-4.5 + float(i) * 3.0, 0.0, 0.0),
+					1.0 + float(i) * 0.3, rng)
+			_place_camera(Vector3(0.0, 0.8, 0.0), 11.0, 0.30)
 		_:
 			push_error("prop_shot: unknown prop '%s'" % _prop)
 

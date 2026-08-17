@@ -467,9 +467,15 @@ const WEB_RENDER_SCALE: Dictionary = {
 	"low": 0.7,
 }
 ## Steps the governor walks down before it starts cutting the quality preset.
-## Resolution is the cheapest thing to give up and the least structural: a
-## slightly softer image beats losing dressing, shadows and glow outright.
-const RENDER_SCALE_STEPS: PackedFloat32Array = [1.0, 0.85, 0.72, 0.62]
+##
+## The FIRST step keeps full resolution and pays with antialiasing instead:
+## MSAA's per-frame resolve goes, FXAA covers the edges, and the image stays
+## pixel-for-pixel native. Resolution only starts going at step 2. The old
+## ladder gave up resolution first, and resolution is the single most visible
+## thing on the screen -- a browser that missed the frame budget by one notch
+## was immediately soft everywhere, which players read (accurately) as "the
+## game looks pixelated". Softness is now the LAST resort, not the first.
+const RENDER_SCALE_STEPS: PackedFloat32Array = [1.0, 1.0, 0.85, 0.72, 0.62]
 
 
 ## Linear scale the 3D pass should render at, for this platform and preset.
@@ -489,7 +495,14 @@ func _apply_web_render_scale() -> void:
 	if viewport == null or GameConfig.is_headless():
 		return
 	viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
-	viewport.scaling_3d_scale = render_scale_3d()
+	var scale := render_scale_3d()
+	viewport.scaling_3d_scale = scale
+	# FXAA exactly when the governor has taken MSAA but the image is still
+	# native-resolution (step 1): edges stay covered without the resolve cost.
+	# Never on top of a bilinear upscale -- blurring a blur -- and never
+	# doubled with MSAA at step 0.
+	viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA \
+		if (_render_scale_step > 0 and scale >= 0.999) else Viewport.SCREEN_SPACE_AA_DISABLED
 
 
 ## Multisample level every 3D viewport should use.
