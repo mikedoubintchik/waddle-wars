@@ -42,11 +42,16 @@ func _ready() -> void:
 	e.background_color = Color(0.5, 0.7, 0.9)
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	e.ambient_light_color = Color(0.8, 0.85, 0.95)
-	e.ambient_light_energy = 1.0
+	# Course-like, not showroom. Flat ambient at 1.0 lifted every albedo to
+	# nearly its own value, so plumage tuned to look right HERE looked pale
+	# nowhere and dark everywhere else -- this scene has to judge like glacier
+	# or its verdicts are worthless.
+	e.ambient_light_energy = 0.55
 	env.environment = e
 	add_child(env)
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-45, -30, 0)
+	sun.light_energy = 1.25
 	add_child(sun)
 
 	var floor_mesh := MeshInstance3D.new()
@@ -77,6 +82,9 @@ func _ready() -> void:
 		"swim": pose = PenguinVisual.Pose.SWIM
 		"run": pose = PenguinVisual.Pose.RUN
 		"air": pose = PenguinVisual.Pose.AIR
+		# Was missing: pose=idle silently fell through to SLIDE, so "idle"
+		# captures were prone shots and nobody noticed for days.
+		"idle": pose = PenguinVisual.Pose.IDLE
 	_penguin.set_pose(pose)
 
 

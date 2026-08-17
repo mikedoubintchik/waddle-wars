@@ -622,3 +622,37 @@ is an HFlowContainer now and wraps. Row height went 148 -> 190 (content measured
 at 336 against a 262 card, so the record caption was clipped off the bottom of
 every card) and the poster 0.34 -> 0.29 so full course names fit without
 ellipsis.
+
+### Penguins: from blob to bird
+Player: "the penguins themselves just look like little blobs ... think hyper
+realistic." The captures agreed — a pale powder-blue egg. Three compounding
+causes, fixed together:
+
+- **Painted light.** The plumage pipeline was painting illumination into the
+  albedo and the emission: a 0.40 "sheen" lift baked into the back's vertex
+  colors, an emissive dorsal streak, a wide emissive rim, and a hemispheric
+  form band running 0.42..1.46x. Every layer individually was a readability
+  device; stacked, they rendered a grey-blue toy. All four cut hard
+  (sheen bake 0.40 -> 0.13, form 0.60..1.18, rim ~40% of old width, dorsal
+  streak deleted). The satin now comes from ROUGHNESS/SPECULAR: the dorsal
+  tightens to ~0.30 roughness where the feather sweep sits, broken up by barb
+  grain, so the sun lays a REAL broad highlight there.
+- **A mantle authored 2x too light.** Species mantles darkened two steps
+  (emperor 0.22/0.27/0.36 -> 0.115/0.135/0.195 etc), the mantle window closed
+  at the shoulder so the nape stays black, and the flank boundary tightened
+  from +-8 deg of blend to +-3.5 — the razor flank line IS the penguin read.
+- **Egg anatomy.** Fusiform profile (widest at the lower chest, breast carried
+  up, longer shallower neck), flippers 0.46 -> 0.56 and slimmer, bill length
+  0.20 -> 0.235 and slimmed to a decurved rapier, emperor auricular patch
+  rebuilt as ONE tilted teardrop (the two-gaussian version printed as two
+  yellow dots).
+
+Verified by capture at every range that matters: dressing-room close-up,
+pose_check side/behind (the chase angle), race frames on glacier (dark bird
+against snow), aurora (moonlit silhouette with white flank — the reduced
+emissive floor holds), and cinder's sunset grid. pose_check also gained the
+missing `pose=idle` arm (it silently fell through to SLIDE) and course-like
+lighting (ambient 1.0 -> 0.55) so its verdicts match what the game shows.
+
+Also killed two `shield_probe` godot processes a workflow agent leaked on
+Aug 8 — 91 CPU-hours each, and they were why captures crawled.

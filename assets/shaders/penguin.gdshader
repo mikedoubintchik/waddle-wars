@@ -110,9 +110,14 @@ void fragment() {
 	float feather_m = 1.0 - smoothstep(0.58, 0.90, lum);
 
 	// --- feather structure, two scales -------------------------------------
-	float barbs = sin(v_obj.x * 340.0 + v_obj.y * 110.0) * sin(v_obj.z * 300.0 - v_obj.y * 70.0);
-	float rows = sin(v_obj.y * 96.0 + sin(v_obj.x * 34.0 + v_obj.z * 27.0) * 2.2);
-	float grain = (barbs * 0.55 + rows * 0.45) * near_k;
+	// The barb term is stretched along the body axis (y coefficients cut) so
+	// the striations run head-to-tail the way real contour feathers lie, and
+	// the row term is scalloped: feathers overlap downward, so each row's
+	// lower edge is the dark one.
+	float barbs = sin(v_obj.x * 340.0 + v_obj.y * 46.0) * sin(v_obj.z * 300.0 - v_obj.y * 31.0);
+	float rows = sin(v_obj.y * 118.0 + sin(v_obj.x * 41.0 + v_obj.z * 33.0) * 2.6);
+	rows = 1.0 - 2.0 * pow(0.5 + 0.5 * rows, 1.6);  // asymmetric: sharp dark lower lip
+	float grain = (barbs * 0.45 + rows * 0.55) * near_k;
 	float tract = sin(v_obj.y * 27.0 + sin(v_obj.x * 8.0 + v_obj.z * 7.0) * 1.8)
 		* (0.55 + 0.45 * sin(v_obj.x * 14.0 - v_obj.z * 11.0));
 	float group = tract * mid_k;
@@ -129,13 +134,15 @@ void fragment() {
 	vec3 world_up = vec3(INV_VIEW_MATRIX[0][1], INV_VIEW_MATRIX[1][1], INV_VIEW_MATRIX[2][1]);
 	float up = clamp(dot(NORMAL, world_up) * 0.5 + 0.5, 0.0, 1.0);
 	float shade = up * up * (3.0 - 2.0 * up);
-	// Bright surfaces (white belly, orange feet and bill zones) take the
-	// downward darkening for grounding but only a muted upward lift -- pushed
-	// the full amount they wash out toward paper white instead of reading as
-	// saturated feet against snow.
-	float form = mix(0.42, mix(1.12, 1.46, dark_m), shade);
-	vec3 col = base * (form + (grain * 0.075 + group * 0.095) * feather_m);
-	col += vec3(0.09, 0.13, 0.22) * (shade * shade * shade * 0.18) * dark_m;
+	// Narrower band than the old 0.42..1.46. That range was painting light
+	// INTO the albedo, which is exactly what made every racer read as a
+	// pale-blue toy: real feathers are darker than that everywhere, and the
+	// light on them comes from the light. Form here only supports; the satin
+	// specular below carries the roundness.
+	float form = mix(0.60, mix(1.10, 1.18, dark_m), shade);
+	vec3 col = base * (form + (grain * 0.085 + group * 0.075) * feather_m);
+	// Faint cool sky bounce on upward dark feathers -- kept, halved.
+	col += vec3(0.09, 0.13, 0.22) * (shade * shade * shade * 0.09) * dark_m;
 
 	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
 	float graze = 1.0 - ndv;
@@ -143,31 +150,34 @@ void fragment() {
 	// --- ink line ----------------------------------------------------------
 	// The outermost sliver of every surface loses value. Against the bright
 	// glacier this is the ONLY edge cue that works, and against the aurora
-	// night it hides harmlessly inside an already dark silhouette. It also
-	// gives the emissive rim below something to sit against, so the two read
-	// as "outlined, lit edge" instead of cancelling into mush.
-	// Kept tight and light on purpose. A thin object (the flipper blades) is
-	// ALL grazing angle, so a wide or heavy ink band does not outline them --
-	// it paints them out, and the racer sprouts two black wires.
+	// night it hides harmlessly inside an already dark silhouette.
 	float ink = smoothstep(0.87, 1.0, graze) * mix(0.55, 1.0, far_k) * edge_gain;
-	col *= 1.0 - ink * 0.26;
+	col *= 1.0 - ink * 0.22;
 
 	// --- rim / edge light, distance-adaptive --------------------------------
-	// Emissive (so it survives any light direction, including the aurora
-	// course's near-black key), weighted to the upper silhouette so it reads
-	// as sky light spilling over the back rather than a sticker outline, and
-	// suppressed under the ink line so the edge stays defined.
-	float rim = pow(graze, mix(3.4, 1.7, far_k)) * (1.0 - ink * 0.8);
-	float rim_w = mix(0.80, 1.35, far_k) * (0.40 + 0.60 * up) * edge_gain;
+	// Emissive so it survives the aurora course's near-black key. Tighter and
+	// weaker than before: the old broad rim was a glow sticker, and glow
+	// stickers are the opposite of realism. It still widens with range, but
+	// tops out well below the old value -- at 30 m a readable edge needs a few
+	// bright pixels, not a halo.
+	float rim = pow(graze, mix(4.2, 2.4, far_k)) * (1.0 - ink * 0.8);
+	float rim_w = mix(0.30, 0.85, far_k) * (0.35 + 0.65 * up) * edge_gain;
 	vec3 rim_col = mix(vec3(0.64, 0.79, 1.0), ident.rgb, ident_amt);
 
-	// --- dorsal sheen -------------------------------------------------------
-	// A broad grazing streak riding the sky-facing back. Real plumage throws a
-	// directional sweep along the spine; a matte lambert body is the single
-	// loudest "untextured primitive" tell left on a racer.
-	float sheen = pow(up, 6.0) * pow(graze, 1.5);
+	// --- satin feather specular ---------------------------------------------
+	// The realism carrier. Penguin dorsal plumage is packed, oiled and satin:
+	// its highlight is a broad directional sweep, not a plastic hotspot. The
+	// sweep is built here from up*graze (sky-light direction assumption holds
+	// on every course) and BROKEN UP by the barb grain, so at close range the
+	// highlight glitters along feather rows instead of lying as one clean
+	// airbrush streak. Applied through ROUGHNESS/SPECULAR below, not EMISSION:
+	// the old emissive sheen lit the back from nowhere and is most of why the
+	// bird looked like painted plastic.
+	float sheen = pow(up, 5.0) * pow(graze, 1.4) * (1.0 + grain * 0.55);
 
 	// --- structural iridescence ---------------------------------------------
+	// Real, but subtle on a live bird: a grazing green-violet shift on the
+	// dark dorsal only, at a third of the old energy.
 	float fres = pow(graze, 3.0);
 	vec3 irid = vec3(
 		0.30 + 0.30 * sin(fres * 9.0 + 1.8),
@@ -175,34 +185,25 @@ void fragment() {
 		0.70 + 0.25 * sin(fres * 9.0 + 5.2));
 
 	// --- distance identity hold ---------------------------------------------
-	// Both of these are no-ops up close (far_k is 0) and ramp in with range.
 	float body_lum = dot(col, vec3(0.299, 0.587, 0.114));
-	// Re-tint toward the racer's colour at constant luminance, so the hue
-	// carries identity without disturbing the value structure above.
 	float ident_lum = max(dot(ident.rgb, vec3(0.299, 0.587, 0.114)), 0.05);
 	vec3 id_col = ident.rgb * (body_lum / ident_lum);
-	col = mix(col, id_col, far_k * ident_body * rim_m);
+	// Halved: repainting the body toward the identity hue at range is a
+	// cartoon device. The rim and the hat carry identity now; the body only
+	// leans, so eight racers stay eight PENGUINS.
+	col = mix(col, id_col, far_k * ident_body * rim_m * 0.5);
 	ALBEDO = clamp(col, vec3(0.0), vec3(1.0));
-	// Rim + sheen + a tiny light-independent skylight floor on the sky-facing
-	// dorsal. The floor exists for the aurora course: with only a dim night
-	// key, an albedo-0.1 back renders as literal black no matter how good the
-	// albedo gradient is, so the form has to be carried by something that does
-	// not go through the light loop. It is far below the direct sun on
-	// glacier, where it changes nothing.
-	// The skylight floor is scaled by the fragment's OWN base luminance rather
-	// than applied flat. On the aurora course the key light is so dim that this
-	// term is most of what you actually see on a racer, and a flat floor there
-	// paints the carefully built head/mantle/rump break back out again — every
-	// racer returns to being one even mass, which is the exact bug this whole
-	// pass exists to kill. Proportional, it behaves like real ambient (sky
-	// times albedo) and the value break survives into the dark course.
+	// Skylight floor for the aurora course only in effect (proportional to the
+	// fragment's own luminance; far below the direct sun elsewhere). Reduced:
+	// it is ambient, not paint.
 	float floor_k = clamp(lum * 4.5, 0.20, 1.8);
 	EMISSION = rim_col * (rim * rim_w * rim_m)
-		+ vec3(0.30, 0.42, 0.62) * (0.135 * shade * dark_m * floor_k)
-		+ vec3(0.82, 0.88, 1.0) * (sheen * 0.22 * feather_m)
-		+ irid * (dark_m * 0.09 * fres);
-	// Dorsal feathers carry a satin sheen that tightens toward the sky-facing
-	// back, where the sun lays its highlight; the belly stays matte.
-	ROUGHNESS = mix(0.74, mix(0.70, 0.48, shade) + grain * 0.10, feather_m);
-	SPECULAR = mix(0.34, 0.44, dark_m);
+		+ vec3(0.30, 0.42, 0.62) * (0.085 * shade * dark_m * floor_k)
+		+ irid * (dark_m * 0.035 * fres);
+	// Satin: the dorsal tightens hard where the sheen sweep sits so the sun
+	// (or the aurora sky) lays a REAL broad highlight there, broken by grain;
+	// the white ventral stays soft matte-down (real belly feathers are the
+	// fluffiest on the bird).
+	ROUGHNESS = mix(0.80, mix(0.66, 0.30, clamp(sheen * 1.6, 0.0, 1.0)) + grain * 0.14, feather_m);
+	SPECULAR = mix(0.30, 0.58, dark_m * clamp(sheen * 2.2, 0.2, 1.0));
 }

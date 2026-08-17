@@ -59,7 +59,7 @@ const SPECIES: Dictionary = {
 	"emperor": {
 		"name": "Emperor",
 		"dorsal": Color(0.13, 0.16, 0.22), "ventral": Color(0.95, 0.94, 0.9),
-		"mantle": Color(0.22, 0.27, 0.36), "ident": Color(1.0, 0.84, 0.55),
+		"mantle": Color(0.115, 0.135, 0.195), "ident": Color(1.0, 0.84, 0.55),
 		"patch": Color(0.98, 0.76, 0.22), "ear_patch": "emperor",
 		"chest_wash": Color(1.0, 0.88, 0.55), "chest_wash_amount": 0.20,
 		"bill_len": 1.0, "bill_hook": true,
@@ -70,7 +70,7 @@ const SPECIES: Dictionary = {
 	"king": {
 		"name": "King",
 		"dorsal": Color(0.16, 0.18, 0.21), "ventral": Color(0.97, 0.95, 0.90),
-		"mantle": Color(0.29, 0.31, 0.37), "ident": Color(0.85, 0.45, 0.85),
+		"mantle": Color(0.145, 0.16, 0.20), "ident": Color(0.85, 0.45, 0.85),
 		"patch": Color(1.0, 0.50, 0.06), "ear_patch": "king",
 		"chest_wash": Color(1.0, 0.62, 0.12), "chest_wash_amount": 0.40,
 		"bill_len": 1.0, "bill_hook": true,
@@ -80,7 +80,7 @@ const SPECIES: Dictionary = {
 	"adelie": {
 		"name": "Adelie",
 		"dorsal": Color(0.06, 0.06, 0.07), "ventral": Color(0.97, 0.97, 0.96),
-		"mantle": Color(0.12, 0.14, 0.20), "ident": Color(0.72, 0.55, 0.30),
+		"mantle": Color(0.07, 0.075, 0.105), "ident": Color(0.72, 0.55, 0.30),
 		"eye_ring": true,
 		"bill_len": 0.62, "bill_girth": 1.12,
 		"bill_color": Color(0.13, 0.11, 0.12), "mandible_color": Color(0.16, 0.13, 0.14),
@@ -90,7 +90,7 @@ const SPECIES: Dictionary = {
 	"gentoo": {
 		"name": "Gentoo",
 		"dorsal": Color(0.10, 0.11, 0.13), "ventral": Color(0.96, 0.96, 0.95),
-		"mantle": Color(0.16, 0.22, 0.32), "ident": Color(0.30, 0.62, 0.92),
+		"mantle": Color(0.095, 0.125, 0.185), "ident": Color(0.30, 0.62, 0.92),
 		"headphone": true,
 		"bill_len": 0.85,
 		"bill_color": Color(0.95, 0.44, 0.10), "mandible_color": Color(0.85, 0.36, 0.10),
@@ -100,7 +100,7 @@ const SPECIES: Dictionary = {
 	"chinstrap": {
 		"name": "Chinstrap",
 		"dorsal": Color(0.12, 0.13, 0.15), "ventral": Color(0.97, 0.96, 0.94),
-		"mantle": Color(0.26, 0.30, 0.39), "ident": Color(0.94, 0.30, 0.34),
+		"mantle": Color(0.13, 0.15, 0.21), "ident": Color(0.94, 0.30, 0.34),
 		"face_white": true, "chinstrap": true,
 		"bill_len": 0.78,
 		"bill_color": Color(0.10, 0.10, 0.12), "mandible_color": Color(0.13, 0.12, 0.14),
@@ -110,7 +110,7 @@ const SPECIES: Dictionary = {
 	"rockhopper": {
 		"name": "Rockhopper",
 		"dorsal": Color(0.16, 0.14, 0.13), "ventral": Color(0.98, 0.95, 0.86),
-		"mantle": Color(0.27, 0.24, 0.21), "ident": Color(0.98, 0.76, 0.20),
+		"mantle": Color(0.15, 0.13, 0.115), "ident": Color(0.98, 0.76, 0.20),
 		"crest": "rockhopper", "crest_color": Color(0.98, 0.82, 0.2),
 		"eye_color": Color(0.50, 0.15, 0.10),
 		"bill_len": 0.80, "bill_girth": 1.1,
@@ -121,7 +121,7 @@ const SPECIES: Dictionary = {
 	"macaroni": {
 		"name": "Macaroni",
 		"dorsal": Color(0.13, 0.11, 0.10), "ventral": Color(0.97, 0.94, 0.88),
-		"mantle": Color(0.19, 0.17, 0.19), "ident": Color(0.32, 0.88, 0.52),
+		"mantle": Color(0.115, 0.10, 0.115), "ident": Color(0.32, 0.88, 0.52),
 		"crest": "macaroni", "crest_color": Color(0.99, 0.66, 0.10),
 		"eye_color": Color(0.55, 0.17, 0.10),
 		"bill_len": 0.92, "bill_girth": 1.15,
@@ -132,7 +132,7 @@ const SPECIES: Dictionary = {
 	"little_blue": {
 		"name": "Little Blue",
 		"dorsal": Color(0.45, 0.53, 0.62), "ventral": Color(0.96, 0.97, 0.97),
-		"mantle": Color(0.41, 0.48, 0.60), "ident": Color(0.40, 0.92, 0.86),
+		"mantle": Color(0.30, 0.36, 0.47), "ident": Color(0.40, 0.92, 0.86),
 		"bill_len": 0.72,
 		"bill_color": Color(0.28, 0.33, 0.40), "mandible_color": Color(0.45, 0.50, 0.56),
 		"foot_color": Color(0.90, 0.80, 0.72),
@@ -505,12 +505,19 @@ static func _plumage_at(y: float, theta_deg: float, pos: Vector3, dorsal: Color,
 	# a featureless egg from the chase camera. It is also where per-racer color
 	# identity lives: each species carries its own mantle hue and value, so you
 	# can tell the eight of them apart at 20 m.
-	var mant := smoothstep(0.14, 0.38, y) * (1.0 - smoothstep(0.62, 0.86, y))
+	# Mantle closes at the shoulder (0.58..0.74, was 0.62..0.86): the old window
+	# let the paler back tone climb the nape, which put a grey halo behind the
+	# ear patch. A real emperor's head and nape are solid black down past the
+	# patch; the pale back starts below the shoulders.
+	var mant := smoothstep(0.14, 0.38, y) * (1.0 - smoothstep(0.58, 0.74, y))
 	var dors := dorsal.lerp(mantle, mant)
-	# Along-length countershading on top of the break: the very top of the back
-	# and the crown catch more sky than the flanks below them.
-	var sheen := clampf((y - 0.28) / 0.72, 0.0, 1.0) * 0.40
-	dors = dors.lerp(dors.lightened(0.12), sheen)
+	# Along-length countershading, cut to a third of its old strength. The old
+	# 0.40 lift baked a pale wash into the upper back -- painted light, and the
+	# single biggest reason the bird read as a powder-blue toy instead of a
+	# black-backed penguin. The satin specular in the shader now carries the
+	# top-light; the albedo stays feather-dark.
+	var sheen := clampf((y - 0.28) / 0.72, 0.0, 1.0) * 0.13
+	dors = dors.lerp(dors.lightened(0.06), sheen)
 	# Structural-color hint: head/neck feathers pick up a faint cool
 	# green-blue cast where the surface grazes the light (the sides) — a
 	# cheap baked stand-in for feather iridescence. Kept subtle so the head
@@ -564,10 +571,16 @@ static func _plumage_at(y: float, theta_deg: float, pos: Vector3, dorsal: Color,
 		# with height so it reads as overlapping feather rows, not a painted
 		# stripe, and the blend band is widened into a soft ~1-2 cm feather
 		# transition instead of a hard color seam.
-		var edge := limit + sin(y * 57.0) * 1.8 + sin(y * 23.0) * 1.2
-		var w := 1.0 - smoothstep(edge - 8.0, edge + 8.0, theta_deg)
+		# Tightened from +-8 deg to +-3.5: the flank line on a real penguin is
+		# razor-crisp -- the wide soft blend read as an airbrushed gradient and
+		# was half of the "blob" complaint. The meander is slightly stronger so
+		# the crisp line still scallops like overlapping feather rows.
+		var edge := limit + sin(y * 57.0) * 2.2 + sin(y * 23.0) * 1.4
+		var w := 1.0 - smoothstep(edge - 3.5, edge + 3.5, theta_deg)
 		# The white shades faintly cooler where it wraps toward the sides.
-		var vent := ventral.lerp(ventral.darkened(0.16), clampf(theta_deg / 90.0, 0.0, 1.0))
+		# Halved from 0.16: with the countershading band narrowed in the
+		# shader, the old darkening left the whole flank of the belly grey.
+		var vent := ventral.lerp(ventral.darkened(0.08), clampf(theta_deg / 90.0, 0.0, 1.0))
 		col = dors.lerp(vent, w)
 		var wash_amount := float(sp.get("chest_wash_amount", 0.0))
 		if wash_amount > 0.0:
@@ -576,20 +589,25 @@ static func _plumage_at(y: float, theta_deg: float, pos: Vector3, dorsal: Color,
 			col = col.lerp(sp.get("chest_wash", Color(1.0, 0.88, 0.55)) as Color, chest * wash_amount)
 	match String(sp.get("ear_patch", "")):
 		"emperor":
-			# Broad ear patch behind the eye with a soft lobe down the neck.
-			var du := (theta_deg - 108.0) / 28.0
-			var dv := (y - 0.83) / 0.075
-			var pm := 1.0 - smoothstep(0.35, 1.0, sqrt(du * du + dv * dv))
-			var du2 := (theta_deg - 70.0) / 30.0
-			var dv2 := (y - 0.755) / 0.06
-			pm = maxf(pm, (1.0 - smoothstep(0.2, 1.0, sqrt(du2 * du2 + dv2 * dv2))) * 0.55)
+			# Auricular patch: ONE tilted golden teardrop behind the eye,
+			# swept down-and-forward toward the throat. Built in a rotated
+			# ellipse frame rather than as two stacked gaussians -- the
+			# two-lobe version printed as a pair of yellow dots with a gap,
+			# which no emperor has ever worn.
+			var pu := (theta_deg - 112.0) / 22.0
+			var pv := (y - 0.798) / 0.085
+			# ~34 deg tilt: patch long axis runs down toward the gape.
+			var ru := pu * 0.83 - pv * 0.56
+			var rv := pu * 0.56 + pv * 0.83
+			# Teardrop: fatter at the top (behind the eye), tapering along the
+			# swept axis toward the throat.
+			var d := sqrt(ru * ru * (1.0 + maxf(-rv, 0.0) * 1.6) + rv * rv * 0.55)
+			var pm := 1.0 - smoothstep(0.58, 0.92, d)
 			if pm > 0.0:
-				col = col.lerp(patch, pm * 0.9)
-				# Bright saturated core with a long soft falloff: the real
-				# emperor patch glows at its center and feathers open toward
-				# the chest wash instead of ending in a painted edge.
-				var core := 1.0 - smoothstep(0.0, 0.55, sqrt(du * du + dv * dv))
-				col = col.lerp(patch.lightened(0.22), core * 0.40)
+				col = col.lerp(patch, pm * 0.96)
+				# Hot saturated core so the patch glows against the cap.
+				var core := 1.0 - smoothstep(0.0, 0.50, d)
+				col = col.lerp(patch.lightened(0.18), core * 0.45)
 		"king":
 			# Slimmer teardrop: tight ellipse behind the eye tapering forward
 			# and down toward the throat, more saturated than emperor.
@@ -656,27 +674,31 @@ static func _build_body_mesh(species_id: String, dorsal: Color, ventral: Color, 
 	if _mesh_cache.has(key):
 		return _mesh_cache[key]
 	var sp: Dictionary = SPECIES[species_id]
+	# Fusiform, not egg. The old profile was widest at y 0.28 and ballooned to
+	# 0.358, which is a bowling pin; a real emperor is a streamlined spindle --
+	# fullest through the lower chest, carrying its width up through the breast,
+	# with a longer, shallower neck into a slightly smaller head. The chase
+	# camera still needs the neck pinch (it is what separates head from body at
+	# 40 m), so it stays, just longer and less abrupt.
 	var ctrl: Array[Vector2] = [
 		Vector2(0.000, 0.030),
-		# Lower skirt tapers inward (~10% slimmer than the old bell) so the
-		# feet read from the chase camera instead of hiding under the belly.
-		Vector2(0.015, 0.100),
-		Vector2(0.050, 0.185),
-		Vector2(0.110, 0.268),
-		Vector2(0.190, 0.332),
-		Vector2(0.280, 0.358),  # widest, below middle
-		Vector2(0.380, 0.344),
-		Vector2(0.480, 0.314),
-		Vector2(0.580, 0.274),
-		Vector2(0.660, 0.236),
-		Vector2(0.716, 0.207),  # neck taper
-		Vector2(0.758, 0.186),  # neck pinch: deep enough that the head reads as
-		Vector2(0.800, 0.207),  # a separate ball at 40 m, where the old shallow
-		Vector2(0.850, 0.222),  # taper made body+head one continuous dark egg
-		Vector2(0.900, 0.204),
-		Vector2(0.940, 0.165),
-		Vector2(0.970, 0.118),
-		Vector2(0.990, 0.062),
+		Vector2(0.015, 0.092),
+		Vector2(0.050, 0.168),
+		Vector2(0.110, 0.242),
+		Vector2(0.190, 0.300),
+		Vector2(0.290, 0.336),  # widest: lower chest, not the skirt
+		Vector2(0.400, 0.330),
+		Vector2(0.500, 0.313),  # breast stays full through the middle
+		Vector2(0.600, 0.281),
+		Vector2(0.680, 0.241),
+		Vector2(0.740, 0.202),
+		Vector2(0.783, 0.184),  # neck pinch: longer and shallower
+		Vector2(0.822, 0.196),
+		Vector2(0.865, 0.212),
+		Vector2(0.910, 0.198),
+		Vector2(0.945, 0.162),
+		Vector2(0.972, 0.115),
+		Vector2(0.990, 0.060),
 		Vector2(1.000, 0.006),  # crown
 	]
 	var profile := _sample_profile(ctrl, 2)
@@ -685,7 +707,7 @@ static func _build_body_mesh(species_id: String, dorsal: Color, ventral: Color, 
 	for p: Vector2 in profile:
 		var y := p.x
 		var r := maxf(p.y, 0.004)
-		var cz := -maxf(0.0, y - 0.70) * 0.16  # head leans gently forward
+		var cz := -maxf(0.0, y - 0.66) * 0.20  # head carried forward of the chest line
 		var ring := PackedVector3Array()
 		var col := PackedColorArray()
 		for i: int in BODY_SEGS:
@@ -711,7 +733,10 @@ static func _build_flipper_mesh(dorsal: Color, ventral: Color, flip: float = 1.0
 	if _mesh_cache.has(key):
 		return _mesh_cache[key]
 	var rows := 14
-	var length := 0.46
+	# Longer, slimmer blade: real emperor flippers reach past the mid-thigh.
+	# The stubby 0.46 paddle read as a decorative flap; the extra length also
+	# gives the swing animation a real arc to sell.
+	var length := 0.56
 	var inner := ventral.darkened(0.05)
 	var rings: Array[PackedVector3Array] = []
 	var colors: Array[PackedColorArray] = []
@@ -720,10 +745,10 @@ static func _build_flipper_mesh(dorsal: Color, ventral: Color, flip: float = 1.0
 		var y := 0.03 - (length + 0.03) * t  # root buried in the shoulder
 		var half_w: float
 		if t < 0.35:
-			half_w = lerpf(0.058, 0.078, t / 0.35)
+			half_w = lerpf(0.060, 0.084, t / 0.35)
 		else:
-			half_w = lerpf(0.078, 0.012, pow((t - 0.35) / 0.65, 1.25))
-		var half_th := lerpf(0.040, 0.012, t)
+			half_w = lerpf(0.084, 0.012, pow((t - 0.35) / 0.65, 1.25))
+		var half_th := lerpf(0.036, 0.010, t)
 		var ring := PackedVector3Array()
 		var col := PackedColorArray()
 		for i: int in FLIPPER_SEGS:
@@ -1040,31 +1065,37 @@ func setup(config: Dictionary) -> void:
 	# Glossy keratin with a warm subsurface flush at the base (derived from
 	# the mandible color, so dark-billed adelies stay near-black while
 	# orange-billed species pick up a live salmon glow at the gape).
-	var bill_h := 0.20 * bill_len
-	var mand_h := 0.15 * bill_len
+	# Longer and slimmer than the old stub: an emperor's bill is a rapier, and
+	# the short fat cone was a duck's. Species factors still scale it.
+	var bill_h := 0.235 * bill_len
+	var mand_h := 0.170 * bill_len
 	var bill_warm := bill_pink.lerp(Color(0.92, 0.55, 0.42), 0.35)
 	var bill_mat := _get_bill_material(bill_dark, bill_warm, -0.35 * bill_h, -0.05 * bill_h, 0.20)
 	var hook_mat := get_material(bill_dark, 0.0, 0.22)
 	var mandible_mat := _get_bill_material(bill_pink, bill_pink.lerp(Color(0.85, 0.38, 0.30), 0.5), -0.35 * mand_h, -0.05 * mand_h, 0.24)
 	var bill_mesh := CylinderMesh.new()
-	bill_mesh.top_radius = 0.005  # sharper tip than the old 0.008 blunt cut
-	bill_mesh.bottom_radius = 0.058 * bill_girth
+	bill_mesh.top_radius = 0.004
+	bill_mesh.bottom_radius = 0.049 * bill_girth
 	bill_mesh.height = bill_h
 	bill_mesh.radial_segments = 24
-	_beak = _mesh(_face_anchor, bill_mesh, bill_dark, Vector3(0, -0.005, -0.058 + 0.10 * (1.0 - bill_len)), Vector3(deg_to_rad(-95), 0, 0), Vector3(1.1, 1.0, 0.62), bill_mat)
+	# Slimmer in plan (1.1 -> 1.0) and slightly deeper in profile (0.62 ->
+	# 0.68), pitched a touch further down: reads as a decurved rapier from the
+	# side instead of a party-hat cone.
+	_beak = _mesh(_face_anchor, bill_mesh, bill_dark, Vector3(0, -0.005, -0.058 + 0.10 * (1.0 - bill_len)), Vector3(deg_to_rad(-97), 0, 0), Vector3(1.0, 1.0, 0.68), bill_mat)
 	if bool(sp.get("bill_hook", false)):
 		var hook_mesh := CylinderMesh.new()
-		hook_mesh.top_radius = 0.002
-		hook_mesh.bottom_radius = 0.018
-		hook_mesh.height = 0.05
+		hook_mesh.top_radius = 0.0018
+		hook_mesh.bottom_radius = 0.015
+		hook_mesh.height = 0.058
 		hook_mesh.radial_segments = 12
-		_mesh(_face_anchor, hook_mesh, bill_dark, Vector3(0, -0.022, -0.148 + 0.20 * (1.0 - bill_len)), Vector3(deg_to_rad(-118), 0, 0), Vector3(0.85, 1.0, 0.7), hook_mat)
+		# Follows the longer bill out: tip droop starts further from the face.
+		_mesh(_face_anchor, hook_mesh, bill_dark, Vector3(0, -0.026, -0.170 + 0.22 * (1.0 - bill_len)), Vector3(deg_to_rad(-121), 0, 0), Vector3(0.8, 1.0, 0.7), hook_mat)
 	var mandible_mesh := CylinderMesh.new()
-	mandible_mesh.top_radius = 0.0045
-	mandible_mesh.bottom_radius = 0.046 * bill_girth
+	mandible_mesh.top_radius = 0.004
+	mandible_mesh.bottom_radius = 0.040 * bill_girth
 	mandible_mesh.height = mand_h
 	mandible_mesh.radial_segments = 20
-	_beak_lower = _mesh(_face_anchor, mandible_mesh, bill_pink, Vector3(0, -0.035, -0.045 + 0.075 * (1.0 - bill_len)), Vector3(deg_to_rad(-100), 0, 0), Vector3(0.9, 1.0, 0.5), mandible_mat)
+	_beak_lower = _mesh(_face_anchor, mandible_mesh, bill_pink, Vector3(0, -0.035, -0.045 + 0.075 * (1.0 - bill_len)), Vector3(deg_to_rad(-102), 0, 0), Vector3(0.86, 1.0, 0.52), mandible_mat)
 
 	# Chinstrap: thin black band tilted so its front arc dips under the chin
 	# across the white throat and cheeks. The rear arc crosses the nape where
