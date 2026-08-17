@@ -65,15 +65,64 @@ void fragment() {
 	float lip = smoothstep(0.58 + lip_n * 0.18, 0.95, UV.x);
 	lip *= 0.75 + 0.25 * smoothstep(0.35, 0.75, value_noise(world_pos.xz * 6.0 + 41.0));
 
-	vec3 col = tint.rgb;
+	// --- depth absorption ---------------------------------------------------
+	// Real glacier ice absorbs red first: the deeper the light has travelled,
+	// the harder the body shifts toward saturated teal-blue and the darker it
+	// gets. The wall base (UV.x 0) reads as deep ice, the crest as young frost.
+	// This gradient is most of the difference between "blue glass slab" and
+	// "cut glacier": a single flat tint has no depth story at all.
+	float depth = 1.0 - clamp(UV.x, 0.0, 1.0);
+	vec3 deep_col = tint.rgb * vec3(0.30, 0.62, 0.86);
+	vec3 col = mix(tint.rgb, deep_col, depth * depth * 0.85);
+
+	// --- fracture veins -----------------------------------------------------
+	// Vertical crevasse lines: noise squashed hard in X so cells stretch into
+	// tall seams. The ridge transform (1-|2n-1|) turns each cell wall into a
+	// thin line; deep, they darken like a crack shadow, and a sparse second
+	// set brightens like a refraction plane catching the sky. Both fade out
+	// near the lip so the frost stays clean.
+	float vein_n = value_noise(vec2((world_pos.x + world_pos.z) * 1.6, world_pos.y * 0.22) + 3.7);
+	float vein = 1.0 - abs(vein_n * 2.0 - 1.0);
+	float crack = smoothstep(0.80, 0.97, vein) * (1.0 - lip);
+	float shine_n = value_noise(vec2((world_pos.x + world_pos.z) * 0.9, world_pos.y * 0.15) + 17.0);
+	float shine = smoothstep(0.90, 0.99, 1.0 - abs(shine_n * 2.0 - 1.0)) * (1.0 - lip);
+	col = mix(col, deep_col * 0.55, crack * 0.6);
+	col = mix(col, strata_tint.rgb, shine * 0.5);
+
 	col = mix(col, strata_tint.rgb, strata);
 	col = mix(col, lip_tint.rgb, lip);
 	ALBEDO = col;
+
+	// --- surface relief -----------------------------------------------------
+	// Broad wind-polished facets: a coarse noise gradient tilts the normal in
+	// world space (tangent-free, same technique as the snow floor), so the sun
+	// lays real moving highlights across the wall instead of one flat sheet of
+	// lighting. Projected into the surface plane and kept small; a wall is
+	// near-vertical, so even modest tilts read strongly in the specular.
+	vec3 geo_n = normalize((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	float fe = 0.3;
+	vec2 fuv = vec2((world_pos.x + world_pos.z) * 0.55, world_pos.y * 0.5);
+	float f0 = value_noise(fuv);
+	float fx = (value_noise(fuv + vec2(fe, 0.0)) - f0) / fe;
+	float fy = (value_noise(fuv + vec2(0.0, fe)) - f0) / fe;
+	vec3 bump = vec3(fx * 0.5, fy * 0.35, fx * 0.5);
+	bump -= geo_n * dot(bump, geo_n);
+	float blen = length(bump);
+	bump *= 0.22 * (1.0 - exp(-blen / 0.22)) / max(blen, 0.0001);
+	NORMAL = normalize(NORMAL + (VIEW_MATRIX * vec4(bump, 0.0)).xyz);
+
 	// Body stays see-through for race readability; rim + lip firm up so the
-	// silhouette of the wall never dissolves against bright snow.
-	ALPHA = clamp(base_alpha + fresnel * rim_strength * 0.25 + lip * 0.22, 0.0, 1.0);
-	ROUGHNESS = mix(0.16, 0.55, max(lip, strata));
+	// silhouette of the wall never dissolves against bright snow. Deep ice is
+	// slightly more opaque: light does not make it through the thick base.
+	ALPHA = clamp(base_alpha + depth * 0.10 + fresnel * rim_strength * 0.25 + lip * 0.22, 0.0, 1.0);
+	// Deep body is wet-glassy; frost lip and strata scatter. Cracks scatter too.
+	ROUGHNESS = mix(mix(0.10, 0.20, depth), 0.55, max(lip, max(strata, crack)));
 	SPECULAR = 0.5;
 	EMISSION = lip_tint.rgb * lip * lip_glow
-			+ vec3(0.7, 0.85, 1.0) * fresnel * rim_strength * 0.08;
+			+ vec3(0.7, 0.85, 1.0) * fresnel * rim_strength * 0.08
+			// Faint internal glow where the body is deepest and the view grazes:
+			// scattered skylight finding its way through the wall. Scaled by the
+			// body colour so it can never glow on a night course beyond what the
+			// scene already put in.
+			+ deep_col * (depth * fresnel * 0.10);
 }
