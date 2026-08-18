@@ -819,3 +819,18 @@ and glacier/iceberg race sims pass. `tests/particle_probe.tscn` reports the
 live state of a course's emitters (present / emitting / where, relative to the
 camera) — a particle layer that exists in the tree but not on screen is
 otherwise pure guesswork.
+
+### Ice walls read as ice, not as blue plastic
+Cropping a race frame at full resolution showed the track edge walls letting
+the raw shapes behind them straight through — a hard-edged lake polygon, a
+terrain facet — which is what made a wall read as a tinted sheet rather than a
+cut glacier face. Two changes:
+- Body opacity up (base_alpha 0.72 -> 0.86) and the depth ramp steeper, so the
+  base (thickest ice) is nearly opaque and only the crest stays translucent.
+  Thick ice is not window glass.
+- Trapped-air bubble speckle: sparse bright specks through the body, denser
+  toward the base where the ice is oldest, faded out between 14 and 34 m so a
+  distant wall stays a clean sheet instead of crawling with noise. Up close it
+  is the single most identifiable thing about glacier ice.
+Checked on both a bright course and a night course (qa_shots/walls/): the
+higher opacity does not crush aurora's walls to black.
