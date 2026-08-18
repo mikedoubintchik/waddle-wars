@@ -90,6 +90,13 @@ const PROBE_FLAGS: PackedStringArray = [
 	"ua2",  # unshaded two-sided alpha
 	"ua",  # unshaded flat alpha (splat discs, shadow blobs)
 	"uav",  # unshaded vertex-coloured alpha (tutorial arrows, trails)
+	# Added with the atmosphere layers. Each of these is a feature combination
+	# no other material in the game asks for, so without an entry here its
+	# program is linked the first frame the effect is visible -- which on
+	# Chrome's ANGLE path is a multi-millisecond stall in the opening seconds
+	# of a race, exactly where it is most noticeable.
+	"ua+v2",  # SunShafts: additive two-sided vertex-coloured blades
+	"uabkt",  # spindrift / near-camera flakes: alpha keep-scale billboards
 ]
 
 ## Kept for the session so the linked programs are never refcounted away.
