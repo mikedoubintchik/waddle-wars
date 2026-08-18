@@ -18,6 +18,12 @@ var _samples: int = 0
 var _last_distance: float = 0.0
 var _stalled_for: float = 0.0
 var _reported: bool = false
+var _probes: Array[Dictionary] = []
+var _last_probe: float = 0.0
+
+
+func player_distance() -> float:
+	return _game.player.distance if _game != null and _game.player != null else 0.0
 
 
 func _ready() -> void:
@@ -44,6 +50,21 @@ func _process(delta: float) -> void:
 	var nodes := _count(_game)
 	_peak_nodes = maxi(_peak_nodes, nodes)
 	_samples += 1
+	# Node count alone does not catch a leak: a freed chunk still leaks if its
+	# meshes, materials or images are referenced somewhere. Sample the engine's
+	# own counters so a growing run shows up as a trend rather than a crash
+	# twenty minutes later in someone's browser tab.
+	if _elapsed - _last_probe > 10.0:
+		_last_probe = _elapsed
+		_probes.append({
+			"t": _elapsed,
+			"m": player_distance(),
+			"objects": int(Performance.get_monitor(Performance.OBJECT_COUNT)),
+			"resources": int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)),
+			"nodes": int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
+			"static_mb": Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0,
+			"vram_mb": Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0,
+		})
 
 	# Progress test: distance must actually advance once the countdown is over.
 	if _game.running:
@@ -102,6 +123,25 @@ func _report(reason: String) -> void:
 	if mission_rows.size() != 3:
 		_fail("expected 3 live missions, got %d" % mission_rows.size())
 		return
+	for probe: Dictionary in _probes:
+		print("[runner_sim] t=%5.0fs %6.0fm  objects %6d  resources %5d  nodes %5d  static %6.1f MB  vram %6.1f MB"
+			% [probe["t"], probe["m"], probe["objects"], probe["resources"],
+				probe["nodes"], probe["static_mb"], probe["vram_mb"]])
+	# Leak assertion: compare the first and last probe once the run is long
+	# enough for streaming to have recycled many times. Resources are the
+	# telling number — a chunk whose meshes are still referenced after the node
+	# is freed shows up here and nowhere else.
+	if _probes.size() >= 4:
+		var first: Dictionary = _probes[1]
+		var last: Dictionary = _probes[_probes.size() - 1]
+		var growth := float(last["resources"]) - float(first["resources"])
+		var span := float(last["t"]) - float(first["t"])
+		print("[runner_sim] resource growth %+.0f over %.0fs (%.2f/s), static %+.1f MB"
+			% [growth, span, growth / maxf(span, 1.0),
+				float(last["static_mb"]) - float(first["static_mb"])])
+		if growth / maxf(span, 1.0) > 3.0:
+			_fail("resources growing %.2f/s — this is the browser-tab leak" % (growth / span))
+			return
 	print("[runner_sim] PASS")
 	get_tree().quit(0)
 

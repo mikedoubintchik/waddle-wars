@@ -17,12 +17,22 @@ var gap: float = RunnerConfig.CHASER_BASE_GAP
 var _puffs: MultiMeshInstance3D = null
 var _face: MeshInstance3D = null
 var _caught: bool = false
+var _overrunning: bool = false
+var _overrun_speed: float = 0.0
 var _time: float = 0.0
 
 
 func setup() -> void:
 	if GameConfig.is_headless():
 		return
+	# Park the wall where it belongs BEFORE the first tick. tick() only runs
+	# once the countdown finishes, so a node left at its default position sat
+	# at the world origin — which is exactly where the player and the camera
+	# start. The mode therefore opened on a wall of white snow filling the
+	# screen, with the countdown drawn over it, and cleared only when the run
+	# began. On the web build, where those frames last much longer, it was the
+	# first thing anyone saw of Waddle Run.
+	position = Vector3(0.0, 0.0, RunnerConfig.CHASER_BASE_GAP)
 	# A dark, cold slab as the body of the wall, so the silhouette reads even
 	# against a white course; the billowing puffs ride in front of it.
 	_face = MeshInstance3D.new()
@@ -70,6 +80,8 @@ func setup() -> void:
 ## `player_distance` is how far the player has run; `pressure` is 0..1, how
 ## hard the wall is currently pushing (the run raises it per hit).
 func tick(delta: float, player_distance: float, pressure: float) -> void:
+	if _overrunning:
+		return
 	_time += delta
 	# The gap recovers toward its base whenever the player is running clean,
 	# so a single mistake is survivable and three in quick succession are not.
@@ -86,6 +98,28 @@ func tick(delta: float, player_distance: float, pressure: float) -> void:
 		caught.emit()
 
 
+## Death sequence: the wall stops being a distant threat and rolls straight
+## over the camera. A run that simply halts reads as the game breaking — the
+## most common complaint about this mode was "it just stops" — and the fix is
+## not a better panel, it is showing the player the thing that ate them.
+func overrun() -> void:
+	_overrunning = true
+
+
+func _process(delta: float) -> void:
+	if not _overrunning:
+		return
+	# Accelerate through the player rather than easing to a stop, so the frame
+	# fills with snow and the results panel lands on top of that rather than on
+	# a frozen world.
+	_overrun_speed = minf(_overrun_speed + delta * 34.0, 26.0)
+	global_position.z -= _overrun_speed * delta
+	if _puffs != null:
+		_puffs.scale = _puffs.scale.lerp(Vector3(1.5, 1.6, 1.5), clampf(delta * 2.4, 0.0, 1.0))
+
+
 func reset() -> void:
 	_caught = false
+	_overrunning = false
+	_overrun_speed = 0.0
 	gap = RunnerConfig.CHASER_BASE_GAP
