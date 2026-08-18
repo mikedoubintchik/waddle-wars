@@ -843,7 +843,8 @@ func build_environment(params: Dictionary) -> void:
 		_add_spindrift(params)
 		await stage()
 	if bool(params.get("clouds", false)) and not GameConfig.is_headless():
-		await _add_clouds(params.get("cloud_color", Color(1.0, 1.0, 1.0, 0.75)))
+		await _add_clouds(params.get("cloud_color", Color(1.0, 1.0, 1.0, 0.75)),
+			params.get("sky_horizon", Color(0.75, 0.88, 0.98)))
 		await stage()
 	# The skyline runs LAST, after the whole course build has returned: several
 	# courses lay their ocean / ice sheet down AFTER build_environment (iceberg
@@ -866,7 +867,10 @@ func build_environment(params: Dictionary) -> void:
 ## fifteen MeshInstance3Ds for a fifth of the puffs) and two cached materials.
 ## The fine structure of the sky is the panorama in the sky material; these are
 ## the near, parallaxing clouds in front of it.
-func _add_clouds(color: Color) -> void:
+## `horizon` is the sky's horizon tint; the far band is mixed toward it, which
+## is what makes distant cloud read as distant rather than as more of the same
+## cloud drawn smaller.
+func _add_clouds(color: Color, horizon: Color = Color(0.75, 0.88, 0.98)) -> void:
 	var puff_mesh := QuadMesh.new()
 	puff_mesh.size = Vector2(1.0, 0.62)
 	# Base puffs read cooler and heavier than the sunlit crown: a cumulus with
@@ -874,6 +878,14 @@ func _add_clouds(color: Color) -> void:
 	var shade := Color(color.r * 0.82, color.g * 0.86, color.b * 0.96, color.a * 0.92)
 	var crown_mat := VisualLibrary.billboard_puff_material(color, 64, 0.85, true)
 	var base_mat := VisualLibrary.billboard_puff_material(shade, 64, 0.8, true)
+	# Far band: big, hazy, high cumulus parked well outside the course, mixed
+	# most of the way to the horizon tint. The near clusters alone left the
+	# middle of the sky empty between the horizon and the zenith, and an empty
+	# sky is the fastest way to make a big outdoor scene feel small.
+	var far_col := color.lerp(horizon, 0.62)
+	far_col.a = color.a * 0.42
+	var far_mat := VisualLibrary.billboard_puff_material(far_col, 64, 0.9, true)
+	var far_puffs: Array[Transform3D] = []
 	var crown: Array[Transform3D] = []
 	var base: Array[Transform3D] = []
 	var clusters := 7
@@ -881,11 +893,16 @@ func _add_clouds(color: Color) -> void:
 		var anchor := Vector3.ZERO
 		if main_guide != null:
 			anchor = main_guide.position_at(main_guide.length * (float(i) + 0.5) / float(clusters))
-		var spread := rng.randf_range(85.0, 165.0)
+		# Altitude and size raised together. At 115-225 m over the deck these
+		# clusters were closer than the mountains, and from a camera looking
+		# even slightly up each puff resolved into its own flat ellipse -- a row
+		# of blurry ovals hanging over the track. Cumulus belong several hundred
+		# metres up; at that distance the same puffs fuse into a mass.
+		var spread := rng.randf_range(190.0, 330.0)
 		var center := anchor + Vector3(
-			rng.randf_range(-340.0, 340.0),
-			rng.randf_range(115.0, 225.0),
-			rng.randf_range(-260.0, 260.0))
+			rng.randf_range(-620.0, 620.0),
+			rng.randf_range(430.0, 780.0),
+			rng.randf_range(-520.0, 520.0))
 		# Flat base line, domed crown: puff centres are laid out on an ellipse
 		# for the base and a tighter, higher ellipse for the crown, with size
 		# falling off from the middle of the cluster outward.
@@ -906,6 +923,33 @@ func _add_clouds(color: Color) -> void:
 				center + Vector3(t * spread * stretch * 0.4,
 					spread * rng.randf_range(0.22, 0.5) * (1.0 - absf(t) * 0.5),
 					rng.randf_range(-spread * 0.25, spread * 0.25))))
+	# Every puff of a band rides one MultiMesh, so the far band costs one extra
+	# draw call for the whole sky however many puffs it holds.
+	var far_clusters := 9 if String(SettingsManager.get_setting("display", "quality_preset")) != "low" else 5
+	for i: int in far_clusters:
+		var bearing := TAU * (float(i) + rng.randf_range(0.0, 0.55)) / float(far_clusters)
+		# Far means FAR. At 800-1500 m these were big enough that each puff read
+		# as its own flat ellipse -- a row of blurry ovals rather than a cloud
+		# mass. Pushed out past the skyline bands they subtend a small enough
+		# angle to fuse.
+		var away := rng.randf_range(2300.0, 3900.0)
+		var anchor := Vector3.ZERO
+		if main_guide != null:
+			anchor = main_guide.position_at(main_guide.length * rng.randf())
+		var center := Vector3(anchor.x + cos(bearing) * away,
+			rng.randf_range(150.0, 380.0),
+			anchor.z + sin(bearing) * away)
+		var spread := rng.randf_range(260.0, 520.0)
+		var stretch2 := rng.randf_range(1.6, 2.8)
+		for j: int in 7:
+			var t := (float(j) / 6.0 - 0.5) * 2.0
+			var size := spread * (1.0 - absf(t) * 0.42) * rng.randf_range(0.8, 1.2)
+			far_puffs.append(Transform3D(
+				Basis.IDENTITY.scaled(Vector3(size, size, 1.0)),
+				center + Vector3(t * spread * stretch2 * 0.45,
+					rng.randf_range(-spread * 0.12, spread * 0.2),
+					rng.randf_range(-spread * 0.25, spread * 0.25))))
+	_add_puff_layer("CloudFar", puff_mesh, far_mat, far_puffs)
 	_add_puff_layer("CloudBase", puff_mesh, base_mat, base)
 	await stage()
 	_add_puff_layer("CloudCrown", puff_mesh, crown_mat, crown)

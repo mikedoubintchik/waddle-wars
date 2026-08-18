@@ -42,6 +42,9 @@ func _ready() -> void:
 			"offset": _offset = float(parts[1])
 	DisplayServer.window_set_size(Vector2i(width, height))
 	DisplayServer.window_set_position(Vector2i(40, 60))
+	# An occluded window never draws, and a harness that waits on
+	# frame_post_draw then hangs forever with no output. Raise it.
+	DisplayServer.window_move_to_foreground()
 
 	var info := CoursesDB.get_item(_course_id)
 	var script: GDScript = load(String(info.get("script", "")))

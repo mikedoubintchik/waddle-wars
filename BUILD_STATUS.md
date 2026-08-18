@@ -858,3 +858,35 @@ Also fixed `tests/pose_check.tscn`, which had started hanging forever with no
 output: it never positioned its window, and an occluded window never draws, so
 its `await RenderingServer.frame_post_draw` never resumed. It now places the
 window on screen and has a 20 s watchdog that fails loudly instead of hanging.
+
+### Sky depth: cumulus moved up and out, plus a far band
+Two problems in one pass, both visible the moment a capture points the camera
+slightly upward:
+- The near cumulus clusters sat 115-225 m over the deck — closer than the
+  course's own mountains. From any camera looking up, each puff resolved into
+  its own flat ellipse: a row of blurry ovals hanging over the track. They now
+  sit 430-780 m up and are scaled to match, at which distance the same puffs
+  fuse into a mass.
+- Nothing occupied the sky between the horizon and the zenith. A new far band
+  (9 clusters, 2300-3900 m out, mixed 62% toward the course's own horizon tint)
+  fills it. Distance is what does the work: the first attempt put the band at
+  800-1500 m and it read as exactly the same row of ovals, just bigger.
+
+Both bands ride one MultiMesh each, so the whole sky is three draw calls.
+
+### QA note: browser-automation timings are not a performance signal
+A live Chrome run of this build sat on the loading screen for over a minute,
+and `?profile=1` reported `FIRST DRAWS (gpu) 29039 ms (3 frames)` on the TITLE
+scene. The renderer is genuinely a real GPU (ANGLE Metal on an M2, confirmed
+through WEBGL_debug_renderer_info), so ~10 s per frame is Chrome throttling a
+window that is not visible on screen, not a build regression. Menu frame times
+in the same session read 60 fps once frames were being presented normally.
+Judge frame cost from the local build or a foreground browser window; treat
+automation timings as a functional check only.
+
+Two harness fixes came out of the same session: capture harnesses now place
+AND raise their window (an occluded window never draws, so the await on
+frame_post_draw hangs forever with no output), and `pose_check` gained a 20 s
+watchdog that fails loudly instead. Also worth remembering: a stale/wedged
+godot process from an earlier run makes every later capture appear to hang —
+check `ps` before believing a new hang.
