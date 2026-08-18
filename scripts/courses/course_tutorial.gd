@@ -37,14 +37,17 @@ func build_course() -> void:
 		p(0, 6, -660, {"width": 18.0}),
 		p(0, 6, -700, {"width": 18.0}),
 	]
-	setup_main(pts)
+	await setup_main(pts)
+	await stage()
 	finalize()
+	await stage()
 
 	# Slalom gates (poles planted on the deck rather than resting exactly on it).
 	for gate: Array in [[80.0, -4.0], [110.0, 4.0], [140.0, -4.0]]:
 		var xform := main_guide.transform_at(float(gate[0]))
 		TrackBuilder.add_flag(self, seat_dressing(xform, float(gate[1]) - 2.5, 3.0), Color(0.3, 0.8, 0.4))
 		TrackBuilder.add_flag(self, seat_dressing(xform, float(gate[1]) + 2.5, 3.0), Color(0.3, 0.8, 0.4))
+	await stage()
 
 	# Jump bars: low walls to hop over (thin, forgiving).
 	var jump_offset := _offset_near(Vector3(0, 17, -210))
@@ -67,12 +70,14 @@ func build_course() -> void:
 		bar.transform = Transform3D(xform.basis, xform.origin + Vector3.UP * 0.3)
 		add_child(bar)
 		add_hint(jump_offset + float(i) * 26.0 - 12.0, "jump")
+	await stage()
 
 	# Slide tunnel.
 	var tunnel_offset := _offset_near(Vector3(0, 16, -280))
 	TrackBuilder.add_overhead_bar(self, main_guide, tunnel_offset)
 	TrackBuilder.add_overhead_bar(self, main_guide, tunnel_offset + 18.0)
 	add_hint(tunnel_offset - 35.0, "slide", tunnel_offset + 30.0)
+	await stage()
 
 	# Item box row for the item lesson.
 	add_item_row(_offset_near(Vector3(0, 11, -520)) - 20.0)
@@ -80,11 +85,13 @@ func build_course() -> void:
 	add_fish_line(_offset_near(Vector3(0, 15, -340)), 8, 5.0, 0.0)
 	add_fish_line(_offset_near(Vector3(0, 8, -600)), 8, 5.0, 0.0)
 	add_hint(_offset_near(Vector3(0, 8, -600)) - 10.0, "slide", _offset_near(Vector3(0, 6, -660)))
+	await stage()
 
 	# Ice sheet below the schoolyard ridge. Laid down before the dressing runs
 	# so every far-field prop can seat itself on it (see CourseBase.ground_plane_y).
 	add_ground_plane(-10.0, Color(0.9, 0.94, 0.99), 4000.0,
 		VisualLibrary.snow_material(Color(0.9, 0.94, 0.99), 0.4))
+	await stage()
 
 	# Friendly scenery.
 	var rng2 := RandomNumberGenerator.new()
@@ -96,11 +103,12 @@ func build_course() -> void:
 		var lateral := (track_edge_lateral(main_guide, offset, side, 10.0) + 1.4) * side
 		TrackBuilder.add_spectator(self, seat_dressing(xform, lateral, 1.6, GROUND_SHOULDER, 0.05),
 			xform.origin, rng2)
-	_decorate()
+	await _decorate()
+	await stage()
 	# Warm, friendly schoolyard grade: brighter and gentler than the race
 	# courses — pastel morning sky, a soft golden sun, low contrast, light
 	# haze, cream clouds and a ring of pale bergs so the horizon isn't empty.
-	build_environment({
+	await build_environment({
 		"sky_top": Color(0.3, 0.62, 0.94),
 		"sky_horizon": Color(0.9, 0.95, 1.0),
 		"ground_color": Color(0.62, 0.75, 0.9),
@@ -153,9 +161,13 @@ func _decorate() -> void:
 	elif quality == "low":
 		density = 0.5
 	_decorate_stations()
+	await stage()
 	_decorate_drifts(density)
+	await stage()
 	_decorate_crystals(density)
+	await stage()
 	_decorate_boulders(density)
+	await stage()
 
 	# Baked contact shadows, flushed last so every pass above has had its chance
 	# to register one. Nothing on this course casts a real shadow (all dressing

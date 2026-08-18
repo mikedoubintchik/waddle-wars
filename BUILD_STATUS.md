@@ -717,3 +717,43 @@ and the mesh data proved the colors were fine -- the elevated QA camera saw
 mostly snow crowns, and the first rock albedo (0.42,0.45,0.52) was so bright
 and blue that lit flanks converged with the snow. Judge rocks from racer
 height, and author rock albedo dark and WARM (now 0.29,0.27,0.26).
+
+### The loading indicator no longer freezes: staged course construction
+Reported: "the loading indicator pretty much freezes right away." Reproduced
+in Chrome — the loader penguin stops mid-hop over the difficulty screen and
+holds there until the race appears.
+
+Cause is structural, not a bug in the loader. The web export is single-
+threaded WASM: a course was built inside ONE frame, so nothing rendered —
+loading animation included — until construction finished. Worst case
+(iceberg) measured 130 ms of unbroken main-thread work headless, where
+headless does not even run `_decorate`; with dressing, environment and
+skyline the real figure was several times that, and the fattest single piece
+(`_build_far_field`, ~130 ms of tessellated massifs) ran on a `call_deferred`
+that landed one frame PAST the end of the build, i.e. exactly as the overlay
+began to lift.
+
+Courses now build in slices. `CourseBase.stage()` is a yield point that only
+suspends once the frame budget (8 ms) is spent, so builds are sprinkled with
+`await stage()` — between construction phases, between dressing passes, inside
+the ribbon's mesh phases, per skyline station, per spectator. Off web it never
+suspends at all, which keeps every headless sim and QA harness byte-for-byte
+synchronous. `_build_far_field` moved inside the build, so the skyline is part
+of what the overlay waits for instead of a stall after it.
+
+The eight racers were the second stall: each penguin is procedural geometry
+assembled at spawn (~5 ms native each) and all eight were built in a single
+deferred flush. RaceManager now drains its spawn queue two per frame on the
+staged path, with grid placement queued behind them so ordering is unchanged.
+
+SceneRouter holds its overlay for the whole thing (`_scene_is_building`, was
+`_scene_is_warming`) rather than fading after three frames, and Race awaits
+`course.build_ready()` before touching geometry.
+
+Evidence (`tests/build_timing.tscn`, this machine, `--` `staged=1`, windowed so
+dressing and skyline are included): worst uninterrupted main-thread slice per
+course went from one 750 ms block (glacier, whole build) to 59 ms, aurora
+145 ms → 75 ms, iceberg 130 ms → 60 ms. Headless race sims on all five
+courses, tutorial, endless and the 107 unit tests still pass unchanged, and
+`WW_STAGED=1` forces the staged path locally: staged race captures on glacier
+and aurora build complete courses (qa_shots/staged/).

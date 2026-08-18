@@ -71,7 +71,8 @@ func build_course() -> void:
 		p(0, 0.5, -1420, {"width": 18.0, "surface": ICE}),
 		p(0, 0, -1470, {"width": 18.0}),
 	]
-	setup_main(pts)
+	await setup_main(pts)
+	await stage()
 
 	# Cracking-ice shortcut: cuts the safe loop, narrow smooth ice.
 	var branch_pts: Array = [
@@ -82,12 +83,15 @@ func build_course() -> void:
 		p(-4, 45, -790, {"width": 8.0, "surface": ICE, "wall_l": false, "wall_r": false}),
 		p(0, 41.8, -872, {"width": 10.0, "surface": ICE, "wall_l": false, "wall_r": false}),
 	]
-	var shortcut := add_branch(branch_pts, 0.65, "cracking_ice")
+	var shortcut := await add_branch(branch_pts, 0.65, "cracking_ice")
+	await stage()
 
 	finalize()
+	await stage()
 
 	# --- Track furniture ----------------------------------------------------
 	var tunnel_offset := _offset_near(Vector3(0, 50.3, -620))
+	await stage()
 
 	# --- Hints for AI (offsets computed from geometry, not guessed) ---------
 	add_hint(tunnel_offset - 40.0, "slide", tunnel_offset + 40.0)  # low tunnel
@@ -102,6 +106,7 @@ func build_course() -> void:
 	var downhill_offset := _offset_near(Vector3(-10, 33, -1220))
 	TrackBuilder.add_boost_pad(self, main_guide, downhill_offset + 20.0, -3.0)
 	TrackBuilder.add_boost_pad(self, main_guide, downhill_offset + 60.0, 3.0)
+	await stage()
 
 	# More acceleration pads: the opening-dip exit (launch through the roll
 	# crest) and both uphill starts (cave climb, deep-snow climb) so held
@@ -117,6 +122,7 @@ func build_course() -> void:
 	add_hint(open_dip - 5.0, "slide", dip_exit + 5.0)
 	add_hint(_offset_near(Vector3(4, 44, -1150)) + 5.0, "slide", final_downhill - 10.0)
 	add_hint(_offset_near(Vector3(0, 0.5, -1420)) - 5.0, "slide", finish_offset)
+	await stage()
 
 	# Rolling snowballs on the wide descending slope: two lanes, offset
 	# timing, plus AI danger hints steering bots toward the safe side.
@@ -130,6 +136,7 @@ func build_course() -> void:
 	add_child(ball_b)
 	add_hint(snowball_slope_start - 30.0, "danger_left", snowball_slope_start + 40.0)
 	add_hint(snowball_slope_start + 40.0, "danger_right", snowball_slope_end)
+	await stage()
 
 	# Cracking ice tiles bridge the shortcut's crevasse: speed is safety.
 	var gap_start := float(shortcut.nearest(Vector3(-4, 47, -724), -1)["offset"]) - 6.0
@@ -142,22 +149,28 @@ func build_course() -> void:
 		tile_offset += 5.8
 	# Shortcut-survivor reward: a boost pad on solid ice past the crevasse.
 	TrackBuilder.add_boost_pad(self, shortcut, gap_end + 12.0)
+	await stage()
 
 	# Item rows and fish.
 	add_item_row(120.0)
 	add_item_row(_offset_near(Vector3(-6, 44, -420)) - 10.0)
 	add_item_row(_offset_near(Vector3(12, 42.5, -840)))
 	add_item_row(_offset_near(Vector3(4, 44, -1150)))
+	await stage()
 	add_snowball_row(160.0)
 	add_snowball_row(_offset_near(Vector3(-6, 44, -420)) + 25.0)
 	add_snowball_row(_offset_near(Vector3(4, 44, -1150)) - 35.0)
+	await stage()
 	add_fish_line(70.0, 6, 5.0, 0.0)
 	add_fish_line(200.0, 8, 5.0, -4.0)
 	add_fish_line(340.0, 8, 5.0, 4.0)
+	await stage()
 	add_fish_line(_offset_near(Vector3(8, 49, -460)), 10, 4.5, 0.0)
 	add_fish_line(20.0, 8, 6.0, 0.0, 0.0, shortcut)  # reward the shortcut
+	await stage()
 	add_fish_line(_offset_near(Vector3(-8, 36.5, -950)), 10, 5.0, -5.0)
 	add_fish_line(_offset_near(Vector3(-16, 18, -1290)), 12, 5.5, 0.0)
+	await stage()
 
 	_retint_track_walls()
 	# Frozen lake sheet first: the mountains, lake cracks and sun-glint bands
@@ -166,13 +179,15 @@ func build_course() -> void:
 	# the additive sun-glint bands placed by _decorate_sun_glint().
 	add_ground_plane(-24.0, Color(0.78, 0.86, 0.97), 4000.0,
 		VisualLibrary.snow_material(Color(0.78, 0.86, 0.97), 0.5))
-	_decorate()
+	await stage()
+	await _decorate()
+	await stage()
 	# Sunny alpine postcard in late-morning light: rich cobalt sky deepening
 	# overhead, a warm lower sun raking long shadows off drifts, sastrugi and
 	# ridgelines (real form modeling instead of flat noon light), cool
 	# sky-fill shadows, restrained ambient/exposure so snow stays textured
 	# instead of blowing out, cream clouds for depth.
-	build_environment({
+	await build_environment({
 		"sky_top": Color(0.05, 0.24, 0.7),
 		"sky_horizon": Color(0.6, 0.8, 0.98),
 		"ground_color": Color(0.42, 0.6, 0.84),
@@ -256,26 +271,44 @@ func _decorate() -> void:
 	var icicle_transforms: Array[Transform3D] = []
 	# Wildlife FIRST: every pass below checks against where the bears ended up,
 	# so no boulder, drift, route flag or spectator is ever placed inside one.
-	_decorate_wildlife(density)
+	await _decorate_wildlife(density)
+	await stage()
 	_decorate_flags()
+	await stage()
 	_decorate_cave(crystal_transforms, icicle_transforms)
+	await stage()
 	_decorate_scatter(density, crystal_transforms)
+	await stage()
 	_decorate_snowbanks(density)
+	await stage()
 	_decorate_sastrugi(density)
+	await stage()
 	_decorate_walkways()
-	_decorate_spectators(density)
+	await stage()
+	await _decorate_spectators(density)
+	await stage()
 	_decorate_mountains()
+	await stage()
 	_decorate_cliffs(density)
+	await stage()
 	if OS.get_environment("DBG_NO_ICEFALL") == "":
 		_decorate_icefall()
+		await stage()
 	_dbg_camera()
 	_decorate_boulders(density)
+	await stage()
 	_decorate_cave_glints(density)
+	await stage()
 	_decorate_crevasse_cracks()
+	await stage()
 	_decorate_lake_cracks()
+	await stage()
 	_decorate_fog(density)
+	await stage()
 	_decorate_sun_glint()
+	await stage()
 	_decorate_birds()
+	await stage()
 
 	# One shared multimesh for every ice crystal cluster on the course, plus a
 	# second for hanging icicles (same mesh flipped in the instance transform).
@@ -285,6 +318,7 @@ func _decorate() -> void:
 	crystal_mat.metallic = 0.05
 	_add_multimesh(VisualLibrary.ice_crystal_mesh(), crystal_transforms, crystal_mat, "IceCrystals")
 	_add_multimesh(VisualLibrary.ice_crystal_mesh(), icicle_transforms, crystal_mat, "Icicles")
+	await stage()
 
 	# Baked contact shadows, flushed last so every pass above has had its chance
 	# to register one. gl_compatibility has no SSAO, and without an occlusion
@@ -819,6 +853,7 @@ func _decorate_spectators(density: float) -> void:
 		var start_pos := seat_dressing(near_start, lateral, 1.6, GROUND_SHOULDER, 0.05)
 		if _clear_of_wildlife(start_pos, 2.4):
 			TrackBuilder.add_spectator(self, start_pos, near_start.origin, rng)
+		await stage()
 	var finish_count := maxi(int(14.0 * density), 6)
 	for i: int in finish_count:
 		var finish_arc := finish_offset - rng.randf_range(5.0, 70.0)
@@ -829,6 +864,7 @@ func _decorate_spectators(density: float) -> void:
 		var finish_pos := seat_dressing(near_finish, lateral, 1.6, GROUND_SHOULDER, 0.05)
 		if _clear_of_wildlife(finish_pos, 2.4):
 			TrackBuilder.add_spectator(self, finish_pos, near_finish.origin, rng)
+		await stage()
 	var overlook := _offset_near(Vector3(38, 46, -740))
 	var overlook_count := maxi(int(7.0 * density), 3)
 	for _i: int in overlook_count:

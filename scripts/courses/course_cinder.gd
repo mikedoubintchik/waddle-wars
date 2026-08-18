@@ -111,7 +111,8 @@ func build_course() -> void:
 		p(0, 2.0, -1440, {"width": 18.0}),
 		p(0, 2.0, -1500, {"width": 18.0}),
 	]
-	setup_main(pts)
+	await setup_main(pts)
+	await stage()
 
 	# Crust shortcut: a mineral sinter shelf running inland across a boiling
 	# mud pool. Narrow, no walls, and the pool span has no floor at all — only
@@ -124,9 +125,11 @@ func build_course() -> void:
 		p(18, 11.5, -412, {"width": 8.0, "surface": ICE, "wall_l": false, "wall_r": false}),
 		p(24, 10.9, -468, {"width": 10.0, "surface": ICE, "wall_l": false, "wall_r": false}),
 	]
-	var shortcut := add_branch(branch_pts, 0.6, "crust_shelf")
+	var shortcut := await add_branch(branch_pts, 0.6, "crust_shelf")
+	await stage()
 
 	finalize()
+	await stage()
 
 	# --- Geometry-derived offsets ------------------------------------------
 	var ramp := _offset_near(Vector3(2, 22, -95))
@@ -140,6 +143,7 @@ func build_course() -> void:
 	var ridge_crest := _offset_near(Vector3(4, 21.0, -1110))
 	var chute_start := _offset_near(Vector3(-14, 20.0, -1160))
 	var chute_end := _offset_near(Vector3(-6, 2.5, -1385))
+	await stage()
 
 	# --- Steam lagoon: three drifting floes ---------------------------------
 	# The first floe is anchored (fast ice) so the crossing is survivable at
@@ -155,6 +159,7 @@ func build_course() -> void:
 			{"heave": 0.26, "heave_freq": 0.55, "yaw_deg": 6.0, "yaw_freq": 0.42, "variance": 0.12, "seed": 140 + i})
 		floe.position = Vector3(1.0, 9.0, -599.0 - 10.0 * float(i))
 		add_child(floe)
+	await stage()
 
 	# --- Fumarole flat: six steam vents, staggered lanes and phases ---------
 	# Laterals stay inside +/-5 on a 20-22m deck: a vent near the edge throws
@@ -170,6 +175,7 @@ func build_course() -> void:
 		var vent_offset := minf(flat_start + 24.0 + float(i) * 28.0, flat_end - 14.0)
 		vent.position = main_guide.point_at(vent_offset, float(vent_laterals[i]), 0.0)
 		add_child(vent)
+	await stage()
 
 	# --- Basking seals on the warm sand -------------------------------------
 	# Geothermal ground is where seals actually haul out, so the shore arc is
@@ -186,6 +192,7 @@ func build_course() -> void:
 		seal.configure(main_guide, seal_offset, float(data["sweep"]), float(data["speed"]))
 		add_child(seal)
 		add_hint(seal_offset - 35.0, String(data["hint"]), seal_offset + 8.0)
+	await stage()
 
 	# --- Cracking crust over the mud pool -----------------------------------
 	var pool_start := float(shortcut.nearest(Vector3(16, 12.2, -352), -1)["offset"]) - 6.0
@@ -203,6 +210,7 @@ func build_course() -> void:
 	var branch_entry := float(branches[0]["entry"])
 	var branch_exit := float(branches[0]["exit"])
 	add_hint(branch_entry + 8.0, "slide", branch_exit - 8.0, 0)
+	await stage()
 
 	# --- Slide hints ---------------------------------------------------------
 	# Every authored ice run gets one, and only ice runs get one: sliding on
@@ -213,6 +221,7 @@ func build_course() -> void:
 	# The chute is long enough that a racer respawning inside it needs to
 	# re-acquire the hint rather than waddle the rest of the drop.
 	add_hint(_offset_near(Vector3(-26, 9.5, -1275)), "slide", chute_end + 10.0)
+	await stage()
 
 	# --- Boost pads ----------------------------------------------------------
 	# All on straights pointing down-track, clear of the vent lanes, the floe
@@ -224,6 +233,7 @@ func build_course() -> void:
 	TrackBuilder.add_boost_pad(self, main_guide, ash_start - 8.0)
 	TrackBuilder.add_boost_pad(self, main_guide, chute_start + 30.0, -3.0)
 	TrackBuilder.add_boost_pad(self, main_guide, chute_start + 78.0, 3.0)
+	await stage()
 
 	# --- Pickups -------------------------------------------------------------
 	add_item_row(115.0)
@@ -244,6 +254,7 @@ func build_course() -> void:
 	add_fish_line(ash_start + 10.0, 8, 5.0, 0.0)
 	add_fish_line(chute_start + 40.0, 12, 5.5, 0.0)
 	add_fish_line(chute_end + 40.0, 8, 5.0, 0.0)
+	await stage()
 
 	# The sea goes down before anything else: the surf bands, the sea stacks,
 	# the far cone and every skyline form seat themselves on it.
@@ -253,15 +264,17 @@ func build_course() -> void:
 	# daylight blue: the wrong sky is the loudest tell on any water sheet.
 	sea_mat.set_shader_parameter("reflect_tint", Color(0.80, 0.36, 0.17, 0.8))
 	add_ground_plane(SEA_Y, Color(0.05, 0.12, 0.16), 4000.0, sea_mat, true)
+	await stage()
 	_retint_track()
-	_decorate()
+	await _decorate()
+	await stage()
 	# Dusk on a dark coast: ember band low on the horizon under a cooling
 	# slate sky, a warm low key light raking the basalt columns, restrained
 	# energy so the black sand stays black instead of tone-mapping to mud, and
 	# a warm steam haze thick enough to read as geothermal air. Sun energy
 	# deliberately below the daylight courses — the drama here is contrast
 	# between the dark ground and the ember sky, not brightness.
-	build_environment({
+	await build_environment({
 		"sky_top": Color(0.07, 0.08, 0.17),
 		"sky_horizon": Color(0.80, 0.36, 0.17),
 		"ground_color": Color(0.07, 0.05, 0.05),
@@ -415,17 +428,29 @@ func _decorate() -> void:
 		density = 0.5
 
 	_decorate_basalt(density)
+	await stage()
 	_decorate_scoria(density)
+	await stage()
 	_decorate_ash_drifts(density)
+	await stage()
 	_decorate_lanterns()
+	await stage()
 	_decorate_ember_fissures(density)
+	await stage()
 	_decorate_fumaroles(density)
+	await stage()
 	_decorate_arch()
+	await stage()
 	_decorate_sea_stacks(density)
+	await stage()
 	_decorate_surf()
+	await stage()
 	_decorate_cone()
+	await stage()
 	_decorate_spectators(density)
+	await stage()
 	_decorate_haze(density)
+	await stage()
 
 	# Baked contact shadows, flushed last so every pass above has had its chance
 	# to register one. The dusk sun rakes this coast almost horizontally, so the

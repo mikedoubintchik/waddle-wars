@@ -20,6 +20,11 @@ func _ready() -> void:
 			course = _instantiate_course_script(String(info.get("script", "res://scripts/courses/course_glacier.gd")))
 	course.add_to_group(&"course")
 	add_child(course)
+	# On web the course builds itself over several frames so the loading
+	# animation keeps running through it (CourseBase.stage()); everywhere else
+	# this returns without suspending and the scene is assembled in one go.
+	# Nothing below may touch course geometry before this resolves.
+	await course.build_ready()
 
 	var powerups := PowerupSystem.new()
 	add_child(powerups)
@@ -113,7 +118,15 @@ func _ready() -> void:
 
 
 ## Runs after RaceManager's deferred player.setup, so the controller exists.
+## On the staged (web) path the spawns are drained a couple per frame, so the
+## controller can still be missing on the first deferred pass — wait for it
+## rather than storing the null TouchControls used to store.
 func _setup_touch_deferred(touch: TouchControls) -> void:
+	while is_instance_valid(touch) and manager != null and manager.player != null \
+			and manager.player.controller == null:
+		await get_tree().process_frame
+	if not is_instance_valid(touch) or manager == null or manager.player == null:
+		return
 	touch.setup(manager.player.controller as PlayerController)
 
 

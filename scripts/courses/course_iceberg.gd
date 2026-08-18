@@ -161,10 +161,12 @@ func build_course() -> void:
 		p(0, 5.4, -1530, {"width": 18.0}),
 		p(0, 5.0, -1660, {"width": 18.0}),
 	]
-	setup_main(pts)
+	await setup_main(pts)
+	await stage()
 	_build_arc_table()
 	# Long runout past the banner so finished racers stop before the berg edge.
 	finish_offset = main_guide.length - 80.0
+	await stage()
 
 	# Risky berg-chain shortcut: cuts the wide berg-hop arc on the inside.
 	# Narrow smooth ice, no walls — fall off and you swim with the fishes.
@@ -176,9 +178,11 @@ func build_course() -> void:
 		p(12, 10.4, -450, {"width": 8.0, "surface": ICE, "wall_l": false, "wall_r": false}),
 		p(18, 8.6, -505, {"width": 10.0, "surface": ICE, "wall_l": false, "wall_r": false}),
 	]
-	var shortcut := add_branch(branch_pts, 0.6, "berg_chain")
+	var shortcut := await add_branch(branch_pts, 0.6, "berg_chain")
+	await stage()
 
 	finalize()
+	await stage()
 
 	# Rebuild checkpoints in the SAME offset space racer progress uses (index
 	# space from PathGuide.nearest). Identical to the base behavior while
@@ -196,6 +200,7 @@ func build_course() -> void:
 		checkpoint_offsets.append(cp_offset)
 		checkpoint_transforms.append(Transform3D(cp_xform.basis, cp_xform.origin + Vector3.UP * 0.5))
 		cp_offset += CHECKPOINT_INTERVAL
+	await stage()
 
 	# --- Swim channels (water is additional geometry under the gap spans) ---
 	var water1_pts: Array = [
@@ -218,6 +223,7 @@ func build_course() -> void:
 	add_child(water2)
 	_upgrade_water_surface(water2)
 	_water_lines.append(water2_pts)
+	await stage()
 
 	# --- Moving platform crossing (section 3) -------------------------------
 	add_hint(_offset_near(Vector3(0, 8, -640)) - 2.0, "jump")
@@ -236,6 +242,7 @@ func build_course() -> void:
 	# -16m it launched full-speed racers onto a bad platform phase, and a
 	# respawned racer re-hit the pad on the same cycle (resonant stuck loop).
 	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(0, 8, -640)) - 70.0)
+	await stage()
 
 	# --- Tilting-slab causeway (section 6) ----------------------------------
 	add_hint(_offset_near(Vector3(-8, 6, -1185)) - 2.0, "jump")
@@ -246,6 +253,7 @@ func build_course() -> void:
 			{"heave": 0.22, "heave_freq": 0.55, "yaw_deg": 5.0, "yaw_freq": 0.45, "variance": 0.1, "seed": 80 + i})
 		slab.position = Vector3(-8.0, 5.6, -1188.0 - 9.0 * float(i))
 		add_child(slab)
+	await stage()
 
 	# --- Sliding seals (section 7) ------------------------------------------
 	var seal_data: Array = [
@@ -260,10 +268,12 @@ func build_course() -> void:
 		add_child(seal)
 		var seal_hint_offset := _offset_near(data["pos"])
 		add_hint(seal_hint_offset - 35.0, String(data["hint"]), seal_hint_offset + 8.0)
+	await stage()
 
 	# --- Wave ramp crest hops + slide fun -----------------------------------
 	for crest: Vector3 in [Vector3(0, 9.2, -1028), Vector3(-4, 9.2, -1070), Vector3(-8, 9.2, -1112)]:
 		add_hint(_offset_near(crest) - 2.0, "jump")
+	await stage()
 
 	# Keep AI biased to the inside-right through the berg arc: the left edge
 	# borders the shortcut void and the far-ahead guide yaw tempts a left cut.
@@ -271,16 +281,19 @@ func build_course() -> void:
 		_offset_near(Vector3(52, 12.5, -310)) + 10.0)
 	add_hint(_offset_near(Vector3(56, 9, -380)), "danger_left",
 		_offset_near(Vector3(24, 8, -490)))
+	await stage()
 
 	# Shortcut is flat smooth ice: sliding it hard is the whole point. Branch
 	# hints are matched against MAPPED main-line progress, so use entry..exit.
 	var branch_entry := float(branches[0]["entry"])
 	var branch_exit := float(branches[0]["exit"])
 	add_hint(branch_entry + 10.0, "slide", branch_exit - 10.0, 0)
+	await stage()
 
 	# Boost pads after both swim exits to relaunch momentum.
 	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(4, 6.2, -965)) + 6.0)
 	TrackBuilder.add_boost_pad(self, main_guide, _arc_near(Vector3(2, 5.0, -1490)) + 6.0)
+	await stage()
 
 	# More acceleration pads. Playtest: pads on corner exits and narrow
 	# no-wall spans boosted AI straight off edges into the water (DNF loop),
@@ -305,6 +318,7 @@ func build_course() -> void:
 	# space): the start dip and the downhill run into the big swim channel.
 	add_hint(_offset_near(Vector3(0, 12, -30)) + 4.0, "slide", _offset_near(Vector3(2, 10.5, -100)))
 	add_hint(_offset_near(Vector3(-10, 7.8, -770)) - 5.0, "slide", _offset_near(Vector3(-10, 6.3, -810)))
+	await stage()
 
 	# --- Pickups (placement APIs consume arclength offsets) -----------------
 	add_item_row(115.0)
@@ -327,7 +341,8 @@ func build_course() -> void:
 	add_fish_line(_arc_near(Vector3(2, 4.0, -1435)) - 10.0, 6, 5.0, 0.0)  # finale swim
 	add_fish_line(_arc_near(Vector3(0, 5.2, -1560)) - 20.0, 8, 5.0, 0.0)
 
-	_decorate()
+	await _decorate()
+	await stage()
 	# Sunrise over open water: big low sun disc, peach-to-indigo gradient,
 	# warm sea haze hugging the water, pink cloud puffs, azure berg clusters
 	# on the horizon. NOTE: base distant_bergs is deliberately OFF — its ring
@@ -335,7 +350,7 @@ func build_course() -> void:
 	# along-axis points landed right beside the track as giant flat purple
 	# pyramids (screenshot defect). _add_horizon_bergs() replaces it with
 	# guide-relative clusters guaranteed far off the racing line.
-	build_environment({
+	await build_environment({
 		"sky_top": Color(0.12, 0.2, 0.48),
 		"sky_horizon": Color(1.0, 0.6, 0.42),
 		# Ground hemisphere feeds sky ambient: deep sea teal, not the old
@@ -471,6 +486,7 @@ func _decorate() -> void:
 		_cool_track_materials()
 		_foam_st = SurfaceTool.new()
 		_foam_st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	await stage()
 
 	# Course-side flags alternating warm sunrise colors.
 	var offset := 60.0
@@ -482,6 +498,7 @@ func _decorate() -> void:
 			Color(0.95, 0.5, 0.2) if side > 0 else Color(0.96, 0.94, 0.9))
 		side = -side
 		offset += 120.0
+	await stage()
 
 	# Spectator penguins on the start and finish bergs.
 	for i: int in 10:
@@ -492,6 +509,7 @@ func _decorate() -> void:
 		var near_finish := main_guide.transform_at(finish_offset - rng.randf_range(5.0, 65.0))
 		var lateral3 := (11.0 + rng.randf_range(0.0, 4.0)) * (1.0 if i % 2 == 0 else -1.0)
 		TrackBuilder.add_spectator(self, near_finish.origin + near_finish.basis.x * lateral3, near_finish.origin, rng)
+	await stage()
 
 	# Berg texture: rocks and crystals just off the racing surface. Laterals are
 	# measured off the real deck edge rather than the old flat 12-24m: this berg
@@ -521,6 +539,7 @@ func _decorate() -> void:
 			TrackBuilder.add_ice_crystal(self, crystal_seat, crystal_h)
 			_add_contact_patch(crystal_seat, crystal_h * 0.22,
 				crystal_seat.y + ground_embed(crystal_h, 0.12))
+	await stage()
 
 	# Crystals flanking both floorless crossings as a visual warning.
 	for edge_z: float in [-640.0, -672.0, -1185.0, -1220.0]:
@@ -533,6 +552,7 @@ func _decorate() -> void:
 			var warn_seat := seat_dressing(exf, warn_lat, warn_h, 4.5, 0.12)
 			TrackBuilder.add_ice_crystal(self, warn_seat, warn_h, Color(1.0, 0.75, 0.45))
 			_add_contact_patch(warn_seat, warn_h * 0.22, warn_seat.y + ground_embed(warn_h, 0.12))
+	await stage()
 
 	# Navigation buoys bobbing on the open water beside the course: red to
 	# port, green to starboard, emissive tops that catch the bloom pass.
@@ -547,6 +567,7 @@ func _decorate() -> void:
 				var bang := TAU * float(k) / 3.0 + rng.randf()
 				_foam_quad(Vector3(bpos.x + cos(bang) * 1.3, OCEAN_Y + 0.68, bpos.z + sin(bang) * 1.3),
 					rng.randf_range(1.0, 1.6))
+	await stage()
 
 	# Distant whale silhouettes, slowly rising and sinking.
 	for i: int in 3:
@@ -554,6 +575,7 @@ func _decorate() -> void:
 		var xf3 := main_guide.transform_at(minf(o3, main_guide.length - 40.0))
 		var lat3 := rng.randf_range(150.0, 240.0) * (1.0 if i % 2 == 0 else -1.0)
 		_add_whale(xf3.origin + xf3.basis.x * lat3, rng.randf() * TAU)
+	await stage()
 
 	# Snow-covered research boats anchored mid-distance in the bay — near
 	# enough that the bow/bridge/mast silhouette and warm windows resolve.
@@ -562,6 +584,7 @@ func _decorate() -> void:
 		var xf4 := main_guide.transform_at(minf(o4, main_guide.length - 40.0))
 		var lat4 := rng.randf_range(150.0, 210.0) * (-1.0 if i % 2 == 0 else 1.0)
 		_add_boat(xf4.origin + xf4.basis.x * lat4, rng.randf() * TAU)
+	await stage()
 
 	# Drifting bergs scattered across the whole bay: faceted low-poly
 	# silhouettes riding the swell, each with a foam collar at the waterline.
@@ -627,6 +650,7 @@ func _decorate() -> void:
 				var ring_r := s * rng.randf_range(1.1, 1.45)
 				_foam_quad(Vector3(bpos5.x + cos(ang) * ring_r, OCEAN_Y + 0.68, bpos5.z + sin(ang) * ring_r),
 					rng.randf_range(0.25, 0.5) * s)
+	await stage()
 
 	# Snow drifts flanking the racing line: soft sculpted texture on the
 	# otherwise bare berg tops (visual only, outside the racing surface).
@@ -643,6 +667,7 @@ func _decorate() -> void:
 		drift.position = xf6.origin + xf6.basis.x * lat6 + Vector3.DOWN * 0.35
 		drift.rotation.y = rng.randf() * TAU
 		add_child(drift)
+	await stage()
 
 	# Cinematic set dressing: sculpted hero bergs with waterline notches, a
 	# breaching-whale arc pair, circling seabird flocks, drifting near-track
@@ -660,6 +685,7 @@ func _decorate() -> void:
 		_add_floes()
 		_add_pack_ice()
 		_add_sun_glint()
+	await stage()
 
 	# Foam bands hugging the swim channel edges, then one batched commit for
 	# every foam quad placed above (single mesh, single draw call).

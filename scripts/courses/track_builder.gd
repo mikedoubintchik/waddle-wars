@@ -128,7 +128,12 @@ const BANK_SMOOTH_SAMPLES: int = 5
 ## "bank": 0.0 to force a corner flat.
 ## Returns a Node3D containing floor meshes/collision + walls, with a
 ## PathGuide stored under meta "guide".
-static func build_ribbon(points: Array, name_hint: String = "Track") -> Node3D:
+## `stager`, when given, is the course being built: the ribbon then yields a
+## frame between its mesh phases whenever that course's frame budget is spent
+## (web only — see CourseBase.stage). Passing null keeps the whole build inside
+## one call, which is what every headless sim and QA harness wants.
+static func build_ribbon(points: Array, name_hint: String = "Track",
+		stager: CourseBase = null) -> Node3D:
 	var root := Node3D.new()
 	root.name = name_hint
 	var positions: Array = []
@@ -176,6 +181,9 @@ static func build_ribbon(points: Array, name_hint: String = "Track") -> Node3D:
 		walls_r.append(bool(p.get("wall_r", true)) and not bool(p.get("gap", false)))
 		gaps.append(bool(p.get("gap", false)))
 
+	if stager != null:
+		await stager.stage()
+
 	# Floor meshes split into runs of identical surface; gap runs are skipped
 	# entirely (hazard tiles or jumps bridge them).
 	var run_start := 0
@@ -183,11 +191,19 @@ static func build_ribbon(points: Array, name_hint: String = "Track") -> Node3D:
 		if i == surfaces.size() or surfaces[i] != surfaces[run_start] or gaps[i] != gaps[run_start]:
 			if not gaps[run_start]:
 				_emit_floor_run(root, left_pts, right_pts, run_start, i, surfaces[run_start] as SurfacesDB.Surface)
+				if stager != null:
+					await stager.stage()
 			run_start = i
 	# Walls split into runs of wall-enabled.
 	_emit_walls(root, left_pts, right_pts, walls_l, true)
+	if stager != null:
+		await stager.stage()
 	_emit_walls(root, left_pts, right_pts, walls_r, false)
+	if stager != null:
+		await stager.stage()
 	_emit_skirt(root, left_pts, right_pts, gaps)
+	if stager != null:
+		await stager.stage()
 	_emit_edge_markers(root, left_pts, right_pts, walls_l, walls_r, gaps)
 	return root
 

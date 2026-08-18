@@ -12,6 +12,11 @@ signal message(text: String)
 
 const FINISH_TIMEOUT: float = 18.0
 const DNF_TIME_PENALTY: float = 30.0
+## Racers whose visuals may be built in one frame on the staged (web) path.
+## Every penguin is procedural geometry assembled at spawn — roughly 5 ms each
+## natively and several times that under WASM — so building all eight inside a
+## single deferred flush is a visible stall in the loading animation.
+const SPAWN_PER_FRAME: int = 2
 
 var course: CourseBase = null
 var powerups: PowerupSystem = null
@@ -38,6 +43,10 @@ var _rng := RandomNumberGenerator.new()
 var _pace_speed: Dictionary = {}
 var _pace_progress: Dictionary = {}
 var _pace_sample_time: float = -1.0
+## Pending racer setups on the staged path, drained SPAWN_PER_FRAME per frame.
+## Empty (and unused) whenever spawning runs straight through.
+var _spawn_queue: Array[Callable] = []
+var _spawn_staged: bool = false
 
 
 func setup(p_course: CourseBase, p_powerups: PowerupSystem, time_trial: bool = false) -> void:
@@ -55,7 +64,29 @@ func setup(p_course: CourseBase, p_powerups: PowerupSystem, time_trial: bool = f
 	set_physics_process(true)
 
 
+## Queues one racer's setup. Off the staged path this is exactly the old
+## `setup.call_deferred(...)`: one deferred flush, one frame, no pump.
+func _queue_spawn(work: Callable) -> void:
+	if not _spawn_staged:
+		work.call_deferred()
+		return
+	_spawn_queue.append(work)
+
+
+## Drains the spawn queue a couple of racers per frame. Runs from _process so
+## it ticks while the loading overlay is still up and physics is still off.
+func _process(_delta: float) -> void:
+	if _spawn_queue.is_empty():
+		return
+	for i: int in mini(SPAWN_PER_FRAME, _spawn_queue.size()):
+		var work: Callable = _spawn_queue.pop_front()
+		work.call()
+
+
 func _spawn_racers() -> void:
+	# Same condition CourseBase uses: only the single-threaded web build pays
+	# for a stalled frame here.
+	_spawn_staged = CourseBase.staged_builds_enabled()
 	var difficulty := DifficultyDB.get_item(Game.difficulty_id)
 	# Player.
 	player = Racer.new()
@@ -80,7 +111,7 @@ func _spawn_racers() -> void:
 		human.input_enabled = false
 		player_controller = human
 	get_parent().add_child.call_deferred(player)
-	player.setup.call_deferred("player", "You", true, config, player_controller, course)
+	_queue_spawn(player.setup.bind("player", "You", true, config, player_controller, course))
 	if autopilot_player:
 		(player_controller as AIController).configure(player, course, PersonalitiesDB.get_item("gus"), difficulty, _rng.randi())
 	player.item_used.connect(_on_item_used)
@@ -102,14 +133,15 @@ func _spawn_racers() -> void:
 				ai_config[cat if cat in ["hat", "scarf", "goggles"] else "hat"] = hat
 			var controller := AIController.new()
 			get_parent().add_child.call_deferred(ai)
-			ai.setup.call_deferred(key, String(personality["name"]), false, ai_config, controller, course)
+			_queue_spawn(ai.setup.bind(key, String(personality["name"]), false, ai_config, controller, course))
 			ai.item_used.connect(_on_item_used)
 			controller.configure(ai, course, personality, difficulty, _rng.randi())
 			ai.speed_scale = float(difficulty.get("speed_scale", 0.95)) * (0.94 + 0.08 * float(personality.get("skill", 0.6)))
 			racers.append(ai)
 
-	# Place on the grid (deferred so setup has run).
-	call_deferred("_place_on_grid")
+	# Place on the grid. Queued behind every setup so it always runs last,
+	# whether the spawns went out in one deferred flush or over several frames.
+	_queue_spawn(_place_on_grid)
 
 
 func _place_on_grid() -> void:

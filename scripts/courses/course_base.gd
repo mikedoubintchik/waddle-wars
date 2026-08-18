@@ -5,8 +5,33 @@ extends Node3D
 ## Course geometry lives in world space (course node stays at origin).
 
 signal racer_crossed_finish(racer: Racer)
+## Emitted once build_course() and the VFX pools are done. On the synchronous
+## path that is before add_child() returns; a staged build finishes some frames
+## later, so anything that needs a finished course awaits build_ready().
+signal build_completed
 
 const CHECKPOINT_INTERVAL: float = 130.0
+
+## How long a staged build may hold the main thread before handing the renderer
+## a frame. The web export is single-threaded WASM: every millisecond spent
+## inside one frame is a millisecond the loading penguin stands still, so this
+## number IS the worst-case visible hitch during a course build.
+const STAGE_BUDGET_MSEC: float = 8.0
+
+## Forces staged construction off web. Nothing in the game sets it; the timing
+## harness does, and WW_STAGED=1 does the same for any local run, so the web
+## construction path can be exercised (and screenshotted) without an export.
+static var force_staged_build: bool = false
+
+
+## True when scene construction should be spread across frames: the web export
+## only, unless forced. Shared with RaceManager, which staggers its racer
+## spawns on exactly the same condition.
+static func staged_builds_enabled() -> bool:
+	if GameConfig.is_headless():
+		return false
+	return force_staged_build or OS.get_environment("WW_STAGED") != "" \
+		or OS.has_feature("web")
 
 var course_id: String = ""
 var main_guide: PathGuide = null
@@ -25,10 +50,36 @@ var _splash_pool: Array[GPUParticles3D] = []
 var _splash_next: int = 0
 
 
+## True once the course is fully built. Read it before build_ready() to skip
+## the await entirely on the synchronous path.
+var build_finished: bool = false
+var _staged: bool = false
+var _stage_mark: int = 0
+var _stage_debug: bool = false
+var _stage_index: int = 0
+## build_environment's params, held for the far-field pass _ready runs last.
+var _far_field_params: Dictionary = {}
+
+
 func _ready() -> void:
 	rng.seed = hash(course_id) if course_id != "" else 12345
-	build_course()
+	# Staging is web-only by default. Native desktop builds a course in tens of
+	# milliseconds -- one dropped frame nobody sees -- and every headless sim
+	# and QA harness reads the course the instant add_child() returns, so they
+	# all keep the straight-through path.
+	_staged = staged_builds_enabled()
+	_stage_debug = _staged and OS.get_environment("DBG_STAGE") != ""
+	_stage_mark = Time.get_ticks_usec()
+	@warning_ignore("redundant_await")
+	await build_course()
+	# Skyline last: it seats itself on whatever ground the course finally laid
+	# down (see build_environment).
+	if not _far_field_params.is_empty():
+		await _build_far_field(_far_field_params)
+	await stage()
 	_build_vfx_pools()
+	build_finished = true
+	build_completed.emit()
 
 
 ## Overridden by concrete courses. Must call setup_main(), then optionally
@@ -37,17 +88,65 @@ func build_course() -> void:
 	pass
 
 
+## --- Staged construction ---------------------------------------------------
+
+## A yield point inside a course build. Courses sprinkle `await stage()`
+## between construction steps; it only actually suspends once the frame budget
+## above is spent, so a build that fits in one frame still costs no extra
+## frames and the sync path never suspends at all.
+##
+## `await` on a call that did not suspend resumes immediately in the same
+## frame, which is what keeps the non-staged path (headless sims, desktop,
+## every windowed QA harness) byte-for-byte synchronous.
+func stage() -> void:
+	if not _staged:
+		return
+	if _stage_debug:
+		# Profiling aid (DBG_STAGE=1): the cost of the segment that just ran,
+		# in build order. Anything far above the budget is a single step too
+		# fat to split by yielding around it, and needs yields put inside it.
+		_stage_index += 1
+		var spent := float(Time.get_ticks_usec() - _stage_mark) / 1000.0
+		if spent > 1.0:
+			# Caller line, so a fat segment names the step that produced it.
+			var stack := get_stack()
+			var site := "?"
+			if stack.size() > 1:
+				var frame: Dictionary = stack[1]
+				site = "%s:%d %s" % [String(frame.get("source", "?")).get_file(),
+					int(frame.get("line", 0)), frame.get("function", "?")]
+			print("[stage] %s #%d %.1f ms  <- %s" % [course_id, _stage_index, spent, site])
+	if Time.get_ticks_usec() - _stage_mark < int(STAGE_BUDGET_MSEC * 1000.0):
+		return
+	var tree := get_tree()
+	if tree == null:
+		return
+	await tree.process_frame
+	_stage_mark = Time.get_ticks_usec()
+
+
+## Awaits construction. Returns without suspending when the course is already
+## built, so callers can `await course.build_ready()` unconditionally.
+func build_ready() -> void:
+	if build_finished:
+		return
+	await build_completed
+
+
 ## --- Construction ----------------------------------------------------------
 
 func setup_main(points: Array) -> void:
-	var track := TrackBuilder.build_ribbon(points, "MainTrack")
+	# Handing the ribbon `self` lets it yield between its own mesh phases; it
+	# is the single fattest step in a build (20-50 ms of the 30-130 ms total).
+	var track := await TrackBuilder.build_ribbon(points, "MainTrack", self if _staged else null)
 	add_child(track)
 	main_guide = track.get_meta("guide") as PathGuide
 	finish_offset = main_guide.length - 18.0
 
 
 func add_branch(points: Array, risk: float = 0.5, id_hint: String = "") -> PathGuide:
-	var track := TrackBuilder.build_ribbon(points, "Branch_%s" % id_hint)
+	var track := await TrackBuilder.build_ribbon(points, "Branch_%s" % id_hint,
+		self if _staged else null)
 	add_child(track)
 	var guide := track.get_meta("guide") as PathGuide
 	var entry := float(main_guide.nearest(guide.position_at(0.0), -1)["offset"])
@@ -721,16 +820,23 @@ func build_environment(params: Dictionary) -> void:
 
 	if bool(params.get("snow", false)) and not GameConfig.is_headless():
 		_add_snowfall()
+		await stage()
 	if bool(params.get("clouds", false)) and not GameConfig.is_headless():
-		_add_clouds(params.get("cloud_color", Color(1.0, 1.0, 1.0, 0.75)))
-	# The skyline runs one frame late on purpose: several courses lay their
-	# ocean / ice sheet down AFTER build_environment (iceberg does), and every
-	# silhouette seats itself on that surface. Deferring means the far field
-	# reads the real ground on every course instead of the "lowest track point
-	# - 24" fallback, which on iceberg would have sunk the whole skyline 18m
-	# under the sea.
+		await _add_clouds(params.get("cloud_color", Color(1.0, 1.0, 1.0, 0.75)))
+		await stage()
+	# The skyline runs LAST, after the whole course build has returned: several
+	# courses lay their ocean / ice sheet down AFTER build_environment (iceberg
+	# does), and every silhouette seats itself on that surface. Running it at
+	# the end means the far field reads the real ground on every course instead
+	# of the "lowest track point - 24" fallback, which on iceberg would have
+	# sunk the whole skyline 18 m under the sea.
+	#
+	# It used to be a call_deferred, which put the single heaviest piece of
+	# geometry in the game (three tessellated massif bands, ~130 ms) one frame
+	# PAST the end of the build — outside the staging, and landing right as the
+	# loading overlay lifted. _ready awaits it instead.
 	if not GameConfig.is_headless():
-		_build_far_field.call_deferred(params)
+		_far_field_params = params
 
 
 ## Cumulus clusters: a wide flat base of big soft puffs with a smaller domed
@@ -780,6 +886,7 @@ func _add_clouds(color: Color) -> void:
 					spread * rng.randf_range(0.22, 0.5) * (1.0 - absf(t) * 0.5),
 					rng.randf_range(-spread * 0.25, spread * 0.25))))
 	_add_puff_layer("CloudBase", puff_mesh, base_mat, base)
+	await stage()
 	_add_puff_layer("CloudCrown", puff_mesh, crown_mat, crown)
 
 
@@ -889,7 +996,8 @@ func _build_far_field(params: Dictionary) -> void:
 			"mix": ["peak", "peak", "peak", "tabular", "dome"], "cull": 0.0},
 	]
 	for band: Dictionary in bands:
-		_build_skyline_band(band, look, plane_y, density)
+		await _build_skyline_band(band, look, plane_y, density)
+		await stage()
 
 
 func _build_skyline_band(band: Dictionary, look: Dictionary, plane_y: float, density: float) -> void:
@@ -964,6 +1072,7 @@ func _build_skyline_band(band: Dictionary, look: Dictionary, plane_y: float, den
 				_bake_form(chunks[key], kind, pos, footprint, height, form, 0)
 		station += 1
 		offset += step
+		await stage()
 	# Terrain shader, not a flat rock material.
 	#
 	# The skyline is the largest mass in most frames and every one of its faces

@@ -78,10 +78,13 @@ func build_course() -> void:
 		_build_segment(segments[i], 1.0 + float(i) * 0.05)
 	_advance(120, 0, 2, {"width": 20.0})
 
-	setup_main(_pts)
+	await setup_main(_pts)
+	await stage()
 	finalize()
+	await stage()
 	for hook: Callable in _post_build:
 		hook.call()
+	await stage()
 
 	# Fish and items sprinkled along the whole run.
 	var offset := 100.0
@@ -93,6 +96,7 @@ func build_course() -> void:
 		elif fmod(offset, 400.0) > 240.0:
 			add_snowball_row(offset + 30.0)  # no rng draws: seed determinism kept
 		offset += 170.0
+	await stage()
 
 	# Ice sheet first: the peaks, horizon bands and spires all seat themselves
 	# on it, so it has to exist before _decorate() runs.
@@ -100,9 +104,11 @@ func build_course() -> void:
 	for point: Vector3 in main_guide.points:
 		lowest = minf(lowest, point.y)
 	add_ground_plane(lowest - 18.0, Color(0.88, 0.93, 0.98))
+	await stage()
 
-	_decorate()
-	build_environment({
+	await _decorate()
+	await stage()
+	await build_environment({
 		"sky_top": Color(0.2, 0.5, 0.86),
 		"sky_horizon": Color(0.82, 0.92, 1.0),
 		"ground_color": Color(0.85, 0.92, 0.98),
@@ -248,6 +254,7 @@ func _decorate() -> void:
 		density = 0.75
 	elif quality == "low":
 		density = 0.5
+	await stage()
 
 	# Route markers just outside the racing floor. Segment widths swing from 11m
 	# to 20m along the expedition, so a constant 12-16m lateral planted flags on
@@ -273,9 +280,13 @@ func _decorate() -> void:
 		offset += 90.0
 
 	_decorate_mountains()
+	await stage()
 	_decorate_horizon_bands()
+	await stage()
 	_decorate_snowbanks(density)
+	await stage()
 	_decorate_boulders(density)
+	await stage()
 
 	# Expedition send-off and welcome crowds, standing on the shoulder.
 	for i: int in maxi(int(10.0 * density), 4):
