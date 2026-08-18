@@ -340,6 +340,11 @@ func build_course() -> void:
 		# Moonlight through the ridge: cold, thin, fewer blades than a sun.
 		"shafts": true,
 		"shaft_strength": 0.30,
+		# Night wind off the ridge, dimmer and slower than daylight drift.
+		"spindrift": true,
+		"spindrift_dir": Vector2(-0.62, 0.78),
+		"spindrift_speed": 6.0,
+		"spindrift_color": Color(0.80, 0.87, 1.0, 0.22),
 		"shaft_blades": 9,
 		"shaft_color": Color(0.72, 0.84, 1.0),
 		"distant_bergs": true,

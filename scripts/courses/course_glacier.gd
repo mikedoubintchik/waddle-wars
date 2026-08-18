@@ -223,6 +223,10 @@ func build_course() -> void:
 		# Late-morning sun low enough to throw rays between the peaks.
 		"shafts": true,
 		"shaft_strength": 0.28,
+		# Katabatic wind down the glacier: streaks run with the sastrugi.
+		"spindrift": true,
+		"spindrift_dir": Vector2(0.28, 1.0),
+		"spindrift_speed": 8.0,
 		"cloud_color": Color(1.0, 0.96, 0.87, 0.82),
 	})
 

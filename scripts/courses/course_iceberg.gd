@@ -380,6 +380,11 @@ func build_course() -> void:
 		# sun sits ON the horizon, so the rays rake across the whole bay.
 		"shafts": true,
 		"shaft_strength": 0.62,
+		# Sea breeze across the berg deck, warm-tinted by the sunrise.
+		"spindrift": true,
+		"spindrift_dir": Vector2(0.92, -0.38),
+		"spindrift_speed": 9.0,
+		"spindrift_color": Color(1.0, 0.94, 0.88, 0.26),
 		"shaft_blades": 15,
 		"cloud_color": Color(1.0, 0.76, 0.62, 0.7),
 	})

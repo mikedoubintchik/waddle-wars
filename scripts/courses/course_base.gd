@@ -837,6 +837,9 @@ func build_environment(params: Dictionary) -> void:
 	if bool(params.get("snow", false)) and not GameConfig.is_headless():
 		_add_snowfall()
 		await stage()
+	if bool(params.get("spindrift", false)) and not GameConfig.is_headless():
+		_add_spindrift(params)
+		await stage()
 	if bool(params.get("clouds", false)) and not GameConfig.is_headless():
 		await _add_clouds(params.get("cloud_color", Color(1.0, 1.0, 1.0, 0.75)))
 		await stage()
@@ -1518,6 +1521,86 @@ static func _sky_cover_texture(seed_value: int, coverage: float, streaks: float)
 	var texture := ImageTexture.create_from_image(image)
 	_sky_cover_cache[key] = texture
 	return texture
+
+
+## Ground spindrift: loose snow torn off the surface and driven downwind in
+## low, fast streaks.
+##
+## This is the layer that was missing from every snow frame in the game. Falling
+## snow reads as weather happening around the racer; spindrift reads as WIND
+## moving across the ground the racer is standing on, and it is the cue that
+## sells a polar surface as a place with air over it rather than a white plane.
+## It is also the only near-ground motion on a course where nothing else moves,
+## so a static camera at the start line stops looking like a screenshot.
+##
+## One emitter, moved to the camera on a timer rather than parented to it: the
+## particles live in global space, so relocating where NEW ones spawn never
+## jerks the ones already in flight.
+func _add_spindrift(params: Dictionary) -> void:
+	var quality := String(SettingsManager.get_setting("display", "particle_quality"))
+	if quality == "low":
+		return
+	var wind: Vector2 = params.get("spindrift_dir", Vector2(0.85, 0.53))
+	var wind_dir := Vector3(wind.x, 0.0, wind.y).normalized()
+	var drift := GPUParticles3D.new()
+	drift.name = "Spindrift"
+	var mat := ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	# Wide and very flat: this is snow scraped along a surface, not a snow cloud.
+	# Tight to the deck, not a 40 m cube of sky: streaks that spawn out over the
+	# surrounding terrain hang in mid-air like smoke puffs. This is snow being
+	# scraped along the surface the racer is on, so it lives within a track
+	# width or so of the racing line and within half a metre of the surface.
+	mat.emission_box_extents = Vector3(15.0, 0.35, 15.0)
+	mat.direction = wind_dir
+	mat.spread = 14.0
+	mat.initial_velocity_min = float(params.get("spindrift_speed", 9.0))
+	mat.initial_velocity_max = float(params.get("spindrift_speed", 9.0)) * 2.1
+	# A whisper of lift and gravity: streaks rise slightly, then settle, which
+	# is what keeps them hugging the ground instead of flying flat forever.
+	mat.gravity = Vector3(wind_dir.x * 0.6, -0.55, wind_dir.z * 0.6)
+	mat.scale_min = 0.55
+	mat.scale_max = 1.35
+	mat.damping_min = 0.4
+	mat.damping_max = 1.6
+	drift.process_material = mat
+	# Long thin quad: with camera billboarding its long axis lies across the
+	# screen, which is how a wind streak reads at a level camera.
+	var streak := QuadMesh.new()
+	streak.size = Vector2(float(params.get("spindrift_length", 4.2)), 0.85)
+	var streak_mat := StandardMaterial3D.new()
+	streak_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	streak_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	streak_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	streak_mat.billboard_keep_scale = true
+	streak_mat.albedo_texture = VisualLibrary.soft_radial_texture(32, 0.9)
+	# Alpha, never additive: additive white over sunlit snow just blows out to a
+	# flat glare, and the streaks disappear into it.
+	# Cool, not white. Blowing snow over a sunlit deck is a translucent veil
+	# that shades what is under it; pure white at any alpha is invisible against
+	# the surface it is supposed to be moving over.
+	streak_mat.albedo_color = params.get("spindrift_color", Color(0.80, 0.87, 0.99, 0.26))
+	streak_mat.disable_receive_shadows = true
+	streak.material = streak_mat
+	drift.draw_pass_1 = streak
+	drift.amount = 110 if quality == "high" else 55
+	drift.lifetime = 2.2
+	drift.preprocess = 2.0
+	drift.visibility_aabb = AABB(Vector3(-40, -8, -40), Vector3(80, 20, 80))
+	add_child(drift)
+	# Seated on the SURFACE under the camera rather than at camera height: the
+	# chase camera rides metres above the deck, and a box centred on it put the
+	# streaks out in the air over the valley either side of the track.
+	var follower := Timer.new()
+	follower.wait_time = 0.2
+	follower.autostart = true
+	follower.timeout.connect(func() -> void:
+		var cam := get_viewport().get_camera_3d()
+		if cam == null:
+			return
+		var here := cam.global_position
+		drift.global_position = Vector3(here.x, ground_height_at(here) + 0.45, here.z))
+	drift.add_child(follower)
 
 
 func _add_snowfall() -> void:

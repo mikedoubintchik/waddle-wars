@@ -793,3 +793,29 @@ Evidence: qa_shots/shafts/ — `tests/shaft_shot.tscn` builds a real course,
 finds its key light and stands a camera on the racing line looking into it (the
 one view a chase-camera capture almost never gives). 107 unit tests and race
 sims on glacier/aurora/iceberg/cinder pass unchanged.
+
+### Ground spindrift
+Snow courses had weather (falling snow) but no WIND: nothing moved across the
+surface the racer stands on, which is why a still frame at the start line read
+as a screenshot rather than a place. `CourseBase._add_spindrift` adds one
+camera-following emitter of low, fast, translucent veils driven along a
+per-course wind bearing — katabatic down the glacier, night wind off the aurora
+ridge, sea breeze across the berg, ash off the cinder sand.
+
+Two tuning findings worth keeping, both found by capture:
+- **It has to be seated on the surface, not on the camera.** Centred on the
+  chase camera the emission box hangs metres above the deck and the streaks
+  float out over the valley either side of the track like smoke puffs. It now
+  probes `ground_height_at` under the camera and sits 0.45 m over it, in a box
+  15 m wide rather than 38.
+- **White is invisible on white.** At any alpha, white streaks over a sunlit
+  snow deck simply cannot be seen (verified by rendering them bright red — the
+  particles were there the whole time). The default is now a cool translucent
+  veil (0.80, 0.87, 0.99) that shades what is under it, which is what blowing
+  snow actually does; courses with darker decks pass their own tint.
+
+Off entirely on the low particle-quality preset and headless. 107 unit tests
+and glacier/iceberg race sims pass. `tests/particle_probe.tscn` reports the
+live state of a course's emitters (present / emitting / where, relative to the
+camera) — a particle layer that exists in the tree but not on screen is
+otherwise pure guesswork.
