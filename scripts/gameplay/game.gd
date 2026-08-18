@@ -2,12 +2,16 @@ extends Node
 ## Global game-flow context: selected mode/course/difficulty, Grand Prix
 ## state, and race-result handoff between gameplay and menu scenes.
 
-enum Mode { QUICK_RACE, GRAND_PRIX, ENDLESS, TIME_TRIAL, TUTORIAL }
+enum Mode { QUICK_RACE, GRAND_PRIX, ENDLESS, TIME_TRIAL, TUTORIAL, RUNNER }
 
 const SCENE_TITLE: String = "res://scenes/ui/title.tscn"
 const SCENE_MAIN_MENU: String = "res://scenes/menus/main_menu.tscn"
 const SCENE_MODE_SELECT: String = "res://scenes/menus/mode_select.tscn"
 const SCENE_RACE: String = "res://scenes/gameplay/race.tscn"
+## Waddle Run, the endless-runner mode. Its own scene rather than a race
+## variant: it shares the art and the save file with the racing game and
+## nothing else, so the two can never destabilise each other.
+const SCENE_RUNNER: String = "res://scenes/gameplay/runner.tscn"
 const SCENE_RESULTS: String = "res://scenes/menus/results.tscn"
 const SCENE_CUSTOMIZE: String = "res://scenes/menus/customize.tscn"
 const SCENE_ACHIEVEMENTS: String = "res://scenes/menus/achievements.tscn"
@@ -95,6 +99,14 @@ func start_endless() -> void:
 	mode = Mode.ENDLESS
 	course_id = "endless"
 	SceneRouter.go_to(SCENE_RACE)
+
+
+## Waddle Run. There is no course or difficulty to pick: the run is the run,
+## and the whole point of the mode is that it starts the instant it is chosen.
+func start_runner() -> void:
+	mode = Mode.RUNNER
+	course_id = "runner"
+	SceneRouter.go_to(SCENE_RUNNER)
 
 
 func start_time_trial(p_course: String) -> void:

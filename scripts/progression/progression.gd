@@ -195,6 +195,33 @@ func submit_endless_score(score: int, distance: float) -> bool:
 	return true
 
 
+## Waddle Run's best. Kept apart from the Endless Expedition score on purpose:
+## the two modes score at completely different rates, so one shared number
+## would just show whichever mode inflates faster.
+func runner_high_score() -> int:
+	return int(SaveManager.get_value("runner_high_score", 0))
+
+
+func runner_best_distance() -> float:
+	var stats: Dictionary = SaveManager.get_value("stats", {})
+	return float(stats.get("runner_best_distance", 0.0))
+
+
+## Returns true when this run set a new best score.
+func submit_runner_score(score: int, distance: float) -> bool:
+	var stats: Dictionary = SaveManager.get_value("stats", {})
+	if distance > float(stats.get("runner_best_distance", 0.0)):
+		stats["runner_best_distance"] = distance
+		SaveManager.set_value("stats", stats)
+	if distance >= 2000.0:
+		unlock_achievement("long_waddle")
+	if score <= runner_high_score():
+		return false
+	SaveManager.set_value("runner_high_score", score)
+	record_set.emit("runner", "", float(score))
+	return true
+
+
 func gp_record(difficulty: String) -> Dictionary:
 	var records: Dictionary = SaveManager.get_value("gp_records", {})
 	return records.get(difficulty, {})

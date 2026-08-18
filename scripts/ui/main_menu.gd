@@ -1,7 +1,8 @@
 extends Control
-## Main menu: a wordmark header over a deliberately ranked action list — one
-## hero Play button, the four places you actually go next, then a quiet utility
-## row — with the unified staggered fade+rise entrance and a fish/level chip.
+## Main menu: a wordmark header over a deliberately ranked action list — two
+## hero buttons (the two games this is), the places you actually go next, then a
+## quiet utility row — with the unified staggered fade+rise entrance and a
+## fish/level chip.
 
 ## Same drawn fish glyph as the race HUD and customize menu currency counters
 ## (race_hud.gd / customize_menu.gd) so the icon is consistent across screens.
@@ -12,6 +13,19 @@ const FISH_ICON_SVG := """<svg xmlns="http://www.w3.org/2000/svg" width="60" hei
 <path d="M20 21 Q34 31 50 22 Q34 27 20 21 Z" fill="#5fb0e2" opacity="0.7"/>
 <circle cx="45" cy="17" r="3.2" fill="#0e2036"/>
 <circle cx="46.2" cy="15.8" r="1.1" fill="#ffffff"/>
+</svg>"""
+
+## Waddle Run's hero glyph: the avalanche, with speed lines running ahead of it.
+## Drawn here rather than added to UITheme's ICON_* set because it names one
+## mode rather than a shared menu concept, and it is the only screen that offers
+## the mode. Same pen weight and palette as the UITheme icons so the two hero
+## rows read as one set.
+const RUN_ICON_SVG := """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<path d="M7 42 H21 M3 52 H17 M13 32 H23" stroke="#f5c542" stroke-width="5" stroke-linecap="round"/>
+<path d="M31 55 C23 55 20 47 25 41 C21 33 30 25 37 30 C40 19 55 20 56 31 C63 34 62 45 55 47 C54 53 47 56 41 53 Z" fill="#eaf4ff" stroke="#7fa8cc" stroke-width="2.5" stroke-linejoin="round"/>
+<circle cx="38" cy="39" r="3.2" fill="#c4dcf2"/>
+<circle cx="50" cy="36" r="2.4" fill="#c4dcf2"/>
+<circle cx="45" cy="47" r="2" fill="#c4dcf2"/>
 </svg>"""
 
 ## Authored width of the button column on the 1920x1080 desktop canvas.
@@ -79,14 +93,20 @@ func _ready() -> void:
 	vbox.add_child(tagline)
 	_spacer(vbox, UITheme.SPACE_M)
 
-	# Rank one: the button the player came here to press.
+	# Rank one: the two games. Waddle Run is a mode in the same sense that
+	# racing is — its own rules, its own scoreboard, its own session length — so
+	# burying it in the mode list would have made a whole half of the game
+	# something you have to already know about. Both get the hero treatment and
+	# the player picks between two obvious things.
 	_add_button(vbox, "Play", UITheme.ICON_PLAY, func() -> void:
 		SceneRouter.go_to(Game.SCENE_MODE_SELECT), true)
+	_add_button(vbox, "Waddle Run", RUN_ICON_SVG, func() -> void:
+		Game.start_runner(), true)
 	_spacer(vbox, 6)
-	# The daily sits directly under Play: it is the reason to open the game on
-	# a day you were not otherwise going to, so it has to be visible without a
-	# menu dive. Its label carries the state (streak, or done for today) so the
-	# button itself is the reminder.
+	# The daily sits directly under the heroes: it is the reason to open the
+	# game on a day you were not otherwise going to, so it has to be visible
+	# without a menu dive. Its label carries the state (streak, or done for
+	# today) so the button itself is the reminder.
 	_add_button(vbox, _daily_label(), UITheme.ICON_TROPHY, func() -> void:
 		Game.start_daily_challenge(), false)
 	# Rank two: the rest of the game, full width and evenly weighted.
