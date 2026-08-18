@@ -837,6 +837,8 @@ func build_environment(params: Dictionary) -> void:
 	if bool(params.get("snow", false)) and not GameConfig.is_headless():
 		_add_snowfall()
 		await stage()
+		_add_near_snow(params)
+		await stage()
 	if bool(params.get("spindrift", false)) and not GameConfig.is_headless():
 		_add_spindrift(params)
 		await stage()
@@ -1538,7 +1540,9 @@ static func _sky_cover_texture(seed_value: int, coverage: float, streaks: float)
 ## jerks the ones already in flight.
 func _add_spindrift(params: Dictionary) -> void:
 	var quality := String(SettingsManager.get_setting("display", "particle_quality"))
-	if quality == "low":
+	# QA switch: lets a capture isolate whether an on-screen artifact belongs to
+	# this layer or to the surface under it.
+	if quality == "low" or OS.get_environment("DBG_NO_SPINDRIFT") != "":
 		return
 	var wind: Vector2 = params.get("spindrift_dir", Vector2(0.85, 0.53))
 	var wind_dir := Vector3(wind.x, 0.0, wind.y).normalized()
@@ -1559,15 +1563,21 @@ func _add_spindrift(params: Dictionary) -> void:
 	# A whisper of lift and gravity: streaks rise slightly, then settle, which
 	# is what keeps them hugging the ground instead of flying flat forever.
 	mat.gravity = Vector3(wind_dir.x * 0.6, -0.55, wind_dir.z * 0.6)
-	mat.scale_min = 0.55
-	mat.scale_max = 1.35
+	mat.scale_min = 0.5
+	mat.scale_max = 1.3
 	mat.damping_min = 0.4
 	mat.damping_max = 1.6
 	drift.process_material = mat
 	# Long thin quad: with camera billboarding its long axis lies across the
 	# screen, which is how a wind streak reads at a level camera.
 	var streak := QuadMesh.new()
-	streak.size = Vector2(float(params.get("spindrift_length", 4.2)), 0.85)
+	# Small on purpose. A big soft veil looks better in isolation, but these
+	# spawn within a couple of metres of the lens: at 4 m across, one drifting
+	# through the near plane became a flat pale band with a hard straight edge
+	# across the whole frame (caught by capturing the same view with the layer
+	# switched off). A streak this size cannot cover the screen no matter where
+	# it drifts, so density does the work instead of size.
+	streak.size = Vector2(float(params.get("spindrift_length", 2.0)), 0.18)
 	var streak_mat := StandardMaterial3D.new()
 	streak_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	streak_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -1579,12 +1589,12 @@ func _add_spindrift(params: Dictionary) -> void:
 	# Cool, not white. Blowing snow over a sunlit deck is a translucent veil
 	# that shades what is under it; pure white at any alpha is invisible against
 	# the surface it is supposed to be moving over.
-	streak_mat.albedo_color = params.get("spindrift_color", Color(0.80, 0.87, 0.99, 0.26))
+	streak_mat.albedo_color = params.get("spindrift_color", Color(0.80, 0.87, 0.99, 0.42))
 	streak_mat.disable_receive_shadows = true
 	streak.material = streak_mat
 	drift.draw_pass_1 = streak
-	drift.amount = 110 if quality == "high" else 55
-	drift.lifetime = 2.2
+	drift.amount = 190 if quality == "high" else 95
+	drift.lifetime = 1.8
 	drift.preprocess = 2.0
 	drift.visibility_aabb = AABB(Vector3(-40, -8, -40), Vector3(80, 20, 80))
 	add_child(drift)
@@ -1601,6 +1611,64 @@ func _add_spindrift(params: Dictionary) -> void:
 		var here := cam.global_position
 		drift.global_position = Vector3(here.x, ground_height_at(here) + 0.45, here.z))
 	drift.add_child(follower)
+
+
+## Near-camera flakes: a second, much smaller snow volume right around the
+## lens, with flakes big enough to read as individual crystals.
+##
+## The main snowfall layer spreads its budget over a 90 m box, which means the
+## flakes that land near the camera are both sparse and sub-pixel — accurate,
+## and worth almost nothing on screen. Depth in a snow scene comes from a few
+## LARGE out-of-focus flakes crossing close to the lens against far geometry;
+## that parallax is what separates foreground from background and it is the
+## cheapest sense of depth available to a renderer with no depth of field.
+##
+## Kept faint and slightly cool so it reads as out-of-focus rather than as
+## confetti, and skipped on the low particle preset.
+func _add_near_snow(params: Dictionary) -> void:
+	var quality := String(SettingsManager.get_setting("display", "particle_quality"))
+	if quality == "low":
+		return
+	var near := GPUParticles3D.new()
+	near.name = "NearSnow"
+	var mat := ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	mat.emission_box_extents = Vector3(7.0, 3.5, 7.0)
+	mat.direction = Vector3(0.25, -1.0, 0.1)
+	mat.spread = 22.0
+	mat.initial_velocity_min = 1.6
+	mat.initial_velocity_max = 3.4
+	mat.gravity = Vector3(float(params.get("near_snow_drift", 0.9)), -2.4, 0.35)
+	# Wide size spread: a few flakes much closer to the lens than the rest is
+	# the whole point, and uniform sizes read as a printed pattern.
+	# Capped: past ~0.7 m across at a metre from the lens a flake stops reading
+	# as out-of-focus snow and starts reading as a smudge on the camera.
+	mat.scale_min = 0.6
+	mat.scale_max = 2.2
+	mat.angular_velocity_min = -40.0
+	mat.angular_velocity_max = 40.0
+	near.process_material = mat
+	var flake := QuadMesh.new()
+	flake.size = Vector2(0.30, 0.30)
+	flake.material = VisualLibrary.billboard_puff_material(
+		params.get("near_snow_color", Color(0.97, 0.99, 1.0, 0.45)), 32, 0.85)
+	near.draw_pass_1 = flake
+	near.amount = 60 if quality == "high" else 30
+	near.lifetime = 3.2
+	near.preprocess = 2.5
+	near.visibility_aabb = AABB(Vector3(-16, -14, -16), Vector3(32, 28, 32))
+	add_child(near)
+	var follower := Timer.new()
+	follower.wait_time = 0.12
+	follower.autostart = true
+	follower.timeout.connect(func() -> void:
+		var cam := get_viewport().get_camera_3d()
+		if cam != null:
+			# Slightly ahead of and above the camera, so flakes fall THROUGH the
+			# view rather than spawning behind it.
+			near.global_position = cam.global_position \
+				- cam.global_transform.basis.z * 3.0 + Vector3.UP * 2.5)
+	near.add_child(follower)
 
 
 func _add_snowfall() -> void:

@@ -834,3 +834,27 @@ cut glacier face. Two changes:
   is the single most identifiable thing about glacier ice.
 Checked on both a bright course and a night course (qa_shots/walls/): the
 higher opacity does not crush aurora's walls to black.
+
+### Near-camera snow, and the artifact the spindrift veils were hiding
+`_add_near_snow` adds a second, much smaller snow volume right around the lens
+(7 x 3.5 x 7 m box, flakes 3-5x the size of the main layer, ~60 of them). The
+main snowfall spreads its budget over a 90 m box, so the flakes that pass close
+to the camera are sparse and sub-pixel — accurate and worth nothing on screen.
+Depth in a snow scene comes from a few LARGE out-of-focus flakes crossing near
+the lens against far geometry, and that parallax is the cheapest depth cue
+available to a renderer with no depth of field. Capped in size: past ~0.7 m
+across at a metre out, a flake stops reading as snow and starts reading as a
+smudge on the lens.
+
+Capturing that pass caught a real defect in the spindrift shipped earlier: its
+veils (4 m across) sometimes drifted through the near plane and rendered as a
+flat pale band with a hard straight edge across the entire frame. Proven by
+capturing the identical view with the layer switched off (`DBG_NO_SPINDRIFT=1`,
+kept as a QA switch) — bands gone. Spindrift is back to small streaks (2.0 x
+0.18 m) at roughly double the density: a streak that size cannot cover the
+screen wherever it drifts, so density does the work instead of size.
+
+Also fixed `tests/pose_check.tscn`, which had started hanging forever with no
+output: it never positioned its window, and an occluded window never draws, so
+its `await RenderingServer.frame_post_draw` never resumed. It now places the
+window on screen and has a 20 s watchdog that fails loudly instead of hanging.
