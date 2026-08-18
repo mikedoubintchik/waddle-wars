@@ -38,6 +38,8 @@ var _fov_kick: float = 0.0
 ## build, a synchronous build freezes every frame including the spinner.
 var build_finished: bool = false
 var _near_snow: GPUParticles3D = null
+var _world_env: WorldEnvironment = null
+var _sun: DirectionalLight3D = null
 var _rng := RandomNumberGenerator.new()
 var _pause_layer: CanvasLayer = null
 var _touch: RunnerTouch = null
@@ -192,6 +194,7 @@ func _process(delta: float) -> void:
 	track.update_stream(player.position.z, clampf(player.distance / 2600.0, 0.0, 1.0))
 	chaser.tick(delta, player.distance, float(hits_taken))
 	_place_camera(delta, false)
+	_blend_biome(delta)
 	if _near_snow != null:
 		_near_snow.global_position = Vector3(player.position.x * 0.5, 3.4,
 			player.position.z - 4.0)
@@ -220,10 +223,17 @@ func _process(delta: float) -> void:
 func _place_camera(delta: float, snap: bool) -> void:
 	if camera == null or player == null:
 		return
-	# Close and low. The first pass sat 8.4 m back and 3.35 m up and the penguin
-	# read as a distant speck — in a runner the character is the thing you are
-	# reading every frame, and it has to be big enough to see a slide start.
-	var target := Vector3(player.position.x * 0.55, 2.55 + player.position.y * 0.32,
+	# Close, and just high enough. The first pass sat 8.4 m back and 3.35 m up
+	# and the penguin read as a distant speck. Pulling it to 5.9 m back fixed
+	# that, but at 2.55 m up the camera skimmed the 2.0 m tunnel beams closely
+	# enough that one filled the frame on the way through — 2.95 m keeps the
+	# penguin large and clears the arches.
+	# Height tracking is deliberately partial — following a hop one-for-one
+	# makes the whole world bounce — but it has to open up for a ramp launch or
+	# the penguin flies out of the top of the frame, which is exactly the
+	# moment the mode looks best.
+	var lift := 0.32 if player.position.y < 1.6 else 0.72
+	var target := Vector3(player.position.x * 0.55, 2.95 + player.position.y * lift,
 		player.position.z + 5.9)
 	if snap:
 		camera.position = target
@@ -233,7 +243,10 @@ func _place_camera(delta: float, snap: bool) -> void:
 		_camera_shake = maxf(0.0, _camera_shake - delta * 2.4)
 		camera.position += Vector3(
 			_rng.randf_range(-1.0, 1.0), _rng.randf_range(-1.0, 1.0), 0.0) * _camera_shake * 0.5
-	var look := Vector3(player.position.x * 0.5, 1.35, player.position.z - 11.0)
+	# The aim point rises with the penguin too, so a launch is framed rather
+	# than merely kept on screen.
+	var look := Vector3(player.position.x * 0.5, 1.35 + player.position.y * 0.45,
+		player.position.z - 11.0)
 	camera.look_at(look, Vector3.UP)
 	var speed_ratio := clampf((player.speed - RunnerConfig.START_SPEED)
 		/ maxf(RunnerConfig.MAX_SPEED - RunnerConfig.START_SPEED, 0.001), 0.0, 1.0)
@@ -431,6 +444,7 @@ func _build_environment() -> void:
 		env.glow_intensity = 0.45
 	world_env.environment = env
 	add_child(world_env)
+	_world_env = world_env
 
 	var sun := DirectionalLight3D.new()
 	sun.light_color = Color(1.0, 0.95, 0.86)
@@ -445,6 +459,7 @@ func _build_environment() -> void:
 	sun.shadow_normal_bias = 1.6
 	sun.shadow_blur = 1.6
 	add_child(sun)
+	_sun = sun
 
 	var fill := DirectionalLight3D.new()
 	fill.light_color = Color(0.62, 0.74, 0.95)
@@ -460,6 +475,35 @@ func _build_environment() -> void:
 		shafts.name = "SunShafts"
 		add_child(shafts)
 		shafts.configure(sun, Color(1.0, 0.97, 0.9).lerp(Color.WHITE, 0.5), 0.34, 13, 99)
+
+
+## Eases the sky, sun and fog toward the band the player is currently running
+## through. The track authors the bands and publishes what each should look
+## like; doing the blend here keeps one WorldEnvironment for the whole run
+## (swapping environments per band would restart the sky and re-link its
+## shader mid-run, which on web is a visible hitch).
+func _blend_biome(delta: float) -> void:
+	if _world_env == null or track == null or player == null:
+		return
+	var want := RunnerTrack.biome_environment(track.biome_at_z(player.position.z))
+	if want.is_empty():
+		return
+	var env := _world_env.environment
+	var sky_mat := env.sky.sky_material as ProceduralSkyMaterial
+	var k := clampf(delta * 0.9, 0.0, 1.0)
+	if sky_mat != null:
+		sky_mat.sky_top_color = sky_mat.sky_top_color.lerp(
+			want.get("sky_top", sky_mat.sky_top_color), k)
+		sky_mat.sky_horizon_color = sky_mat.sky_horizon_color.lerp(
+			want.get("sky_horizon", sky_mat.sky_horizon_color), k)
+		sky_mat.ground_horizon_color = sky_mat.sky_horizon_color
+	env.fog_light_color = env.fog_light_color.lerp(want.get("fog", env.fog_light_color), k)
+	env.ambient_light_energy = lerpf(env.ambient_light_energy,
+		float(want.get("ambient", env.ambient_light_energy)), k)
+	if _sun != null:
+		_sun.light_color = _sun.light_color.lerp(want.get("sun", _sun.light_color), k)
+		_sun.light_energy = lerpf(_sun.light_energy,
+			float(want.get("sun_energy", _sun.light_energy)), k)
 
 
 ## Snow around the lens. The racing courses get this through CourseBase; the

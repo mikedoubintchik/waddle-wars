@@ -67,6 +67,9 @@ var _roll: float = 0.0
 var _stumble: float = 0.0
 var _near_miss_cooldown: float = 0.0
 var _passed: Dictionary = {}
+## Ramps already used this run. An Area3D stays overlapped for as long as the
+## penguin is inside it, so without this a single ramp re-launched every frame.
+var _used_ramps: Dictionary = {}
 var _trail: SnowTrail = null
 ## Test hook: an autopilot that dodges what it can see, so a headless sim can
 ## run the mode end to end without a human.
@@ -326,6 +329,8 @@ func _scan_near_miss(delta: float) -> void:
 	# be dropped wholesale once it grows rather than reference-counted.
 	if _passed.size() > 128:
 		_passed.clear()
+	if _used_ramps.size() > 64:
+		_used_ramps.clear()
 
 
 ## --- Ramps ------------------------------------------------------------------
@@ -368,7 +373,10 @@ func _resolve_overlaps() -> void:
 			# A ramp is a hazard node so the track can place it with the same
 			# machinery, but hitting one is the good outcome.
 			if String(area.get_meta("kind", "block")) == "ramp":
-				launch(RunnerConfig.RAMP_LAUNCH)
+				var ramp_id := area.get_instance_id()
+				if not _used_ramps.has(ramp_id):
+					_used_ramps[ramp_id] = true
+					launch(RunnerConfig.RAMP_LAUNCH)
 				continue
 			take_hit()
 
@@ -460,7 +468,13 @@ func _autopilot(delta: float) -> void:
 	var tree := get_tree()
 	if tree == null:
 		return
-	# How far ahead a decision has to be made, in metres, for each verb.
+	# How far ahead a decision has to be made, in metres, for each verb. Timed
+	# off the actual arcs rather than a flat distance: a jump is airborne for
+	# 2*JUMP_SPEED/GRAVITY seconds, so committing further out than a third of
+	# that lands the penguin short of what it jumped for.
+	var air_time := 2.0 * RunnerConfig.JUMP_SPEED / RunnerConfig.GRAVITY
+	var jump_lead := speed * air_time * 0.34
+	var slide_lead := speed * RunnerConfig.SLIDE_TIME * 0.42
 	var reaction := speed * 0.34
 	var scan := 4.0 + speed * 1.1
 	# Per-lane threat: the nearest blocking obstacle in each lane, and the
@@ -479,6 +493,11 @@ func _autopilot(delta: float) -> void:
 			continue
 		var hazard_lane := _lane_of(hazard.global_position.x)
 		var kind := String(hazard.get_meta("kind", "block"))
+		# A bar spanning the whole deck is centred at x = 0, so lane maths puts
+		# it in the middle lane and the bot never sees it from lanes 0 or 2.
+		# Anything that spans the deck is in EVERY lane by definition.
+		if int(hazard.get_meta("span", 1)) >= RunnerConfig.LANE_COUNT:
+			hazard_lane = lane
 		match kind:
 			"ramp":
 				if ahead < ramp_at:
@@ -496,10 +515,10 @@ func _autopilot(delta: float) -> void:
 				if hazard_lane >= 0 and hazard_lane < 3 and ahead < lane_block[hazard_lane]:
 					lane_block[hazard_lane] = ahead
 	# Verbs first: they are cheaper than a lane change and keep the line.
-	if slide_at < reaction and state != State.SLIDE:
+	if slide_at < slide_lead and state != State.SLIDE:
 		slide()
 		return
-	if jump_at < reaction * 1.15 and state != State.JUMP:
+	if jump_at < jump_lead and state != State.JUMP:
 		jump()
 		return
 	if _autopilot_cooldown > 0.0:

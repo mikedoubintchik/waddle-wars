@@ -917,19 +917,21 @@ func _add_obstacle(chunk: RunnerChunk, kind: int, lane: int, span: int, local_z:
 ## straight through where the post would be. A decal can be as loud as it likes
 ## and is never something the player can collide with.
 func _add_deck_marks(chunk: RunnerChunk, kind: int, centre_x: float, width: float, local_z: float) -> void:
-	# Deep and saturated rather than bright: these are unshaded alpha decals on
-	# blown-out snow under an ACES curve, and a "bright" colour comes back out
-	# of the tonemapper as pastel. The dark end of each hue is what survives.
-	var colour := Color(0.86, 0.13, 0.08)
+	# Deep and saturated rather than bright, and authored in LINEAR: these are
+	# unshaded alpha decals on blown-out snow under an ACES curve, so a colour
+	# that looks right as an editor swatch arrives on screen a full stop lighter
+	# and a long way toward pastel. Each of these is roughly the linear
+	# pre-image of the colour actually wanted on the deck.
+	var colour := Color(0.72, 0.02, 0.01)
 	match kind:
 		Kind.BAR:
-			colour = Color(0.06, 0.55, 0.92)
+			colour = Color(0.02, 0.26, 0.76)
 		Kind.LOW:
-			colour = Color(0.95, 0.52, 0.02)
+			colour = Color(0.88, 0.24, 0.005)
 		Kind.RAMP:
-			colour = Color(0.10, 0.78, 0.26)
+			colour = Color(0.02, 0.55, 0.10)
 		Kind.SEAL:
-			colour = Color(0.92, 0.30, 0.03)
+			colour = Color(0.85, 0.12, 0.0)
 	# Capped at a lane and a half. A full-deck bar wants a THRESHOLD, not a
 	# carpet: chevrons stretched to the whole 10.8 m deck buried the track under
 	# paint and told the player nothing the narrower mark does not.
@@ -943,7 +945,7 @@ func _add_deck_marks(chunk: RunnerChunk, kind: int, centre_x: float, width: floa
 		chunk.marks.append(Transform3D(
 				Basis().scaled(Vector3(span_x, 1.0, 2.4)),
 				Vector3(centre_x, 0.03, local_z + 2.6 + float(i) * 2.9)))
-		chunk.mark_colors.append(Color(colour.r, colour.g, colour.b, 0.94 - float(i) * 0.2))
+		chunk.mark_colors.append(Color(colour.r, colour.g, colour.b, 0.95 - float(i) * 0.13))
 
 
 ## A hazard that crosses the lanes. Its own node rather than a row entry,
@@ -1177,10 +1179,8 @@ func _build_deck(chunk: RunnerChunk, pattern: int) -> void:
 	# A tunnel darkens its own floor. This is the cheapest honest "the light
 	# changed" available: no extra lights, no environment write, and it is the
 	# surface the player is actually looking at.
-	var deck_tint := _biome_deck_tint(biome)
-	if pattern == Pattern.TUNNEL:
-		deck_tint = deck_tint * Color(0.48, 0.56, 0.72, 1.0)
-	deck.material_override = VisualLibrary.snow_material(deck_tint, 0.5, -1.0, 1.0)
+	var tunnel := pattern == Pattern.TUNNEL
+	deck.material_override = _deck_material(biome, tunnel)
 	deck.position = Vector3(0.0, 0.0, -RunnerConfig.CHUNK_LENGTH * 0.5)
 	deck.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	chunk.add_child(deck)
@@ -1198,10 +1198,27 @@ func _build_deck(chunk: RunnerChunk, pattern: int) -> void:
 	verge.name = "Verge"
 	verge.mesh = _verge_mesh()
 	verge.set_surface_override_material(0, VisualLibrary.ice_material(_biome_ice_tint(biome), 0.5))
-	verge.set_surface_override_material(1,
-			VisualLibrary.snow_material(deck_tint * Color(0.86, 0.9, 1.0, 1.0), 0.3))
+	verge.set_surface_override_material(1, _verge_snow_material(biome, tunnel))
 	verge.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	chunk.add_child(verge)
+
+
+## Deck tint for a biome, darkened when the chunk is roofed. Split out so the
+## load-time primer below and the per-chunk builder ask for the SAME material
+## key -- a primer that misses by one colour component primes nothing.
+static func _deck_tint(biome: int, tunnel: bool) -> Color:
+	var tint := _biome_deck_tint(biome)
+	if tunnel:
+		return tint * Color(0.48, 0.56, 0.72, 1.0)
+	return tint
+
+
+static func _deck_material(biome: int, tunnel: bool) -> ShaderMaterial:
+	return VisualLibrary.snow_material(_deck_tint(biome, tunnel), 0.5, -1.0, 1.0)
+
+
+static func _verge_snow_material(biome: int, tunnel: bool) -> ShaderMaterial:
+	return VisualLibrary.snow_material(_deck_tint(biome, tunnel) * Color(0.86, 0.9, 1.0, 1.0), 0.3)
 
 
 ## Pushed further apart than "tasteful" would suggest. These tints are the only
@@ -1379,11 +1396,7 @@ func _build_aurora(chunk: RunnerChunk, rng: RandomNumberGenerator) -> void:
 	# Dimmed and widened from the library default. At full strength a curtain
 	# this far out resolves to a small, very bright core, and a bright core on a
 	# dark sky is a needle rather than a curtain.
-	curtain.material_override = VisualLibrary.shader_variant(VisualLibrary.aurora_material(), {
-		"max_alpha": 0.30,
-		"intensity": 0.85,
-		"band_scale": 2.2,
-	})
+	curtain.material_override = _aurora_material()
 	var side := -1.0 if rng.randf() < 0.5 else 1.0
 	var here := Vector3(side * rng.randf_range(70.0, 190.0), rng.randf_range(52.0, 92.0),
 			-rng.randf() * RunnerConfig.CHUNK_LENGTH - rng.randf_range(240.0, 480.0))
@@ -1419,6 +1432,17 @@ func _build_tunnel(chunk: RunnerChunk) -> void:
 		lamp.position = Vector3(0.0, TUNNEL_APEX - 1.1,
 				-RunnerConfig.CHUNK_LENGTH * (0.25 + 0.5 * float(i)))
 		chunk.add_child(lamp)
+
+
+## Dimmed and widened from the library default. At full strength a curtain this
+## far out resolves to a small, very bright core, and a bright core on a dark
+## sky is a needle rather than a curtain.
+static func _aurora_material() -> ShaderMaterial:
+	return VisualLibrary.shader_variant(VisualLibrary.aurora_material(), {
+		"max_alpha": 0.30,
+		"intensity": 0.85,
+		"band_scale": 2.2,
+	})
 
 
 func _add_multimesh(parent: Node3D, mesh: Mesh, transforms: Array[Transform3D],
@@ -1493,6 +1517,46 @@ func _prime_art_cache() -> void:
 	_curtain_mesh()
 	for id: StringName in RunnerConfig.POWERUP_IDS:
 		_crate_mesh(id)
+	_prime_dressing_cache()
+
+
+## Everything a STREAMED chunk could otherwise build for the first time
+## mid-run. Without this the first chunk of each biome, and the first chunk to
+## roll a berg silhouette the run has not used yet, pay for a mesh build or a
+## material construction inside update_stream() -- measured at 9 ms against a
+## 0.5 ms average, which is a visible hitch in a mode whose entire job is
+## smooth forward motion.
+func _prime_dressing_cache() -> void:
+	VisualLibrary.snow_drift_mesh()
+	VisualLibrary.ice_crystal_mesh()
+	VisualLibrary.contact_patch_mesh()
+	VisualLibrary.contact_shadow_material(0.34)
+	VisualLibrary.contact_shadow_material(0.3)
+	VisualLibrary.rock_material(Color.WHITE, 0.6)
+	VisualLibrary.rock_material(Color(0.86, 0.94, 1.0), 0.3)
+	VisualLibrary.rock_material(Color(0.24, 0.28, 0.36), 0.9)
+	_prop_material()
+	_mark_material()
+	_tunnel_material()
+	_aurora_material()
+	_curtain_mesh()
+	# berg_mesh() builds a fresh seeded silhouette per variant; _build_dressing
+	# draws from exactly these four, so this is the whole set.
+	for variant: int in [101, 211, 331, 449]:
+		VisualLibrary.berg_mesh(variant)
+	for biome: int in BIOME_COUNT:
+		var ice := _biome_ice_tint(biome)
+		VisualLibrary.ice_material(ice, 0.5)
+		VisualLibrary.emissive_material(_biome_seam_tint(biome), _biome_seam_glow(biome), 0.45, 0.7)
+		VisualLibrary.rock_material(_biome_deck_tint(biome), 0.85)
+		VisualLibrary.rock_material(ice, 0.25)
+		VisualLibrary.rock_material(ice.lerp(Color.WHITE, 0.5), 0.6)
+		for tunnel: int in 2:
+			_deck_material(biome, tunnel == 1)
+			_verge_snow_material(biome, tunnel == 1)
+	for id: StringName in RunnerConfig.POWERUP_IDS:
+		var tint := _powerup_colour(id)
+		VisualLibrary.emissive_material(tint, tint, 1.5, 0.34)
 
 
 ## Shared vertex-colour material for obstacles, fish and props. rock_material
@@ -1522,25 +1586,25 @@ static func _mark_material() -> StandardMaterial3D:
 	return mat
 
 
-## Tunnel shell material. Its own cached material -- one for the whole game --
-## because a vault is the one surface here that the sun never reaches: it is
-## the UNDERSIDE of a roof, so under a directional rig it renders at ambient
-## only. The first pass used the shared prop material and the shell came out at
-## almost exactly the sky colour, which read as no roof at all. A little
-## emission decouples it from the light rig entirely, which is also what makes
-## an ice cave look like ice rather than like a hole.
+## Tunnel shell material: one for the whole game. Identical to the shared prop
+## material except for CULL_DISABLED, which is worth its own instance. A vault
+## is a single sheet the player is always underneath, and one inverted winding
+## anywhere in it means an invisible roof -- a failure with no visible warning
+## until somebody screenshots a tunnel and finds sky through it. Six bays of
+## back faces is a cheap price for making that class of bug impossible.
 static func _tunnel_material() -> StandardMaterial3D:
 	if _tunnel_material_cache != null:
 		return _tunnel_material_cache
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.90, 0.96, 1.0)
+	mat.albedo_color = Color.WHITE
 	mat.vertex_color_use_as_albedo = true
-	mat.roughness = 0.42
-	mat.emission_enabled = true
-	mat.emission = Color(0.34, 0.56, 0.82)
-	# Low enough that the dark ribs stay dark: emission is uniform across the
-	# mesh, so anything stronger flattens the band rhythm it exists to protect.
-	mat.emission_energy_multiplier = 0.42
+	mat.roughness = 0.5
+	# NO emission, deliberately. An emissive vault was tried and it is exactly
+	# wrong: emission is uniform across the mesh, so it lifts the whole ceiling
+	# toward the sky value it needs to be distinguishable FROM, and it flattens
+	# the rib rhythm at the same time. An unlit underside lit only by ambient
+	# and the bay lamps is what makes the inside of a tunnel darker than the
+	# outside, which is the whole effect.
 	# Double-sided. A vault is a single sheet of geometry that the player is
 	# always underneath, and one inverted winding anywhere in it is an invisible
 	# roof -- a failure mode with no visible warning until someone screenshots
@@ -1716,8 +1780,18 @@ static func _low_mesh() -> ArrayMesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var hz := LOW_DEPTH * 0.5
-	var foot := Color(0.14, 0.19, 0.28)
-	var crown := Color(1.0, 0.74, 0.18)
+	# Warm all the way down. The obvious ramp -- dark navy foot to amber crown --
+	# looks right in the editor and fails in play: at 35 m the ridge is ten
+	# pixels tall, the amber survives as a hairline at the top and the object
+	# reads as a dark hole in the snow. Whatever a small obstacle's dominant
+	# tone is, that IS its colour, so the dominant tone has to be the warning.
+	# Deep and red-shifted, not "amber" as a colour picker would write it.
+	# Vertex colours here are consumed as LINEAR (the whole file's palette is,
+	# and the fish fin at (1.0, 0.40, 0.08) is the reference that renders as a
+	# clean orange), so a value that looks amber in an editor swatch comes out
+	# of the pipeline as pale olive -- which is what the first pass shipped.
+	var foot := Color(0.52, 0.16, 0.02)
+	var crown := Color(1.0, 0.46, 0.06)
 	var b0 := Vector3(-0.5, 0.0, -hz)
 	var b1 := Vector3(0.5, 0.0, -hz)
 	var b2 := Vector3(0.5, 0.0, hz)
@@ -1731,27 +1805,28 @@ static func _low_mesh() -> ArrayMesh:
 	_quad_out(st, b1, b2, t2, t1, Vector3.RIGHT, foot, foot, crown, crown)
 	_quad_out(st, b3, b0, t0, t3, Vector3.LEFT, foot, foot, crown, crown)
 	_quad_out(st, t0, t1, t2, t3, Vector3.UP, crown, crown, crown, crown)
-	# Hazard blocks on the face the player is running at, three wide bands with
-	# amber between them. Wide enough that they are still three things at 50 m
-	# rather than one averaged tone.
+	# Hazard blocks on the face the player is actually running at (+Z is toward
+	# the camera), three wide bands with amber between them. Wide enough that
+	# they are still three things at 50 m rather than one averaged tone -- the
+	# first pass used seven fine stripes and they resolved to flat olive.
 	var dark := Color(0.07, 0.08, 0.11)
 	for i: int in 3:
-		var x0 := lerpf(-0.46, 0.46, float(i * 2) / 5.0)
-		var x1 := lerpf(-0.46, 0.46, float(i * 2 + 1) / 5.0)
+		var x0 := lerpf(-0.46, 0.46, float(i * 3 + 1) / 9.0)
+		var x1 := lerpf(-0.46, 0.46, float(i * 3 + 2) / 9.0)
 		_quad_out(st,
-				Vector3(x0, 0.02, -hz - 0.03),
-				Vector3(x1, 0.02, -hz - 0.03),
-				Vector3(x1 * 0.9, LOW_HEIGHT - 0.06, -hz * 0.45 - 0.03),
-				Vector3(x0 * 0.9, LOW_HEIGHT - 0.06, -hz * 0.45 - 0.03),
-				Vector3.FORWARD, dark, dark, dark, dark)
-	# Near-black leading edge along the top front lip. One dark line against the
-	# amber cap is what actually defines WHERE the top of the ridge is, and the
-	# top edge is the thing the player times a jump against.
+				Vector3(x0, 0.02, hz + 0.03),
+				Vector3(x1, 0.02, hz + 0.03),
+				Vector3(x1 * 0.9, LOW_HEIGHT - 0.08, hz * 0.45 + 0.03),
+				Vector3(x0 * 0.9, LOW_HEIGHT - 0.08, hz * 0.45 + 0.03),
+				Vector3.BACK, dark, dark, dark, dark)
+	# Near-black line along the top front lip: one dark edge against the amber
+	# cap is what actually defines WHERE the top of the ridge is, and the top
+	# edge is the thing the player times a jump against.
 	_quad_out(st,
-			Vector3(-0.46, LOW_HEIGHT + 0.015, -hz * 0.45 - 0.02),
-			Vector3(0.46, LOW_HEIGHT + 0.015, -hz * 0.45 - 0.02),
-			Vector3(0.46, LOW_HEIGHT + 0.015, -hz * 0.45 + 0.16),
-			Vector3(-0.46, LOW_HEIGHT + 0.015, -hz * 0.45 + 0.16),
+			Vector3(-0.46, LOW_HEIGHT + 0.015, hz * 0.45 + 0.02),
+			Vector3(0.46, LOW_HEIGHT + 0.015, hz * 0.45 + 0.02),
+			Vector3(0.46, LOW_HEIGHT + 0.015, hz * 0.45 - 0.09),
+			Vector3(-0.46, LOW_HEIGHT + 0.015, hz * 0.45 - 0.09),
 			Vector3.UP, dark, dark, dark, dark)
 	st.generate_normals()
 	_low_mesh_cache = st.commit()
@@ -1815,10 +1890,10 @@ static func _ramp_mesh() -> ArrayMesh:
 	# Near-black flanks. The ONLY cue that says "this is a slope, not paint" from
 	# a camera that looks along it is the side triangle read against the snow,
 	# so the sides get the darkest value in the scene and the top stays pale.
-	var flank := Color(0.09, 0.13, 0.22)
+	var flank := Color(0.03, 0.05, 0.10)
 	var foot := Color(0.44, 0.58, 0.76)
 	var crown := Color(0.98, 1.0, 1.0)
-	var go := Color(0.12, 0.86, 0.30)
+	var go := Color(0.02, 0.62, 0.12)
 	var strips := 6
 	var profile: PackedFloat32Array = PackedFloat32Array()
 	for i: int in strips + 1:
@@ -1889,7 +1964,10 @@ static func _seal_mesh() -> ArrayMesh:
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var dorsal := Color(0.15, 0.16, 0.20)
 	var belly := Color(0.78, 0.79, 0.82)
-	var band := Color(1.0, 0.58, 0.10)
+	# Same linear-space caveat as the ridge: authored warm, this arrives on
+	# screen as gold. Pushed red so the shoulder band reads as the hazard
+	# marking it is rather than as a highlight.
+	var band := Color(0.92, 0.20, 0.0)
 	var rings := 11
 	var segs := 8
 	var centre_y := SEAL_GIRTH * 0.86
@@ -1968,22 +2046,17 @@ static func _tunnel_mesh() -> ArrayMesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var outer := RunnerConfig.DECK_HALF_WIDTH + WALL_THICKNESS
-	# Pale ice with DARK ribs, not the other way round. The first pass made the
-	# vault navy and the ribs bright, and against a night sky the shell simply
-	# vanished -- the tunnel read as a row of floating hoops. Ice lit from
-	# inside is bright; the dimming belongs to the deck tint, which already
-	# does it, and the ribs are what carry the rhythm.
 	# A CEILING, not a sky. The player is inside this thing, so the vault fills
 	# the whole upper frame -- which means any pale blue-white palette resolves
-	# to something indistinguishable from the sky it replaced, and the tunnel
-	# reads as no tunnel at all. (That is not a hypothesis: a magenta test
-	# render showed the shell was there the whole time and simply wore the
-	# sky's colour.) So the vault is a mid teal-blue, several stops down from
-	# the sky, and the RIBS are the bright thing -- lit bands sweeping overhead
-	# are the entire reason to build a tunnel in a runner.
-	var vault := Color(0.44, 0.62, 0.82)
-	var shade := Color(0.20, 0.33, 0.54)
-	var rib := Color(0.92, 0.99, 1.0)
+	# to something indistinguishable from the sky it replaced and the tunnel
+	# reads as no tunnel at all. (Not a hypothesis: a magenta test render showed
+	# the shell had been there the whole time, wearing the sky's colour.) So the
+	# vault is a deep teal several stops below the sky, and the RIBS are the
+	# bright thing -- lit bands sweeping overhead are the entire reason to build
+	# a tunnel in a runner.
+	var vault := Color(0.42, 0.58, 0.78)
+	var shade := Color(0.15, 0.24, 0.42)
+	var rib := Color(0.88, 0.97, 1.0)
 	var segments := 12
 	var pts: Array[Vector3] = []
 	for i: int in segments + 1:
@@ -2003,12 +2076,16 @@ static func _tunnel_mesh() -> ArrayMesh:
 		_quad_out(st, Vector3(a.x, a.y, 0.0), Vector3(b.x, b.y, 0.0),
 				Vector3(b.x, b.y, -TUNNEL_SEGMENT), Vector3(a.x, a.y, -TUNNEL_SEGMENT),
 				inward, ca, cb, cb, ca)
-		# Rib at the bay mouth, dropped 26 cm below the vault so it is a visible
-		# band and not a texture. This is the strobe that makes speed readable
-		# inside a tunnel, where the walls otherwise give you nothing.
-		_quad_out(st, Vector3(a.x, a.y - 0.26, -0.05), Vector3(b.x, b.y - 0.26, -0.05),
-				Vector3(b.x, b.y - 0.26, -0.55), Vector3(a.x, a.y - 0.26, -0.55),
-				inward, rib, rib, rib, rib)
+		# Ribs every 1.5 m, dropped 26 cm below the vault so each is a visible
+		# band and not a texture. FOUR per bay rather than one at the mouth:
+		# this is the strobe that makes speed readable inside a tunnel, where
+		# the walls otherwise give the eye nothing to count, and one band every
+		# six metres is too slow to register as rhythm at 30 m/s.
+		for r: int in 4:
+			var rz := -float(r) * TUNNEL_SEGMENT * 0.25
+			_quad_out(st, Vector3(a.x, a.y - 0.26, rz - 0.05), Vector3(b.x, b.y - 0.26, rz - 0.05),
+					Vector3(b.x, b.y - 0.26, rz - 0.55), Vector3(a.x, a.y - 0.26, rz - 0.55),
+					inward, rib, rib, rib, rib)
 	for s: int in 2:
 		var sx := (-outer + 0.35) if s == 0 else (outer - 0.35)
 		_box_faces(st, Vector3(sx - 0.1, TUNNEL_SPRING - 0.28, -TUNNEL_SEGMENT),
