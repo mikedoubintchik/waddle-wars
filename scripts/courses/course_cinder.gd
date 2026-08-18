@@ -300,6 +300,10 @@ func build_course() -> void:
 		"saturation": 1.05,
 		"snow": false,
 		"clouds": true,
+		# Ember dusk through volcanic haze.
+		"shafts": true,
+		"shaft_strength": 0.48,
+		"shaft_color": Color(1.0, 0.78, 0.55),
 		"cloud_color": Color(0.70, 0.42, 0.34, 0.8),
 		"cloud_cover": 0.42,
 		"cloud_streaks": 0.72,

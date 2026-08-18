@@ -337,6 +337,11 @@ func build_course() -> void:
 		"shadow_distance": 120.0,
 		"ambient_energy": 1.6,
 		"snow": true,
+		# Moonlight through the ridge: cold, thin, fewer blades than a sun.
+		"shafts": true,
+		"shaft_strength": 0.30,
+		"shaft_blades": 9,
+		"shaft_color": Color(0.72, 0.84, 1.0),
 		"distant_bergs": true,
 		"berg_color": Color(0.34, 0.42, 0.66),
 		"berg_count": 12,
@@ -1635,8 +1640,16 @@ func _build_twinklers(center: Vector3) -> void:
 func _build_moon() -> void:
 	if GameConfig.is_headless():
 		return
-	var center := Vector3(20.0, 20.0, -520.0)
-	var pos := center + MOON_DIR * 1080.0
+	# Camera-anchored, not world-placed. Parked in the world at 1080 m the moon
+	# swung right across the sky over a 1.5 km course and drifted away from the
+	# bearing its own key light comes from; the disc and the crepuscular rays
+	# ended up in two different places. Held at a fixed BEARING it behaves like
+	# a body at astronomical distance, which is what it is.
+	var anchor := SkyAnchor.new()
+	anchor.name = "MoonAnchor"
+	add_child(anchor)
+	anchor.configure(MOON_DIR, 1080.0)
+	var pos := Vector3.ZERO
 	# Crisp-edged disc texture: full-bright core, quick soft falloff at the rim.
 	var moon_gradient := Gradient.new()
 	moon_gradient.set_color(0, Color(1.0, 1.0, 1.0, 1.0))
@@ -1655,7 +1668,7 @@ func _build_moon() -> void:
 		{"size": 360.0, "color": Color(0.5, 0.6, 1.0, 0.1), "back": 14.0},
 		{"size": 190.0, "color": Color(0.62, 0.72, 1.0, 0.24), "back": 7.0},
 	]
-	var away := (pos - center).normalized()
+	var away := MOON_DIR
 	for spec: Dictionary in halo_specs:
 		var halo := MeshInstance3D.new()
 		var halo_mesh := QuadMesh.new()
@@ -1674,7 +1687,7 @@ func _build_moon() -> void:
 		halo.mesh = halo_mesh
 		halo.position = pos + away * float(spec["back"])
 		halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(halo)
+		anchor.add_child(halo)
 	var disc := MeshInstance3D.new()
 	var disc_mesh := QuadMesh.new()
 	disc_mesh.size = Vector2(86.0, 86.0)
@@ -1690,7 +1703,7 @@ func _build_moon() -> void:
 	disc.mesh = disc_mesh
 	disc.position = pos
 	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(disc)
+	anchor.add_child(disc)
 
 
 ## Horizon realism: a warm light-pollution dome low over the research-camp

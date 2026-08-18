@@ -133,6 +133,8 @@ func build_course() -> void:
 		"shadow_distance": 120.0,
 		"snow": false,
 		"clouds": true,
+		"shafts": true,
+		"shaft_strength": 0.38,
 		"cloud_color": Color(1.0, 0.98, 0.92, 0.8),
 		"distant_bergs": true,
 		"berg_color": Color(0.82, 0.9, 0.98),

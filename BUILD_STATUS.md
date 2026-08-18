@@ -757,3 +757,39 @@ course went from one 750 ms block (glacier, whole build) to 59 ms, aurora
 courses, tutorial, endless and the 107 unit tests still pass unchanged, and
 `WW_STAGED=1` forces the staged path locally: staged race captures on glacier
 and aurora build complete courses (qa_shots/staged/).
+
+### Crepuscular rays, and the moon that was in the wrong place
+gl_compatibility has no volumetrics and no depth reads, so real light shafts
+are impossible. `SunShafts` (scripts/gameplay/sun_shafts.gd) does what stylised
+racers do instead: a fan of soft additive blades held 420 m out along the key
+light's bearing, facing the camera. Because it is real geometry at a real
+distance, the world occludes it — the iceberg capture shows the lower rays cut
+off by the berg in front of the sun, which is the whole reason it reads as
+light in air instead of a lens flare pasted on the screen.
+
+What keeps it from looking like a decal: the fan only lights up when the sun is
+actually near frame (cosine window 0.45..0.92 — a wider window leaves long
+blades crossing the frame with their origin off-screen, which reads as
+scratches, and that is exactly how the first version looked); each blade is a
+soft-edged strip that tapers in width AND brightness along its length rather
+than a hard wedge; blades curve slightly and the fan rolls very slowly.
+
+Enabled per course through build_environment: iceberg 0.62 (sun on the horizon,
+the strongest case), cinder 0.48 warm, tutorial 0.38, glacier only 0.28 (a
+cloudless noon sky has nothing to scatter in, so a big starburst there reads as
+a flare), aurora 0.30 cold-blue as moonlight. Off on the low quality preset and
+headless.
+
+Building it exposed a real bug: **aurora's moon was parked at a fixed world
+point**, 1080 m from a hand-picked centre. Over a 1.5 km course it swung across
+the sky and drifted away from the bearing its own key light comes from — the
+new rays and the moon disc ended up in two different places, which is how it
+was caught. Sky bodies now hang off `SkyAnchor` (scripts/gameplay/sky_anchor.gd)
+which holds them at a fixed BEARING from the camera, so they behave like bodies
+at astronomical distance: no parallax, and light, disc and rays agree from
+anywhere on the course.
+
+Evidence: qa_shots/shafts/ — `tests/shaft_shot.tscn` builds a real course,
+finds its key light and stands a camera on the racing line looking into it (the
+one view a chase-camera capture almost never gives). 107 unit tests and race
+sims on glacier/aurora/iceberg/cinder pass unchanged.

@@ -801,6 +801,22 @@ func build_environment(params: Dictionary) -> void:
 			sun.directional_shadow_blend_splits = true
 	add_child(sun)
 
+	# Crepuscular rays around the key light. Opt-in per course, off on the low
+	# quality preset and headless. Colour defaults to the light's own hue pulled
+	# most of the way to white: a shaft is sunlight scattered by air, so it is
+	# always paler and less saturated than the light that casts it.
+	if bool(params.get("shafts", false)) and not GameConfig.is_headless() \
+			and String(SettingsManager.get_setting("display", "quality_preset")) != "low":
+		var shafts := SunShafts.new()
+		shafts.name = "SunShafts"
+		add_child(shafts)
+		var light_color: Color = params.get("sun_color", Color(1.0, 0.965, 0.91))
+		shafts.configure(sun,
+			params.get("shaft_color", light_color.lerp(Color.WHITE, 0.55)),
+			float(params.get("shaft_strength", 0.5)),
+			int(params.get("shaft_blades", 13)),
+			hash(course_id))
+
 	# Cool sky-fill from the anti-sun direction: polar shadow sides are lit by
 	# blue sky bounce, never black — one unshadowed directional models that
 	# for near-zero cost. Specular zeroed so ice and water keep a single sun

@@ -220,6 +220,9 @@ func build_course() -> void:
 		"shadow_distance": 150.0,
 		"snow": true,
 		"clouds": true,
+		# Late-morning sun low enough to throw rays between the peaks.
+		"shafts": true,
+		"shaft_strength": 0.28,
 		"cloud_color": Color(1.0, 0.96, 0.87, 0.82),
 	})
 

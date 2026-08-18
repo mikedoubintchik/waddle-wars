@@ -376,6 +376,11 @@ func build_course() -> void:
 		"glow_threshold": 1.4,
 		"snow": false,
 		"clouds": true,
+		# Sunrise over open water is the strongest shaft case in the game: the
+		# sun sits ON the horizon, so the rays rake across the whole bay.
+		"shafts": true,
+		"shaft_strength": 0.62,
+		"shaft_blades": 15,
 		"cloud_color": Color(1.0, 0.76, 0.62, 0.7),
 	})
 	_add_horizon_bergs()
