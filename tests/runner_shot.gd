@@ -50,13 +50,17 @@ func _process(delta: float) -> void:
 		return
 	if _shot >= _times.size() or _elapsed < _times[_shot]:
 		return
+	# Claim the slot BEFORE awaiting: the await lets _process run again, and a
+	# re-entry that reads _shot after the list is exhausted indexes out of
+	# bounds.
+	var index := _shot
+	_shot += 1
 	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
-	var path := "%s_%d.png" % [_out_path.get_basename(), _shot]
+	var path := "%s_%d.png" % [_out_path.get_basename(), index]
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(path.get_base_dir()))
 	var err := image.save_png(path)
-	print("[runner_shot] saved %s t=+%.1fs err=%d" % [path, _times[_shot], err])
-	_shot += 1
+	print("[runner_shot] saved %s t=+%.1fs err=%d" % [path, _times[index], err])
 	if _shot >= _times.size():
 		_done = true
 		get_tree().quit(0 if err == OK else 1)

@@ -890,3 +890,52 @@ frame_post_draw hangs forever with no output), and `pose_check` gained a 20 s
 watchdog that fails loudly instead. Also worth remembering: a stale/wedged
 godot process from an earlier run makes every later capture appear to hang —
 check `ps` before believing a new hang.
+
+## Waddle Run — the endless-runner mode
+
+A second game beside the racer, reachable as one of two hero buttons on the
+main menu (the racing game's "Play" and "Waddle Run"), so a player meets both
+at startup rather than finding one buried in a mode list.
+
+It shares the racing game's art (PenguinVisual, VisualLibrary, SnowTrail),
+save file and equipped cosmetics, and NOTHING else — no RaceManager, no
+CourseBase, no PathGuide. The racing game is a simulation with surfaces,
+rubberbanding and AI; a runner is a rhythm game on rails. Building one out of
+the other compromises both, so the only contract between them is
+`RunnerConfig`: lanes, chunk size, speed ramp, scoring, power-up ids and the
+runner-only collision groups.
+
+Structure:
+- `RunnerTrack` streams chunks ahead and recycles behind, with authored
+  patterns (weave, slide gallery, jump stutter, fish arc, gauntlet, pinch,
+  ramp run), moving seals, tunnels, ramps, power-up crates and biome bands.
+- `RunnerPlayer` is a three-lane state machine driving PenguinVisual, with
+  jump/slide/lane-lean/ramp-roll/stumble animation, a magnet that pulls fish
+  out of their lane, a shield that eats one mistake, near-miss detection and
+  a competent autopilot used as a fairness probe.
+- `RunnerChaser` is the avalanche: one MultiMesh of churn plus a scalar gap
+  that hits pull in and clean running restores.
+- `RunnerMissions` keeps three challenges live across runs from a 19-template
+  pool, rerolls a completed set, and pays out stars.
+- `RunnerHUD` carries distance/score/fish/lives/multiplier, the challenge
+  card, power-up rings, score floaters, speed lines, the danger escalation and
+  the results panel.
+- `RunnerTouch` is swipe input, fired on threshold rather than release —
+  waiting for the finger to lift costs a whole gesture of latency, which at
+  38 m/s is the difference between clearing an obstacle and eating it.
+
+Retry never reloads the scene: the track resets in place. On the web build a
+reload would re-pay the whole build and shader cost, which is fatal to a
+die-and-retry loop. The build is staged across frames the same way courses
+are, and `SceneRouter` now watches `RunnerGame.build_finished` too, so the
+loading penguin keeps animating while the first chunks are built.
+
+Evidence: `tests/runner_sim.tscn` runs the real mode headless on autopilot and
+asserts progress, streaming, recycling and that three missions stay live —
+498 m / 75 fish / 107 live pickups / node count stable at 295 live vs 305
+peak. The autopilot was deliberately rewritten to play competently (scans
+every lane, times jumps and slides against closing speed, steers INTO ramps)
+so its distance is a fairness signal: it now dies between 400 m and 1,200 m,
+hitting 10-19 ramps a run. `tests/runner_shot.tscn` saves a strip of a real
+run for visual review (qa_shots/runner/final_*.png). 107 unit tests and the
+glacier race sim still pass, so the racing game is untouched.

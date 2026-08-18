@@ -32,9 +32,22 @@ var _score: float = 0.0
 var _countdown: float = COUNTDOWN_TIME
 var _dead: bool = false
 var _camera_shake: float = 0.0
+var _fov_kick: float = 0.0
+## False until the world is assembled. The loading overlay watches this so its
+## animation keeps running while the track builds — on the single-threaded web
+## build, a synchronous build freezes every frame including the spinner.
+var build_finished: bool = false
+var _near_snow: GPUParticles3D = null
 var _rng := RandomNumberGenerator.new()
 var _pause_layer: CanvasLayer = null
 var _touch: RunnerTouch = null
+var missions: RunnerMissions = null
+var _last_multiplier: int = 1
+## Ramps hit and near misses survived, both reported to the mission system and
+## shown to the player, because a runner has to reward style as well as
+## survival or it is just a dodging drill.
+var ramps_hit: int = 0
+var near_misses: int = 0
 ## Sim hook: ends the run after this many seconds when > 0.
 static var auto_quit_after: float = 0.0
 
@@ -42,25 +55,34 @@ static var auto_quit_after: float = 0.0
 func _ready() -> void:
 	_rng.randomize()
 	_build_environment()
+	await _stage()
+
+	missions = RunnerMissions.new()
+	missions.load_state()
+	missions.completed.connect(_on_mission_complete)
+	missions.set_cleared.connect(func(star_count: int) -> void:
+		if hud != null:
+			hud.show_mission_complete("SET COMPLETE — %d ★" % star_count)
+		AudioManager.play_sfx("sfx_unlock"))
 
 	track = RunnerTrack.new()
 	track.name = "RunnerTrack"
 	add_child(track)
 	track.setup(_rng.randi())
+	await _stage()
 
 	player = RunnerPlayer.new()
 	player.name = "RunnerPlayer"
 	add_child(player)
 	player.setup(_player_visual_config())
 	player.set_input_enabled(false)
-	player.hit_taken.connect(_on_hit_taken)
-	player.fish_collected.connect(_on_fish_collected)
-	player.died.connect(_on_death)
+	_connect_player()
 
 	chaser = RunnerChaser.new()
 	chaser.name = "RunnerChaser"
 	add_child(chaser)
 	chaser.setup()
+	await _stage()
 	chaser.caught.connect(func() -> void:
 		if player != null:
 			player.kill())
@@ -78,6 +100,8 @@ func _ready() -> void:
 		hud.setup()
 		hud.restart_pressed.connect(restart)
 		hud.menu_pressed.connect(func() -> void: SceneRouter.go_to(Game.SCENE_MAIN_MENU))
+		if hud != null:
+			hud.set_missions(missions.rows())
 		if SettingsManager.touch_controls_enabled():
 			_touch = RunnerTouch.new()
 			_touch.name = "RunnerTouch"
@@ -85,7 +109,31 @@ func _ready() -> void:
 			_touch.setup(player)
 		AudioManager.play_music("music_race")
 
+	build_finished = true
 	ShaderWarmup.warm(self)
+
+
+## Yields a frame so the loading overlay can draw. Headless has no overlay and
+## no renderer, so it builds straight through.
+func _stage() -> void:
+	if GameConfig.is_headless():
+		return
+	var tree := get_tree()
+	if tree != null:
+		await tree.process_frame
+
+
+func _connect_player() -> void:
+	player.hit_taken.connect(_on_hit_taken)
+	player.fish_collected.connect(_on_fish_collected)
+	player.died.connect(_on_death)
+	player.powerup_gained.connect(_on_powerup_gained)
+	player.shield_spent.connect(_on_shield_spent)
+	player.near_miss.connect(_on_near_miss)
+	player.ramp_launched.connect(_on_ramp)
+	player.jumped.connect(func() -> void: missions.note_jump())
+	player.slid.connect(func() -> void: missions.note_slide())
+	player.lane_changed.connect(func() -> void: missions.note_lane_change())
 
 
 func _player_visual_config() -> Dictionary:
@@ -116,6 +164,7 @@ func _process(delta: float) -> void:
 			hud.show_message("GO!" if count <= 0 else str(count))
 		if _countdown <= 0.0:
 			running = true
+			missions.begin_run()
 			player.set_input_enabled(true)
 			if hud != null:
 				hud.show_message("GO!")
@@ -129,9 +178,13 @@ func _process(delta: float) -> void:
 
 	var before := player.distance
 	player.tick(delta, speed)
-	clean_metres += player.distance - before
-	_score += (player.distance - before) * RunnerConfig.POINTS_PER_METRE \
-		* float(RunnerConfig.multiplier_for(clean_metres))
+	var gained := player.distance - before
+	clean_metres += gained
+	var multiplier := RunnerConfig.multiplier_for(clean_metres)
+	if player.has_powerup(RunnerConfig.POWERUP_DOUBLE):
+		multiplier *= 2
+	_score += gained * RunnerConfig.POINTS_PER_METRE * float(multiplier)
+	missions.note_distance(player.distance)
 
 	# Difficulty is distance-driven rather than time-driven: a player who dies
 	# early and restarts should always see the same gentle opening, however
@@ -139,10 +192,21 @@ func _process(delta: float) -> void:
 	track.update_stream(player.position.z, clampf(player.distance / 2600.0, 0.0, 1.0))
 	chaser.tick(delta, player.distance, float(hits_taken))
 	_place_camera(delta, false)
+	if _near_snow != null:
+		_near_snow.global_position = Vector3(player.position.x * 0.5, 3.4,
+			player.position.z - 4.0)
 
 	if hud != null:
-		hud.set_stats(player.distance, fish, int(_score),
-			RunnerConfig.multiplier_for(clean_metres), player.hits_left, chaser.gap)
+		hud.set_stats(player.distance, fish, int(_score), multiplier,
+			player.hits_left, chaser.gap)
+		hud.set_powerups(player.powerups)
+		hud.set_speed_ratio(clampf((player.speed - RunnerConfig.START_SPEED)
+			/ maxf(RunnerConfig.MAX_SPEED - RunnerConfig.START_SPEED, 0.001), 0.0, 1.0))
+		hud.set_combo(multiplier, multiplier > _last_multiplier)
+		if multiplier > _last_multiplier:
+			hud.add_floater("x%d" % multiplier, &"score")
+			AudioManager.play_sfx("sfx_checkpoint")
+	_last_multiplier = multiplier
 
 	if auto_quit_after > 0.0 and elapsed >= auto_quit_after:
 		_on_death()
@@ -173,7 +237,14 @@ func _place_camera(delta: float, snap: bool) -> void:
 	camera.look_at(look, Vector3.UP)
 	var speed_ratio := clampf((player.speed - RunnerConfig.START_SPEED)
 		/ maxf(RunnerConfig.MAX_SPEED - RunnerConfig.START_SPEED, 0.001), 0.0, 1.0)
-	camera.fov = lerpf(74.0, 88.0, speed_ratio)
+	# The kick is what makes a ramp or a power-up land as an EVENT rather than
+	# as a number changing: the whole picture widens for a beat and settles.
+	_fov_kick = maxf(0.0, _fov_kick - delta * 14.0)
+	camera.fov = lerpf(74.0, 88.0, speed_ratio) + _fov_kick
+	# Roll with the penguin's bank. A camera that stays level through a lane
+	# change makes the world look like it slid sideways under a static player.
+	camera.rotation.z = lerp_angle(camera.rotation.z, player.rotation.z * 0.45,
+		clampf(delta * 8.0, 0.0, 1.0))
 
 
 ## After death the camera keeps drifting and looking at the wreck, so the
@@ -191,17 +262,73 @@ func _settle_camera(delta: float) -> void:
 
 func _on_fish_collected(value: int) -> void:
 	fish += value
-	_score += float(RunnerConfig.POINTS_PER_FISH * value)
+	var worth := RunnerConfig.POINTS_PER_FISH * value
+	if player != null and player.has_powerup(RunnerConfig.POWERUP_DOUBLE):
+		worth *= 2
+	_score += float(worth)
+	missions.note_fish(value)
+	if hud != null:
+		hud.add_floater("+%d" % worth, &"fish")
 	AudioManager.play_sfx("sfx_fish")
+
+
+func _on_powerup_gained(id: StringName) -> void:
+	missions.note_powerup(id)
+	_fov_kick = 5.0
+	if hud != null:
+		var label := "MAGNET"
+		if id == RunnerConfig.POWERUP_SHIELD:
+			label = "SHIELD"
+		elif id == RunnerConfig.POWERUP_DOUBLE:
+			label = "DOUBLE POINTS"
+		hud.add_floater(label, &"powerup")
+	AudioManager.play_sfx("sfx_powerup")
+
+
+func _on_shield_spent() -> void:
+	# Spending the shield is a save, not a hit: it gets the celebration and the
+	# multiplier survives.
+	_camera_shake = 0.5
+	if hud != null:
+		hud.add_floater("SHIELD SAVED YOU", &"powerup")
+	AudioManager.play_sfx("sfx_powerup")
+
+
+func _on_near_miss() -> void:
+	near_misses += 1
+	_score += 15.0
+	missions.note_near_miss()
+	if hud != null:
+		hud.add_floater("CLOSE!", &"near_miss")
+
+
+func _on_ramp() -> void:
+	ramps_hit += 1
+	_fov_kick = 7.0
+	missions.note_ramp()
+	if hud != null:
+		hud.add_floater("AIRBORNE", &"score")
+	AudioManager.play_sfx("sfx_go")
+
+
+func _on_mission_complete(text: String) -> void:
+	if hud != null:
+		hud.show_mission_complete(text)
+		hud.set_missions(missions.rows())
+		hud.add_floater("MISSION", &"mission")
+	AudioManager.play_sfx("sfx_unlock")
 
 
 func _on_hit_taken(hits_left: int) -> void:
 	hits_taken += 1
 	clean_metres = 0.0
 	_camera_shake = 1.0
+	missions.note_hit()
 	AudioManager.play_sfx("sfx_bump")
-	if hud != null and hits_left > 0:
-		hud.show_message("%d left" % hits_left)
+	if hud != null:
+		hud.flash_hit()
+		if hits_left > 0:
+			hud.show_message("%d left" % hits_left)
 
 
 func _on_death() -> void:
@@ -213,6 +340,9 @@ func _on_death() -> void:
 		player.set_input_enabled(false)
 	AudioManager.play_sfx("sfx_crash")
 	var score := int(_score)
+	missions.note_run_ended(player.distance if player != null else 0.0, fish, score)
+	if hud != null:
+		hud.set_missions(missions.rows())
 	var previous := Progression.runner_high_score()
 	var is_best := Progression.submit_runner_score(score, player.distance if player != null else 0.0)
 	if fish > 0:
@@ -241,6 +371,12 @@ func restart() -> void:
 	_score = 0.0
 	_countdown = COUNTDOWN_TIME
 	_camera_shake = 0.0
+	_last_multiplier = 1
+	ramps_hit = 0
+	near_misses = 0
+	missions.begin_run()
+	if hud != null:
+		hud.set_missions(missions.rows())
 	track.reset(_rng.randi())
 	remove_child(player)
 	player.queue_free()
@@ -249,9 +385,7 @@ func restart() -> void:
 	add_child(player)
 	player.setup(_player_visual_config())
 	player.set_input_enabled(false)
-	player.hit_taken.connect(_on_hit_taken)
-	player.fish_collected.connect(_on_fish_collected)
-	player.died.connect(_on_death)
+	_connect_player()
 	if _touch != null and is_instance_valid(_touch):
 		_touch.setup(player)
 	chaser.reset()
@@ -320,11 +454,48 @@ func _build_environment() -> void:
 	fill.rotation_degrees = Vector3(-36.0, -28.0, 0.0)
 	add_child(fill)
 
+	_add_weather()
 	if String(SettingsManager.get_setting("display", "quality_preset")) != "low":
 		var shafts := SunShafts.new()
 		shafts.name = "SunShafts"
 		add_child(shafts)
 		shafts.configure(sun, Color(1.0, 0.97, 0.9).lerp(Color.WHITE, 0.5), 0.34, 13, 99)
+
+
+## Snow around the lens. The racing courses get this through CourseBase; the
+## runner is not a course, and the parallax of a few large out-of-focus flakes
+## crossing close to the camera is the cheapest depth cue available to a
+## renderer with no depth of field — at 38 m/s it is also most of what sells
+## the speed.
+func _add_weather() -> void:
+	if String(SettingsManager.get_setting("display", "particle_quality")) == "low":
+		return
+	var near := GPUParticles3D.new()
+	near.name = "NearSnow"
+	var mat := ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	mat.emission_box_extents = Vector3(9.0, 3.0, 6.0)
+	mat.direction = Vector3(0.15, -1.0, 0.6)
+	mat.spread = 18.0
+	mat.initial_velocity_min = 2.0
+	mat.initial_velocity_max = 4.5
+	# Blown backward as well as down: the flakes have to move with the run or
+	# they read as a static screen effect pasted over a moving world.
+	mat.gravity = Vector3(0.6, -3.4, 9.0)
+	mat.scale_min = 0.5
+	mat.scale_max = 2.0
+	near.process_material = mat
+	var flake := QuadMesh.new()
+	flake.size = Vector2(0.26, 0.26)
+	flake.material = VisualLibrary.billboard_puff_material(
+		Color(0.97, 0.99, 1.0, 0.5), 32, 0.85)
+	near.draw_pass_1 = flake
+	near.amount = 54
+	near.lifetime = 2.6
+	near.preprocess = 2.0
+	near.visibility_aabb = AABB(Vector3(-20, -16, -20), Vector3(40, 32, 40))
+	add_child(near)
+	_near_snow = near
 
 
 ## --- Pause ------------------------------------------------------------------

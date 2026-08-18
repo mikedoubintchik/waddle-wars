@@ -100,7 +100,7 @@ func _ready() -> void:
 	# the player picks between two obvious things.
 	_add_button(vbox, "Play", UITheme.ICON_PLAY, func() -> void:
 		SceneRouter.go_to(Game.SCENE_MODE_SELECT), true)
-	_add_button(vbox, "Waddle Run", RUN_ICON_SVG, func() -> void:
+	_add_button(vbox, _runner_label(), RUN_ICON_SVG, func() -> void:
 		Game.start_runner(), true)
 	_spacer(vbox, 6)
 	# The daily sits directly under the heroes: it is the reason to open the
@@ -230,6 +230,26 @@ func _spacer(parent: Control, height: int) -> void:
 ## reminder: an unplayed day advertises the streak it would continue, and a
 ## finished day shows the time to beat rather than pretending there is nothing
 ## left to do.
+## The runner's button carries its own record, so the mode advertises its
+## progression from the menu rather than only inside itself.
+func _runner_label() -> String:
+	var best := Progression.runner_high_score()
+	if best <= 0:
+		return "Waddle Run"
+	return "Waddle Run · Best %s" % _grouped(best)
+
+
+## 12480 -> "12,480". A bare five-digit score reads as a phone number.
+func _grouped(value: int) -> String:
+	var digits := str(absi(value))
+	var out := ""
+	for i: int in digits.length():
+		if i > 0 and (digits.length() - i) % 3 == 0:
+			out += ","
+		out += digits[i]
+	return ("-" if value < 0 else "") + out
+
+
 func _daily_label() -> String:
 	# Kept short deliberately: this row shares an icon rail and chevron with
 	# every other nav row, and a long label pushes both off the button.

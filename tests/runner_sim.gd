@@ -69,6 +69,23 @@ func _report(reason: String) -> void:
 	var nodes := _count(_game)
 	var hazards := get_tree().get_nodes_in_group(RunnerConfig.GROUP_HAZARD).size()
 	var pickups := get_tree().get_nodes_in_group(RunnerConfig.GROUP_PICKUP).size()
+	var crates := get_tree().get_nodes_in_group(RunnerConfig.GROUP_POWERUP).size()
+	# The gamification layer is as much a shipping requirement as the movement:
+	# a run with no missions in flight is the boring version the user rejected.
+	var mission_rows: Array = _game.missions.rows() if _game.missions != null else []
+	for row: Dictionary in mission_rows:
+		print("[runner_sim]   mission: %-42s %3d%%%s"
+			% [row.get("text", "?"), int(float(row.get("progress", 0.0)) * 100.0),
+				"  DONE" if bool(row.get("done", false)) else ""])
+	# Ramps are counted as they exist as well as as they are hit: a ramp the
+	# autopilot never lines up with is a content question, and a ramp that
+	# never spawns is a bug, and the two look identical from "ramps 0".
+	var live_ramps := 0
+	for node: Node in get_tree().get_nodes_in_group(RunnerConfig.GROUP_HAZARD):
+		if String((node as Node3D).get_meta("kind", "")) == "ramp":
+			live_ramps += 1
+	print("[runner_sim] near misses %d, ramps hit %d (live on track %d), live crates %d"
+		% [_game.near_misses, _game.ramps_hit, live_ramps, crates])
 	print("[runner_sim] %s after %.0fs sim-time: %.0f m, %d fish, %d hits, peak nodes %d, live nodes %d, live hazards %d, live pickups %d"
 		% [reason, _elapsed, distance, _game.fish, _game.hits_taken, _peak_nodes, nodes,
 			hazards, pickups])
@@ -81,6 +98,9 @@ func _report(reason: String) -> void:
 	# the peak, which is what a leak looks like.
 	if nodes > _peak_nodes:
 		_fail("node count still growing at exit (%d)" % nodes)
+		return
+	if mission_rows.size() != 3:
+		_fail("expected 3 live missions, got %d" % mission_rows.size())
 		return
 	print("[runner_sim] PASS")
 	get_tree().quit(0)

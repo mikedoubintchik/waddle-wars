@@ -144,10 +144,11 @@ func _fade_out_when_scene_drawn() -> void:
 		_fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE)
 
 
-## True while the incoming scene is still assembling itself: either a staged
-## course build is in flight (web splits construction across frames so this
-## overlay's penguins keep dancing through it) or a ShaderWarmup pass is still
-## linking programs. Either way the scene underneath is not presentable yet.
+## True while the incoming scene is still assembling itself: a staged course
+## build, a staged Waddle Run build, or a ShaderWarmup pass still linking
+## programs. Web splits construction across frames so this overlay's penguins
+## keep dancing through it; either way the scene underneath is not presentable
+## yet.
 func _scene_is_building() -> bool:
 	var scene := get_tree().current_scene
 	if scene == null:
@@ -156,6 +157,8 @@ func _scene_is_building() -> bool:
 		if child is ShaderWarmup:
 			return true
 		if child is CourseBase and not (child as CourseBase).build_finished:
+			return true
+		if child is RunnerGame and not (child as RunnerGame).build_finished:
 			return true
 	return false
 
