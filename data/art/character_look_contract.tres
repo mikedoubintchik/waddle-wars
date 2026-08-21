@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="CharacterLook" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/art/character_look.gd" id="1_look"]
+
+[resource]
+script = ExtResource("1_look")
+look_id = "contract_only"
+display_name = "Character Look Contract (No Authored Asset)"
+species_id = "emperor"
+notes = "Schema fixture only. No authored model or animation library is registered."
+production_ready = false

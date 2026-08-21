@@ -1,0 +1,99 @@
+{
+  "assets": [
+    {
+      "groups": [
+        "frontend",
+        "loading"
+      ],
+      "id": "frontend_loader_penguin",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/loader_penguin_expedition_v1.png",
+      "production_ready": true,
+      "sha256": "c3d78dd0ef1c86bbdeb9b44621a04968fbec0c24c4f72b8ea73ee8f882e80af6",
+      "source_export_id": "imagegen_loader_penguin_v1"
+    },
+    {
+      "groups": [
+        "frontend",
+        "loading",
+        "menu",
+        "title"
+      ],
+      "id": "frontend_title_landscape",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/title_expedition_landscape_v1.png",
+      "production_ready": true,
+      "sha256": "9b7c4ee5341f1f8a25052062aa99e1355009c7f8d63c60803d671178b871b5b3",
+      "source_export_id": "imagegen_title_expedition_landscape_v1"
+    },
+    {
+      "groups": [
+        "frontend",
+        "loading",
+        "menu",
+        "title"
+      ],
+      "id": "frontend_title_portrait",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/title_expedition_portrait_v1.png",
+      "production_ready": true,
+      "sha256": "45203a0cdfadc249ca292f2a27900e5cc70b092cd8be049fcffdb4a2907b6125",
+      "source_export_id": "imagegen_title_expedition_portrait_v1"
+    }
+  ],
+  "budgets": {
+    "character_deform_bones_max": 36,
+    "character_lod0_triangles_max": 25000,
+    "character_lod0_triangles_min": 18000,
+    "character_skin_influences_max": 4,
+    "character_surfaces_max": 2,
+    "distinct_shader_signatures_max": 16,
+    "draw_calls_high_average_max": 250,
+    "draw_calls_high_peak_max": 300,
+    "draw_calls_low_average_max": 190,
+    "draw_calls_low_peak_max": 225,
+    "draw_calls_medium_average_max": 205,
+    "draw_calls_medium_peak_max": 250,
+    "landmark_lod0_triangles_max": 30000,
+    "landmark_lod0_triangles_min": 10000,
+    "landmark_surfaces_max": 3,
+    "obstacle_lod0_triangles_max": 5000,
+    "obstacle_lod0_triangles_min": 1500,
+    "obstacle_surfaces_max": 1,
+    "regular_texture_size_max": 2048,
+    "repeated_prop_lod0_triangles_max": 1500,
+    "repeated_prop_lod0_triangles_min": 300,
+    "repeated_prop_surfaces_max": 1,
+    "runner_authored_compressed_mib_max": 40,
+    "runner_texture_vram_mib_max": 64,
+    "runner_vertical_slice_compressed_mib_max": 15,
+    "total_authored_art_compressed_mib_max": 120,
+    "visible_primitives_high_max": 100000,
+    "visible_primitives_low_max": 50000,
+    "visible_primitives_medium_max": 75000
+  },
+  "catalog_id": "waddle_wars_art",
+  "licenses": [
+    {
+      "id": "project_original",
+      "name": "Project-original Waddle Wars art",
+      "notice_path": "res://assets/art/LICENSES.md"
+    }
+  ],
+  "renderer_contract": {
+    "native": "mobile",
+    "required": [
+      "gl_compatibility",
+      "mobile"
+    ],
+    "web": "gl_compatibility"
+  },
+  "schema_version": 1,
+  "toolchain": {
+    "blender": "5.2.0",
+    "godot": "4.7.1"
+  }
+}

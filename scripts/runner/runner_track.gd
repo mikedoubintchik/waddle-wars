@@ -109,6 +109,10 @@ const SEAL_PERIOD_HARD: float = 4.2
 const TUNNEL_SEGMENT: float = 6.0
 const TUNNEL_APEX: float = 5.3
 const TUNNEL_SPRING: float = 2.05
+## Two renderer-stable light fixtures per tunnel chunk. They are unshaded
+## vertex-colour geometry plus broad floor washes on the already-warm mark
+## signature: no dynamic Light3D RIDs, no changing clustered-light count.
+const TUNNEL_LIGHT_CUES_PER_CHUNK: int = 2
 
 ## --- Pickups ----------------------------------------------------------------
 ## Chest height on a standing penguin. The grab sphere is generous but no
@@ -167,7 +171,12 @@ const KIND_GAP_HARD: float = 22.0
 ## Chunks built per update_stream() call. Streaming only ever needs one; the
 ## cap exists so a teleport or a long frame hitch cannot turn into a multi-
 ## hundred-millisecond build spike.
-const MAX_SPAWNS_PER_UPDATE: int = 3
+const MAX_SPAWNS_PER_UPDATE: int = 1
+## Medium/low keep all gameplay colliders but stop submitting geometry beyond
+## their authored far-chunk budgets. Both remain well past the 70 m decision
+## horizon; high stays uncapped.
+const MEDIUM_VISUAL_RANGE: float = RunnerConfig.CHUNK_LENGTH * 5.5
+const LOW_VISUAL_RANGE: float = RunnerConfig.CHUNK_LENGTH * 4.5
 ## Distance over which RunnerGame ramps difficulty from 0 to 1. Mirrored here
 ## rather than imported because the streamer has to answer "how fast will the
 ## player be going when they reach this chunk" while building it -- see
@@ -180,6 +189,57 @@ const DIFFICULTY_DISTANCE: float = 2600.0
 ## depending on speed), short enough that a five-minute run sees all four.
 const BIOME_LENGTH: float = 600.0
 const BIOME_COUNT: int = 4
+## Internal showcase: ten authored pattern chunks, exactly 360 metres, all DAY.
+## It is entered only through setup_golden_slice(); normal streaming never sees
+## this list or its test RNG stream.
+const GOLDEN_SLICE_CHUNKS: int = 10
+const GOLDEN_SLICE_LENGTH: float = GOLDEN_SLICE_CHUNKS * RunnerConfig.CHUNK_LENGTH
+
+## Authored DAY vertical-slice roles. IDs remain data-owned through RunnerArtSet;
+## constants are lookup keys only, never direct resource paths. Missing catalog
+## entries fall back per role, so one bad import cannot blank gameplay.
+const DAY_DECK_ASSET: String = "runner_day_deck_kerb_v1"
+const DAY_DECK_B_ASSET: String = "runner_day_deck_kerb_b_v1"
+const DAY_DECK_C_ASSET: String = "runner_day_deck_kerb_c_v1"
+const DAY_DECK_ASSETS: PackedStringArray = [
+	DAY_DECK_ASSET, DAY_DECK_B_ASSET, DAY_DECK_C_ASSET,
+]
+const DAY_GANTRY_ASSET: String = "runner_day_gantry_v1"
+const DAY_LAB_ASSET: String = "runner_day_research_lab_v1"
+const DAY_PYLON_ASSET: String = "runner_day_signal_pylon_v1"
+const DAY_SNOWCAT_ASSET: String = "runner_day_snowcat_v1"
+const DAY_CARGO_ASSET: String = "runner_day_cargo_stack_v1"
+const DAY_RAMP_ASSET: String = "runner_day_ramp_v1"
+const DAY_BARRIER_ASSET: String = "runner_day_barrier_v1"
+const DAY_TUNNEL_ASSET: String = "runner_day_tunnel_shell_v1"
+const DAY_ICEBERG_ASSET: String = "runner_day_iceberg_cluster_v1"
+const DAY_RADAR_ASSET: String = "runner_day_radar_landmark_v1"
+const DAY_HUB_ASSET: String = "runner_day_research_hub_landmark_v1"
+const DAY_ICEBREAKER_ASSET: String = "runner_day_icebreaker_landmark_v1"
+const DAY_SURFACE_MATERIAL_ASSET: String = "runner_day_surface_material_v1"
+const DAY_SHELL_MATERIAL_ASSET: String = "runner_day_shell_material_v1"
+## Source deck top is z=0.245 m before glTF axis conversion. Runtime lowers it
+## to gameplay y=0; modeled cap then lands at 1.305 m, where near props sit.
+const AUTHORED_DAY_DECK_Y: float = -0.245
+const AUTHORED_DAY_KERB_TOP: float = 1.305
+const DAY_KIT_ASSETS: PackedStringArray = [
+	DAY_DECK_ASSET, DAY_DECK_B_ASSET, DAY_DECK_C_ASSET,
+	DAY_GANTRY_ASSET, DAY_LAB_ASSET, DAY_PYLON_ASSET,
+	DAY_SNOWCAT_ASSET, DAY_CARGO_ASSET, DAY_RAMP_ASSET, DAY_BARRIER_ASSET,
+	DAY_TUNNEL_ASSET, DAY_ICEBERG_ASSET,
+	DAY_RADAR_ASSET, DAY_HUB_ASSET, DAY_ICEBREAKER_ASSET,
+]
+## Global warmup probes are intentionally bounded and survive scene changes.
+## Register late/far DAY buffers first so a prior authored course cannot evict
+## the assets absent from opening runner chunks. Deck variants sit last because
+## their first real instances are already submitted under loading overlay.
+const DAY_WARMUP_ASSETS: PackedStringArray = [
+	DAY_HUB_ASSET, DAY_ICEBREAKER_ASSET, DAY_RADAR_ASSET,
+	DAY_TUNNEL_ASSET, DAY_ICEBERG_ASSET,
+	DAY_GANTRY_ASSET, DAY_SNOWCAT_ASSET, DAY_BARRIER_ASSET, DAY_RAMP_ASSET,
+	DAY_LAB_ASSET, DAY_PYLON_ASSET, DAY_CARGO_ASSET,
+	DAY_DECK_ASSET, DAY_DECK_B_ASSET, DAY_DECK_C_ASSET,
+]
 
 ## Obstacle kinds. The index doubles as the lookup into KIND_NAMES, which is
 ## what lands in the "kind" metadata the runner player reads. RAMP is in the
@@ -223,11 +283,22 @@ enum Biome {
 	NIGHT,   ## Aurora night: cold deck, curtains overhead, few bergs.
 }
 
+const PERF_PATTERN_NAMES: PackedStringArray = [
+	"open", "lane_weave", "slide_gallery", "jump_stutter", "fish_arc",
+	"mixed_gauntlet", "pinch", "seal_slide", "tunnel", "ramp_run",
+]
+const PERF_BIOME_NAMES: PackedStringArray = ["day", "dusk", "cave", "night"]
+## Opt-in diagnostics only. Census enables this before runner construction;
+## normal gameplay takes one predictable false branch per streamed chunk.
+static var perf_trace_enabled: bool = false
+const PERF_TRACE_MAX_EVENTS: int = 256
+
 ## --- Static art cache -------------------------------------------------------
 ## One instance of each, shared by every chunk of every run in the process.
 static var _deck_mesh_cache: PlaneMesh = null
 static var _seam_mesh_cache: ArrayMesh = null
 static var _verge_mesh_cache: ArrayMesh = null
+static var _authored_day_shelf_mesh_cache: ArrayMesh = null
 static var _block_mesh_cache: ArrayMesh = null
 static var _low_mesh_cache: ArrayMesh = null
 static var _arch_mesh_cache: ArrayMesh = null
@@ -235,14 +306,23 @@ static var _fish_mesh_cache: ArrayMesh = null
 static var _ramp_mesh_cache: ArrayMesh = null
 static var _seal_mesh_cache: ArrayMesh = null
 static var _tunnel_mesh_cache: ArrayMesh = null
+static var _tunnel_light_cue_mesh_cache: ArrayMesh = null
 static var _mark_mesh_cache: ArrayMesh = null
 static var _banner_mesh_cache: ArrayMesh = null
 static var _bird_mesh_cache: ArrayMesh = null
 static var _shard_mesh_cache: ArrayMesh = null
 static var _curtain_mesh_cache: ArrayMesh = null
+static var _port_prop_mesh_cache: ArrayMesh = null
+static var _research_module_mesh_cache: ArrayMesh = null
+static var _radar_landmark_mesh_cache: ArrayMesh = null
+static var _crane_landmark_mesh_cache: ArrayMesh = null
+static var _icebreaker_landmark_mesh_cache: ArrayMesh = null
+static var _powerup_ring_mesh_cache: TorusMesh = null
 static var _crate_meshes: Dictionary = {}
+static var _powerup_materials: Dictionary = {}
+static var _fish_material_cache: StandardMaterial3D = null
+static var _dodge_material_cache: StandardMaterial3D = null
 static var _mark_material_cache: StandardMaterial3D = null
-static var _tunnel_material_cache: StandardMaterial3D = null
 static var _box_shapes: Dictionary = {}
 static var _sphere_shapes: Dictionary = {}
 
@@ -274,6 +354,15 @@ var _next_powerup_z: float = 0.0
 ## Rotates through RunnerConfig.POWERUP_IDS instead of rolling dice, so a run
 ## can never hand out four shields before its first magnet.
 var _powerup_cursor: int = 0
+var _golden_slice: bool = false
+var _dressing_density: float = 1.0
+var _runner_art_set: RunnerArtSet = null
+var _art_catalog: ArtCatalog = null
+var _authored_day_meshes: Dictionary = {}
+var _authored_day_surface_material: Material = null
+var _authored_day_shell_material: Material = null
+var _perf_trace_events: Array[Dictionary] = []
+var _perf_last_tunnel_lights: int = -1
 
 
 ## --- Public API -------------------------------------------------------------
@@ -281,37 +370,164 @@ var _powerup_cursor: int = 0
 ## Builds the opening run of chunks from z = 0 heading toward -Z. Also primes
 ## the static mesh cache, so the first STREAMED chunk of a run never pays for
 ## mesh construction mid-frame -- the whole cost lands here, during the load.
-func setup(seed_value: int) -> void:
-	_headless = GameConfig.is_headless()
+func setup(seed_value: int, dressing_density: float = 1.0,
+		visuals_override: int = -1) -> void:
+	if perf_trace_enabled:
+		_perf_trace_events.clear()
+		_perf_last_tunnel_lights = -1
+	_headless = GameConfig.is_headless() if visuals_override < 0 else visuals_override == 0
 	_seed = seed_value
+	_golden_slice = false
+	_dressing_density = clampf(dressing_density, 0.0, 1.0)
 	_clear()
+	_resolve_art_context()
 	if not _headless:
 		_prime_art_cache()
 	for i: int in RunnerConfig.CHUNKS_AHEAD:
 		_spawn_chunk(i, 0.0)
+	if perf_trace_enabled:
+		_trace_tunnel_light_state(0)
 
 
 ## Frees every live chunk and rebuilds from z = 0. Used by "retry" so a restart
 ## costs a couple of milliseconds instead of a scene reload.
-func reset(seed_value: int) -> void:
-	setup(seed_value)
+func reset(seed_value: int, dressing_density: float = -1.0) -> void:
+	setup(seed_value, _dressing_density if dressing_density < 0.0 else dressing_density)
+
+
+## Injection seam used by isolated art-gallery/contract tests. Runtime obtains
+## the same objects from RunnerGame after its staged ArtCatalog preload.
+func configure_art(art_set: RunnerArtSet, catalog: ArtCatalog) -> void:
+	_runner_art_set = art_set
+	_art_catalog = catalog
+	_authored_day_meshes.clear()
+	_authored_day_surface_material = null
+	_authored_day_shell_material = null
+
+
+## Deterministic full-vocabulary showcase used by capture and regression tests.
+## `visuals_override`: -1 follows runtime, 0 logic-only, 1 builds rendered art.
+## Separate test/art RNGs guarantee dressing can never perturb gameplay layout.
+func setup_golden_slice(seed_value: int = 20260818, visuals_override: int = -1) -> void:
+	_headless = GameConfig.is_headless() if visuals_override < 0 else visuals_override == 0
+	_seed = seed_value
+	_golden_slice = true
+	_dressing_density = 1.0
+	_clear()
+	_resolve_art_context()
+	if not _headless:
+		_prime_art_cache()
+	var patterns: Array[int] = [
+		Pattern.OPEN,
+		Pattern.LANE_WEAVE,
+		Pattern.SLIDE_GALLERY,
+		Pattern.JUMP_STUTTER,
+		Pattern.FISH_ARC,
+		Pattern.MIXED_GAUNTLET,
+		Pattern.PINCH,
+		Pattern.SEAL_SLIDE,
+		Pattern.TUNNEL,
+		Pattern.RAMP_RUN,
+	]
+	for index: int in GOLDEN_SLICE_CHUNKS:
+		_spawn_golden_chunk(index, patterns[index], 0.72)
 
 
 ## Keeps CHUNKS_AHEAD chunks in front of the player and drops what is spent.
 ## difficulty is 0 at the start of a run and approaches 1 as it gets long; it
 ## raises obstacle density, unlocks the nastier patterns and tightens spacing.
 func update_stream(player_z: float, difficulty: float) -> void:
+	if _golden_slice:
+		return
+	var trace := perf_trace_enabled
+	var stream_started := Time.get_ticks_usec() if trace else 0
 	var diff := clampf(difficulty, 0.0, 1.0)
 	var current := _chunk_index_at(player_z)
 	var spawned := 0
+	var spawned_indices: Variant = PackedInt32Array() if trace else null
 	while _next_index < current + RunnerConfig.CHUNKS_AHEAD and spawned < MAX_SPAWNS_PER_UPDATE:
+		if trace:
+			spawned_indices.append(_next_index)
 		_spawn_chunk(_next_index, diff)
 		spawned += 1
 	var cull_before := current - RunnerConfig.CHUNKS_BEHIND
+	var retired := 0
+	var retired_indices: Variant = PackedInt32Array() if trace else null
 	while not _chunks.is_empty() and _first_index < cull_before:
 		var spent: RunnerChunk = _chunks.pop_front()
+		if trace:
+			retired_indices.append(spent.index)
 		_free_chunk(spent)
 		_first_index += 1
+		retired += 1
+	var stream_changed := spawned > 0 or retired > 0
+	if trace and stream_changed:
+		_push_perf_trace({
+			"kind": "stream",
+			"current_chunk": current,
+			"current_biome": _biome_for(current),
+			"spawned": spawned,
+			"spawned_indices": spawned_indices,
+			"retired": retired,
+			"retired_indices": retired_indices,
+			"live_chunks": _chunks.size(),
+			"next_chunk": _next_index,
+			"cpu_us": Time.get_ticks_usec() - stream_started,
+		})
+		_trace_tunnel_light_state(current)
+
+
+## Drained by material_census. Events stay bounded if a diagnostic consumer
+## disappears mid-run, and never exist in production unless explicitly armed.
+func drain_perf_trace_events() -> Array[Dictionary]:
+	var events := _perf_trace_events.duplicate(true)
+	_perf_trace_events.clear()
+	return events
+
+
+func perf_trace_snapshot(player_z: float) -> Dictionary:
+	var current := _chunk_index_at(player_z)
+	var tunnel_chunks := 0
+	for chunk: RunnerChunk in _chunks:
+		if chunk.pattern == Pattern.TUNNEL:
+			tunnel_chunks += 1
+	return {
+		"current_chunk": current,
+		"current_biome": _biome_for(current),
+		"live_chunks": _chunks.size(),
+		"first_chunk": _first_index,
+		"next_chunk": _next_index,
+		"tunnel_chunks": tunnel_chunks,
+		"tunnel_lights": 0,
+		"tunnel_light_cues": tunnel_chunks * TUNNEL_LIGHT_CUES_PER_CHUNK,
+	}
+
+
+func _push_perf_trace(event: Dictionary) -> void:
+	if not perf_trace_enabled:
+		return
+	event["frame"] = Engine.get_process_frames()
+	_perf_trace_events.append(event)
+	if _perf_trace_events.size() > PERF_TRACE_MAX_EVENTS:
+		_perf_trace_events.pop_front()
+
+
+func _trace_tunnel_light_state(current_chunk: int) -> void:
+	var resident_tunnel_chunks := 0
+	for chunk: RunnerChunk in _chunks:
+		if chunk.pattern == Pattern.TUNNEL:
+			resident_tunnel_chunks += 1
+	var cue_count := resident_tunnel_chunks * TUNNEL_LIGHT_CUES_PER_CHUNK
+	if cue_count == _perf_last_tunnel_lights:
+		return
+	_perf_last_tunnel_lights = cue_count
+	_push_perf_trace({
+		"kind": "tunnel_static_cues",
+		"current_chunk": current_chunk,
+		"resident_tunnel_chunks": resident_tunnel_chunks,
+		"active_tunnel_lights": 0,
+		"static_light_cues": cue_count,
+	})
 
 
 ## Deck height at a given z. The deck is deliberately dead flat in v1: the
@@ -332,44 +548,172 @@ func biome_at_z(z: float) -> int:
 
 ## Sky/sun/fog suggestion for a biome, for whoever owns the environment. Lives
 ## here beside the deck tints so the two can never drift apart.
+##
+## The numbers obey the same three-value law the deck palette does (see the
+## PALETTE block further down). Two consequences worth stating, because both
+## look like mistakes until you see them rendered:
+##   * ambient remains below the original flat 0.74 fill, but DAY now carries
+##     more fill and a softer sun than the V5 geometry proof. Its hard 1.55 sun
+##     crushed cream portal undersides and orange snowcats into navy silhouettes
+##     before the atlas response could read. The 1.08/0.56 balance plus the
+##     opposing cool fill preserves modeled seams while keeping shadow-side
+##     paint inside the medium tier.
+##   * ground_horizon is DARKER than sky_horizon. The sky's ground half was
+##     previously assigned the horizon colour, which dissolved the horizon
+##     line -- and a runner with no horizon line has no vanishing point to
+##     read speed against.
+## Keys past "ambient" are advisory: whoever owns the WorldEnvironment can read
+## them or ignore them, and nothing here breaks if it only consumes the six the
+## original dictionary carried.
 static func biome_environment(biome: int) -> Dictionary:
 	match biome:
 		Biome.DUSK:
 			return {
-				"sky_top": Color(0.16, 0.16, 0.44),
-				"sky_horizon": Color(1.0, 0.62, 0.42),
-				"sun": Color(1.0, 0.74, 0.52),
-				"sun_energy": 1.15,
-				"fog": Color(0.72, 0.48, 0.52),
-				"ambient": 0.62,
+				"sky_top": Color(0.20, 0.09, 0.44),
+				"sky_horizon": Color(1.0, 0.46, 0.24),
+				"ground_horizon": Color(0.72, 0.28, 0.26),
+				"ground_bottom": Color(0.26, 0.10, 0.24),
+				"sun": Color(1.0, 0.60, 0.32),
+				"sun_energy": 1.30,
+				"fog": Color(1.0, 0.46, 0.24),
+				"fog_density": 0.0020,
+				"ambient": 0.34,
+				"shaft": Color(1.0, 0.72, 0.42),
 			}
 		Biome.CAVE:
 			return {
-				"sky_top": Color(0.03, 0.10, 0.20),
-				"sky_horizon": Color(0.24, 0.52, 0.70),
-				"sun": Color(0.72, 0.88, 1.0),
-				"sun_energy": 0.72,
-				"fog": Color(0.22, 0.42, 0.60),
-				"ambient": 0.52,
+				"sky_top": Color(0.01, 0.05, 0.12),
+				"sky_horizon": Color(0.06, 0.30, 0.46),
+				"ground_horizon": Color(0.04, 0.18, 0.30),
+				"ground_bottom": Color(0.01, 0.06, 0.14),
+				"sun": Color(0.55, 0.82, 1.0),
+				"sun_energy": 0.55,
+				"fog": Color(0.04, 0.18, 0.32),
+				"fog_density": 0.0030,
+				"ambient": 0.26,
+				"shaft": Color(0.40, 0.86, 1.0),
 			}
 		Biome.NIGHT:
 			return {
-				"sky_top": Color(0.02, 0.04, 0.14),
-				"sky_horizon": Color(0.10, 0.22, 0.44),
-				"sun": Color(0.66, 0.78, 1.0),
-				"sun_energy": 0.55,
-				"fog": Color(0.10, 0.20, 0.40),
-				"ambient": 0.46,
+				"sky_top": Color(0.01, 0.02, 0.10),
+				"sky_horizon": Color(0.05, 0.12, 0.34),
+				"ground_horizon": Color(0.03, 0.08, 0.24),
+				"ground_bottom": Color(0.01, 0.02, 0.12),
+				"sun": Color(0.62, 0.76, 1.0),
+				"sun_energy": 0.42,
+				"fog": Color(0.04, 0.10, 0.28),
+				"fog_density": 0.0024,
+				"ambient": 0.24,
+				"shaft": Color(0.42, 1.0, 0.74),
 			}
 		_:
 			return {
-				"sky_top": Color(0.06, 0.26, 0.68),
-				"sky_horizon": Color(0.66, 0.83, 0.98),
-				"sun": Color(1.0, 0.95, 0.86),
-				"sun_energy": 1.32,
-				"fog": Color(0.5, 0.66, 0.86),
-				"ambient": 0.74,
+				"sky_top": Color(0.09, 0.31, 0.57),
+				"sky_horizon": Color(0.46, 0.72, 0.82),
+				"ground_horizon": Color(0.31, 0.51, 0.63),
+				"ground_bottom": Color(0.10, 0.27, 0.43),
+				"sun": Color(0.97, 0.91, 0.78),
+				"sun_energy": 1.08,
+				"fog": Color(0.43, 0.69, 0.78),
+				"fog_density": 0.0020,
+				"ambient": 0.56,
+				"shaft": Color(0.96, 0.94, 0.86),
 			}
+
+
+## RunnerGame owns staged loading; RunnerTrack consumes its resolved contract.
+## Keeping discovery here avoids a new gameplay dependency or scene rewrite.
+func _resolve_art_context() -> void:
+	if _runner_art_set != null and _art_catalog != null:
+		return
+	var owner := get_parent()
+	if owner == null or not owner.has_method("_initialize_art_foundation"):
+		return
+	var art_set_value: Variant = owner.get("_runner_art_set")
+	var catalog_value: Variant = owner.get("_art_catalog")
+	if art_set_value is RunnerArtSet:
+		_runner_art_set = art_set_value as RunnerArtSet
+	if catalog_value is ArtCatalog:
+		_art_catalog = catalog_value as ArtCatalog
+
+
+func _prime_authored_day_cache() -> void:
+	if _runner_art_set == null or _art_catalog == null:
+		return
+	if _authored_day_meshes.size() == DAY_KIT_ASSETS.size() \
+			and _authored_day_surface_material != null \
+			and _authored_day_shell_material != null:
+		return
+	var declared := _runner_art_set.collect_preload_ids("day")
+	for asset_id: String in DAY_WARMUP_ASSETS:
+		if asset_id not in declared or not _art_catalog.has_asset(asset_id):
+			continue
+		var resource := _art_catalog.loaded_resource(asset_id)
+		if resource == null:
+			resource = _art_catalog.load_now(asset_id)
+		var packed := resource as PackedScene
+		if packed == null:
+			continue
+		var instance := packed.instantiate()
+		var mesh := _first_scene_mesh(instance)
+		instance.free()
+		if mesh != null:
+			_authored_day_meshes[asset_id] = mesh
+	_authored_day_surface_material = _catalog_material(DAY_SURFACE_MATERIAL_ASSET)
+	_authored_day_shell_material = _catalog_material(DAY_SHELL_MATERIAL_ASSET)
+
+
+func _catalog_material(asset_id: String) -> Material:
+	if _art_catalog == null or not _art_catalog.has_asset(asset_id):
+		return null
+	var resource := _art_catalog.loaded_resource(asset_id)
+	if resource == null:
+		resource = _art_catalog.load_now(asset_id)
+	return resource as Material
+
+
+static func _first_scene_mesh(node: Node) -> Mesh:
+	if node is MeshInstance3D:
+		var direct := (node as MeshInstance3D).mesh
+		if direct != null:
+			return direct
+	for child: Node in node.get_children():
+		var found := _first_scene_mesh(child)
+		if found != null:
+			return found
+	return null
+
+
+func _authored_day_mesh(asset_id: String) -> Mesh:
+	return _authored_day_meshes.get(asset_id, null) as Mesh
+
+
+func _authored_day_material(shell: bool = false) -> Material:
+	if shell and _authored_day_shell_material != null:
+		return _authored_day_shell_material
+	if _authored_day_surface_material != null:
+		return _authored_day_surface_material
+	return _tunnel_material() if shell else _prop_material()
+
+
+## Focused tests and capture harnesses can prove exact seam coverage without
+## depending on rendered pixels or private cache layout.
+func authored_day_kit_status() -> Dictionary:
+	var ids := PackedStringArray()
+	for value: Variant in _authored_day_meshes.keys():
+		ids.append(String(value))
+	ids.sort()
+	var materials_ready := _authored_day_surface_material != null \
+			and _authored_day_shell_material != null
+	return {
+		"active": ids.size() == DAY_KIT_ASSETS.size() and materials_ready,
+		"biome_scope": "day",
+		"loaded": ids.size(),
+		"expected": DAY_KIT_ASSETS.size(),
+		"asset_ids": ids,
+		"surface_material": _authored_day_surface_material != null,
+		"shell_material": _authored_day_shell_material != null,
+	}
 
 
 ## --- Streaming --------------------------------------------------------------
@@ -403,8 +747,6 @@ func _clear() -> void:
 	for i: int in RunnerConfig.LANE_COUNT:
 		_lane_jump_z.append(1.0e9)
 		_lane_slide_z.append(1.0e9)
-
-
 ## Detaches before freeing. queue_free() alone leaves the node in the tree for
 ## the rest of the frame, which on reset() would overlap the old chunk 0 with
 ## the new one -- and leave its hazards visible to a group query.
@@ -417,6 +759,9 @@ func _free_chunk(chunk: RunnerChunk) -> void:
 
 
 func _spawn_chunk(index: int, difficulty: float) -> void:
+	var trace := perf_trace_enabled
+	var total_started := Time.get_ticks_usec() if trace else 0
+	var select_started := total_started
 	var chunk := RunnerChunk.new()
 	chunk.name = "Chunk%d" % index
 	chunk.index = index
@@ -427,25 +772,114 @@ func _spawn_chunk(index: int, difficulty: float) -> void:
 	# Seeded from (run seed, chunk index) rather than from a rolling stream, so
 	# a chunk is identical however the streaming happened to be scheduled --
 	# which is what makes a seeded run reproducible in a test.
-	var rng := RandomNumberGenerator.new()
-	rng.seed = _seed * 1000003 + index * 7919 + 11
+	var rng := _chunk_rng(index, 11)
+	var art_rng := _chunk_rng(index, 60493)
 	# The pattern is chosen before the geometry because the deck and the roof
 	# depend on it: a tunnel darkens its own floor.
 	var pattern := _pick_pattern(rng, difficulty, index)
+	chunk.pattern = pattern
+	var select_us := Time.get_ticks_usec() - select_started if trace else 0
+	var deck_us := 0
+	var dressing_us := 0
+	var tunnel_us := 0
 	if not _headless:
+		var stage_started := Time.get_ticks_usec() if trace else 0
 		_build_deck(chunk, pattern)
-		_build_dressing(chunk, rng)
+		deck_us = Time.get_ticks_usec() - stage_started if trace else 0
+		stage_started = Time.get_ticks_usec() if trace else 0
+		_build_dressing(chunk, art_rng)
+		dressing_us = Time.get_ticks_usec() - stage_started if trace else 0
 		if pattern == Pattern.TUNNEL:
+			stage_started = Time.get_ticks_usec() if trace else 0
 			_build_tunnel(chunk)
+			tunnel_us = Time.get_ticks_usec() - stage_started if trace else 0
+	var pattern_started := Time.get_ticks_usec() if trace else 0
 	_run_pattern(pattern, chunk, rng, difficulty)
+	var pattern_us := Time.get_ticks_usec() - pattern_started if trace else 0
 	_last_pattern = pattern
 	# Crates go in last, so the placement can see every obstacle the pattern
 	# actually managed to build rather than the ones it asked for.
+	var powerup_started := Time.get_ticks_usec() if trace else 0
 	if index >= WARMUP_CHUNKS:
 		_maybe_add_powerup(chunk, rng)
+	var powerup_us := Time.get_ticks_usec() - powerup_started if trace else 0
+	var finish_started := Time.get_ticks_usec() if trace else 0
+	chunk.finish(_headless)
+	var finish_us := Time.get_ticks_usec() - finish_started if trace else 0
+	var range_started := Time.get_ticks_usec() if trace else 0
+	if not _headless:
+		chunk.apply_visual_range(_chunk_visual_range())
+	var range_us := Time.get_ticks_usec() - range_started if trace else 0
+	_chunks.append(chunk)
+	_next_index = index + 1
+	if trace:
+		_push_perf_trace({
+			"kind": "spawn",
+			"chunk": index,
+			"biome": chunk.biome,
+			"biome_name": PERF_BIOME_NAMES[chunk.biome],
+			"pattern": pattern,
+			"pattern_name": PERF_PATTERN_NAMES[pattern],
+			"select_us": select_us,
+			"deck_us": deck_us,
+			"dressing_us": dressing_us,
+			"tunnel_us": tunnel_us,
+			"pattern_us": pattern_us,
+			"powerup_us": powerup_us,
+			"finish_us": finish_us,
+			"range_us": range_us,
+			"total_us": Time.get_ticks_usec() - total_started,
+		})
+
+
+func _chunk_rng(index: int, salt: int) -> RandomNumberGenerator:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = _seed * 1000003 + index * 7919 + salt
+	return rng
+
+
+func _chunk_visual_range() -> float:
+	if _dressing_density >= 0.99:
+		return 0.0
+	return MEDIUM_VISUAL_RANGE if _dressing_density >= 0.5 else LOW_VISUAL_RANGE
+
+
+func _spawn_golden_chunk(index: int, pattern: int, difficulty: float) -> void:
+	var chunk := RunnerChunk.new()
+	chunk.name = "GoldenChunk%d" % index
+	chunk.index = index
+	chunk.difficulty = difficulty
+	chunk.biome = Biome.DAY
+	chunk.pattern = pattern
+	chunk.set_meta("golden_pattern", pattern)
+	chunk.position = Vector3(0.0, 0.0, -float(index) * RunnerConfig.CHUNK_LENGTH)
+	add_child(chunk)
+	var test_rng := _chunk_rng(index, 310019)
+	var art_rng := _chunk_rng(index, 790043)
+	if not _headless:
+		_build_deck(chunk, pattern)
+		_build_dressing(chunk, art_rng)
+		if pattern == Pattern.TUNNEL:
+			_build_tunnel(chunk)
+	_run_pattern(pattern, chunk, test_rng, difficulty)
+	if index == 0:
+		_add_golden_powerup(chunk, RunnerConfig.POWERUP_MAGNET)
+	elif index == 4:
+		_add_golden_powerup(chunk, RunnerConfig.POWERUP_SHIELD)
+	elif index == 8:
+		_add_golden_powerup(chunk, RunnerConfig.POWERUP_DOUBLE)
 	chunk.finish(_headless)
 	_chunks.append(chunk)
 	_next_index = index + 1
+	_last_pattern = pattern
+
+
+func _add_golden_powerup(chunk: RunnerChunk, id: StringName) -> void:
+	for local_z: float in [-6.0, -15.0, -24.0, -31.0]:
+		for lane: int in [1, 0, 2]:
+			if chunk.lane_clear(local_z, lane, POWERUP_CLEARANCE):
+				_add_powerup(chunk, lane, local_z, id)
+				return
 
 
 ## --- Patterns ---------------------------------------------------------------
@@ -870,25 +1304,68 @@ func _add_obstacle(chunk: RunnerChunk, kind: int, lane: int, span: int, local_z:
 	area.add_child(shape)
 	if not _headless:
 		var visual := MeshInstance3D.new()
-		match kind:
-			Kind.BLOCK:
-				visual.mesh = _block_mesh()
-				visual.rotation.y = fmod(absf(local_z) * 0.7, 0.5) - 0.25
-			Kind.LOW:
-				visual.mesh = _low_mesh()
-				visual.scale.x = size.x
-			Kind.RAMP:
-				visual.mesh = _ramp_mesh()
-			_:
-				visual.mesh = _arch_mesh()
-		visual.material_override = _prop_material()
+		var authored_asset_id := ""
+		if _runner_art_set != null:
+			authored_asset_id = _runner_art_set.obstacle_asset_id(KIND_NAMES[kind])
+		# RunnerArtSet obstacle roles are shared across biome profiles. DAY owns
+		# this kit; every other band keeps its existing shell until its own art
+		# set lands instead of inheriting a research-port prop by accident.
+		var authored_mesh := _authored_day_mesh(authored_asset_id) \
+				if chunk.biome == Biome.DAY else null
+		if authored_mesh != null:
+			visual.mesh = authored_mesh
+			visual.set_meta("authored_asset_id", authored_asset_id)
+			# Authored obstacles use pooled contact patches below. Their real-time
+			# forward-cast shadows crossed whole lanes and crushed cream/cyan paint
+			# into black bars in both portrait and compact chase views.
+			visual.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			match kind:
+				Kind.BLOCK:
+					visual.scale = Vector3(BLOCK_WIDTH / 2.44, BLOCK_HEIGHT / 2.275,
+							BLOCK_DEPTH / 1.82)
+					visual.rotation.y = fmod(absf(local_z) * 0.7, 0.32) - 0.16
+				Kind.LOW:
+					# Match the collider envelope on all axes. At maximum speed a
+					# 30 cm depth mismatch is half a frame of invisible contact.
+					visual.scale = Vector3(size.x / 2.75, LOW_HEIGHT / 0.915,
+							LOW_DEPTH / 0.853)
+				Kind.RAMP:
+					visual.scale = Vector3(RAMP_WIDTH / 2.72, RAMP_HEIGHT / 1.733,
+							RAMP_DEPTH / 4.117)
+				Kind.BAR:
+					# Same collider/silhouette, alternating authored face. Cyan inlay,
+					# lamps and access panels no longer repeat in one flat procession.
+					visual.rotation.y = PI if posmod(roundi(absf(world_z)), 2) == 1 else 0.0
+			visual.material_override = _authored_day_material()
+		else:
+			match kind:
+				Kind.BLOCK:
+					visual.mesh = _block_mesh()
+					visual.rotation.y = fmod(absf(local_z) * 0.7, 0.5) - 0.25
+				Kind.LOW:
+					visual.mesh = _low_mesh()
+					visual.scale.x = size.x
+				Kind.RAMP:
+					visual.mesh = _ramp_mesh()
+				_:
+					visual.mesh = _arch_mesh()
+			visual.material_override = _dodge_material() \
+					if kind == Kind.BLOCK or kind == Kind.LOW else _prop_material()
 		area.add_child(visual)
 		# Grounding is not left to the scene's light rig: with no SSAO on
 		# gl_compatibility, and no guarantee the runner's sun casts shadows at
-		# all, an unshadowed block reads as hovering and its distance becomes
-		# unjudgeable. One baked patch per obstacle, all flushed into a single
-		# per-chunk MultiMesh.
-		if kind != Kind.BAR:
+		# all, an unshadowed obstacle reads as hovering and its distance becomes
+		# unjudgeable. Baked foot patches all flush into one per-chunk MultiMesh.
+		if kind == Kind.BAR:
+			# Two small foot patches ground the portal without painting one giant
+			# dark rectangle across all three lanes. They flush through the same
+			# per-chunk MultiMesh as every other obstacle contact patch.
+			for side: float in [-1.0, 1.0]:
+				chunk.contact_patches.append(Transform3D(
+						Basis().scaled(Vector3(1.55, 1.0, size.z * 1.45)),
+						Vector3(side * (RunnerConfig.DECK_HALF_WIDTH - 0.42),
+								0.02, local_z)))
+		else:
 			chunk.contact_patches.append(Transform3D(
 					Basis().scaled(Vector3(size.x * 1.6, 1.0, size.z * 2.2)),
 					Vector3(centre_x, 0.02, local_z)))
@@ -922,16 +1399,16 @@ func _add_deck_marks(chunk: RunnerChunk, kind: int, centre_x: float, width: floa
 	# that looks right as an editor swatch arrives on screen a full stop lighter
 	# and a long way toward pastel. Each of these is roughly the linear
 	# pre-image of the colour actually wanted on the deck.
-	var colour := Color(0.72, 0.02, 0.01)
+	var colour := Color(0.94, 0.18, 0.006)
 	match kind:
 		Kind.BAR:
 			colour = Color(0.02, 0.26, 0.76)
 		Kind.LOW:
-			colour = Color(0.88, 0.24, 0.005)
+			colour = Color(0.94, 0.18, 0.006)
 		Kind.RAMP:
 			colour = Color(0.02, 0.55, 0.10)
 		Kind.SEAL:
-			colour = Color(0.85, 0.12, 0.0)
+			colour = Color(0.96, 0.20, 0.006)
 	# Capped at a lane and a half. A full-deck bar wants a THRESHOLD, not a
 	# carpet: chevrons stretched to the whole 10.8 m deck buried the track under
 	# paint and told the player nothing the narrower mark does not.
@@ -1101,7 +1578,13 @@ func _maybe_add_powerup(chunk: RunnerChunk, rng: RandomNumberGenerator) -> void:
 	if _next_powerup_z < chunk.position.z - RunnerConfig.CHUNK_LENGTH:
 		return
 	var lane_order: Array[int] = [1, 0, 2]
-	lane_order.shuffle()
+	# Array.shuffle() uses the process-global RNG and made identical run seeds
+	# disagree. Fisher-Yates stays on the chunk's gameplay stream.
+	for i: int in range(lane_order.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var swap := lane_order[i]
+		lane_order[i] = lane_order[j]
+		lane_order[j] = swap
 	# Start from where the crate is due and walk down-track from there, so a
 	# refusal slides the crate a few metres rather than a few hundred.
 	var start := clampf(chunk.position.z - _next_powerup_z, 4.0, RunnerConfig.CHUNK_LENGTH - 10.0)
@@ -1134,17 +1617,23 @@ func _add_powerup(chunk: RunnerChunk, lane: int, local_z: float, id: StringName)
 	shape.shape = _sphere_shape(POWERUP_RADIUS)
 	crate.add_child(shape)
 	if not _headless:
+		var body := Node3D.new()
+		body.name = "Presentation"
+		crate.add_child(body)
 		var visual := MeshInstance3D.new()
 		visual.mesh = _crate_mesh(id)
-		# Emissive rather than vertex-coloured, and one cached material per id:
-		# a crate has to be identifiable at 60 m on a white deck under a white
-		# sky, where shape is a blur and the colour is doing all the work -- so
-		# it has to glow rather than depend on how the sun happens to rake it.
+		# Vertex colour carries the dark edge and icon. The old full-emissive
+		# override discarded that data and collapsed the magnet into a pink cube.
+		visual.material_override = _powerup_shell_material(id)
+		body.add_child(visual)
+		var halo := MeshInstance3D.new()
+		halo.name = "Halo"
+		halo.mesh = _powerup_ring_mesh()
 		var tint := _powerup_colour(id)
-		visual.material_override = VisualLibrary.emissive_material(tint, tint, 1.5, 0.34)
-		visual.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		crate.add_child(visual)
-		crate.body = visual
+		halo.material_override = VisualLibrary.emissive_material(tint * 0.42, tint, 1.8, 0.2)
+		halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		body.add_child(halo)
+		crate.body = body
 		var blob := MeshInstance3D.new()
 		blob.mesh = VisualLibrary.contact_patch_mesh()
 		blob.material_override = VisualLibrary.contact_shadow_material(0.3)
@@ -1155,52 +1644,172 @@ func _add_powerup(chunk: RunnerChunk, lane: int, local_z: float, id: StringName)
 	chunk.add_child(crate)
 
 
-static func _powerup_colour(id: StringName) -> Color:
-	match id:
-		RunnerConfig.POWERUP_SHIELD:
-			return Color(0.32, 0.86, 1.0)
-		RunnerConfig.POWERUP_DOUBLE:
-			return Color(1.0, 0.79, 0.20)
-		_:
-			return Color(0.78, 0.40, 1.0)
+static func _powerup_colour(_id: StringName) -> Color:
+	# Violet is the mode-wide power-up envelope. Identity comes from the three
+	# silhouettes (horseshoe / gem / hex drum), never from stealing cyan's
+	# "duck" meaning or gold's "collect" meaning at gameplay distance.
+	return Color(0.70, 0.24, 0.92)
+
+
+## Lit vertex-colour shell plus a restrained emissive lift. A dedicated cached
+## material per ID preserves silhouette facets and face icons while the shared
+## halo supplies the long-range colour read.
+static func _powerup_shell_material(id: StringName) -> StandardMaterial3D:
+	var key := String(id)
+	if _powerup_materials.has(key):
+		return _powerup_materials[key]
+	var tint := _powerup_colour(id)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = tint
+	mat.vertex_color_use_as_albedo = true
+	mat.metallic = 0.24
+	mat.roughness = 0.28
+	mat.rim_enabled = true
+	mat.rim = 0.38
+	mat.rim_tint = 0.72
+	_powerup_materials[key] = mat
+	return mat
+
+
+static func _powerup_ring_mesh() -> TorusMesh:
+	if _powerup_ring_mesh_cache != null:
+		return _powerup_ring_mesh_cache
+	var mesh := TorusMesh.new()
+	mesh.inner_radius = 0.70
+	mesh.outer_radius = 0.79
+	mesh.rings = 18
+	mesh.ring_segments = 8
+	_powerup_ring_mesh_cache = mesh
+	return mesh
 
 
 ## --- Chunk geometry ---------------------------------------------------------
 
-## Deck, lane seams and the kerb/drop-off verge. Three shared meshes, three
-## shared materials, three nodes: this is the entire static cost of a chunk.
-## The materials come out of a fixed per-biome palette, so however long the run
-## gets the process only ever mints four of each.
+## Deck, lane seams and kerb/drop-off verge. Procedural biomes keep original
+## shared surfaces. Authored DAY uses three topology variants plus one snow
+## shelf, all MultiMesh/shared-material draws; gameplay floor stays unchanged.
 func _build_deck(chunk: RunnerChunk, pattern: int) -> void:
 	var biome := chunk.biome
-	var deck := MeshInstance3D.new()
-	deck.name = "Deck"
-	deck.mesh = _deck_mesh()
 	# A tunnel darkens its own floor. This is the cheapest honest "the light
 	# changed" available: no extra lights, no environment write, and it is the
 	# surface the player is actually looking at.
 	var tunnel := pattern == Pattern.TUNNEL
-	deck.material_override = _deck_material(biome, tunnel)
-	deck.position = Vector3(0.0, 0.0, -RunnerConfig.CHUNK_LENGTH * 0.5)
-	deck.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	chunk.add_child(deck)
-	# Lane seams: a flat white deck gives the player nothing to judge a lane
-	# change against, and no amount of obstacle readability fixes that. Faintly
-	# emissive so they survive both the bright day bands and the aurora night.
-	var seams := MeshInstance3D.new()
-	seams.name = "Seams"
-	seams.mesh = _seam_mesh()
-	seams.material_override = VisualLibrary.emissive_material(
-			_biome_seam_tint(biome), _biome_seam_glow(biome), 0.45, 0.7)
-	seams.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	chunk.add_child(seams)
-	var verge := MeshInstance3D.new()
-	verge.name = "Verge"
-	verge.mesh = _verge_mesh()
-	verge.set_surface_override_material(0, VisualLibrary.ice_material(_biome_ice_tint(biome), 0.5))
-	verge.set_surface_override_material(1, _verge_snow_material(biome, tunnel))
-	verge.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	chunk.add_child(verge)
+	var authored_decks: Array[Mesh] = []
+	for asset_id: String in DAY_DECK_ASSETS:
+		var deck_mesh := _authored_day_mesh(asset_id)
+		if deck_mesh != null:
+			authored_decks.append(deck_mesh)
+	var authored_day := biome == Biome.DAY \
+			and authored_decks.size() == DAY_DECK_ASSETS.size()
+	if authored_day:
+		# Three topology-distinct six-metre cassettes. Grouping transforms by
+		# mesh keeps each variant one MultiMesh draw per chunk while eliminating
+		# the copied-board procession that survived 180-degree rotations.
+		for variant: int in DAY_DECK_ASSETS.size():
+			var modules: Array[Transform3D] = []
+			var module_tints := PackedColorArray()
+			for module_index: int in 6:
+				if posmod(module_index + chunk.index, DAY_DECK_ASSETS.size()) != variant:
+					continue
+				var yaw := PI if posmod(module_index + chunk.index * 2, 2) == 1 else 0.0
+				modules.append(Transform3D(
+						# Unit X keeps modeled wall at canonical x=5.40..5.95,
+						# exactly covering snow-shelf drop. Prior 0.985 scale left an
+						# open slit beneath cap and revived floating-board read.
+						Basis(Vector3.UP, yaw),
+						Vector3(0.0, AUTHORED_DAY_DECK_Y,
+								-3.0 - float(module_index) * 6.0)))
+				# The authored cassettes were painted for the old all-white look,
+				# and their surface shader is ALBEDO = atlas * COLOR — so the
+				# instance colour is the one place the value ladder can reach
+				# them. Without this the whole palette was dead code on the day
+				# band: every deck tint in this file was being drawn over by a
+				# white texture. The authored per-module variation is preserved
+				# by tinting it rather than replacing it.
+				var deck_wash := _biome_deck_tint(biome).lightened(0.10)
+				var variation: Color = [
+						Color(1.0, 1.0, 1.0, 1.0),
+						Color(0.95, 0.995, 1.0, 1.0),
+						Color(1.0, 0.975, 0.93, 1.0),
+				][posmod(module_index + chunk.index * 2, 3)]
+				module_tints.append(Color(
+						deck_wash.r * variation.r,
+						deck_wash.g * variation.g,
+						deck_wash.b * variation.b, 1.0))
+			var authored_instance := _add_multimesh(chunk, authored_decks[variant], modules,
+					_authored_day_material(), "AuthoredDeckKerb%d" % variant,
+					220.0, module_tints)
+			if authored_instance != null:
+				authored_instance.set_meta("authored_asset_id", DAY_DECK_ASSETS[variant])
+				# Dummy/headless RenderingServer does not round-trip MultiMesh
+				# transforms. Keep the tiny authored placement set available to
+				# debug contracts; release builds retain only the GPU buffer.
+				if OS.is_debug_build():
+					authored_instance.set_meta("authored_source_transforms", modules.duplicate())
+	else:
+		var deck := MeshInstance3D.new()
+		deck.name = "Deck"
+		deck.mesh = _deck_mesh()
+		deck.material_override = _deck_material(biome, tunnel)
+		deck.position = Vector3(0.0, 0.0, -RunnerConfig.CHUNK_LENGTH * 0.5)
+		deck.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		chunk.add_child(deck)
+		# Lane seams: a flat white deck gives the player nothing to judge a lane
+		# change against, and no amount of obstacle readability fixes that.
+		var seams := MeshInstance3D.new()
+		seams.name = "Seams"
+		seams.mesh = _seam_mesh()
+		seams.material_override = _seam_material(biome)
+		seams.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		chunk.add_child(seams)
+	# Four surfaces, not two, and this is the load-bearing part of the repaint.
+	# The kerb previously wore ONE ice material over a mesh whose crown/body/
+	# deep vertex gradient the ice shader never reads -- so the whole wall was a
+	# single flat pale value, which is most of why the corridor had no depth
+	# staging. Splitting it lets the crown be BRIGHT, the body MID and the
+	# drop-off face DARK, which is the three-value law expressed in the one
+	# object that touches all three tiers. Two extra draw calls per chunk.
+	if authored_day:
+		# Authored cassettes include their own rounded kerb. Keep only snow shelf
+		# from procedural verge; drawing both walls produced floating black boards
+		# over every carefully-painted module.
+		var shelf := MeshInstance3D.new()
+		shelf.name = "AuthoredDaySnowShelf"
+		shelf.mesh = _authored_day_shelf_mesh()
+		shelf.material_override = _verge_snow_material(biome, tunnel)
+		shelf.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		chunk.add_child(shelf)
+	else:
+		var verge := MeshInstance3D.new()
+		verge.name = "Verge"
+		verge.mesh = _verge_mesh()
+		verge.set_surface_override_material(0, _kerb_body_material(biome))
+		verge.set_surface_override_material(1, _kerb_crown_material(biome))
+		verge.set_surface_override_material(2, _kerb_deep_material(biome))
+		verge.set_surface_override_material(3, _verge_snow_material(biome, tunnel))
+		verge.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		chunk.add_child(verge)
+	_build_deck_decals(chunk, biome)
+
+
+## Quiet edge inlays give an empty chunk a countable ground rhythm. They share
+## the obstacle-mark MultiMesh, stay outside the three decision lanes, and use
+## the biome seam colour at low alpha so they cannot be mistaken for a verb.
+## Their transforms are fixed from the chunk index; no gameplay RNG is touched.
+func _build_deck_decals(chunk: RunnerChunk, biome: int) -> void:
+	var edge_x := RunnerConfig.DECK_HALF_WIDTH - 0.42
+	var tint := _biome_seam_tint(biome).lerp(_biome_deck_tint(biome), 0.56)
+	for i: int in 6:
+		var local_z := -3.5 - float(i) * 5.8
+		# Alternate the slightly stronger edge so the repeated motif feels
+		# authored without becoming a central lane instruction.
+		for side: int in 2:
+			var sign_x := -1.0 if side == 0 else 1.0
+			var alpha := 0.20 if (i + side + chunk.index) % 2 == 0 else 0.13
+			chunk.marks.append(Transform3D(
+					Basis().scaled(Vector3(0.62, 1.0, 1.15)),
+					Vector3(sign_x * edge_x, 0.024, local_z)))
+			chunk.mark_colors.append(Color(tint.r, tint.g, tint.b, alpha))
 
 
 ## Deck tint for a biome, darkened when the chunk is roofed. Split out so the
@@ -1209,68 +1818,335 @@ func _build_deck(chunk: RunnerChunk, pattern: int) -> void:
 static func _deck_tint(biome: int, tunnel: bool) -> Color:
 	var tint := _biome_deck_tint(biome)
 	if tunnel:
-		return tint * Color(0.48, 0.56, 0.72, 1.0)
+		# Was 0.48/0.56/0.72, which was correct against a near-white deck and
+		# is mud against a MID one -- a roofed chunk came out black. The change
+		# of place inside a tunnel is carried by the ribs and the two bay lamps
+		# instead, which is what the note beside _tunnel_mesh() argues for and
+		# is the right division of labour anyway.
+		return tint * Color(0.66, 0.72, 0.86, 1.0)
 	return tint
 
 
 static func _deck_material(biome: int, tunnel: bool) -> ShaderMaterial:
-	return VisualLibrary.snow_material(_deck_tint(biome, tunnel), 0.5, -1.0, 1.0)
+	# The play strip is polished glacial ice, not groomed snow. The previous snow
+	# shader's screen-wide corduroy survived as cyan stripes and made the deck
+	# read like an untextured prototype plane. The shared ice program supplies
+	# broad plate cracks, depth veining and a moving specular streak; lane seams
+	# and verb decals remain separate, crisp navigation layers above it.
+	# Calm the stock skating-rink streak for this camera. At runner pitch the
+	# default lobe covered a whole lane in featureless white and erased seams.
+	return VisualLibrary.shader_variant(
+			VisualLibrary.ice_material(_deck_tint(biome, tunnel), 0.30), {
+				"roughness_base": 0.34,
+				"specular_amount": 0.30,
+				"streak_strength": 0.12,
+				"glint_strength": 0.24,
+				"crack_strength": 0.48,
+				# The reason the MID-tier deck kept rendering near-white. The ice
+				# program mixes albedo toward its pale rim colour by fresnel, and
+				# a FLAT FLOOR under a chase camera is grazing-angle across its
+				# whole visible length: fresnel sits near 1 everywhere, so the
+				# tint was being overwritten by rim colour on every pixel the
+				# player looks at. Vertical ice (walls, bergs) wants that rim and
+				# keeps it; the deck cannot have it and be a mid tone at once.
+				"rim_strength": 0.10,
+				"rim_power": 6.5,
+				"rim_tint": _deck_tint(biome, tunnel).lightened(0.18),
+			})
 
 
+## The shelf keeps its own BRIGHT tint rather than inheriting the deck's, so
+## darkening the play strip cannot darken the frame around it.
 static func _verge_snow_material(biome: int, tunnel: bool) -> ShaderMaterial:
-	return VisualLibrary.snow_material(_deck_tint(biome, tunnel) * Color(0.86, 0.9, 1.0, 1.0), 0.3)
+	var tint := _biome_shelf_tint(biome)
+	if tunnel:
+		tint *= Color(0.82, 0.86, 0.96, 1.0)
+	return VisualLibrary.snow_material(tint, 0.3)
 
 
-## Pushed further apart than "tasteful" would suggest. These tints are the only
-## thing carrying a biome change on their own: the sky and the sun belong to
-## RunnerGame, and until it follows biome_environment() a gentle tint is
-## invisible at 38 m/s. A band the player does not notice is not a band.
+static func _seam_material(biome: int) -> StandardMaterial3D:
+	return VisualLibrary.emissive_material(_biome_seam_tint(biome),
+			_biome_seam_glow(biome), _biome_seam_energy(biome), 0.7)
+
+
+## Kerb wall body. Still the ice shader -- the raking gleam it puts along the
+## wall is one of the few things in the old look worth keeping, and it is the
+## strongest near-field speed cue after the pennants.
+static func _kerb_body_material(biome: int) -> ShaderMaterial:
+	return VisualLibrary.ice_material(_biome_kerb_body(biome), 0.55)
+
+
+## Kerb crown. Emissive, at zero-ish energy in the lit bands and hard in the
+## dark ones: in the cave and at night the glowing ice edge is the light in the
+## scene and the brightest thing in frame.
+static func _kerb_crown_material(biome: int) -> StandardMaterial3D:
+	var crown := _biome_kerb_crown(biome)
+	return VisualLibrary.emissive_material(crown, crown, _biome_crown_energy(biome), 0.35)
+
+
+## Drop-off face. Vertex-coloured so one shared mesh can ramp from the wall
+## value at the top to near-black at the shelf line, tinted per band here.
+static func _kerb_deep_material(biome: int) -> StandardMaterial3D:
+	return VisualLibrary.rock_material(_biome_kerb_deep(biome), 0.9)
+
+
+## --- PALETTE ----------------------------------------------------------------
+##
+## THE THREE-VALUE LAW. Every surface in the corridor belongs to exactly one of
+## three separated luminance tiers, and no two of the three ever meet at the
+## same value:
+##
+##   BRIGHT 0.78-1.00   sky, the snow shelf outside the kerb, wall crowns,
+##                      collectibles
+##   MID    0.30-0.55   THE RUNNING DECK, the kerb wall body, mid-ground
+##                      silhouettes
+##   DARK   0.02-0.15   obstacle bodies, the drop-off face
+##
+## The first pass had all of it in one tier: deck 0.92, verge 0.95, crown 0.94,
+## horizon 0.85. That is why it read as a test level -- there was no figure and
+## no ground, so nothing could be staged against anything else, and no particle
+## or pickup or obstacle had anything to be bright AGAINST.
+##
+## The move that fixes it is polar-fiction-safe rather than a stylisation: the
+## play strip is POLISHED GLACIAL ICE, which is genuinely a deep saturated
+## cyan-blue, while the wind-packed snow shelf beyond the kerb stays white. So
+## the player runs down a dark saturated ribbon inside a bright frame. Every
+## downstream complaint -- obstacle contrast, character contrast, "no colour
+## anywhere", the horizon dissolving into the deck -- is the same defect, and
+## this is the same fix for all of them.
+##
+## Hot accents (chroma > 0.7) ride the DARK tier only, and only on things the
+## player must act on. The hue language is FIXED and global, because a hue that
+## means two things means nothing:
+##   orange-red = will hurt you, dodge      cyan  = go under, duck
+##   green      = go, ramp, launch          gold  = collect
+##   violet     = power-up
+## _biome_accent() below is therefore decorative only -- banners, gantry lamps,
+## crystal glow. Obstacle liveries take their colour from _verb_* instead, and
+## do NOT drift per biome: an orange band has to mean "dodge" in all four.
+##
+## Everything is authored as it is typed, i.e. sRGB, because these feed material
+## tints (albedo and shader `source_color` uniforms convert for us). Vertex
+## colours are the exception -- see _vc() -- and getting that backwards is what
+## once turned an authored amber into gold on screen.
+
+## The running deck: MID tier, saturated. The single most consequential eight
+## constants in the file.
 static func _biome_deck_tint(biome: int) -> Color:
+	# These sit BELOW the MID luminance band on paper on purpose. The brief's
+	# values are the target for what ends up on screen, and the deck is lit by
+	# a 1.55-energy sun and tonemapped: authoring the target value as albedo
+	# put the rendered deck back up at BRIGHT, which is the whole defect. Read
+	# off qa_shots/deck/*.png, not derived.
 	match biome:
 		Biome.DUSK:
-			return Color(1.0, 0.80, 0.70)
+			return Color(0.30, 0.14, 0.22)
 		Biome.CAVE:
-			return Color(0.44, 0.62, 0.90)
+			return Color(0.09, 0.19, 0.29)
 		Biome.NIGHT:
-			return Color(0.44, 0.54, 0.88)
+			return Color(0.07, 0.10, 0.24)
 		_:
-			return Color(0.94, 0.965, 1.0)
+			return Color(0.17, 0.38, 0.52)
 
 
+## The snow shelf beyond the drop-off: BRIGHT tier, and deliberately NOT
+## derived from the deck any more. It is the frame around the play space, and a
+## frame that darkens with its picture frames nothing. The cave is the one band
+## where the shelf gives up its brightness -- underground there is no sky to
+## light it, so the glowing kerb seams take over as the BRIGHT tier instead.
+static func _biome_shelf_tint(biome: int) -> Color:
+	match biome:
+		Biome.DUSK:
+			return Color(1.0, 0.80, 0.72)
+		Biome.CAVE:
+			return Color(0.30, 0.52, 0.70)
+		Biome.NIGHT:
+			return Color(0.24, 0.32, 0.60)
+		_:
+			return Color(0.97, 0.99, 1.0)
+
+
+## Wind-polished top of the kerb wall: BRIGHT, and in the two dark bands it is
+## a light SOURCE (see _biome_crown_energy) rather than a lit surface.
+static func _biome_kerb_crown(biome: int) -> Color:
+	match biome:
+		Biome.DUSK:
+			return Color(1.0, 0.74, 0.60)
+		Biome.CAVE:
+			return Color(0.40, 0.92, 1.0)
+		Biome.NIGHT:
+			return Color(0.62, 0.92, 1.0)
+		_:
+			return Color(0.92, 0.99, 1.0)
+
+
+## Emission energy on the crown. Zero in the lit bands (the sun does the work);
+## in the cave and at night the ice IS the lighting, which is what makes those
+## two bands read as places rather than as the day band with the lamp off.
+static func _biome_crown_energy(biome: int) -> float:
+	match biome:
+		Biome.CAVE:
+			return 0.35
+		Biome.NIGHT:
+			return 0.30
+		Biome.DUSK:
+			return 0.10
+		_:
+			return 0.06
+
+
+## Body of the kerb wall: MID, saturated, the same tier as the deck but a
+## different hue so the two never merge into one mass.
+static func _biome_kerb_body(biome: int) -> Color:
+	match biome:
+		Biome.DUSK:
+			return Color(0.86, 0.30, 0.32)
+		Biome.CAVE:
+			return Color(0.08, 0.34, 0.56)
+		Biome.NIGHT:
+			return Color(0.10, 0.22, 0.55)
+		_:
+			return Color(0.20, 0.52, 0.76)
+
+
+## The drop-off face below the kerb: DARK. This band is what separates the MID
+## deck from the BRIGHT shelf; without it the two touch and the causeway stops
+## reading as raised.
+static func _biome_kerb_deep(biome: int) -> Color:
+	match biome:
+		Biome.DUSK:
+			return Color(0.28, 0.06, 0.18)
+		Biome.CAVE:
+			return Color(0.02, 0.07, 0.16)
+		Biome.NIGHT:
+			return Color(0.02, 0.03, 0.14)
+		_:
+			return Color(0.04, 0.18, 0.36)
+
+
+## Free-standing ice: crystals, bergs, the mid-ground silhouettes' highlights.
 static func _biome_ice_tint(biome: int) -> Color:
 	match biome:
 		Biome.DUSK:
-			return Color(0.96, 0.50, 0.54)
+			return Color(0.96, 0.52, 0.52)
 		Biome.CAVE:
-			return Color(0.22, 0.58, 0.92)
+			return Color(0.25, 0.78, 0.98)
 		Biome.NIGHT:
-			return Color(0.24, 0.40, 0.84)
+			return Color(0.30, 0.50, 0.95)
 		_:
-			return Color(0.60, 0.83, 0.98)
+			return Color(0.52, 0.80, 0.98)
 
 
+## Mid-ground and far silhouettes. Always a couple of stops under the band's
+## sky, because their entire job is to put a dark edge in front of a bright
+## horizon: an ice pillar the same value as the sky behind it is not a
+## silhouette, it is a smudge.
+static func _biome_far_tint(biome: int) -> Color:
+	match biome:
+		Biome.DUSK:
+			return Color(0.52, 0.20, 0.30)
+		Biome.CAVE:
+			return Color(0.05, 0.20, 0.34)
+		Biome.NIGHT:
+			return Color(0.04, 0.09, 0.26)
+		_:
+			return Color(0.26, 0.52, 0.78)
+
+
+## Warm complement on cold ice, cold complement on warm ice. The dusk band
+## already proved this works before anything else in the corridor did.
 static func _biome_seam_tint(biome: int) -> Color:
 	match biome:
 		Biome.DUSK:
-			return Color(1.0, 0.78, 0.52)
+			return Color(1.0, 0.88, 0.42)
 		Biome.CAVE:
-			return Color(0.52, 0.90, 1.0)
+			return Color(0.62, 1.0, 0.95)
 		Biome.NIGHT:
-			return Color(0.46, 1.0, 0.82)
+			return Color(0.58, 1.0, 0.82)
 		_:
-			return Color(0.62, 0.78, 0.95)
+			return Color(1.0, 0.97, 0.86)
 
 
 static func _biome_seam_glow(biome: int) -> Color:
 	match biome:
 		Biome.DUSK:
-			return Color(1.0, 0.55, 0.24)
+			return Color(1.0, 0.58, 0.08)
 		Biome.CAVE:
-			return Color(0.28, 0.80, 1.0)
+			return Color(0.10, 1.0, 0.86)
 		Biome.NIGHT:
-			return Color(0.24, 1.0, 0.70)
+			return Color(0.10, 1.0, 0.60)
 		_:
-			return Color(0.36, 0.62, 0.92)
+			return Color(1.0, 0.84, 0.30)
+
+
+## Seam emission energy. The two dark bands lean on the seams for their BRIGHT
+## tier, so they burn considerably harder there.
+static func _biome_seam_energy(biome: int) -> float:
+	match biome:
+		Biome.DUSK:
+			return 0.85
+		Biome.CAVE:
+			return 1.10
+		Biome.NIGHT:
+			return 1.25
+		_:
+			return 0.75
+
+
+## DECORATIVE hot accent for a band -- banners, gantry lamps, crystal glow.
+## Never used for a verb: see the hue language at the top of this block.
+static func _biome_accent(biome: int) -> Color:
+	match biome:
+		Biome.DUSK:
+			return Color(1.0, 0.42, 0.12)
+		Biome.CAVE:
+			return Color(0.20, 0.95, 1.0)
+		Biome.NIGHT:
+			return Color(0.86, 0.30, 1.0)
+		_:
+			return Color(1.0, 0.62, 0.14)
+
+
+## --- Verb colours -----------------------------------------------------------
+## Fixed across every band. These are the only saturated colours allowed on an
+## obstacle, and each one means exactly one thing everywhere in the mode.
+
+## "This will hurt you -- go around it." Blocks, ridges, seals.
+static func _verb_dodge() -> Color:
+	return Color(1.0, 0.52, 0.045)
+
+
+## "Go under it." The arch, and nothing else.
+static func _verb_duck() -> Color:
+	return Color(0.16, 0.95, 1.0)
+
+
+## "Take it." The launch ramp, and nothing else.
+static func _verb_go() -> Color:
+	return Color(0.22, 1.0, 0.36)
+
+
+## sRGB -> linear, for a colour destined for a VERTEX buffer rather than a
+## material property.
+##
+## This conversion is not optional and it is not a nicety. Material albedo and
+## shader `source_color` uniforms are converted for us on upload; vertex colours
+## are not -- StandardMaterial3D consumes ARRAY_COLOR as linear. So a value that
+## looks correct as an editor swatch arrives on screen a full stop lighter and a
+## long way toward pastel, which is exactly how an authored amber once shipped
+## as gold and an authored warm ridge shipped as olive. Author every mesh colour
+## in the same sRGB space as the palette above and put it through here.
+static func _vc(c: Color) -> Color:
+	return c.srgb_to_linear()
+
+
+## Height of the authored snow shelf at a world-space absolute X. Must stay in
+## lockstep with surface 3 in _verge_mesh(): dressing placed at a constant Y
+## visibly hovered over the rising shelf or disappeared into it.
+static func _shelf_y_at(abs_x: float) -> float:
+	var inner_edge := RunnerConfig.DECK_HALF_WIDTH + WALL_THICKNESS
+	var t := clampf((absf(abs_x) - inner_edge) / (SHELF_WIDTH - inner_edge), 0.0, 1.0)
+	return -SHELF_DROP + t * 0.9
 
 
 ## Everything beyond the drop-off. All MultiMesh, all shadowless, all distance
@@ -1282,49 +2158,289 @@ static func _biome_seam_glow(biome: int) -> Color:
 ## write each per frame and are the difference between a corridor and a place.
 func _build_dressing(chunk: RunnerChunk, rng: RandomNumberGenerator) -> void:
 	var biome := chunk.biome
-	var shelf_y := -SHELF_DROP + 0.45
-	var drifts: Array[Transform3D] = []
-	for i: int in rng.randi_range(3, 6):
-		var side := -1.0 if rng.randf() < 0.5 else 1.0
-		var s := rng.randf_range(1.6, 3.8)
-		drifts.append(Transform3D(
-				Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s * rng.randf_range(0.45, 0.85), s)),
-				Vector3(side * rng.randf_range(RunnerConfig.DECK_HALF_WIDTH + 3.0, SHELF_WIDTH * 0.8),
-						shelf_y, -rng.randf() * RunnerConfig.CHUNK_LENGTH)))
-	_add_multimesh(chunk, VisualLibrary.snow_drift_mesh(), drifts,
-			VisualLibrary.rock_material(_biome_deck_tint(biome), 0.85), "Drifts", 170.0)
-	var crystals: Array[Transform3D] = []
-	for i: int in rng.randi_range(2, 5):
-		var side := -1.0 if rng.randf() < 0.5 else 1.0
-		var s := rng.randf_range(1.1, 2.9)
-		crystals.append(Transform3D(
-				Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s * 0.8, s, s * 0.8)),
-				Vector3(side * rng.randf_range(RunnerConfig.DECK_HALF_WIDTH + 1.4, SHELF_WIDTH * 0.6),
-						shelf_y - 0.25, -rng.randf() * RunnerConfig.CHUNK_LENGTH)))
-	_add_multimesh(chunk, VisualLibrary.ice_crystal_mesh(), crystals,
-			VisualLibrary.rock_material(_biome_ice_tint(biome), 0.25), "Crystals", 170.0)
-	# Distant bergs only on some chunks, and only ever ONE seeded silhouette per
-	# chunk: berg_mesh() caches per seed, so drawing a fresh seed every chunk
-	# would grow that cache without bound over a long run.
-	if rng.randf() < (0.28 if biome == Biome.NIGHT else 0.55):
-		var bergs: Array[Transform3D] = []
-		for i: int in rng.randi_range(1, 3):
-			var side := -1.0 if rng.randf() < 0.5 else 1.0
-			var s := rng.randf_range(5.0, 13.0)
-			bergs.append(Transform3D(
-					Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s * rng.randf_range(0.7, 1.5), s)),
-					Vector3(side * rng.randf_range(34.0, 84.0), -SHELF_DROP - 1.5,
-							-rng.randf() * RunnerConfig.CHUNK_LENGTH)))
-		var variant: int = [101, 211, 331, 449][rng.randi_range(0, 3)]
-		_add_multimesh(chunk, VisualLibrary.berg_mesh(variant), bergs,
-				VisualLibrary.rock_material(_biome_ice_tint(biome).lerp(Color.WHITE, 0.5), 0.6),
-				"Bergs", 900.0)
-	_build_banners(chunk, rng)
+	_build_drifts(chunk, rng, biome)
+	_build_crystals(chunk, rng, biome)
+	_build_bergs(chunk, rng, biome)
+	if biome == Biome.DAY:
+		_build_day_port_near(chunk, rng)
+		_build_day_port_modules(chunk, rng)
+		_build_day_port_cargo(chunk, rng)
+		_build_day_port_landmark(chunk, rng)
+	# DAY's sensor sleds already own the near-parallax band. Alternate pennant
+	# chunks there instead of paying both repeated draws on every 36 m segment;
+	# other biomes keep banners every chunk.
+	if biome != Biome.DAY or posmod(chunk.index, 2) == 0:
+		_build_banners(chunk, rng)
 	_build_debris(chunk, rng)
 	if biome == Biome.NIGHT or (biome == Biome.DAY and rng.randf() < 0.5):
 		_build_birds(chunk, rng)
 	if biome == Biome.NIGHT and rng.randf() < 0.35:
 		_build_aurora(chunk, rng)
+
+
+func _build_drifts(chunk: RunnerChunk, rng: RandomNumberGenerator, biome: int) -> void:
+	var drifts: Array[Transform3D] = []
+	for i: int in rng.randi_range(3, 6):
+		var side := -1.0 if rng.randf() < 0.5 else 1.0
+		var s := rng.randf_range(1.6, 3.8)
+		var drift_x := rng.randf_range(RunnerConfig.DECK_HALF_WIDTH + 3.0, SHELF_WIDTH * 0.8)
+		drifts.append(Transform3D(
+				Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s * rng.randf_range(0.45, 0.85), s)),
+				Vector3(side * drift_x, _shelf_y_at(drift_x),
+						-rng.randf() * RunnerConfig.CHUNK_LENGTH)))
+	if not _supporting_family_enabled(chunk.index, 0):
+		return
+	_add_multimesh(chunk, VisualLibrary.snow_drift_mesh(), drifts,
+			VisualLibrary.rock_material(_biome_shelf_tint(biome), 0.88), "Drifts", 170.0)
+
+
+func _build_crystals(chunk: RunnerChunk, rng: RandomNumberGenerator, biome: int) -> void:
+	var crystals: Array[Transform3D] = []
+	for i: int in rng.randi_range(2, 5):
+		var side := -1.0 if rng.randf() < 0.5 else 1.0
+		var s := rng.randf_range(1.1, 2.9)
+		var crystal_x := rng.randf_range(RunnerConfig.DECK_HALF_WIDTH + 1.4, SHELF_WIDTH * 0.6)
+		crystals.append(Transform3D(
+				Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s * 0.8, s, s * 0.8)),
+				Vector3(side * crystal_x, _shelf_y_at(crystal_x),
+						-rng.randf() * RunnerConfig.CHUNK_LENGTH)))
+	# Thin whole presentation families on lower tiers; reducing instance count
+	# inside a MultiMesh does not reduce its draw call. RNG was still consumed,
+	# so later authored placement stays stable across quality changes.
+	if not _decorative_family_enabled(chunk.index, 0):
+		return
+	_add_multimesh(chunk, VisualLibrary.ice_crystal_mesh(), crystals,
+			VisualLibrary.rock_material(_biome_ice_tint(biome), 0.25), "Crystals", 170.0)
+
+
+func _build_bergs(chunk: RunnerChunk, rng: RandomNumberGenerator, biome: int) -> void:
+	# DAY uses one authored five-mass family through the same seeded placement
+	# seam. Other bands retain four bounded procedural silhouettes. Presentation
+	# consumes art_rng only; gameplay generation and replay order remain untouched.
+	var authored: Mesh = _authored_day_mesh(DAY_ICEBERG_ASSET) \
+			if biome == Biome.DAY else null
+	# One authored five-mass cluster every third DAY chunk forms an intentional
+	# skyline beat. V7 stamped two-to-four copies in every chunk, turning strong
+	# geometry into iceberg wallpaper. Off-beat chance remains sparse and seeded.
+	var authored_beat := authored != null and posmod(chunk.index, 3) == 1
+	var berg_chance := (1.0 if authored_beat else 0.08) if authored != null \
+			else (0.88 if biome == Biome.DAY else (0.28 if biome == Biome.NIGHT else 0.55))
+	if rng.randf() < berg_chance:
+		var bergs: Array[Transform3D] = []
+		var berg_count := 1
+		if authored == null:
+			berg_count = rng.randi_range(2, 4) if biome == Biome.DAY \
+					else rng.randi_range(1, 3)
+		for i: int in berg_count:
+			var side := -1.0 if rng.randf() < 0.5 else 1.0
+			var s := rng.randf_range(0.72, 1.26) if authored != null \
+					else (rng.randf_range(8.0, 18.0) if biome == Biome.DAY \
+					else rng.randf_range(5.0, 13.0))
+			var yaw := rng.randf() * TAU
+			var vertical_ratio := rng.randf_range(0.82, 1.28) if authored != null \
+					else rng.randf_range(0.7, 1.5)
+			bergs.append(Transform3D(
+					Basis(Vector3.UP, yaw).scaled(
+							Vector3(s, s * vertical_ratio, s)),
+					Vector3(side * rng.randf_range(34.0, 84.0), -SHELF_DROP - 1.5,
+							-rng.randf() * RunnerConfig.CHUNK_LENGTH)))
+		var variant: int = [101, 211, 331, 449][rng.randi_range(0, 3)]
+		if not _supporting_family_enabled(chunk.index, 1):
+			return
+		var berg_mesh: Mesh = authored if authored != null \
+				else VisualLibrary.berg_mesh(variant)
+		var berg_material: Material = _authored_day_material() if authored != null \
+				else VisualLibrary.rock_material(_biome_far_tint(biome), 0.72)
+		var instance := _add_multimesh(chunk, berg_mesh, bergs, berg_material,
+				"AuthoredIcebergClusters" if authored != null else "Bergs", 900.0)
+		if instance != null and authored != null:
+			instance.set_meta("authored_asset_id", DAY_ICEBERG_ASSET)
+
+
+## DAY is an active polar research port, staged in three depth bands: sensor
+## sleds on the near kerb, modular labs on the shelf, and one of three large
+## skyline landmarks in the far field. Every repeated set is one MultiMesh;
+## landmark meshes share the obstacle material/program and recur slowly.
+func _build_day_port_near(chunk: RunnerChunk, rng: RandomNumberGenerator) -> void:
+	var near_props: Array[Transform3D] = []
+	var near_tints := PackedColorArray()
+	var authored := _authored_day_mesh(DAY_PYLON_ASSET)
+	var kerb_top := AUTHORED_DAY_KERB_TOP if authored != null else WALL_HEIGHT
+	# Sensor sleds form irregular two/three-piece service clusters rather than a
+	# stamped fence. They stay beyond the kerb, so extra instances strengthen
+	# near parallax without touching the 55--70 m lane-decision silhouette.
+	var prop_count := maxi(1, roundi(float(rng.randi_range(2, 4)) * _dressing_density))
+	for i: int in prop_count:
+		var side := -1.0 if (i + chunk.index) % 2 == 0 else 1.0
+		var sx := rng.randf_range(0.76, 1.04)
+		var sy := sx * rng.randf_range(0.92, 1.10)
+		var sz := sx * rng.randf_range(0.90, 1.08)
+		near_props.append(Transform3D(
+				Basis(Vector3.UP, -side * PI * 0.5 + rng.randf_range(-0.12, 0.12))
+						.scaled(Vector3(sx, sy, sz)),
+				Vector3(side * (RunnerConfig.DECK_HALF_WIDTH + WALL_THICKNESS * 0.5),
+						kerb_top, -(RunnerConfig.CHUNK_LENGTH / float(prop_count))
+								* (float(i) + rng.randf_range(0.28, 0.72)))))
+		near_tints.append([
+				Color(1.0, 1.0, 1.0, 1.0),
+				Color(0.94, 1.0, 1.0, 1.0),
+				Color(1.0, 0.97, 0.91, 1.0),
+		][posmod(chunk.index + i, 3)])
+	# Cluster / breathing-space rhythm. Seeded transforms are still consumed so
+	# this remains presentation-only and later art families keep deterministic.
+	if posmod(chunk.index, 3) == 2 \
+			or (_dressing_density < 0.99 and posmod(chunk.index, 4) == 3):
+		return
+	var mesh: Mesh = authored if authored != null else _port_prop_mesh()
+	var instance := _add_multimesh(chunk, mesh, near_props,
+			_authored_day_material() if authored != null else _prop_material(),
+			"AuthoredSignalPylons" if authored != null else "PortSensors", 210.0,
+			near_tints if authored != null else PackedColorArray())
+	if instance != null and authored != null:
+		instance.set_meta("authored_asset_id", DAY_PYLON_ASSET)
+		if OS.is_debug_build():
+			instance.set_meta("authored_source_transforms", near_props.duplicate())
+
+
+func _build_day_port_modules(chunk: RunnerChunk, rng: RandomNumberGenerator) -> void:
+	var modules: Array[Transform3D] = []
+	var module_tints := PackedColorArray()
+	var module_count := maxi(1, roundi(float(rng.randi_range(2, 3)) * _dressing_density))
+	var cluster_side := -1.0 if rng.randf() < 0.5 else 1.0
+	for i: int in module_count:
+		var side := cluster_side if i < 2 else -cluster_side
+		var sx := rng.randf_range(0.82, 1.10)
+		var sy := sx * rng.randf_range(0.88, 1.14)
+		var sz := sx * rng.randf_range(0.92, 1.08)
+		var module_x := rng.randf_range(9.2, 15.8)
+		modules.append(Transform3D(
+				Basis(Vector3.UP, -side * PI * 0.5 + rng.randf_range(-0.18, 0.18))
+						.scaled(Vector3(sx, sy, sz)),
+				Vector3(side * module_x, _shelf_y_at(module_x),
+						-(RunnerConfig.CHUNK_LENGTH / float(module_count))
+								* (float(i) + rng.randf_range(0.30, 0.68)))))
+		module_tints.append([
+				Color(1.0, 1.0, 1.0, 1.0),
+				Color(0.91, 0.98, 1.0, 1.0),
+				Color(1.0, 0.96, 0.88, 1.0),
+		][posmod(chunk.index * 2 + i, 3)])
+	# Leave authored negative-space chunks even on high. Equipment clusters now
+	# frame destination landmarks instead of forming two continuous lab walls.
+	if posmod(chunk.index, 4) == 2 \
+			or (_dressing_density < 0.99 and posmod(chunk.index, 5) == 3):
+		return
+	if not _supporting_family_enabled(chunk.index, 2):
+		return
+	var authored := _authored_day_mesh(DAY_LAB_ASSET)
+	var mesh: Mesh = authored if authored != null else _research_module_mesh()
+	var instance := _add_multimesh(chunk, mesh, modules,
+			_authored_day_material() if authored != null else _prop_material(),
+			"AuthoredResearchLabs" if authored != null else "ResearchModules", 420.0,
+			module_tints if authored != null else PackedColorArray())
+	if instance != null and authored != null:
+		instance.set_meta("authored_asset_id", DAY_LAB_ASSET)
+
+
+## Seeded cargo clusters create a second near/mid rhythm without occupying a
+## gameplay lane. Placement consumes only art_rng and therefore cannot affect
+## obstacle generation, replay order, or score determinism.
+func _build_day_port_cargo(chunk: RunnerChunk, rng: RandomNumberGenerator) -> void:
+	var authored := _authored_day_mesh(DAY_CARGO_ASSET)
+	if authored == null or not _supporting_family_enabled(chunk.index, 1):
+		return
+	var stacks: Array[Transform3D] = []
+	var cargo_tints := PackedColorArray()
+	var count := maxi(1, roundi(float(rng.randi_range(2, 4)) * _dressing_density))
+	for index: int in count:
+		var side := -1.0 if (chunk.index + index) % 2 == 0 else 1.0
+		var x := rng.randf_range(7.2, 11.4)
+		var scale_value := rng.randf_range(0.72, 0.98)
+		stacks.append(Transform3D(
+				Basis(Vector3.UP, rng.randf_range(-0.42, 0.42))
+						.scaled(Vector3(scale_value,
+								scale_value * rng.randf_range(0.90, 1.12),
+								scale_value * rng.randf_range(0.92, 1.06))),
+				Vector3(side * x, _shelf_y_at(x),
+						-(RunnerConfig.CHUNK_LENGTH / float(count))
+								* (float(index) + rng.randf_range(0.28, 0.72)))))
+		cargo_tints.append([
+				Color(1.0, 1.0, 1.0, 1.0),
+				Color(0.90, 0.98, 1.0, 1.0),
+				Color(1.0, 0.92, 0.83, 1.0),
+		][posmod(chunk.index + index, 3)])
+	if posmod(chunk.index, 4) == 1 \
+			or (_dressing_density < 0.99 and posmod(chunk.index, 4) == 3):
+		return
+	var instance := _add_multimesh(chunk, authored, stacks, _authored_day_material(),
+			"AuthoredCargoStacks", 280.0, cargo_tints)
+	if instance != null:
+		instance.set_meta("authored_asset_id", DAY_CARGO_ASSET)
+
+
+func _build_day_port_landmark(chunk: RunnerChunk, rng: RandomNumberGenerator) -> void:
+	var landmark_mesh: Mesh = null
+	var landmark_name := ""
+	var landmark_asset_id := ""
+	var landmark_x := 0.0
+	var landmark_y := -SHELF_DROP
+	var landmark_z := -RunnerConfig.CHUNK_LENGTH * 0.60
+	var landmark_yaw := 0.0
+	var landmark_scale := 1.0
+	# Three hero destinations across twelve chunks. Each gets four chunks of
+	# visual ownership; V7 repeated five huge landmarks inside the 360 m slice.
+	match posmod(chunk.index, 12):
+		0:
+			landmark_asset_id = DAY_RADAR_ASSET
+			landmark_mesh = _authored_day_mesh(landmark_asset_id)
+			if landmark_mesh == null:
+				landmark_mesh = _radar_landmark_mesh()
+			landmark_name = "RadarLandmark"
+			var side := -1.0 if posmod(floori(float(chunk.index) / 12.0), 2) == 0 else 1.0
+			landmark_x = side * rng.randf_range(18.0, 23.0)
+			landmark_yaw = -side * PI * 0.5
+			landmark_scale = rng.randf_range(1.34, 1.62)
+		4:
+			landmark_asset_id = DAY_HUB_ASSET
+			landmark_mesh = _authored_day_mesh(landmark_asset_id)
+			if landmark_mesh == null:
+				landmark_mesh = _crane_landmark_mesh()
+			landmark_name = "ResearchHubLandmark"
+			var side := 1.0 if posmod(floori(float(chunk.index) / 12.0), 2) == 0 else -1.0
+			landmark_x = side * rng.randf_range(22.0, 28.0)
+			landmark_z = -RunnerConfig.CHUNK_LENGTH * 0.72
+			landmark_yaw = -side * PI * 0.5
+			landmark_scale = rng.randf_range(1.04, 1.20) \
+					if _authored_day_mesh(landmark_asset_id) != null \
+					else rng.randf_range(0.95, 1.18)
+		8:
+			landmark_asset_id = DAY_ICEBREAKER_ASSET
+			landmark_mesh = _authored_day_mesh(landmark_asset_id)
+			if landmark_mesh == null:
+				landmark_mesh = _icebreaker_landmark_mesh()
+			landmark_name = "IcebreakerLandmark"
+			var side := -1.0 if posmod(floori(float(chunk.index) / 12.0), 2) == 0 else 1.0
+			landmark_x = side * rng.randf_range(28.0, 36.0)
+			landmark_y = -SHELF_DROP - 1.8
+			landmark_z = -RunnerConfig.CHUNK_LENGTH * 0.92
+			landmark_yaw = rng.randf_range(-0.22, 0.22)
+			landmark_scale = rng.randf_range(1.84, 2.12)
+	# High keeps the full authored landmark cadence. Lower presets retain the
+	# same three landmark families but thin instances without changing meshes.
+	if landmark_mesh != null and rng.randf() > _dressing_density:
+		landmark_mesh = null
+	if landmark_mesh != null:
+		if landmark_name != "IcebreakerLandmark":
+			landmark_y = _shelf_y_at(absf(landmark_x))
+		var transform := Transform3D(
+				Basis(Vector3.UP, landmark_yaw).scaled(Vector3.ONE * landmark_scale),
+				Vector3(landmark_x, landmark_y, landmark_z))
+		var authored := not landmark_asset_id.is_empty() \
+				and _authored_day_mesh(landmark_asset_id) != null
+		var instance := _add_multimesh(chunk, landmark_mesh, [transform],
+				_authored_day_material() if authored else _prop_material(),
+				"Authored%s" % landmark_name if authored else landmark_name, 900.0)
+		if instance != null and authored:
+			instance.set_meta("authored_asset_id", landmark_asset_id)
 
 
 ## Pennants on the kerb crown. The strongest speed cue in the whole scene: they
@@ -1333,17 +2449,20 @@ func _build_dressing(chunk: RunnerChunk, rng: RandomNumberGenerator) -> void:
 ## where the deck ahead is empty.
 func _build_banners(chunk: RunnerChunk, rng: RandomNumberGenerator) -> void:
 	var banners: Array[Transform3D] = []
-	var x := RunnerConfig.DECK_HALF_WIDTH + WALL_THICKNESS + 0.35
-	var spacing := 9.0
+	var x := RunnerConfig.DECK_HALF_WIDTH + WALL_THICKNESS * 0.5
+	var spacing := 7.5
 	var z := -rng.randf_range(1.0, spacing)
+	var bay := 0
 	while z > -RunnerConfig.CHUNK_LENGTH:
-		for side: int in 2:
-			var sign_x := -1.0 if side == 0 else 1.0
-			var s := rng.randf_range(0.9, 1.15)
-			banners.append(Transform3D(
-					Basis(Vector3.UP, PI * 0.5 * sign_x).scaled(Vector3(s, s, s)),
-					Vector3(sign_x * x, WALL_HEIGHT - 0.1, z)))
+		# Alternate sides instead of mirroring every pennant. This keeps the near
+		# speed rhythm while making the port feel placed rather than stamped.
+		var sign_x := -1.0 if (bay + chunk.index) % 2 == 0 else 1.0
+		var s := rng.randf_range(0.9, 1.15)
+		banners.append(Transform3D(
+				Basis(Vector3.UP, PI * 0.5 * sign_x).scaled(Vector3(s, s, s)),
+				Vector3(sign_x * x, WALL_HEIGHT, z)))
 		z -= spacing
+		bay += 1
 	chunk.register_anim(_add_multimesh(chunk, _banner_mesh(), banners,
 			VisualLibrary.rock_material(Color.WHITE, 0.6), "Banners", 180.0),
 			banners, RunnerChunk.ANIM_SWAY)
@@ -1362,9 +2481,32 @@ func _build_debris(chunk: RunnerChunk, rng: RandomNumberGenerator) -> void:
 				Vector3(side * rng.randf_range(RunnerConfig.DECK_HALF_WIDTH + 1.2, SHELF_WIDTH * 0.5),
 						-SHELF_DROP + rng.randf_range(0.5, 1.6),
 						-rng.randf() * RunnerConfig.CHUNK_LENGTH)))
+	if not _decorative_family_enabled(chunk.index, 1):
+		return
 	chunk.register_anim(_add_multimesh(chunk, _shard_mesh(), shards,
 			VisualLibrary.rock_material(Color(0.86, 0.94, 1.0), 0.3), "Shards", 150.0),
 			shards, RunnerChunk.ANIM_TUMBLE)
+
+
+## High always draws every family. Medium carries each family every third
+## chunk; low uses a four-chunk cadence. Drifts, port architecture, silhouettes
+## and all gameplay cues remain present, so this removes repeated draws rather
+## than flattening the scene.
+func _decorative_family_enabled(chunk_index: int, phase: int) -> bool:
+	if _dressing_density >= 0.99:
+		return true
+	var cadence := 3 if _dressing_density >= 0.5 else 4
+	return posmod(chunk_index + phase, cadence) == 0
+
+
+## Larger supporting forms stay denser than small garnish: medium keeps two of
+## every three placements and low keeps alternating placements. Phases keep a
+## chunk from losing every depth band at once.
+func _supporting_family_enabled(chunk_index: int, phase: int) -> bool:
+	if _dressing_density >= 0.99:
+		return true
+	var cadence := 3 if _dressing_density >= 0.5 else 2
+	return posmod(chunk_index + phase, cadence) != 0
 
 
 ## Gulls, high and far. Nothing in the game reacts to them; they exist because
@@ -1387,8 +2529,9 @@ func _build_birds(chunk: RunnerChunk, rng: RandomNumberGenerator) -> void:
 
 
 ## Aurora curtain, far out to one side and high. The material is the racing
-## game's aurora shader, which the boot warmup already links -- so a night band
-## costs one draw call and no first-sight stall.
+## game's aurora shader; the runner's scene-specific ShaderWarmup probe links
+## it and uploads this exact mesh before countdown, so a night band costs one
+## draw call and no first-sight stall.
 func _build_aurora(chunk: RunnerChunk, rng: RandomNumberGenerator) -> void:
 	var curtain := MeshInstance3D.new()
 	curtain.name = "Aurora"
@@ -1413,25 +2556,30 @@ func _build_aurora(chunk: RunnerChunk, rng: RandomNumberGenerator) -> void:
 
 
 ## Ice arch tunnel over the whole chunk: six shared bays through one MultiMesh,
-## plus two cold omni lights. The lights are what make it read as a change of
-## PLACE rather than a lid, and two is the whole budget, because
-## gl_compatibility pays per light per lit object.
+## plus two static fixture/wash cues. Compatibility took 3.1 seconds to render
+## a representative three-omni frame even behind loading; dynamic tunnel lights
+## therefore cannot meet either loading or runtime pacing. These cues preserve
+## the two-lamp rhythm with vertex colour on an existing shader signature.
 func _build_tunnel(chunk: RunnerChunk) -> void:
 	var segments: Array[Transform3D] = []
 	var count := int(ceil(RunnerConfig.CHUNK_LENGTH / TUNNEL_SEGMENT))
 	for i: int in count:
 		segments.append(Transform3D(Basis(), Vector3(0.0, 0.0, -float(i) * TUNNEL_SEGMENT)))
-	_add_multimesh(chunk, _tunnel_mesh(), segments, _tunnel_material(), "Tunnel", 260.0)
-	for i: int in 2:
-		var lamp := OmniLight3D.new()
-		lamp.light_color = Color(0.46, 0.82, 1.0)
-		lamp.light_energy = 2.4
-		lamp.omni_range = 21.0
-		lamp.omni_attenuation = 1.4
-		lamp.shadow_enabled = false
-		lamp.position = Vector3(0.0, TUNNEL_APEX - 1.1,
-				-RunnerConfig.CHUNK_LENGTH * (0.25 + 0.5 * float(i)))
-		chunk.add_child(lamp)
+	var authored := _authored_day_mesh(DAY_TUNNEL_ASSET) if chunk.biome == Biome.DAY else null
+	var mesh: Mesh = authored if authored != null else _tunnel_mesh()
+	var instance := _add_multimesh(chunk, mesh, segments,
+			_authored_day_material(false) if authored != null else _prop_material(),
+			"AuthoredTunnel" if authored != null else "Tunnel", 260.0)
+	if instance != null and authored != null:
+		instance.set_meta("authored_asset_id", DAY_TUNNEL_ASSET)
+	var cue_transforms: Array[Transform3D] = []
+	for i: int in TUNNEL_LIGHT_CUES_PER_CHUNK:
+		cue_transforms.append(Transform3D(Basis(), Vector3(0.0, 0.0,
+				-RunnerConfig.CHUNK_LENGTH * (0.25 + 0.5 * float(i)))))
+	var cues := _add_multimesh(chunk, _tunnel_light_cue_mesh(), cue_transforms,
+			_mark_material(), "TunnelLightCues", 260.0)
+	if cues != null:
+		cues.set_meta("static_light_cues", TUNNEL_LIGHT_CUES_PER_CHUNK)
 
 
 ## Dimmed and widened from the library default. At full strength a curtain this
@@ -1446,21 +2594,37 @@ static func _aurora_material() -> ShaderMaterial:
 
 
 func _add_multimesh(parent: Node3D, mesh: Mesh, transforms: Array[Transform3D],
-		material: Material, name_hint: String, range_base: float) -> MultiMeshInstance3D:
+		material: Material, name_hint: String, range_base: float,
+		colors: PackedColorArray = PackedColorArray()) -> MultiMeshInstance3D:
 	if transforms.is_empty():
 		return null
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
+	# use_colors has to be set BEFORE instance_count: the instance buffer is
+	# allocated at that assignment, and turning colours on afterwards leaves
+	# them silently unwritable. (Same trap _flush_marks() documents.)
+	if not colors.is_empty():
+		mm.use_colors = true
 	mm.mesh = mesh
 	mm.instance_count = transforms.size()
 	for i: int in transforms.size():
 		mm.set_instance_transform(i, transforms[i])
+		if not colors.is_empty():
+			mm.set_instance_color(i, colors[i % colors.size()])
 	var instance := MultiMeshInstance3D.new()
 	instance.name = name_hint
 	instance.multimesh = mm
 	instance.material_override = material
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	VisualLibrary.apply_dressing_range(instance, range_base)
+	# Instance density alone does not reduce draw calls: one remaining prop still
+	# costs its whole MultiMesh draw. Lower tiers therefore shorten only the
+	# presentation range as well. High stays bit-for-bit uncapped because
+	# VisualLibrary treats its range scale as zero; medium still retains its
+	# strongest near/mid cues through the 70 m gameplay horizon.
+	var tier_range_scale := 1.0
+	if _dressing_density < 0.99:
+		tier_range_scale = 0.35 if _dressing_density >= 0.5 else 0.25
+	VisualLibrary.apply_dressing_range(instance, range_base * tier_range_scale)
 	parent.add_child(instance)
 	return instance
 
@@ -1499,9 +2663,11 @@ static func _sphere_shape(radius: float) -> SphereShape3D:
 ## Built up front by setup() so a chunk that streams in during play only ever
 ## allocates nodes.
 func _prime_art_cache() -> void:
+	_prime_authored_day_cache()
 	_deck_mesh()
 	_seam_mesh()
 	_verge_mesh()
+	_authored_day_shelf_mesh()
 	_block_mesh()
 	_low_mesh()
 	_arch_mesh()
@@ -1509,15 +2675,61 @@ func _prime_art_cache() -> void:
 	_ramp_mesh()
 	_seal_mesh()
 	_tunnel_mesh()
+	_tunnel_light_cue_mesh()
 	_mark_mesh()
-	_tunnel_material()
 	_banner_mesh()
+	_port_prop_mesh()
+	_research_module_mesh()
+	_radar_landmark_mesh()
+	_crane_landmark_mesh()
+	_icebreaker_landmark_mesh()
 	_bird_mesh()
 	_shard_mesh()
 	_curtain_mesh()
+	_powerup_ring_mesh()
+	_fish_material()
 	for id: StringName in RunnerConfig.POWERUP_IDS:
 		_crate_mesh(id)
 	_prime_dressing_cache()
+	_register_shader_warmup_probes()
+
+
+## ShaderWarmup can only discover nodes present in the opening chunks. These
+## exact pairs cover gameplay verbs and biome art which may first stream in
+## minutes later; their real vertex buffers and pipelines are drawn under the
+## runner loading overlay before countdown instead of on first contact.
+func _register_shader_warmup_probes() -> void:
+	var prop := _prop_material()
+	var dodge := _dodge_material()
+	# DAY uses authored atlas decking, so the shared ice program does not enter
+	# the live tree until the first procedural DUSK band. Submit that exact
+	# streamed mesh/material pair now; constructing the cached material alone
+	# never links its Compatibility pipeline.
+	ShaderWarmup.register_external_probe(
+			_deck_mesh(), _deck_material(Biome.DUSK, false))
+	ShaderWarmup.register_external_probe(_block_mesh(), dodge)
+	ShaderWarmup.register_external_probe(_low_mesh(), dodge)
+	ShaderWarmup.register_external_probe(_arch_mesh(), prop)
+	ShaderWarmup.register_external_probe(_ramp_mesh(), prop)
+	ShaderWarmup.register_external_probe(_seal_mesh(), prop)
+	# Procedural tunnel faces are wound inward, so the shared prop material is
+	# sufficient from inside and avoids a late cull-disabled shader signature.
+	ShaderWarmup.register_external_probe(_tunnel_mesh(), _prop_material())
+	ShaderWarmup.register_external_probe(_tunnel_light_cue_mesh(), _mark_material())
+	ShaderWarmup.register_external_probe(_fish_mesh(), _fish_material())
+	ShaderWarmup.register_external_probe(_mark_mesh(), _mark_material())
+	for id: StringName in RunnerConfig.POWERUP_IDS:
+		ShaderWarmup.register_external_probe(_crate_mesh(id), _powerup_shell_material(id))
+	var powerup_tint := _powerup_colour(RunnerConfig.POWERUP_MAGNET)
+	ShaderWarmup.register_external_probe(_powerup_ring_mesh(),
+			VisualLibrary.emissive_material(powerup_tint * 0.42, powerup_tint, 1.8, 0.2))
+	ShaderWarmup.register_external_probe(_curtain_mesh(), _aurora_material())
+	# DAY GLBs use one external atlas material family. Draw exact imported
+	# buffers behind loading overlay; no first-sight upload during capture/run.
+	for asset_id: String in DAY_WARMUP_ASSETS:
+		var mesh := _authored_day_mesh(asset_id)
+		if mesh != null:
+			ShaderWarmup.register_external_probe(mesh, _authored_day_material(false))
 
 
 ## Everything a STREAMED chunk could otherwise build for the first time
@@ -1530,14 +2742,15 @@ func _prime_dressing_cache() -> void:
 	VisualLibrary.snow_drift_mesh()
 	VisualLibrary.ice_crystal_mesh()
 	VisualLibrary.contact_patch_mesh()
+	VisualLibrary.contact_shadow_material(0.22)
 	VisualLibrary.contact_shadow_material(0.34)
 	VisualLibrary.contact_shadow_material(0.3)
 	VisualLibrary.rock_material(Color.WHITE, 0.6)
 	VisualLibrary.rock_material(Color(0.86, 0.94, 1.0), 0.3)
 	VisualLibrary.rock_material(Color(0.24, 0.28, 0.36), 0.9)
 	_prop_material()
+	_dodge_material()
 	_mark_material()
-	_tunnel_material()
 	_aurora_material()
 	_curtain_mesh()
 	# berg_mesh() builds a fresh seeded silhouette per variant; _build_dressing
@@ -1547,16 +2760,20 @@ func _prime_dressing_cache() -> void:
 	for biome: int in BIOME_COUNT:
 		var ice := _biome_ice_tint(biome)
 		VisualLibrary.ice_material(ice, 0.5)
-		VisualLibrary.emissive_material(_biome_seam_tint(biome), _biome_seam_glow(biome), 0.45, 0.7)
-		VisualLibrary.rock_material(_biome_deck_tint(biome), 0.85)
+		_seam_material(biome)
+		_kerb_body_material(biome)
+		_kerb_crown_material(biome)
+		_kerb_deep_material(biome)
+		VisualLibrary.rock_material(_biome_shelf_tint(biome), 0.88)
 		VisualLibrary.rock_material(ice, 0.25)
-		VisualLibrary.rock_material(ice.lerp(Color.WHITE, 0.5), 0.6)
+		VisualLibrary.rock_material(_biome_far_tint(biome), 0.72)
 		for tunnel: int in 2:
 			_deck_material(biome, tunnel == 1)
 			_verge_snow_material(biome, tunnel == 1)
 	for id: StringName in RunnerConfig.POWERUP_IDS:
 		var tint := _powerup_colour(id)
-		VisualLibrary.emissive_material(tint, tint, 1.5, 0.34)
+		_powerup_shell_material(id)
+		VisualLibrary.emissive_material(tint * 0.42, tint, 1.8, 0.2)
 
 
 ## Shared vertex-colour material for obstacles, fish and props. rock_material
@@ -1564,6 +2781,41 @@ func _prime_dressing_cache() -> void:
 ## carry a dark ice block, a hot-orange fin and a pale ice ridge at once.
 static func _prop_material() -> StandardMaterial3D:
 	return VisualLibrary.rock_material(Color.WHITE, 0.42)
+
+
+## Warm ambient lift for dodge hardware. Compatibility's blue sky fill drove
+## physically unlit orange faces toward olive in shadow; a restrained cached
+## emission keeps the safety livery orange without adding lights or draw calls.
+static func _dodge_material() -> StandardMaterial3D:
+	if _dodge_material_cache == null:
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color.WHITE
+		mat.vertex_color_use_as_albedo = true
+		mat.roughness = 0.42
+		mat.emission_enabled = true
+		mat.emission = Color(1.0, 0.18, 0.008)
+		mat.emission_energy_multiplier = 0.10
+		_dodge_material_cache = mat
+	return _dodge_material_cache
+
+
+## Collectibles share one glossy material distinct from matte scenery. Vertex
+## colours carry the gold counter-shading, so every fish in a chunk remains one
+## MultiMesh draw while catching a clean highlight at speed.
+static func _fish_material() -> StandardMaterial3D:
+	if _fish_material_cache == null:
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(1.0, 0.94, 0.36)
+		mat.vertex_color_use_as_albedo = true
+		mat.roughness = 0.24
+		mat.metallic = 0.12
+		# Low lift preserves gold under the blue sky/shadow fill without turning
+		# each MultiMesh fish into an unshaded lamp.
+		mat.emission_enabled = true
+		mat.emission = Color(1.0, 0.62, 0.025)
+		mat.emission_energy_multiplier = 0.32
+		_fish_material_cache = mat
+	return _fish_material_cache
 
 
 ## Unshaded alpha material for the deck chevrons, reading the MultiMesh's
@@ -1586,33 +2838,11 @@ static func _mark_material() -> StandardMaterial3D:
 	return mat
 
 
-## Tunnel shell material: one for the whole game. Identical to the shared prop
-## material except for CULL_DISABLED, which is worth its own instance. A vault
-## is a single sheet the player is always underneath, and one inverted winding
-## anywhere in it means an invisible roof -- a failure with no visible warning
-## until somebody screenshots a tunnel and finds sky through it. Six bays of
-## back faces is a cheap price for making that class of bug impossible.
+## Compatibility facade retained for focused tests and older callers. Tunnel
+## faces are authored with inward front-face winding, so the existing shared
+## prop signature renders the interior without a separate cull-disabled shader.
 static func _tunnel_material() -> StandardMaterial3D:
-	if _tunnel_material_cache != null:
-		return _tunnel_material_cache
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color.WHITE
-	mat.vertex_color_use_as_albedo = true
-	mat.roughness = 0.5
-	# NO emission, deliberately. An emissive vault was tried and it is exactly
-	# wrong: emission is uniform across the mesh, so it lifts the whole ceiling
-	# toward the sky value it needs to be distinguishable FROM, and it flattens
-	# the rib rhythm at the same time. An unlit underside lit only by ambient
-	# and the bay lamps is what makes the inside of a tunnel darker than the
-	# outside, which is the whole effect.
-	# Double-sided. A vault is a single sheet of geometry that the player is
-	# always underneath, and one inverted winding anywhere in it is an invisible
-	# roof -- a failure mode with no visible warning until someone screenshots
-	# a tunnel and finds the sky through it. Six bays of back faces is a price
-	# worth paying to make that class of bug impossible.
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	_tunnel_material_cache = mat
-	return mat
+	return _prop_material()
 
 
 static func _deck_mesh() -> PlaneMesh:
@@ -1630,24 +2860,71 @@ static func _seam_mesh() -> ArrayMesh:
 		return _seam_mesh_cache
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var half := RunnerConfig.LANE_WIDTH * 0.06
+	var half := RunnerConfig.LANE_WIDTH * 0.025
 	var col := Color(1.0, 1.0, 1.0)
 	for i: int in RunnerConfig.LANE_COUNT - 1:
 		var x := (RunnerConfig.lane_x(i) + RunnerConfig.lane_x(i + 1)) * 0.5
-		_quad_out(st,
-				Vector3(x - half, 0.012, 0.0),
-				Vector3(x + half, 0.012, 0.0),
-				Vector3(x + half, 0.012, -RunnerConfig.CHUNK_LENGTH),
-				Vector3(x - half, 0.012, -RunnerConfig.CHUNK_LENGTH),
-				Vector3.UP, col, col, col, col)
+		# Short inlaid bars read as constructed deck hardware and give speed a
+		# countable cadence. One cached mesh/surface: no draw-call increase.
+		var z := -0.8
+		while z > -RunnerConfig.CHUNK_LENGTH:
+			var z_end := maxf(z - 3.8, -RunnerConfig.CHUNK_LENGTH)
+			_quad_out(st,
+					Vector3(x - half, 0.012, z),
+					Vector3(x + half, 0.012, z),
+					Vector3(x + half, 0.012, z_end),
+					Vector3(x - half, 0.012, z_end),
+					Vector3.UP, col, col, col, col)
+			z -= 5.6
 	st.generate_normals()
 	_seam_mesh_cache = st.commit()
 	return _seam_mesh_cache
 
 
-## Kerb wall, drop-off face and the snowfield below, both sides, in one mesh.
-## Surface 0 is the ice (wall + drop face), surface 1 the snow shelf, so the
-## two get their proper materials without a second node.
+## Snowfield-only companion for authored DAY cassettes. Their modeled kerbs
+## replace verge surfaces 0-2; reusing just this shelf avoids overlapping dark
+## walls while preserving same near/mid dressing ground and horizon shape.
+static func _authored_day_shelf_mesh() -> ArrayMesh:
+	if _authored_day_shelf_mesh_cache != null:
+		return _authored_day_shelf_mesh_cache
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var length := RunnerConfig.CHUNK_LENGTH
+	var inner := RunnerConfig.DECK_HALF_WIDTH + WALL_THICKNESS
+	var white := Color.WHITE
+	for side: int in 2:
+		var sign_x := -1.0 if side == 0 else 1.0
+		var edge := sign_x * RunnerConfig.DECK_HALF_WIDTH
+		var xi := sign_x * inner
+		var xf := sign_x * SHELF_WIDTH
+		var facing := Vector3(sign_x, 0.0, 0.0)
+		_quad_out(st, Vector3(edge, AUTHORED_DAY_DECK_Y, 0.0),
+				Vector3(xi, -SHELF_DROP, 0.0),
+				Vector3(xi, -SHELF_DROP, -length),
+				Vector3(edge, AUTHORED_DAY_DECK_Y, -length),
+				facing, white, white, white, white)
+		_quad_out(st, Vector3(xi, -SHELF_DROP, 0.0),
+				Vector3(xf, -SHELF_DROP + 0.9, 0.0),
+				Vector3(xf, -SHELF_DROP + 0.9, -length),
+				Vector3(xi, -SHELF_DROP, -length),
+				Vector3.UP, white, white, white, white)
+	st.generate_normals()
+	_authored_day_shelf_mesh_cache = st.commit()
+	return _authored_day_shelf_mesh_cache
+
+
+## Kerb wall, drop-off face and the snowfield below, both sides, in one mesh —
+## in FOUR surfaces, one per luminance tier the verge has to span:
+##   0 wall body   MID    (ice shader, saturated, keeps the raking gleam)
+##   1 crown cap   BRIGHT (emissive; the light source in the dark bands)
+##   2 drop face   DARK   (vertex-ramped, tinted per band)
+##   3 snow shelf  BRIGHT (snow shader)
+##
+## One surface with a baked crown-to-deep gradient was the previous design and
+## it did nothing at all: neither the ice nor the snow shader reads ARRAY_COLOR,
+## so the whole authored ramp was dead data and the wall rendered as one flat
+## value. Surface 2 is the only one whose vertex colours survive, and it is on a
+## StandardMaterial3D for exactly that reason.
 static func _verge_mesh() -> ArrayMesh:
 	if _verge_mesh_cache != null:
 		return _verge_mesh_cache
@@ -1655,11 +2932,8 @@ static func _verge_mesh() -> ArrayMesh:
 	var length := RunnerConfig.CHUNK_LENGTH
 	var inner := RunnerConfig.DECK_HALF_WIDTH
 	var outer := inner + WALL_THICKNESS
-	# Glacial ice reads as depth: pale at the wind-polished crown, saturating
-	# toward teal where the body of the ice absorbs the light.
-	var crown := Color(0.94, 0.98, 1.0)
-	var body := Color(0.52, 0.76, 0.92)
-	var deep := Color(0.20, 0.44, 0.60)
+	var w := Color.WHITE
+	# Surface 0: the wall body, inner face and the outer face's top metre.
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for s: int in 2:
@@ -1667,41 +2941,72 @@ static func _verge_mesh() -> ArrayMesh:
 		var xi := sign_x * inner
 		var xo := sign_x * outer
 		var facing := Vector3(-sign_x, 0.0, 0.0)
-		# Inner face, seen from the deck.
-		_quad_out(st, Vector3(xi, 0.0, 0.0), Vector3(xi, WALL_HEIGHT, 0.0),
-				Vector3(xi, WALL_HEIGHT, -length), Vector3(xi, 0.0, -length),
-				facing, body, crown, crown, body)
-		# Crown.
-		_quad_out(st, Vector3(xi, WALL_HEIGHT, 0.0), Vector3(xo, WALL_HEIGHT, 0.0),
-				Vector3(xo, WALL_HEIGHT, -length), Vector3(xi, WALL_HEIGHT, -length),
-				Vector3.UP, crown, crown, crown, crown)
-		# Outer face falling away to the shelf: this is the surface that makes
-		# the deck read as a raised causeway rather than a painted lane.
-		_quad_out(st, Vector3(xo, WALL_HEIGHT, 0.0), Vector3(xo, -SHELF_DROP, 0.0),
-				Vector3(xo, -SHELF_DROP, -length), Vector3(xo, WALL_HEIGHT, -length),
-				-facing, crown, deep, deep, crown)
+		_quad_out(st, Vector3(xi, 0.0, 0.0), Vector3(xi, WALL_HEIGHT - 0.16, 0.0),
+				Vector3(xi, WALL_HEIGHT - 0.16, -length), Vector3(xi, 0.0, -length),
+				facing, w, w, w, w)
+		_quad_out(st, Vector3(xo, WALL_HEIGHT - 0.16, 0.0), Vector3(xo, WALL_HEIGHT - 1.0, 0.0),
+				Vector3(xo, WALL_HEIGHT - 1.0, -length), Vector3(xo, WALL_HEIGHT - 0.16, -length),
+				-facing, w, w, w, w)
 	st.generate_normals()
 	st.commit(mesh)
-	var snow_near := Color(0.86, 0.91, 1.0)
-	var snow_far := Color(1.0, 1.0, 1.0)
+	# Surface 1: the crown cap, plus a 16 cm lip carried down both faces so the
+	# bright edge is visible from the deck AND from outside the corridor. This
+	# strip is the brightest continuous line in the frame and it runs to the
+	# vanishing point, which is most of what gives the corridor its perspective.
 	st = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for s: int in 2:
 		var sign_x := -1.0 if s == 0 else 1.0
-		var xo := sign_x * (RunnerConfig.DECK_HALF_WIDTH + WALL_THICKNESS)
+		var xi := sign_x * inner
+		var xo := sign_x * outer
+		var facing := Vector3(-sign_x, 0.0, 0.0)
+		_quad_out(st, Vector3(xi, WALL_HEIGHT, 0.0), Vector3(xo, WALL_HEIGHT, 0.0),
+				Vector3(xo, WALL_HEIGHT, -length), Vector3(xi, WALL_HEIGHT, -length),
+				Vector3.UP, w, w, w, w)
+		_quad_out(st, Vector3(xi, WALL_HEIGHT - 0.16, 0.0), Vector3(xi, WALL_HEIGHT, 0.0),
+				Vector3(xi, WALL_HEIGHT, -length), Vector3(xi, WALL_HEIGHT - 0.16, -length),
+				facing, w, w, w, w)
+		_quad_out(st, Vector3(xo, WALL_HEIGHT, 0.0), Vector3(xo, WALL_HEIGHT - 0.16, 0.0),
+				Vector3(xo, WALL_HEIGHT - 0.16, -length), Vector3(xo, WALL_HEIGHT, -length),
+				-facing, w, w, w, w)
+	st.generate_normals()
+	st.commit(mesh)
+	# Surface 2: the drop-off face. Ramped from the wall value at the top to a
+	# third of it at the shelf line, so the DARK band that separates the MID
+	# deck from the BRIGHT shelf is darkest exactly where the two would
+	# otherwise touch.
+	var high := Color(1.0, 1.0, 1.0)
+	var low := Color(0.34, 0.36, 0.42)
+	st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for s: int in 2:
+		var sign_x := -1.0 if s == 0 else 1.0
+		var xo := sign_x * outer
+		var facing := Vector3(sign_x, 0.0, 0.0)
+		_quad_out(st, Vector3(xo, WALL_HEIGHT - 1.0, 0.0), Vector3(xo, -SHELF_DROP, 0.0),
+				Vector3(xo, -SHELF_DROP, -length), Vector3(xo, WALL_HEIGHT - 1.0, -length),
+				facing, high, low, low, high)
+	st.generate_normals()
+	st.commit(mesh)
+	# Surface 3: the snow shelf.
+	st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for s: int in 2:
+		var sign_x := -1.0 if s == 0 else 1.0
+		var xo := sign_x * outer
 		var xf := sign_x * SHELF_WIDTH
 		_quad_out(st, Vector3(xo, -SHELF_DROP, 0.0), Vector3(xf, -SHELF_DROP + 0.9, 0.0),
 				Vector3(xf, -SHELF_DROP + 0.9, -length), Vector3(xo, -SHELF_DROP, -length),
-				Vector3.UP, snow_near, snow_far, snow_far, snow_near)
+				Vector3.UP, w, w, w, w)
 	st.generate_normals()
 	st.commit(mesh)
 	_verge_mesh_cache = mesh
 	return _verge_mesh_cache
 
 
-## Chipped ice boulder filling one lane. Dark at the foot, bright at the crown:
-## on a white deck under a white sky, VALUE is the only silhouette cue that
-## survives to 60 m, and a pale ice block would have none.
+## Parked expedition snowcat filling one lane. Collider remains the same blunt
+## gameplay block; the shell supplies tracks, plough, cab glass and beacon so
+## the player reads an object with a story instead of a blue placeholder cube.
 static func _block_mesh() -> ArrayMesh:
 	if _block_mesh_cache != null:
 		return _block_mesh_cache
@@ -1709,166 +3014,134 @@ static func _block_mesh() -> ArrayMesh:
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var hx := BLOCK_WIDTH * 0.5
 	var hz := BLOCK_DEPTH * 0.5
-	var foot := Color(0.17, 0.24, 0.36)
-	var mid := Color(0.44, 0.62, 0.80)
-	var crown := Color(0.90, 0.97, 1.0)
-	# Corner-jittered top ring so the block reads as a calved chunk of ice
-	# rather than a placeholder cube. Fixed offsets, not random: one mesh is
-	# shared by every block in the run, and the per-instance yaw at spawn is
-	# what keeps a row of them from looking cloned.
-	var jitter: Array[Vector3] = [
-		Vector3(-0.18, 0.06, -0.12), Vector3(0.14, -0.09, -0.2),
-		Vector3(0.2, 0.11, 0.15), Vector3(-0.12, -0.05, 0.18),
-	]
-	var base: Array[Vector3] = [
-		Vector3(-hx, 0.0, -hz), Vector3(hx, 0.0, -hz),
-		Vector3(hx, 0.0, hz), Vector3(-hx, 0.0, hz),
-	]
-	var top: Array[Vector3] = []
-	for i: int in 4:
-		top.append(Vector3(base[i].x * 0.86, BLOCK_HEIGHT, base[i].z * 0.86) + jitter[i])
-	for i: int in 4:
-		var j := (i + 1) % 4
-		var outward := (base[i] + base[j]) * 0.5
-		outward.y = 0.0
-		if outward.length_squared() < 0.0001:
-			outward = Vector3.FORWARD
-		_quad_out(st, base[i], base[j], top[j], top[i], outward.normalized(),
-				foot, foot, crown, crown)
-	_quad_out(st, top[0], top[1], top[2], top[3], Vector3.UP, crown, crown, crown, crown)
-	# Warning band around the waist, proud of the flanks by a few centimetres so
-	# it never z-fights them: value contrast alone can lose against a bright
-	# horizon, so the block also carries a chroma cue no other object here uses.
-	var band := Color(1.0, 0.36, 0.26)
-	var y0 := BLOCK_HEIGHT * 0.52
-	var y1 := BLOCK_HEIGHT * 0.68
-	for i: int in 4:
-		var j := (i + 1) % 4
-		var a := Vector3(base[i].x * 0.93, 0.0, base[i].z * 0.93)
-		var b := Vector3(base[j].x * 0.93, 0.0, base[j].z * 0.93)
-		var outward := (a + b) * 0.5
-		outward.y = 0.0
-		if outward.length_squared() < 0.0001:
-			outward = Vector3.FORWARD
-		outward = outward.normalized()
-		var push := outward * 0.05
-		_quad_out(st,
-				Vector3(a.x + push.x, y0, a.z + push.z),
-				Vector3(b.x + push.x, y0, b.z + push.z),
-				Vector3(b.x + push.x, y1, b.z + push.z),
-				Vector3(a.x + push.x, y1, a.z + push.z),
-				outward, band, band, mid, mid)
+	var tread := _vc(Color(0.035, 0.055, 0.085))
+	var rubber_hi := _vc(Color(0.13, 0.18, 0.24))
+	var orange := _vc(_verb_dodge())
+	var orange_hi := _vc(Color(1.0, 0.70, 0.12))
+	var shell := _vc(Color(0.78, 0.90, 0.94))
+	var glass := _vc(Color(0.025, 0.16, 0.27))
+	var lamp := _vc(Color(0.94, 1.0, 0.72))
+	# Two dark continuous tracks establish the vehicle before any small detail.
+	for side: int in 2:
+		var track_min := -hx if side == 0 else hx - 0.34
+		var track_max := -hx + 0.34 if side == 0 else hx
+		_box_faces(st, Vector3(track_min, 0.04, -hz),
+				Vector3(track_max, 0.48, hz), tread, rubber_hi)
+		for tooth: int in 4:
+			var z0 := lerpf(-hz + 0.08, hz - 0.18, float(tooth) / 3.0)
+			var tooth_x := -hx + 0.035 if side == 0 else hx - 0.035
+			_box_faces(st, Vector3(tooth_x - 0.035, 0.08, z0),
+					Vector3(tooth_x + 0.035, 0.43, z0 + 0.11), rubber_hi, rubber_hi)
+	# Orange chassis and pale cab create a two-value expedition livery.
+	_box_faces(st, Vector3(-0.92, 0.35, -0.62), Vector3(0.92, 1.02, 0.55),
+			orange, orange_hi)
+	_box_faces(st, Vector3(-0.72, 0.96, -0.40), Vector3(0.72, 1.72, 0.38),
+			glass, shell)
+	_box_faces(st, Vector3(-0.78, 1.68, -0.46), Vector3(0.78, 1.83, 0.43),
+			glass, shell)
+	# Broad front windscreen, split by one mullion. +Z faces the player.
+	for pane: int in 2:
+		var x0 := -0.64 + float(pane) * 0.66
+		_quad_out(st, Vector3(x0, 1.13, 0.405), Vector3(x0 + 0.58, 1.13, 0.405),
+				Vector3(x0 + 0.52, 1.59, 0.405), Vector3(x0 + 0.06, 1.59, 0.405),
+				Vector3.BACK, glass, glass, _vc(Color(0.18, 0.54, 0.68)), glass)
+	# Angled snow plough: a strong trapezoid breaks the remaining box profile.
+	_quad_out(st, Vector3(-hx * 1.04, 0.10, hz + 0.18), Vector3(hx * 1.04, 0.10, hz + 0.18),
+			Vector3(0.86, 0.62, hz - 0.02), Vector3(-0.86, 0.62, hz - 0.02),
+			Vector3.BACK, tread, tread, orange_hi, orange_hi)
+	_box_faces(st, Vector3(-hx * 1.05, 0.08, hz + 0.14),
+			Vector3(hx * 1.05, 0.18, hz + 0.27), tread, orange)
+	# Headlights and a roof beacon remain readable as three bright points.
+	for side: int in 2:
+		var x := -0.58 if side == 0 else 0.58
+		_box_faces(st, Vector3(x - 0.13, 0.68, hz + 0.18),
+				Vector3(x + 0.13, 0.90, hz + 0.26), orange, lamp)
+	_box_faces(st, Vector3(-0.12, 1.82, -0.08), Vector3(0.12, 2.02, 0.14),
+			orange, lamp)
 	st.generate_normals()
 	_block_mesh_cache = st.commit()
 	return _block_mesh_cache
 
 
-## Shin-high ice ridge, ONE metre wide so a caller can scale it to any span.
-## Wedge-shaped with the ramp facing the player: the shape says "hop me", and
-## the bright crown line is what the player actually times the jump against.
-##
-## The cap is SOLID amber, and the hazard stripes are on the front face where
-## they cannot hurt it. The first pass striped the cap itself and it was a
-## measurable regression: from 40 m the alternating amber and near-black
-## averaged out to a flat olive slab, which is worse than either colour alone
-## would have been. Fine detail on the surface the camera sees most obliquely
-## does not survive the resolve -- so the top gets the loudest single value in
-## the scene, and the pattern goes somewhere it can stay separated.
+## Bundled heated utility pipes, ONE metre wide so callers can scale them to any
+## lane span. Three rounded silhouettes, dark clamps and sled feet read as port
+## hardware; the collider stays the original jump-height ridge.
 static func _low_mesh() -> ArrayMesh:
 	if _low_mesh_cache != null:
 		return _low_mesh_cache
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var hz := LOW_DEPTH * 0.5
-	# Warm all the way down. The obvious ramp -- dark navy foot to amber crown --
-	# looks right in the editor and fails in play: at 35 m the ridge is ten
-	# pixels tall, the amber survives as a hairline at the top and the object
-	# reads as a dark hole in the snow. Whatever a small obstacle's dominant
-	# tone is, that IS its colour, so the dominant tone has to be the warning.
-	# Deep and red-shifted, not "amber" as a colour picker would write it.
-	# Vertex colours here are consumed as LINEAR (the whole file's palette is,
-	# and the fish fin at (1.0, 0.40, 0.08) is the reference that renders as a
-	# clean orange), so a value that looks amber in an editor swatch comes out
-	# of the pipeline as pale olive -- which is what the first pass shipped.
-	var foot := Color(0.52, 0.16, 0.02)
-	var crown := Color(1.0, 0.46, 0.06)
-	var b0 := Vector3(-0.5, 0.0, -hz)
-	var b1 := Vector3(0.5, 0.0, -hz)
-	var b2 := Vector3(0.5, 0.0, hz)
-	var b3 := Vector3(-0.5, 0.0, hz)
-	var t0 := Vector3(-0.44, LOW_HEIGHT, -hz * 0.45)
-	var t1 := Vector3(0.44, LOW_HEIGHT, -hz * 0.45)
-	var t2 := Vector3(0.44, LOW_HEIGHT, hz * 0.45)
-	var t3 := Vector3(-0.44, LOW_HEIGHT, hz * 0.45)
-	_quad_out(st, b0, b1, t1, t0, Vector3.FORWARD, foot, foot, crown, crown)
-	_quad_out(st, b2, b3, t3, t2, Vector3.BACK, foot, foot, crown, crown)
-	_quad_out(st, b1, b2, t2, t1, Vector3.RIGHT, foot, foot, crown, crown)
-	_quad_out(st, b3, b0, t0, t3, Vector3.LEFT, foot, foot, crown, crown)
-	_quad_out(st, t0, t1, t2, t3, Vector3.UP, crown, crown, crown, crown)
-	# Hazard blocks on the face the player is actually running at (+Z is toward
-	# the camera), three wide bands with amber between them. Wide enough that
-	# they are still three things at 50 m rather than one averaged tone -- the
-	# first pass used seven fine stripes and they resolved to flat olive.
-	var dark := Color(0.07, 0.08, 0.11)
-	for i: int in 3:
-		var x0 := lerpf(-0.46, 0.46, float(i * 3 + 1) / 9.0)
-		var x1 := lerpf(-0.46, 0.46, float(i * 3 + 2) / 9.0)
-		_quad_out(st,
-				Vector3(x0, 0.02, hz + 0.03),
-				Vector3(x1, 0.02, hz + 0.03),
-				Vector3(x1 * 0.9, LOW_HEIGHT - 0.08, hz * 0.45 + 0.03),
-				Vector3(x0 * 0.9, LOW_HEIGHT - 0.08, hz * 0.45 + 0.03),
-				Vector3.BACK, dark, dark, dark, dark)
-	# Near-black line along the top front lip: one dark edge against the amber
-	# cap is what actually defines WHERE the top of the ridge is, and the top
-	# edge is the thing the player times a jump against.
-	_quad_out(st,
-			Vector3(-0.46, LOW_HEIGHT + 0.015, hz * 0.45 + 0.02),
-			Vector3(0.46, LOW_HEIGHT + 0.015, hz * 0.45 + 0.02),
-			Vector3(0.46, LOW_HEIGHT + 0.015, hz * 0.45 - 0.09),
-			Vector3(-0.46, LOW_HEIGHT + 0.015, hz * 0.45 - 0.09),
-			Vector3.UP, dark, dark, dark, dark)
+	var orange := _vc(_verb_dodge())
+	var orange_hi := _vc(Color(1.0, 0.72, 0.12))
+	var dark := _vc(Color(0.025, 0.055, 0.085))
+	var steel := _vc(Color(0.30, 0.46, 0.56))
+	_cylinder_x(st, Vector3(0.0, 0.24, -0.19), 0.92, 0.19, 8, orange, orange_hi)
+	_cylinder_x(st, Vector3(0.0, 0.24, 0.19), 0.92, 0.19, 8, orange, orange_hi)
+	_cylinder_x(st, Vector3(0.0, 0.57, 0.0), 0.92, 0.19, 8, orange, orange_hi)
+	# Two broad clamps stay separate at 50 m and stop the bundle reading as logs.
+	for clamp_x: float in [-0.31, 0.31]:
+		_box_faces(st, Vector3(clamp_x - 0.055, 0.03, -0.43),
+				Vector3(clamp_x + 0.055, 0.73, 0.43), dark, steel)
+	# Sled runners ground it without growing beyond the collision silhouette.
+	for z: float in [-0.36, 0.36]:
+		_box_faces(st, Vector3(-0.49, 0.0, z - 0.06),
+				Vector3(0.49, 0.10, z + 0.06), dark, steel)
 	st.generate_normals()
 	_low_mesh_cache = st.commit()
 	return _low_mesh_cache
 
 
-## Full-deck ice arch. The legs stand outside the outermost lane (and outside
-## the collider), so they can never be the thing that hits a player who read
-## the gap correctly -- they exist purely to stop the beam from looking like it
-## is floating, which is what made the gap under it unreadable.
+## Full-deck research-port service gantry. Slim threshold beam plus open truss
+## communicates the same full-span slide collider without presenting a metre of
+## anonymous wall. Legs remain outside the decision lanes.
 static func _arch_mesh() -> ArrayMesh:
 	if _arch_mesh_cache != null:
 		return _arch_mesh_cache
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var half := RunnerConfig.DECK_HALF_WIDTH
-	var foot := Color(0.20, 0.34, 0.48)
-	var body := Color(0.58, 0.80, 0.95)
-	var crown := Color(0.94, 0.99, 1.0)
-	var lip := Color(1.0, 0.42, 0.28)
+	var foot := _vc(Color(0.025, 0.08, 0.14))
+	var body := _vc(Color(0.18, 0.42, 0.56))
+	var crown := _vc(Color(0.88, 0.96, 0.98))
+	var duck := _vc(_verb_duck())
+	var accent := _vc(Color(1.0, 0.42, 0.08))
 	var y0 := BAR_CLEARANCE
 	var y1 := BAR_CLEARANCE + BAR_THICKNESS
-	_box_faces(st, Vector3(-half, y0 + 0.1, -BAR_DEPTH * 0.5),
-			Vector3(half, y1, BAR_DEPTH * 0.5), body, crown)
-	# Lower lip of the beam in warning orange. This is the single edge the
-	# player is judging when they decide to slide, so it gets its own colour.
-	_box_faces(st, Vector3(-half, y0, -BAR_DEPTH * 0.5 - 0.06),
-			Vector3(half, y0 + 0.12, BAR_DEPTH * 0.5 + 0.06), lip, lip)
-	# Icicles hanging off the lip, stopping well short of the slide envelope.
-	# Their job is to make the beam read as a thing with an UNDERSIDE from a
-	# distance, which a flat bar never does.
-	for i: int in 9:
-		var x := lerpf(-half + 0.5, half - 0.5, float(i) / 8.0)
-		var drop := 0.16 + 0.1 * absf(sin(float(i) * 2.3))
-		_tri_out(st, Vector3(x - 0.11, y0, -0.1), Vector3(x + 0.11, y0, -0.1),
-				Vector3(x, y0 - drop, 0.0), Vector3.FORWARD, crown, crown, body)
-		_tri_out(st, Vector3(x + 0.11, y0, 0.1), Vector3(x - 0.11, y0, 0.1),
-				Vector3(x, y0 - drop, 0.0), Vector3.BACK, crown, crown, body)
+	var depth := BAR_DEPTH * 0.5
+	# Thin physical threshold exactly at slide height, with a cyan underside.
+	_box_faces(st, Vector3(-half, y0 + 0.08, -depth),
+			Vector3(half, y0 + 0.34, depth), body, crown)
+	_box_faces(st, Vector3(-half, y0, -depth - 0.05),
+			Vector3(half, y0 + 0.10, depth + 0.05), foot, duck)
+	# Open upper truss occupies the rest of the collider's visual envelope.
+	_box_faces(st, Vector3(-half, y1 - 0.14, -depth * 0.72),
+			Vector3(half, y1 + 0.04, depth * 0.72), foot, crown)
+	var joints: PackedFloat32Array = PackedFloat32Array([-half + 0.28, -2.65, 0.0, 2.65, half - 0.28])
+	for i: int in joints.size() - 1:
+		var from_y := y0 + 0.32 if i % 2 == 0 else y1 - 0.12
+		var to_y := y1 - 0.12 if i % 2 == 0 else y0 + 0.32
+		_flat_beam_xy(st, Vector2(joints[i], from_y), Vector2(joints[i + 1], to_y),
+				0.13, depth + 0.035, body)
 	for s: int in 2:
 		var sign_x := -1.0 if s == 0 else 1.0
-		var cx := sign_x * (half - 0.3)
-		_box_faces(st, Vector3(cx - 0.28, 0.0, -0.32), Vector3(cx + 0.28, y1, 0.32), foot, crown)
+		var cx := sign_x * (half - 0.18)
+		_box_faces(st, Vector3(cx - 0.18, 0.0, -0.28),
+				Vector3(cx + 0.18, y1 + 0.20, 0.28), foot, body)
+		_box_faces(st, Vector3(cx - 0.34, 0.0, -0.48),
+				Vector3(cx + 0.34, 0.14, 0.48), foot, accent)
+	# Centre diamond repeats the duck colour as shape, not just hue.
+	var sign_z := depth + 0.06
+	for face: int in 2:
+		var z := sign_z if face == 0 else -sign_z
+		var facing := Vector3.BACK if face == 0 else Vector3.FORWARD
+		var centre := Vector3(0.0, y1 - 0.02, z)
+		for quadrant: int in 4:
+			var a := TAU * float(quadrant) / 4.0
+			var b := TAU * float(quadrant + 1) / 4.0
+			_tri_out(st, centre,
+					centre + Vector3(cos(a) * 0.34, sin(a) * 0.34, 0.0),
+					centre + Vector3(cos(b) * 0.34, sin(b) * 0.34, 0.0),
+					facing, duck, duck, crown)
 	st.generate_normals()
 	_arch_mesh_cache = st.commit()
 	return _arch_mesh_cache
@@ -1967,7 +3240,7 @@ static func _seal_mesh() -> ArrayMesh:
 	# Same linear-space caveat as the ridge: authored warm, this arrives on
 	# screen as gold. Pushed red so the shoulder band reads as the hazard
 	# marking it is rather than as a highlight.
-	var band := Color(0.92, 0.20, 0.0)
+	var band := Color(0.96, 0.20, 0.006)
 	var rings := 11
 	var segs := 8
 	var centre_y := SEAL_GIRTH * 0.86
@@ -2095,6 +3368,54 @@ static func _tunnel_mesh() -> ArrayMesh:
 	return _tunnel_mesh_cache
 
 
+## One visible overhead fixture plus its broad baked floor/ceiling washes.
+## Instanced exactly twice per tunnel chunk at the former omni positions. The
+## mark material is already used by deck communication, unshaded, alpha-safe,
+## two-sided and prewarmed; this adds no shader signature and no light RID.
+static func _tunnel_light_cue_mesh() -> ArrayMesh:
+	if _tunnel_light_cue_mesh_cache != null:
+		return _tunnel_light_cue_mesh_cache
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var housing := Color(0.08, 0.22, 0.30, 0.94)
+	var lamp := Color(0.48, 0.92, 1.0, 0.96)
+	var lamp_core := Color(0.86, 0.99, 1.0, 1.0)
+	var fixture_y := TUNNEL_APEX - 1.1
+	# Rounded read comes from broad proportions and pale core framed by a much
+	# thinner dark housing; from chase distance this remains a clean cyan bar.
+	_box_faces(st, Vector3(-2.75, fixture_y - 0.02, -0.24),
+			Vector3(2.75, fixture_y + 0.20, 0.24), housing, lamp)
+	_box_faces(st, Vector3(-2.35, fixture_y - 0.10, -0.16),
+			Vector3(2.35, fixture_y + 0.02, 0.16), lamp, lamp_core)
+	# Broad floor wash: transparent radial fan, large enough to reproduce the
+	# old 21 m lamps' navigational pools without pretending to light objects.
+	var fan_segments := 16
+	var floor_center := Color(0.30, 0.78, 0.96, 0.20)
+	var floor_edge := Color(0.30, 0.78, 0.96, 0.0)
+	for i: int in fan_segments:
+		var a0 := TAU * float(i) / float(fan_segments)
+		var a1 := TAU * float(i + 1) / float(fan_segments)
+		_tri_out(st,
+				Vector3(0.0, 0.032, 0.0),
+				Vector3(cos(a0) * 4.7, 0.032, sin(a0) * 6.8),
+				Vector3(cos(a1) * 4.7, 0.032, sin(a1) * 6.8),
+				Vector3.UP, floor_center, floor_edge, floor_edge)
+	# Quiet ceiling halo behind the fixture separates it from the dark vault.
+	var halo_center := Color(0.42, 0.86, 1.0, 0.15)
+	var halo_edge := Color(0.42, 0.86, 1.0, 0.0)
+	for i: int in fan_segments:
+		var a0 := TAU * float(i) / float(fan_segments)
+		var a1 := TAU * float(i + 1) / float(fan_segments)
+		_tri_out(st,
+				Vector3(0.0, fixture_y + 0.23, 0.0),
+				Vector3(cos(a0) * 3.8, fixture_y + 0.23, sin(a0) * 2.8),
+				Vector3(cos(a1) * 3.8, fixture_y + 0.23, sin(a1) * 2.8),
+				Vector3.DOWN, halo_center, halo_edge, halo_edge)
+	st.generate_normals()
+	_tunnel_light_cue_mesh_cache = st.commit()
+	return _tunnel_light_cue_mesh_cache
+
+
 ## Unit deck chevron: 1 m across, 1 m deep, pointing down-track (-Z), flat.
 ## White vertex colours, so the MultiMesh instance colour is the whole tint.
 static func _mark_mesh() -> ArrayMesh:
@@ -2137,6 +3458,211 @@ static func _banner_mesh() -> ArrayMesh:
 	st.generate_normals()
 	_banner_mesh_cache = st.commit()
 	return _banner_mesh_cache
+
+
+## Near-field autonomous weather station: orange instrument case on a sled,
+## white mast, cyan sensor head. One compact silhouette used as kerb furniture.
+static func _port_prop_mesh() -> ArrayMesh:
+	if _port_prop_mesh_cache != null:
+		return _port_prop_mesh_cache
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var dark := _vc(Color(0.025, 0.07, 0.12))
+	var steel := _vc(Color(0.34, 0.52, 0.62))
+	var shell := _vc(Color(0.88, 0.95, 0.96))
+	var orange := _vc(Color(1.0, 0.34, 0.055))
+	var cyan := _vc(Color(0.10, 0.78, 0.92))
+	for z: float in [-0.54, 0.54]:
+		_box_faces(st, Vector3(-0.92, 0.0, z - 0.06),
+				Vector3(0.92, 0.10, z + 0.06), dark, steel)
+	_box_faces(st, Vector3(-0.72, 0.10, -0.46), Vector3(0.54, 0.92, 0.46),
+			orange, _vc(Color(1.0, 0.58, 0.14)))
+	for strap_x: float in [-0.42, 0.24]:
+		_box_faces(st, Vector3(strap_x - 0.055, 0.08, -0.49),
+				Vector3(strap_x + 0.055, 0.98, 0.49), dark, steel)
+	_box_faces(st, Vector3(0.48, 0.12, -0.06), Vector3(0.60, 2.30, 0.06),
+			dark, shell)
+	_box_faces(st, Vector3(0.30, 2.12, -0.22), Vector3(0.78, 2.48, 0.22),
+			steel, cyan)
+	# Twin anemometer cups make the top read as instrumentation, not a signpost.
+	for side: int in 2:
+		var x := 0.15 if side == 0 else 0.93
+		_box_faces(st, Vector3(x - 0.18, 2.35, -0.08),
+				Vector3(x + 0.18, 2.47, 0.08), dark, cyan)
+	st.generate_normals()
+	_port_prop_mesh_cache = st.commit()
+	return _port_prop_mesh_cache
+
+
+## Mid-field modular polar lab. Stilts, insulated white shell, orange structural
+## frame, continuous dark window band, roof solar array and antenna form a
+## recognizable research-station kit from either side of the causeway.
+static func _research_module_mesh() -> ArrayMesh:
+	if _research_module_mesh_cache != null:
+		return _research_module_mesh_cache
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var dark := _vc(Color(0.02, 0.075, 0.13))
+	var glass := _vc(Color(0.025, 0.20, 0.31))
+	var steel := _vc(Color(0.26, 0.48, 0.59))
+	var shell := _vc(Color(0.84, 0.92, 0.93))
+	var white := _vc(Color(0.96, 0.98, 0.96))
+	var orange := _vc(Color(1.0, 0.31, 0.045))
+	for x: float in [-1.95, 1.95]:
+		for z: float in [-0.95, 0.95]:
+			_box_faces(st, Vector3(x - 0.12, 0.0, z - 0.12),
+					Vector3(x + 0.12, 1.22, z + 0.12), dark, steel)
+	_box_faces(st, Vector3(-2.55, 1.05, -1.38), Vector3(2.55, 3.82, 1.38),
+			steel, shell)
+	# Orange exoskeleton: large edges, not fine trim, so it survives distance.
+	for y: float in [1.08, 3.63]:
+		_box_faces(st, Vector3(-2.62, y, -1.45), Vector3(2.62, y + 0.18, 1.45),
+				dark, orange)
+	for x: float in [-2.54, 2.54]:
+		_box_faces(st, Vector3(x - 0.10, 1.12, -1.46),
+				Vector3(x + 0.10, 3.74, 1.46), dark, orange)
+	# Window band on both long faces.
+	for face: int in 2:
+		var z := 1.405 if face == 0 else -1.405
+		var facing := Vector3.BACK if face == 0 else Vector3.FORWARD
+		for bay: int in 4:
+			var x0 := -2.18 + float(bay) * 1.10
+			_quad_out(st, Vector3(x0, 2.18, z), Vector3(x0 + 0.86, 2.18, z),
+					Vector3(x0 + 0.86, 3.18, z), Vector3(x0, 3.18, z),
+					facing, glass, glass, _vc(Color(0.10, 0.48, 0.60)), glass)
+	# Roof and two tilted-looking solar slabs (raised outer edges).
+	_box_faces(st, Vector3(-2.35, 3.82, -1.18), Vector3(2.35, 4.02, 1.18),
+			steel, white)
+	for x: float in [-1.20, 1.20]:
+		_box_faces(st, Vector3(x - 0.92, 4.02, -0.88),
+				Vector3(x + 0.92, 4.16, 0.88), dark, glass)
+	_box_faces(st, Vector3(-0.055, 4.02, -0.055), Vector3(0.055, 5.26, 0.055),
+			dark, white)
+	_box_faces(st, Vector3(-0.28, 5.12, -0.08), Vector3(0.28, 5.32, 0.08),
+			orange, white)
+	st.generate_normals()
+	_research_module_mesh_cache = st.commit()
+	return _research_module_mesh_cache
+
+
+## Landmark 1/3: elevated radar dish and observation platform.
+static func _radar_landmark_mesh() -> ArrayMesh:
+	if _radar_landmark_mesh_cache != null:
+		return _radar_landmark_mesh_cache
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var dark := _vc(Color(0.018, 0.055, 0.10))
+	var steel := _vc(Color(0.20, 0.46, 0.58))
+	var shell := _vc(Color(0.86, 0.95, 0.97))
+	var orange := _vc(Color(1.0, 0.31, 0.04))
+	var cyan := _vc(Color(0.18, 0.82, 0.96))
+	for x: float in [-1.65, 1.65]:
+		for z: float in [-1.10, 1.10]:
+			_box_faces(st, Vector3(x - 0.15, 0.0, z - 0.15),
+					Vector3(x + 0.15, 5.50, z + 0.15), dark, steel)
+	_box_faces(st, Vector3(-2.25, 5.25, -1.70), Vector3(2.25, 5.62, 1.70),
+			dark, orange)
+	_box_faces(st, Vector3(-1.68, 5.62, -1.18), Vector3(1.68, 6.62, 1.18),
+			steel, shell)
+	_box_faces(st, Vector3(-0.14, 6.60, -0.14), Vector3(0.14, 9.05, 0.14),
+			dark, shell)
+	# Solid faceted dish in XY, deliberately oversized as skyline hierarchy.
+	var centre := Vector3(0.0, 9.0, 0.24)
+	var segments := 16
+	for i: int in segments:
+		var a0 := TAU * float(i) / float(segments)
+		var a1 := TAU * float(i + 1) / float(segments)
+		var r0 := Vector3(cos(a0) * 2.25, sin(a0) * 2.25, 0.0)
+		var r1 := Vector3(cos(a1) * 2.25, sin(a1) * 2.25, 0.0)
+		_tri_out(st, centre, centre + r0, centre + r1, Vector3.BACK,
+				cyan, shell, shell)
+		_tri_out(st, centre + Vector3(0.0, 0.0, -0.12),
+				centre + r1 + Vector3(0.0, 0.0, -0.12),
+				centre + r0 + Vector3(0.0, 0.0, -0.12), Vector3.FORWARD,
+				dark, steel, steel)
+	_box_faces(st, Vector3(-0.08, 8.92, 0.18), Vector3(0.08, 11.65, 0.34),
+			orange, shell)
+	st.generate_normals()
+	_radar_landmark_mesh_cache = st.commit()
+	return _radar_landmark_mesh_cache
+
+
+## Landmark 2/3: cargo crane with open truss, operator cab, hanging cable and
+## suspended orange container. Large negative spaces make it legible in fog.
+static func _crane_landmark_mesh() -> ArrayMesh:
+	if _crane_landmark_mesh_cache != null:
+		return _crane_landmark_mesh_cache
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var dark := _vc(Color(0.018, 0.05, 0.09))
+	var steel := _vc(Color(0.18, 0.40, 0.52))
+	var shell := _vc(Color(0.82, 0.92, 0.94))
+	var orange := _vc(Color(1.0, 0.30, 0.035))
+	for x: float in [-2.55, 2.55]:
+		_box_faces(st, Vector3(x - 0.22, 0.0, -0.44),
+				Vector3(x + 0.22, 8.10, 0.44), dark, steel)
+	_box_faces(st, Vector3(-3.15, 7.65, -0.52), Vector3(7.25, 8.28, 0.52),
+			dark, orange)
+	_flat_beam_xy(st, Vector2(-2.45, 0.30), Vector2(2.45, 7.70), 0.26, 0.48, steel)
+	_flat_beam_xy(st, Vector2(2.45, 0.30), Vector2(-2.45, 7.70), 0.26, 0.48, steel)
+	_box_faces(st, Vector3(-1.15, 6.55, -0.85), Vector3(0.75, 7.58, 0.85),
+			steel, shell)
+	# Trolley, cable, hook load.
+	_box_faces(st, Vector3(4.45, 7.48, -0.42), Vector3(5.12, 7.82, 0.42),
+			dark, shell)
+	_box_faces(st, Vector3(4.72, 2.25, -0.055), Vector3(4.84, 7.50, 0.055),
+			dark, dark)
+	_box_faces(st, Vector3(3.55, 0.95, -0.88), Vector3(5.95, 2.35, 0.88),
+			dark, orange)
+	for x: float in [3.82, 5.68]:
+		_box_faces(st, Vector3(x - 0.06, 0.90, -0.92),
+				Vector3(x + 0.06, 2.40, 0.92), dark, shell)
+	st.generate_normals()
+	_crane_landmark_mesh_cache = st.commit()
+	return _crane_landmark_mesh_cache
+
+
+## Landmark 3/3: distant icebreaker. Dark hull, orange safety belt, pale bridge
+## and mast break the ocean horizon with a recognisable destination silhouette.
+static func _icebreaker_landmark_mesh() -> ArrayMesh:
+	if _icebreaker_landmark_mesh_cache != null:
+		return _icebreaker_landmark_mesh_cache
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var hull := _vc(Color(0.025, 0.09, 0.16))
+	var hull_hi := _vc(Color(0.10, 0.29, 0.39))
+	var shell := _vc(Color(0.86, 0.93, 0.92))
+	var glass := _vc(Color(0.02, 0.17, 0.26))
+	var orange := _vc(Color(1.0, 0.27, 0.025))
+	# Long central hull plus a pointed bow at -Z.
+	_box_faces(st, Vector3(-2.35, -1.25, -5.0), Vector3(2.35, 1.25, 6.4),
+			hull, hull_hi)
+	for side: int in 2:
+		var x := -2.35 if side == 0 else 2.35
+		var outward := Vector3.LEFT if side == 0 else Vector3.RIGHT
+		_tri_out(st, Vector3(x, -1.25, -5.0), Vector3(x, 1.25, -5.0),
+				Vector3(0.0, 0.45, -8.25), outward, hull, orange, hull_hi)
+	# Safety belt and superstructure.
+	_box_faces(st, Vector3(-2.42, 0.72, -5.12), Vector3(2.42, 1.20, 6.45),
+			hull, orange)
+	_box_faces(st, Vector3(-1.72, 1.18, -0.80), Vector3(1.72, 4.30, 3.55),
+			hull_hi, shell)
+	# Bridge window ribbon on both sides.
+	for side: int in 2:
+		var x := -1.745 if side == 0 else 1.745
+		var facing := Vector3.LEFT if side == 0 else Vector3.RIGHT
+		_quad_out(st, Vector3(x, 3.15, -0.45), Vector3(x, 3.15, 2.95),
+				Vector3(x, 3.88, 2.95), Vector3(x, 3.88, -0.45),
+				facing, glass, glass, _vc(Color(0.10, 0.50, 0.62)), glass)
+	_box_faces(st, Vector3(-0.62, 4.28, 0.48), Vector3(0.62, 5.55, 1.75),
+			hull, orange)
+	_box_faces(st, Vector3(-0.09, 5.42, 0.96), Vector3(0.09, 8.05, 1.14),
+			hull, shell)
+	_box_faces(st, Vector3(-1.30, 7.46, 1.02), Vector3(1.30, 7.62, 1.18),
+			orange, shell)
+	st.generate_normals()
+	_icebreaker_landmark_mesh_cache = st.commit()
+	return _icebreaker_landmark_mesh_cache
 
 
 ## Gull: a shallow V of two blades, 1 m wingspan at unit scale. Flapping is a
@@ -2218,17 +3744,17 @@ static func _curtain_mesh() -> ArrayMesh:
 ## Power-up crate. Three DIFFERENT SOLIDS, not three tints of one box: colour
 ## is the first thing to go at distance and the first thing to go for a
 ## colour-blind player, so the silhouette has to carry the identity on its own.
-## Cube = magnet, octahedron = shield, hex drum = double. Each also gets an icon
-## in a contrasting value on the faces the player actually sees.
+## Horseshoe = magnet, octahedron = shield, hex drum = double. Each also gets
+## contrasting-value face detail that survives the lit vertex-colour material.
 static func _crate_mesh(id: StringName) -> ArrayMesh:
 	var key := String(id)
 	if _crate_meshes.has(key):
 		return _crate_meshes[key]
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var shell := Color(1.0, 1.0, 1.0)
-	var edge := Color(0.30, 0.32, 0.40)
-	var icon := Color(0.06, 0.07, 0.10)
+	var shell := _vc(Color(1.0, 1.0, 1.0))
+	var edge := _vc(Color(0.30, 0.32, 0.40))
+	var icon := _vc(Color(0.06, 0.07, 0.10))
 	match id:
 		RunnerConfig.POWERUP_SHIELD:
 			# Octahedron: reads as a gem, which is what a defensive pickup
@@ -2271,20 +3797,19 @@ static func _crate_mesh(id: StringName) -> ArrayMesh:
 							Vector3(0.34, y + 0.07, pz), Vector3(-0.34, y + 0.07, pz),
 							facing, icon, icon, icon, icon)
 		_:
-			# Cube: the magnet, and the fallback for any id added later.
-			_box_faces(st, Vector3(-0.55, -0.55, -0.55), Vector3(0.55, 0.55, 0.55), edge, shell)
-			# Horseshoe on the front and back faces: two prongs and a yoke.
-			for s: int in 2:
-				var zz := -0.58 if s == 0 else 0.58
-				var facing := Vector3.FORWARD if s == 0 else Vector3.BACK
-				for p: int in 2:
-					var x := -0.28 + float(p) * 0.56
-					_quad_out(st, Vector3(x - 0.11, -0.36, zz), Vector3(x + 0.11, -0.36, zz),
-							Vector3(x + 0.11, 0.16, zz), Vector3(x - 0.11, 0.16, zz),
-							facing, icon, icon, icon, icon)
-				_quad_out(st, Vector3(-0.39, 0.16, zz), Vector3(0.39, 0.16, zz),
-						Vector3(0.39, 0.38, zz), Vector3(-0.39, 0.38, zz),
-						facing, icon, icon, icon, icon)
+			# Actual horseshoe magnet, not an icon painted on a cube. Negative
+			# space survives distance and colour-blind rendering; pale pole caps
+			# make the two active ends readable during the two-axis tumble.
+			_box_faces(st, Vector3(-0.58, -0.54, -0.24),
+					Vector3(-0.24, 0.46, 0.24), edge, shell)
+			_box_faces(st, Vector3(0.24, -0.54, -0.24),
+					Vector3(0.58, 0.46, 0.24), edge, shell)
+			_box_faces(st, Vector3(-0.58, -0.58, -0.24),
+					Vector3(0.58, -0.20, 0.24), edge, shell)
+			_box_faces(st, Vector3(-0.61, 0.40, -0.27),
+					Vector3(-0.21, 0.64, 0.27), icon, _vc(Color(0.95, 0.98, 1.0)))
+			_box_faces(st, Vector3(0.21, 0.40, -0.27),
+					Vector3(0.61, 0.64, 0.27), icon, _vc(Color(1.0, 0.50, 0.22)))
 	st.generate_normals()
 	var mesh := st.commit()
 	_crate_meshes[key] = mesh
@@ -2296,9 +3821,10 @@ static func _crate_mesh(id: StringName) -> ArrayMesh:
 ## reads the racing accessibility settings, and it draws three surfaces (body,
 ## fin and eye shaders) per fish -- three draw calls each, where a run can have
 ## eighty fish in view at once. This is the same silhouette (fusiform body,
-## dark dorsal over silver belly, oversized hot-orange tail and dorsal fin)
+## dark amber dorsal over luminous gold belly, oversized gold tail and fin)
 ## folded into ONE vertex-coloured surface, so a whole chunk's fish are a
-## single MultiMesh draw.
+## single MultiMesh draw. Gold is the fixed collect cue: amber counter-shading
+## and a bright lateral flash keep the fish readable against both ice and sky.
 ##
 ## Sized against FISH_LENGTH rather than authored in absolute units: the first
 ## pass drew a 0.8 m fish inside a 1.9 m grab sphere, and the result read as a
@@ -2308,9 +3834,11 @@ static func _fish_mesh() -> ArrayMesh:
 		return _fish_mesh_cache
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var dorsal := Color(0.10, 0.18, 0.28)
-	var silver := Color(0.97, 0.96, 0.92)
-	var fin := Color(1.0, 0.40, 0.08)
+	var dorsal := _vc(Color(0.95, 0.70, 0.08))
+	var gold := _vc(Color(1.0, 0.95, 0.32))
+	var fin := _vc(Color(1.0, 0.86, 0.16))
+	var glint := _vc(Color(1.0, 0.96, 0.68))
+	var eye := _vc(Color(0.025, 0.028, 0.035))
 	# The proportions below are authored in units of the original 0.82 m fish;
 	# k rescales the whole thing to FISH_LENGTH nose-to-tail in one place.
 	var k := FISH_LENGTH / 0.82
@@ -2337,8 +3865,8 @@ static func _fish_mesh() -> ArrayMesh:
 			# fish lying over white snow, so the dorsal surface is nearly all
 			# the player ever sees and it has to be the dark one.
 			_quad_out(st, a, b, c, d, ((a + b + c + d) * 0.25 * Vector3(0.0, 1.0, 1.0)).normalized(),
-					_fish_tone(a / k, dorsal, silver), _fish_tone(b / k, dorsal, silver),
-					_fish_tone(c / k, dorsal, silver), _fish_tone(d / k, dorsal, silver))
+					_fish_tone(a / k, dorsal, gold), _fish_tone(b / k, dorsal, gold),
+					_fish_tone(c / k, dorsal, gold), _fish_tone(d / k, dorsal, gold))
 	# Forked tail and dorsal fin, emitted both ways round so a flat blade still
 	# shows under a single-sided material.
 	_flat_fin(st, Vector3(0.22, 0.0, 0.0) * k, Vector3(0.52, 0.26, 0.0) * k,
@@ -2347,6 +3875,18 @@ static func _fish_mesh() -> ArrayMesh:
 			Vector3(0.52, -0.26, 0.0) * k, fin)
 	_flat_fin(st, Vector3(-0.08, 0.09, 0.0) * k, Vector3(0.04, 0.34, 0.0) * k,
 			Vector3(0.15, 0.09, 0.0) * k, fin)
+	# Broad lateral flash and eye: tiny geometry up close, one decisive bright
+	# mark in motion. Emit both sides because fish alternate their facing.
+	for side: int in 2:
+		var z := (-0.092 if side == 0 else 0.092) * k
+		var facing := Vector3.FORWARD if side == 0 else Vector3.BACK
+		_quad_out(st, Vector3(-0.23, -0.015, z), Vector3(0.15, -0.015, z),
+				Vector3(0.12, 0.045, z), Vector3(-0.20, 0.045, z), facing,
+				glint, gold, gold, glint)
+		var eye_z := z + facing.z * 0.004
+		_flat_fin(st, Vector3(-0.255, 0.055, eye_z) * Vector3(k, k, 1.0),
+				Vector3(-0.205, 0.075, eye_z) * Vector3(k, k, 1.0),
+				Vector3(-0.225, 0.025, eye_z) * Vector3(k, k, 1.0), eye)
 	st.generate_normals()
 	_fish_mesh_cache = st.commit()
 	return _fish_mesh_cache
@@ -2354,6 +3894,46 @@ static func _fish_mesh() -> ArrayMesh:
 
 static func _fish_tone(v: Vector3, dorsal: Color, silver: Color) -> Color:
 	return silver.lerp(dorsal, smoothstep(-0.06, 0.05, v.y))
+
+
+## Faceted cylinder along X, folded into the caller's vertex-colour surface.
+static func _cylinder_x(st: SurfaceTool, centre: Vector3, length: float,
+		radius: float, segments: int, low: Color, high: Color) -> void:
+	var x0 := centre.x - length * 0.5
+	var x1 := centre.x + length * 0.5
+	for i: int in segments:
+		var a0 := TAU * float(i) / float(segments)
+		var a1 := TAU * float(i + 1) / float(segments)
+		var p00 := Vector3(x0, centre.y + cos(a0) * radius, centre.z + sin(a0) * radius)
+		var p01 := Vector3(x0, centre.y + cos(a1) * radius, centre.z + sin(a1) * radius)
+		var p11 := Vector3(x1, centre.y + cos(a1) * radius, centre.z + sin(a1) * radius)
+		var p10 := Vector3(x1, centre.y + cos(a0) * radius, centre.z + sin(a0) * radius)
+		var c0 := low.lerp(high, 0.5 + cos(a0) * 0.5)
+		var c1 := low.lerp(high, 0.5 + cos(a1) * 0.5)
+		var outward := Vector3(0.0, cos((a0 + a1) * 0.5), sin((a0 + a1) * 0.5))
+		_quad_out(st, p00, p01, p11, p10, outward, c0, c1, c1, c0)
+		_tri_out(st, Vector3(x0, centre.y, centre.z), p01, p00,
+				Vector3.LEFT, low, c1, c0)
+		_tri_out(st, Vector3(x1, centre.y, centre.z), p10, p11,
+				Vector3.RIGHT, low, c0, c1)
+
+
+## Two-sided flat rectangular brace in the XY plane. Used for open trusses,
+## where one diagonal silhouette is worth more than a solid wall of polygons.
+static func _flat_beam_xy(st: SurfaceTool, point_a: Vector2, point_b: Vector2,
+		width: float, z: float, color: Color) -> void:
+	var direction := (point_b - point_a).normalized()
+	var normal := Vector2(-direction.y, direction.x) * width * 0.5
+	var a := point_a + normal
+	var b := point_b + normal
+	var c := point_b - normal
+	var d := point_a - normal
+	_quad_out(st, Vector3(a.x, a.y, z), Vector3(b.x, b.y, z),
+			Vector3(c.x, c.y, z), Vector3(d.x, d.y, z),
+			Vector3.BACK, color, color, color, color)
+	_quad_out(st, Vector3(d.x, d.y, -z), Vector3(c.x, c.y, -z),
+			Vector3(b.x, b.y, -z), Vector3(a.x, a.y, -z),
+			Vector3.FORWARD, color, color, color, color)
 
 
 static func _flat_fin(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, col: Color) -> void:
@@ -2425,10 +4005,18 @@ class RunnerChunk:
 	const ANIM_SWAY: int = 0
 	const ANIM_TUMBLE: int = 1
 	const ANIM_FLAP: int = 2
+	## Presentation update caps. Near decision-space motion remains 60 Hz;
+	## distant garnish is temporally LODed before it occupies meaningful pixels.
+	const ANIM_NEAR_INTERVAL: float = 1.0 / 60.0
+	const ANIM_MID_INTERVAL: float = 1.0 / 30.0
+	const ANIM_FAR_INTERVAL: float = 1.0 / 15.0
+	const ANIM_NEAR_DISTANCE: float = 96.0
+	const ANIM_MID_DISTANCE: float = 180.0
 
 	var index: int = 0
 	var difficulty: float = 0.0
 	var biome: int = 0
+	var pattern: int = 0  # Pattern.OPEN; kept numeric inside nested class scope.
 	## Blocked-lane count per obstacle row, keyed by rounded local z. This is
 	## what makes "never fill all three lanes" enforceable without every pattern
 	## having to reason about it.
@@ -2451,6 +4039,7 @@ class RunnerChunk:
 	var _anim_base: Array = []
 	var _anim_kind: PackedInt32Array = PackedInt32Array()
 	var _anim_time: float = 0.0
+	var _anim_accumulator: float = 0.0
 
 	func note_row(local_z: float, is_block: bool, span: int) -> void:
 		if not is_block:
@@ -2484,9 +4073,10 @@ class RunnerChunk:
 	## instance has to follow it, or the fish flies away from its own picture.
 	func reserve_fish_slot(node: Node3D, pos: Vector3) -> int:
 		var slot := fish_base.size()
-		# Baked yaw variety: with the whole chunk in one MultiMesh there is no
-		# per-fish node to rotate, so the spread comes from the instance index.
-		fish_base.append(Transform3D(Basis(Vector3.UP, float(slot) * 1.31), pos))
+		# Keep the collectible broadside to the chase camera. Full Y rotation made
+		# it periodically collapse to a sliver, then loom end-on in the foreground.
+		var yaw := (PI if slot % 2 == 1 else 0.0) + sin(float(slot) * 1.31) * 0.16
+		fish_base.append(Transform3D(Basis(Vector3.UP, yaw), pos))
 		fish_nodes.append(node)
 		fish_alive.append(1)
 		return slot
@@ -2497,6 +4087,9 @@ class RunnerChunk:
 		_anim_mm.append(mmi.multimesh)
 		_anim_base.append(base)
 		_anim_kind.append(kind)
+		# Streamed dressing may register after finish() already chose whether this
+		# chunk needed processing.
+		set_process(true)
 
 	## Flushes the collected fish, deck chevrons and contact shadows into their
 	## MultiMeshes. headless skips every drawn thing; the colliders are built
@@ -2511,6 +4104,25 @@ class RunnerChunk:
 		marks.clear()
 		mark_colors.clear()
 
+	## Applies quality-tier submission range to presentation only. Collision,
+	## fairness rows, AI hints and deterministic generation remain resident.
+	func apply_visual_range(max_distance: float) -> void:
+		if max_distance <= 0.0:
+			return
+		_apply_visual_range_recursive(self, max_distance)
+
+	func _apply_visual_range_recursive(node: Node, max_distance: float) -> void:
+		if node is GeometryInstance3D:
+			var geometry := node as GeometryInstance3D
+			if geometry.visibility_range_end <= 0.0:
+				geometry.visibility_range_end = max_distance
+			else:
+				geometry.visibility_range_end = minf(geometry.visibility_range_end, max_distance)
+			geometry.visibility_range_end_margin = 0.0
+			geometry.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+		for child: Node in node.get_children():
+			_apply_visual_range_recursive(child, max_distance)
+
 	func _flush_fish() -> void:
 		if fish_base.is_empty():
 			return
@@ -2523,7 +4135,7 @@ class RunnerChunk:
 		var mmi := MultiMeshInstance3D.new()
 		mmi.name = "Fish"
 		mmi.multimesh = fish_mm
-		mmi.material_override = RunnerTrack._prop_material()
+		mmi.material_override = RunnerTrack._fish_material()
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mmi)
 
@@ -2539,7 +4151,9 @@ class RunnerChunk:
 		var patches := MultiMeshInstance3D.new()
 		patches.name = "Contact"
 		patches.multimesh = mm
-		patches.material_override = VisualLibrary.contact_shadow_material(0.34)
+		# Soft pooled grounding only. Stronger alpha read as black obstacle-sized
+		# slabs once real cast shadows were removed—the opposite of the intent.
+		patches.material_override = VisualLibrary.contact_shadow_material(0.22)
 		patches.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(patches)
 
@@ -2581,9 +4195,29 @@ class RunnerChunk:
 	## callback per prop, and a world that sits perfectly still is the fastest
 	## way to make a runner read as a diagram of a runner.
 	func _process(delta: float) -> void:
-		_anim_time += delta
+		_anim_accumulator += delta
+		var camera := get_viewport().get_camera_3d() if get_viewport() != null else null
+		var interval := ANIM_NEAR_INTERVAL
+		if camera != null:
+			# Entire chunk already crossed the chase camera. It can remain alive for
+			# collision bookkeeping until streamer culls it, but no transform buffer
+			# behind the lens needs another upload.
+			var forward_end_z := global_position.z - RunnerConfig.CHUNK_LENGTH
+			if forward_end_z > camera.global_position.z + 4.0:
+				_anim_accumulator = 0.0
+				return
+			var centre_z := global_position.z - RunnerConfig.CHUNK_LENGTH * 0.5
+			var distance := absf(centre_z - camera.global_position.z)
+			if distance > ANIM_MID_DISTANCE:
+				interval = ANIM_FAR_INTERVAL
+			elif distance > ANIM_NEAR_DISTANCE:
+				interval = ANIM_MID_INTERVAL
+		if _anim_accumulator + 0.00001 < interval:
+			return
+		_anim_time += _anim_accumulator
+		_anim_accumulator = 0.0
 		if fish_mm != null:
-			_animate_fish()
+			_animate_fish(camera)
 		for a: int in _anim_mm.size():
 			var mm: MultiMesh = _anim_mm[a]
 			var base: Array = _anim_base[a]
@@ -2613,7 +4247,7 @@ class RunnerChunk:
 								t.origin + Vector3(sin(_anim_time * 0.35 + ph) * 1.4,
 										flap * 0.28, 0.0)))
 
-	func _animate_fish() -> void:
+	func _animate_fish(camera: Camera3D) -> void:
 		for i: int in fish_base.size():
 			if fish_alive[i] == 0:
 				continue
@@ -2624,8 +4258,18 @@ class RunnerChunk:
 			var node := fish_nodes[i]
 			if node != null and is_instance_valid(node):
 				origin = node.position
-			fish_mm.set_instance_transform(i, Transform3D(
-					Basis(Vector3.UP, phase + _anim_time * 0.9),
+			var facing := PI if i % 2 == 1 else 0.0
+			var yaw := facing + sin(_anim_time * 1.7 + phase) * 0.16
+			var roll := sin(_anim_time * 2.4 + phase) * 0.10
+			var basis := Basis(Vector3.UP, yaw).rotated(Vector3.RIGHT, roll)
+			# A missed pickup can pass between player and chase camera. Shrink only
+			# that presentation inside the near plane instead of letting a 62 cm
+			# fish become a screen-filling foreground wipe; collider stays untouched.
+			if camera != null:
+				var camera_distance := camera.global_position.distance_to(to_global(origin))
+				var near_scale := smoothstep(5.0, 8.0, camera_distance)
+				basis = basis.scaled(Vector3.ONE * near_scale)
+			fish_mm.set_instance_transform(i, Transform3D(basis,
 					origin + Vector3(0.0, sin(_anim_time * 2.4 + phase) * 0.13, 0.0)))
 
 
@@ -2673,6 +4317,7 @@ class RunnerMover:
 	var omega: float = 1.4
 	var body: Node3D = null
 	var _time: float = 0.0
+	var _runner: Node3D = null
 
 	func _process(delta: float) -> void:
 		_time += delta
@@ -2689,6 +4334,36 @@ class RunnerMover:
 		body.rotation.z = -heading * 0.22
 		body.rotation.x = sin(a * 2.0) * 0.07
 		body.position.y = absf(sin(a)) * 0.05
+		# Once a missed crossing seal slips between player and chase camera it
+		# has finished communicating gameplay. Ease its visual into the near
+		# plane so the 2.8 m body cannot wipe the next decision from the screen.
+		var visual_scale := 1.0
+		var viewport := get_viewport()
+		var camera := viewport.get_camera_3d() if viewport != null else null
+		if camera != null:
+			visual_scale = smoothstep(4.8, 8.2,
+					camera.global_position.distance_to(global_position))
+			# Wide FOV can project a side-on mover enormous at the bottom edge even
+			# while its centre remains >8 m from camera. Once the centre drops below
+			# the decision window, ease only the shell into the near-plane clip.
+			var view_height := viewport.get_visible_rect().size.y
+			if view_height > 0.0 and not camera.is_position_behind(global_position):
+				var screen_y := camera.unproject_position(
+						global_position + Vector3.UP * SEAL_HEIGHT * 0.5).y / view_height
+				visual_scale = minf(visual_scale,
+						1.0 - smoothstep(0.76, 0.98, screen_y))
+		# Distance alone misses a side-on seal near the wide-FOV frame edge. Once
+		# the player has passed its Z band, the collision decision is over; fade
+		# the shell over the next 2 m so it cannot cover the next obstacle row.
+		if not is_instance_valid(_runner):
+			var chunk := get_parent()
+			var track := chunk.get_parent() if chunk != null else null
+			var game := track.get_parent() if track != null else null
+			_runner = game.get_node_or_null("RunnerPlayer") as Node3D if game != null else null
+		if _runner != null:
+			var passed := global_position.z - _runner.global_position.z
+			visual_scale = minf(visual_scale, 1.0 - smoothstep(0.15, 2.2, passed))
+		body.scale = Vector3.ONE * visual_scale
 
 
 ## --- Power-ups --------------------------------------------------------------

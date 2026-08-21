@@ -1,0 +1,14 @@
+{
+  "concepts": [],
+  "generated_assets": [],
+  "runtime_assets": [
+    {
+      "groups": ["preview_test"],
+      "id": "preview_claims_production_ready",
+      "kind": "texture",
+      "path": "res://assets/art/ui/loader_penguin_expedition_v1.png",
+      "production_ready": true
+    }
+  ],
+  "source_exports": []
+}

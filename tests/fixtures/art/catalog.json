@@ -1,0 +1,14 @@
+{
+  "assets": [
+    {
+      "groups": [
+        "fixture"
+      ],
+      "id": "runner_day_profile_fixture",
+      "kind": "resource",
+      "path": "res://data/art/course_profiles/runner_day.tres"
+    }
+  ],
+  "catalog_id": "art_test_fixture",
+  "schema_version": 1
+}

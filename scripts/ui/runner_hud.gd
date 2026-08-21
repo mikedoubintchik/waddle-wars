@@ -198,6 +198,7 @@ var _root: Control = null
 var _hud_scale: float = 1.0
 var _reduced: bool = false
 var _headless: bool = false
+var _layout: LayoutProfile = null
 
 var _headline_column: VBoxContainer = null
 var _top_box: BoxContainer = null
@@ -1030,8 +1031,14 @@ func _play_entrance() -> void:
 func _relayout() -> void:
 	_view_size = _view_rect()
 	var width := _view_size.x
-	var narrow := width < NARROW_WIDTH
 	var s := _hud_scale
+	_layout = UITheme.layout_profile(_root) if _root != null \
+		else LayoutProfile.for_view_size(_view_size)
+	var safe_x := maxf(_layout.safe_insets.x, _layout.safe_insets.z)
+	var safe_top := _layout.safe_insets.y
+	var safe_bottom := _layout.safe_insets.w
+	var narrow := width < NARROW_WIDTH \
+		or _layout.view_class == LayoutProfile.ViewClass.PORTRAIT_NARROW
 	if _top_box != null:
 		_top_box.vertical = narrow
 		if narrow:
@@ -1045,7 +1052,7 @@ func _relayout() -> void:
 
 	# Safe-area inset as well as the gutter: on a notched phone in landscape
 	# the rounded corner eats further into the row than the margin allows for.
-	var margin := GUTTER * s + UITheme.safe_inset_x(_root)
+	var margin := maxf(GUTTER * s + safe_x, _layout.hud_edge_margin * s + safe_x)
 	var usable := maxf(width - margin * 2.0, 120.0)
 	if _gauge_holder != null:
 		_gauge_holder.custom_minimum_size.x = clampf(GAUGE_WIDTH * s, 120.0, usable)
@@ -1058,9 +1065,12 @@ func _relayout() -> void:
 	var ring_width := RING_SIZE * s + 34.0 * s
 	var headline_w := (HEADLINE_COLUMN_WIDTH if narrow else HEADLINE_ROW_WIDTH) * s
 	var headline_h := (HEADLINE_COLUMN_HEIGHT if narrow else HEADLINE_ROW_HEIGHT) * s
+	var top_margin := GUTTER * s + safe_top
+	if _headline_column != null:
+		_headline_column.offset_top = top_margin
 	var side_room := (width - headline_w) * 0.5 - margin - GAP_M * s
 	var stacked := side_room < maxf(ring_width, MISSION_MIN_WIDTH * s)
-	var corner_top := GUTTER * s + (headline_h + GAP_M * s if stacked else 0.0)
+	var corner_top := top_margin + (headline_h + GAP_M * s if stacked else 0.0)
 	var mission_room := (usable - ring_width - GAP_M * s) if stacked else side_room
 	if _powerup_box != null:
 		_powerup_box.offset_right = -margin
@@ -1072,7 +1082,9 @@ func _relayout() -> void:
 			MISSION_PANEL_WIDTH * s, 110.0, maxf(mission_room, 110.0))
 	if _banner != null:
 		# Immediately above the gauge, which owns the last ~52 units.
-		_banner.offset_bottom = -(GUTTER + 56.0) * s
+		_banner.offset_bottom = -(GUTTER + 56.0) * s - safe_bottom
+	if _gauge_holder != null:
+		_gauge_holder.offset_bottom = -GUTTER * s - safe_bottom
 	if _message_label != null:
 		var anchor := 0.42 if narrow else 0.30
 		_message_label.anchor_top = anchor

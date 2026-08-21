@@ -4,6 +4,12 @@ extends RefCounted
 ## hover/focus/pressed/disabled states, panels, headings, and the animated
 ## menu backdrop (gradient + aurora sweep + drifting snow) used by every menu.
 
+## Atkinson Hyperlegible Next 2.001, SIL OFL 1.1. Loaded lazily rather than
+## preloaded: on a fresh checkout Godot registers scripts before first-time font
+## import, and a top-level preload would make every UI-dependent script report a
+## transient parse failure during that first scan.
+const UI_FONT_PATH: String = "res://assets/fonts/AtkinsonHyperlegibleNext-wght.ttf"
+
 const COLOR_BG: Color = Color(0.078, 0.141, 0.239)  # deep navy
 const COLOR_BG_DARK: Color = Color(0.055, 0.098, 0.172)
 const COLOR_BG_DEEP: Color = Color(0.031, 0.055, 0.106)
@@ -240,6 +246,8 @@ const ARROW_ROTATION: Dictionary = {
 }
 
 static var _arrow_cache: Dictionary = {}
+static var _ui_font: Font = null
+static var _runtime_theme: Theme = null
 static var _display_font: FontVariation = null
 static var _button_font: FontVariation = null
 static var _caption_font: FontVariation = null
@@ -278,6 +286,20 @@ static func is_touch() -> bool:
 ## setting reliably calms the whole menu system.
 static func reduced_motion() -> bool:
 	return bool(SettingsManager.get_setting("accessibility", "reduced_flashing"))
+
+
+static func ui_font() -> Font:
+	if _ui_font == null and ResourceLoader.exists(UI_FONT_PATH):
+		_ui_font = ResourceLoader.load(UI_FONT_PATH) as Font
+	return _ui_font if _ui_font != null else ThemeDB.fallback_font
+
+
+static func runtime_theme() -> Theme:
+	if _runtime_theme == null:
+		_runtime_theme = Theme.new()
+		_runtime_theme.default_font = ui_font()
+		_runtime_theme.default_font_size = 16
+	return _runtime_theme
 
 
 ## SubViewportContainer.stretch sizes its SubViewport in *logical* (design
@@ -366,8 +388,8 @@ static func scaled_heading(size: int) -> int:
 
 ## Width for a centered menu column (button stack, card list, result panel).
 ## Desktop keeps the authored width exactly; touch enlarges it and then clamps
-## it into the TOUCH_CONTENT_* band of the live viewport, so the column fills
-## most of a landscape phone without ever running past the screen edge.
+## it into the LayoutProfile-authored band of the live safe rect, so portrait
+## and landscape can use independently composed widths without edge overlap.
 ## `host` only supplies the viewport — pass the screen root. Falls back to the
 ## plainly scaled width when no viewport is available.
 static func content_width(base: float, host: Control) -> float:
@@ -376,7 +398,8 @@ static func content_width(base: float, host: Control) -> float:
 	var width := scaled(base)
 	if host == null or not host.is_inside_tree():
 		return width
-	var view_width := host.get_viewport_rect().size.x
+	var profile := layout_profile(host)
+	var view_width := profile.viewport_size.x
 	if view_width <= 0.0:
 		return width
 	# Keep clear of the device's own furniture. A phone's usable rectangle is
@@ -384,57 +407,28 @@ static func content_width(base: float, host: Control) -> float:
 	# into the edges, and a canvas that fills the display puts content under
 	# them. The percentage band alone is not enough, because on a modern iPhone
 	# the corner radius is larger than the margin it leaves.
-	var usable := maxf(view_width - safe_inset_x(host) * 2.0, view_width * 0.5)
-	return clampf(width, usable * TOUCH_CONTENT_MIN_FRAC, usable * TOUCH_CONTENT_MAX_FRAC)
+	var usable := maxf(profile.safe_rect.size.x, view_width * 0.5)
+	var max_fraction := clampf(profile.menu_width_fraction,
+			TOUCH_CONTENT_MIN_FRAC, TOUCH_CONTENT_MAX_FRAC)
+	return clampf(width, usable * TOUCH_CONTENT_MIN_FRAC, usable * max_fraction)
 
 
-## Horizontal safe-area inset in LOGICAL units, per side. 0 where the platform
-## does not report one. Cached: reading it crosses into JavaScript on web.
-static var _safe_inset_x: float = -1.0
+## Shared safe-area/classification seam for menus and gameplay UI. Platform
+## probing lives in LayoutProfile so touch controls, HUDs, and menus cannot
+## disagree about which pixels are usable after an orientation change.
+static func layout_profile(host: Control) -> LayoutProfile:
+	if host == null or not host.is_inside_tree():
+		return LayoutProfile.for_view_size(Vector2.ONE)
+	return LayoutProfile.for_viewport(host.get_viewport())
 
 
+## Largest horizontal safe-area inset in LOGICAL units. Existing HUD/menu
+## callers need a symmetric scalar; new geometry should consume safe_rect.
 static func safe_inset_x(host: Control) -> float:
-	if _safe_inset_x >= 0.0:
-		return _safe_inset_x
-	_safe_inset_x = 0.0
 	if GameConfig.is_headless() or host == null or not host.is_inside_tree():
 		return 0.0
-	var view_width := host.get_viewport_rect().size.x
-	var window := host.get_window()
-	if view_width <= 0.0 or window == null or window.size.x <= 0:
-		return 0.0
-	# Logical units per physical pixel, so a CSS-pixel inset can be expressed
-	# in the same units the layout is written in.
-	var logical_per_physical := view_width / float(window.size.x)
-	if OS.has_feature("web"):
-		var probe: Variant = JavaScriptBridge.eval("""
-			(function () {
-				var d = document.createElement('div');
-				d.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;' +
-					'padding-left:env(safe-area-inset-left);' +
-					'padding-right:env(safe-area-inset-right);';
-				document.body.appendChild(d);
-				var cs = getComputedStyle(d);
-				var l = parseFloat(cs.paddingLeft) || 0;
-				var r = parseFloat(cs.paddingRight) || 0;
-				d.remove();
-				var dpr = window.devicePixelRatio || 1;
-				return Math.max(l, r) * dpr;
-			})()
-		""", true)
-		var physical := float(probe) if probe != null else 0.0
-		# A device that reports nothing but has rounded corners still needs a
-		# little clearance, so touch gets a floor rather than a bare zero.
-		_safe_inset_x = maxf(physical * logical_per_physical,
-			24.0 if is_touch() else 0.0)
-		return _safe_inset_x
-	var safe := DisplayServer.get_display_safe_area()
-	var screen := DisplayServer.screen_get_size()
-	if screen.x > 0 and safe.size.x > 0 and safe.size.x < screen.x:
-		_safe_inset_x = float(screen.x - safe.size.x) * 0.5 * logical_per_physical
-	elif is_touch():
-		_safe_inset_x = 24.0
-	return _safe_inset_x
+	var insets := layout_profile(host).safe_insets
+	return maxf(insets.x, insets.z)
 
 
 ## Height for a fixed-size menu block (a list panel, a preview frame). Desktop
@@ -474,7 +468,8 @@ static func screen_margin() -> int:
 static func display_font() -> FontVariation:
 	if _display_font == null:
 		_display_font = FontVariation.new()
-		_display_font.base_font = ThemeDB.fallback_font
+		_display_font.base_font = ui_font()
+		_display_font.variation_opentype = {"wght": 760}
 		_display_font.variation_embolden = 0.65
 		_display_font.spacing_glyph = 2
 	return _display_font
@@ -484,7 +479,8 @@ static func display_font() -> FontVariation:
 static func bold_font() -> FontVariation:
 	if _button_font == null:
 		_button_font = FontVariation.new()
-		_button_font.base_font = ThemeDB.fallback_font
+		_button_font.base_font = ui_font()
+		_button_font.variation_opentype = {"wght": 680}
 		_button_font.variation_embolden = 0.35
 	return _button_font
 
@@ -496,7 +492,8 @@ static func bold_font() -> FontVariation:
 static func caption_font() -> FontVariation:
 	if _caption_font == null:
 		_caption_font = FontVariation.new()
-		_caption_font.base_font = ThemeDB.fallback_font
+		_caption_font.base_font = ui_font()
+		_caption_font.variation_opentype = {"wght": 620}
 		_caption_font.variation_embolden = 0.45
 		_caption_font.spacing_glyph = 3
 	return _caption_font
@@ -1511,40 +1508,16 @@ static func attach_swipe_back(node: Control, callback: Callable) -> void:
 			callback.call())
 
 
-## Full-rect animated menu backdrop, built as a real sky rather than a navy
-## wash. Layers, back to front:
-##   1. flat deep base (nothing shows through it)
-##   2. the sky: a five-stop vertical gradient with an indigo horizon band and
-##      a wide cyan bloom high on the screen — the light source that makes the
-##      vignette and the card rims make sense. Both are baked into ONE texture
-##      rather than two stacked layers, because a menu's cost on mobile web is
-##      full-screen overdraw and the bloom does not need its own pass.
-##   3. a baked star field, fading out before it reaches the content
-##   4. the aurora sheet (shader) and two parallax snow layers
-##   5. a tiled grain wash that dithers away the banding a full-screen navy
-##      gradient produces on 8-bit displays and cheap phone panels
-##   6. an elliptical vignette that closes the corners
-## Every texture here is baked once into a static and shared by every screen —
-## menus rebuild their whole tree on each navigation, and re-generating
-## gradients per screen was pure waste on single-threaded WASM.
-## Quality-gated so low-end and headless runs stay cheap: "low" keeps exactly
-## the three layers it had before this pass, and grain is high-only.
+## Shared authored key-art background. One canvas node replaces the old stack
+## of generated sky, stars, aurora shader, CPU snow, grain and vignette layers.
+## Besides looking consistent with title/loading, this removes several
+## full-screen blend passes and per-frame particle work from every menu.
 static func make_background(parent: Control) -> void:
-	var bg := ColorRect.new()
-	bg.color = COLOR_BG_DEEP
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(bg)
-	parent.add_child(_full_rect(_sky_tex()))
-
-	var quality := String(SettingsManager.get_setting("display", "particle_quality"))
-	if not GameConfig.is_headless() and quality != "low":
-		_add_stars(parent)
-		_add_aurora(parent)
-		_add_snow(parent, quality)
-		if quality == "high":
-			_add_grain(parent)
-	_add_vignette(parent)
+	var backdrop := FrontEndBackdrop.new()
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.set_presentation(
+		FrontEndBackdrop.Context.MENU, 0.68, not reduced_motion())
+	parent.add_child(backdrop)
 
 
 ## Inert full-screen TextureRect: the shape every backdrop layer takes.
@@ -1776,3 +1749,4 @@ static func _add_vignette(parent: Control) -> void:
 ## explicit about resetting any inherited scale.
 static func apply_ui_scale(root: Control) -> void:
 	root.scale = Vector2.ONE
+	root.theme = runtime_theme()

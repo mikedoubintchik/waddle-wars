@@ -416,7 +416,7 @@ func _apply_display(key: String, value: Variant) -> void:
 			if viewport != null:
 				viewport.msaa_3d = msaa_3d_mode() as Viewport.MSAA
 		"fps_limit":
-			Engine.max_fps = maxi(0, int(value))
+			Engine.max_fps = effective_fps_limit(int(value))
 		"quality_preset":
 			# Courses read the preset live on scene load; drop VisualLibrary's
 			# cached quality-derived values so the next build sees the new tier.
@@ -468,14 +468,42 @@ const WEB_RENDER_SCALE: Dictionary = {
 }
 ## Steps the governor walks down before it starts cutting the quality preset.
 ##
-## The FIRST step keeps full resolution and pays with antialiasing instead:
-## MSAA's per-frame resolve goes, FXAA covers the edges, and the image stays
-## pixel-for-pixel native. Resolution only starts going at step 2. The old
-## ladder gave up resolution first, and resolution is the single most visible
-## thing on the screen -- a browser that missed the frame budget by one notch
-## was immediately soft everywhere, which players read (accurately) as "the
-## game looks pixelated". Softness is now the LAST resort, not the first.
+## The FIRST step keeps full resolution and removes MSAA's per-frame resolve.
+## Compatibility/Web does not support FXAA, so this step accepts a little more
+## edge aliasing while the image stays pixel-for-pixel native. Resolution only
+## starts going at step 2. The old ladder gave up resolution first, and
+## resolution is the single most visible thing on the screen -- a browser that
+## missed the frame budget by one notch was immediately soft everywhere, which
+## players read (accurately) as "the game looks pixelated". Softness is now the
+## LAST resort, not the first.
 const RENDER_SCALE_STEPS: PackedFloat32Array = [1.0, 1.0, 0.85, 0.72, 0.62]
+## Compatibility/Web has no supported screen-space AA path. Edge coverage is
+## supplied by MSAA only while the device can afford it.
+const WEB_SCREEN_SPACE_AA: int = Viewport.SCREEN_SPACE_AA_DISABLED
+## Native Compatibility uses the same costly multisample resolve path as web.
+## 4x produced >100 ms frames on an M2 at 1600x900 while 2x retained clean
+## silhouettes and removed most pacing stalls. Mobile/Forward renderers keep
+## honoring the player's full desktop setting.
+const COMPATIBILITY_MAX_MSAA: int = Viewport.MSAA_2X
+## macOS Compatibility cannot consistently sustain a 120 Hz swap cadence at
+## the high preset: one missed refresh falls to 60 Hz, then it repeatedly
+## bounces between the two. Keep "Uncapped" smooth on this fallback renderer;
+## an explicit 120 FPS choice remains an opt-in and is honored unchanged.
+const COMPATIBILITY_UNCAPPED_FPS: int = 60
+
+
+## Effective native frame cap. Optional renderer/web arguments make the policy
+## deterministic in contract tests without pretending a headless renderer is
+## Compatibility. Saved/UI choice remains untouched for renderer portability.
+static func effective_fps_limit(requested: int, renderer: String = "",
+		web_override: int = -1) -> int:
+	var effective := maxi(0, requested)
+	var method := renderer if not renderer.is_empty() \
+			else RenderingServer.get_current_rendering_method()
+	var is_web := OS.has_feature("web") if web_override < 0 else web_override == 1
+	if effective == 0 and not is_web and method == "gl_compatibility":
+		return COMPATIBILITY_UNCAPPED_FPS
+	return effective
 
 
 ## Linear scale the 3D pass should render at, for this platform and preset.
@@ -497,12 +525,7 @@ func _apply_web_render_scale() -> void:
 	viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 	var scale := render_scale_3d()
 	viewport.scaling_3d_scale = scale
-	# FXAA exactly when the governor has taken MSAA but the image is still
-	# native-resolution (step 1): edges stay covered without the resolve cost.
-	# Never on top of a bilinear upscale -- blurring a blur -- and never
-	# doubled with MSAA at step 0.
-	viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA \
-		if (_render_scale_step > 0 and scale >= 0.999) else Viewport.SCREEN_SPACE_AA_DISABLED
+	viewport.screen_space_aa = WEB_SCREEN_SPACE_AA as Viewport.ScreenSpaceAA
 
 
 ## Multisample level every 3D viewport should use.
@@ -526,6 +549,14 @@ func msaa_3d_mode() -> int:
 		if String(get_setting("display", "quality_preset")) == "high" and _render_scale_step == 0:
 			return Viewport.MSAA_2X
 		return Viewport.MSAA_DISABLED
+	# Godot's Compatibility renderer resolves the whole multisampled buffer and
+	# specializes pipelines by sample count. Native testing showed 4x creating
+	# large frame-time spikes even when average GPU load was otherwise healthy.
+	# Keep requested setting in save/UI for renderer portability; cap only the
+	# effective mode in this renderer.
+	if RenderingServer.get_current_rendering_method() == "gl_compatibility":
+		return Viewport.MSAA_DISABLED if String(get_setting("display", "msaa")) == "off" \
+			else COMPATIBILITY_MAX_MSAA
 	match String(get_setting("display", "msaa")):
 		"off":
 			return Viewport.MSAA_DISABLED
@@ -578,11 +609,11 @@ const GOVERNOR_MAX_STEPS: int = 2
 
 ## Browsers vary wildly: the desktop 'high' profile can melt a phone GPU while
 ## looking fine in Chrome on an M-series Mac. On web builds only, sample the
-## FPS at 1 Hz while a course is loaded (group "course") and, if an 8-sample
-## average drops below 22 FPS, step the quality preset down ONE tier for the
-## rest of the session. The override is applied through the normal _apply_one
-## path but never saved: settings.json keeps the user's own choice, and a
-## manual quality change clears the override immediately.
+## FPS at 1 Hz while a race course OR the standalone runner is loaded and, if
+## an 8-sample average drops below 45 FPS, step the quality preset down ONE tier
+## for the rest of the session. The override is applied through the normal
+## _apply_one path but never saved: settings.json keeps the user's own choice,
+## and a manual quality change clears the override immediately.
 func _start_web_governor() -> void:
 	if not OS.has_feature("web") or GameConfig.is_headless():
 		return
@@ -599,9 +630,9 @@ func _governor_tick(timer: Timer) -> void:
 		timer.stop()
 		timer.queue_free()
 		return
-	if get_tree().get_first_node_in_group(&"course") == null:
+	if not _quality_governor_gameplay_active():
 		# Menus and loading screens say nothing about gameplay cost — restart
-		# the sampling window whenever no course is active.
+		# the sampling window whenever no governed gameplay scene is active.
 		_governor_fps_sum = 0.0
 		_governor_fps_count = 0
 		_governor_warmup = GOVERNOR_WARMUP_SAMPLES
@@ -633,7 +664,7 @@ func _governor_tick(timer: Timer) -> void:
 			_governor_good_windows = 0
 		return
 	_governor_good_windows = 0
-	# The ladder: step 1 trades MSAA for FXAA at full native resolution; the
+	# The ladder: step 1 drops MSAA but keeps full native resolution; the
 	# downscale steps beyond it are PHONE-ONLY. A desktop player sits close to
 	# a large screen, and a desktop that misses the budget under Chrome's
 	# ANGLE translation misses it during races -- exactly when the governor
@@ -662,6 +693,32 @@ func _governor_tick(timer: Timer) -> void:
 	_governor_override = lower
 	_apply_one("display", "quality_preset", lower)
 	setting_changed.emit("display/quality_preset", lower)
+
+
+## True while a scene whose rendering cost we govern is live.
+##
+## Race courses already share the `course` group. Waddle Run intentionally
+## imports none of CourseBase, so making it join that gameplay-specific group
+## would couple two otherwise independent modes. Recognising its packed-scene
+## root keeps that boundary intact while putting both modes behind the same web
+## quality safety net. The nested lookup also covers test harnesses, which mount
+## the real runner below their own scene root.
+func _quality_governor_gameplay_active() -> bool:
+	var tree := get_tree()
+	if tree == null:
+		return false
+	if tree.get_first_node_in_group(&"course") != null:
+		return true
+	return _is_quality_governed_scene(tree.current_scene)
+
+
+func _is_quality_governed_scene(root: Node) -> bool:
+	if root == null:
+		return false
+	if root.scene_file_path == Game.SCENE_RUNNER:
+		return true
+	var runner_root := root.find_child("RunnerGame", true, false)
+	return runner_root != null and runner_root.scene_file_path == Game.SCENE_RUNNER
 
 
 ## --- Persistence ----------------------------------------------------------

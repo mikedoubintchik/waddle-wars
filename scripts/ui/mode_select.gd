@@ -45,95 +45,25 @@ const ICON_TIME_TRIAL: String = """<svg xmlns="http://www.w3.org/2000/svg" width
 
 ## --- Course posters ---------------------------------------------------------
 ##
-## One flat-fill "screen print" of each course, authored at the art plate's
-## aspect (200x92) and drawn over a GradientTexture2D sky so the plate reads as
-## a place rather than a bullet point. Same hand-drawn flat-fill language as the
-## menu icon set — no SVG gradients, so the rasterizer never surprises us.
+## All five race courses use authored runtime textures and center-cover inside
+## both the landscape tile and narrow portrait row. Waddle School is registered
+## here for shared poster QA without changing the five-course race selection.
 
-const ART_GLACIER: String = """<svg xmlns="http://www.w3.org/2000/svg" width="200" height="92" viewBox="0 0 200 92">
-<path d="M0 62 L34 26 L64 62 Z" fill="#a9cfe8"/>
-<path d="M112 62 L146 30 L182 62 Z" fill="#a9cfe8"/>
-<path d="M46 62 L86 16 L126 62 Z" fill="#d8eefb"/>
-<path d="M86 16 L74 32 L82 29 L88 36 L95 28 L101 32 Z" fill="#ffffff"/>
-<path d="M170 62 L200 36 L200 62 Z" fill="#94c1de"/>
-<rect x="0" y="61" width="200" height="31" fill="#e9f6ff"/>
-<path d="M128 61 v-11 a10 10 0 0 1 20 0 v11 Z" fill="#6fb6de"/>
-<path d="M-6 94 Q56 74 98 78 Q142 82 206 62" stroke="#8fd0f0" stroke-width="10" fill="none" opacity="0.9"/>
-<path d="M-6 94 Q56 74 98 78 Q142 82 206 62" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-dasharray="7 10" opacity="0.9"/>
-</svg>"""
-
-const ART_AURORA: String = """<svg xmlns="http://www.w3.org/2000/svg" width="200" height="92" viewBox="0 0 200 92">
-<circle cx="26" cy="12" r="1.3" fill="#ffffff" opacity="0.9"/>
-<circle cx="72" cy="8" r="1" fill="#ffffff" opacity="0.7"/>
-<circle cx="140" cy="14" r="1.2" fill="#ffffff" opacity="0.8"/>
-<circle cx="186" cy="9" r="1" fill="#ffffff" opacity="0.7"/>
-<path d="M-6 34 Q40 10 80 30 Q120 50 206 16" stroke="#5cf0bb" stroke-width="11" fill="none" opacity="0.5"/>
-<path d="M-6 46 Q44 22 86 42 Q126 62 206 28" stroke="#9a7bff" stroke-width="8" fill="none" opacity="0.42"/>
-<path d="M0 66 L38 32 L72 66 Z" fill="#243a5e"/>
-<path d="M122 66 L162 34 L200 66 Z" fill="#243a5e"/>
-<path d="M56 66 L100 22 L144 66 Z" fill="#16263f"/>
-<path d="M100 22 L89 38 L96 35 L102 42 L109 33 L115 37 Z" fill="#cfe4ff"/>
-<rect x="0" y="65" width="200" height="27" fill="#dbe9fb"/>
-<path d="M-6 94 Q56 76 100 80 Q148 84 206 68" stroke="#7fbfe6" stroke-width="9" fill="none" opacity="0.8"/>
-<path d="M-6 94 Q56 76 100 80 Q148 84 206 68" stroke="#ffffff" stroke-width="2" fill="none" stroke-dasharray="7 10" opacity="0.75"/>
-</svg>"""
-
-const ART_ICEBERG: String = """<svg xmlns="http://www.w3.org/2000/svg" width="200" height="92" viewBox="0 0 200 92">
-<circle cx="152" cy="28" r="15" fill="#ffd897" opacity="0.95"/>
-<path d="M0 56 L26 28 L50 56 Z" fill="#f0d9c4"/>
-<path d="M98 56 L126 32 L154 56 Z" fill="#f0d9c4"/>
-<path d="M38 56 L76 20 L114 56 Z" fill="#fff1e2"/>
-<path d="M76 20 L66 34 L73 32 L79 39 L85 31 L91 34 Z" fill="#ffffff"/>
-<rect x="0" y="55" width="200" height="37" fill="#2a688f"/>
-<path d="M-6 63 Q16 59 38 63 T82 63 T126 63 T170 63 T206 63" stroke="#9fd8f2" stroke-width="2.4" fill="none" opacity="0.65"/>
-<path d="M-6 74 Q20 70 46 74 T98 74 T150 74 T206 74" stroke="#78c2e6" stroke-width="2.4" fill="none" opacity="0.5"/>
-<path d="M18 86 L34 70 L54 86 Z" fill="#eaf6ff"/>
-<path d="M140 84 L152 74 L166 84 Z" fill="#d8ecfb"/>
-</svg>"""
-
-## Cinder Coast: dusk geothermal shore -- basalt palisade, a smoking cone and
-## the glowing seam where the lava meets the black sand.
-const ART_CINDER: String = """<svg xmlns="http://www.w3.org/2000/svg" width="200" height="92" viewBox="0 0 200 92">
-<path d="M0 62 L34 30 L52 44 L74 22 L96 50 L118 34 L146 12 L172 40 L200 26 L200 92 L0 92 Z" fill="#3a2029"/>
-<path d="M132 24 L146 12 L162 28 L152 30 Z" fill="#4d2a2c"/>
-<path d="M141 12 q4 -9 -2 -14 q10 4 8 14 Z" fill="#8d6a63" opacity="0.7"/>
-<path d="M0 62 L34 30 L52 44 L74 22 L96 50 L118 34 L146 12 L172 40 L200 26 L200 34 L0 70 Z" fill="#a83a1c" opacity="0.55"/>
-<rect x="0" y="66" width="200" height="26" fill="#20141a"/>
-<path d="M0 66 q26 5 52 0 q28 -5 52 2 q30 5 52 -2 q24 -4 44 1 L200 70 L0 72 Z" fill="#e0642a" opacity="0.75"/>
-<circle cx="26" cy="80" r="2.4" fill="#f0a34c" opacity="0.6"/>
-<circle cx="118" cy="84" r="2" fill="#f0a34c" opacity="0.5"/>
-</svg>"""
-
-## Sapphire Hollow: inside the glacier -- vaulted arches down a blue slot with
-## crystal veins glowing in the walls.
-const ART_HOLLOW: String = """<svg xmlns="http://www.w3.org/2000/svg" width="200" height="92" viewBox="0 0 200 92">
-<rect x="0" y="0" width="200" height="92" fill="#050b1c"/>
-<path d="M18 92 L18 34 q82 -34 164 0 L164 92 Z" fill="#123a72"/>
-<path d="M40 92 L40 44 q60 -26 120 0 L160 92 Z" fill="#1b56a0"/>
-<path d="M64 92 L64 54 q36 -18 72 0 L136 92 Z" fill="#2a74c6"/>
-<path d="M86 92 L86 64 q14 -10 28 0 L114 92 Z" fill="#4a9ce0"/>
-<rect x="6" y="20" width="9" height="72" fill="#0d2450"/>
-<rect x="185" y="20" width="9" height="72" fill="#0d2450"/>
-<path d="M28 40 L31 62 L27 78" stroke="#7fd8ff" stroke-width="2" fill="none" opacity="0.75"/>
-<path d="M172 44 L169 66 L173 80" stroke="#7fd8ff" stroke-width="2" fill="none" opacity="0.75"/>
-<rect x="0" y="84" width="200" height="8" fill="#5fa8e6" opacity="0.5"/>
-</svg>"""
-
-const COURSE_ART: Dictionary = {
-	"glacier": ART_GLACIER,
-	"aurora": ART_AURORA,
-	"iceberg": ART_ICEBERG,
-	"cinder": ART_CINDER,
-	"hollow": ART_HOLLOW,
+const COURSE_POSTER_PATHS: Dictionary = {
+	"aurora": "res://assets/art/ui/course_posters/aurora_ascent_wave1.png",
+	"cinder": "res://assets/art/ui/course_posters/cinder_coast_wave2.png",
+	"glacier": "res://assets/art/ui/course_posters/glacier_gauntlet_wave1.png",
+	"hollow": "res://assets/art/ui/course_posters/sapphire_hollow_wave2.png",
+	"iceberg": "res://assets/art/ui/course_posters/iceberg_bay_wave2.png",
+	"tutorial": "res://assets/art/ui/course_posters/waddle_school_wave1.png",
 }
-
-## Sky gradient behind each poster (top → bottom).
-const COURSE_SKY: Dictionary = {
-	"glacier": [Color(0.29, 0.52, 0.78), Color(0.82, 0.92, 0.99)],
-	"aurora": [Color(0.04, 0.07, 0.19), Color(0.24, 0.38, 0.56)],
-	"iceberg": [Color(0.25, 0.23, 0.49), Color(0.99, 0.70, 0.45)],
-	"cinder": [Color(0.36, 0.10, 0.09), Color(0.92, 0.44, 0.18)],
-	"hollow": [Color(0.02, 0.05, 0.13), Color(0.16, 0.42, 0.72)],
+const COURSE_POSTER_TEXTURES: Dictionary = {
+	"aurora": preload("res://assets/art/ui/course_posters/aurora_ascent_wave1.png"),
+	"cinder": preload("res://assets/art/ui/course_posters/cinder_coast_wave2.png"),
+	"glacier": preload("res://assets/art/ui/course_posters/glacier_gauntlet_wave1.png"),
+	"hollow": preload("res://assets/art/ui/course_posters/sapphire_hollow_wave2.png"),
+	"iceberg": preload("res://assets/art/ui/course_posters/iceberg_bay_wave2.png"),
+	"tutorial": preload("res://assets/art/ui/course_posters/waddle_school_wave1.png"),
 }
 
 ## Most course posters in one landscape row before the grid wraps.
@@ -176,6 +106,7 @@ var _chosen_course: String = "glacier"
 var _content: VBoxContainer
 ## Pinned bottom bar holding the step's Back button, outside the scroll.
 var _footer: MarginContainer = null
+var _scroll: ScrollContainer = null
 var _buttons: Array[Button] = []
 var _card_width: float = COLUMN_BASE
 ## Extra enlargement for tall/narrow (portrait) viewports — see _tall_boost().
@@ -193,18 +124,25 @@ func _ready() -> void:
 	# The gallery outgrows a short landscape phone, so the step lives in a
 	# scroll wrapper; while it fits, the expanding CenterContainer keeps the
 	# desktop composition perfectly centered.
-	var scroll := ScrollContainer.new()
+	_scroll = ScrollContainer.new()
 	# Rows are buttons, which swallow touch drags before the ScrollContainer
 	# can see them; this restores dragging the list on a phone.
-	TouchScroll.attach(scroll)
-	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.follow_focus = true
-	add_child(scroll)
+	TouchScroll.attach(_scroll)
+	_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.follow_focus = true
+	add_child(_scroll)
+	var profile := LayoutProfile.for_viewport(get_viewport())
+	_scroll.offset_left = profile.safe_insets.x
+	_scroll.offset_top = profile.safe_insets.y
+	_scroll.offset_right = -profile.safe_insets.z
+	# Footer owns this band. Content never renders under Back, even before the
+	# final spacer reaches the viewport during a portrait course scroll.
+	_scroll.offset_bottom = -(profile.safe_insets.w + _u(92.0))
 	var center := CenterContainer.new()
 	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.add_child(center)
+	_scroll.add_child(center)
 	_content = VBoxContainer.new()
 	_content.alignment = BoxContainer.ALIGNMENT_CENTER
 	_content.custom_minimum_size.x = _card_width
@@ -221,9 +159,12 @@ func _ready() -> void:
 	_footer = MarginContainer.new()
 	_footer.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	_footer.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_footer.add_theme_constant_override("margin_bottom", _gap(UITheme.SPACE_S))
-	_footer.add_theme_constant_override("margin_left", UITheme.screen_margin())
-	_footer.add_theme_constant_override("margin_right", UITheme.screen_margin())
+	_footer.add_theme_constant_override("margin_bottom",
+		roundi(profile.safe_insets.w) + _gap(UITheme.SPACE_S))
+	_footer.add_theme_constant_override("margin_left",
+		roundi(profile.safe_insets.x) + UITheme.screen_margin())
+	_footer.add_theme_constant_override("margin_right",
+		roundi(profile.safe_insets.z) + UITheme.screen_margin())
 	_footer.mouse_filter = Control.MOUSE_FILTER_PASS
 	# Scrim under the footer so cards scrolling beneath it fade out rather than
 	# running into the button. Without it the Back control reads as an unrelated
@@ -741,6 +682,7 @@ func _mode_card(parent: Control, tile: Vector2, title: String, icon_svg: String,
 	name_label.add_theme_font_size_override("font_size", _f(29))
 	name_label.add_theme_color_override("font_color",
 		Color(0.98, 0.995, 1.0) if primary else UITheme.COLOR_TEXT)
+	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text_box.add_child(name_label)
 	_body_text(text_box, blurb, 17, 2).add_theme_color_override("font_color",
@@ -749,7 +691,13 @@ func _mode_card(parent: Control, tile: Vector2, title: String, icon_svg: String,
 		Color(0.78, 0.90, 1.0, 0.85) if primary else Color(tint, 0.85))
 
 	if not stat_value.is_empty():
-		_stat_tile(row, stat_value, stat_caption, tint, false)
+		if _is_portrait():
+			# Portrait cards spend width on readable copy, not a fixed right rail.
+			# Record stays visible as one compact line under mode metadata.
+			_caption(text_box, "%s  ·  %s" % [stat_value, stat_caption], 14,
+				Color(tint, 0.98))
+		else:
+			_stat_tile(row, stat_value, stat_caption, tint, false)
 
 
 ## Fastest personal best across every course — the headline number for the
@@ -815,8 +763,8 @@ func _show_course_step() -> void:
 	_play_entrance()
 
 
-## Framed poster: gradient sky, flat-fill scene, and a hairline accent rim so
-## the plate reads as art hung inside the card rather than a stray image.
+## Framed authored plate. KEEP_ASPECT_COVERED deliberately center-crops: every
+## production landmark was authored inside the central 55% safe region.
 func _course_art(parent: Control, id: String, min_size: Vector2) -> Control:
 	var frame := Control.new()
 	frame.custom_minimum_size = min_size
@@ -824,27 +772,19 @@ func _course_art(parent: Control, id: String, min_size: Vector2) -> Control:
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(frame)
 
-	var sky_pair: Array = COURSE_SKY.get(id, [Color(0.29, 0.52, 0.78), Color(0.82, 0.92, 0.99)])
-	var grad := Gradient.new()
-	grad.colors = PackedColorArray([sky_pair[0] as Color, sky_pair[1] as Color])
-	grad.offsets = PackedFloat32Array([0.0, 1.0])
-	var tex := GradientTexture2D.new()
-	tex.gradient = grad
-	tex.fill_from = Vector2(0.0, 0.0)
-	tex.fill_to = Vector2(0.0, 1.0)
-	var sky := TextureRect.new()
-	sky.texture = tex
-	sky.stretch_mode = TextureRect.STRETCH_SCALE
-	sky.set_anchors_preset(Control.PRESET_FULL_RECT)
-	sky.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.add_child(sky)
-
-	var art := _cached_icon(String(COURSE_ART.get(id, ART_GLACIER)))
-	if art != null:
+	# Preloaded script dependencies are decoded by SceneRouter's threaded scene
+	# load. Card construction only binds an existing texture; it never blocks the
+	# first course screen on synchronous disk IO or PNG decode.
+	var authored := COURSE_POSTER_TEXTURES.get(id) as Texture2D
+	if authored == null:
+		push_error("Missing authored course poster: %s" % id)
+	else:
 		var scene := TextureRect.new()
-		scene.texture = art
+		scene.name = "CoursePoster_%s" % id.capitalize()
+		scene.texture = authored
 		scene.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		scene.stretch_mode = TextureRect.STRETCH_SCALE
+		scene.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		scene.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		scene.set_anchors_preset(Control.PRESET_FULL_RECT)
 		scene.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		frame.add_child(scene)

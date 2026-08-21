@@ -16,6 +16,10 @@ extends Node3D
 ## still render full species markings), else falls back to Emperor.
 
 enum Pose { RUN, SLIDE, AIR, SWIM, STUN, IDLE, CELEBRATE, DEFEAT }
+## Stable presentation roles shared by runner, racing, ghosts and lightweight
+## background casts. Values intentionally match CharacterLook.RenderRole so a
+## saved/configured look can cross the compatibility facade without mapping.
+enum RenderRole { HERO, RACER, GHOST, CROWD }
 
 const BROW_REST: float = -0.1745  # ~-10 deg: relaxed determined slope
 ## Attacker lunge: short enough to read as a jab, long enough to see at 30 px.
@@ -141,6 +145,28 @@ const SPECIES: Dictionary = {
 }
 
 const PLUMAGE_SHADER_PATH: String = "res://assets/shaders/penguin.gdshader"
+const AUTHORED_HERO_SCENE_PATH: String = "res://assets/art/characters/hero_penguin_v1.tscn"
+# Imported source is 1.94 m tall. This presentation scale seats its neutral,
+# slide and air bounds in the same 14-18% chase-camera envelope as the legacy
+# hero without changing gameplay transforms or collision.
+const AUTHORED_HERO_GAME_SCALE: float = 0.54
+# Authored LOD0 stays on hero/ghost. Non-player racers switch to existing
+# procedural renderer outside chase-camera foreground; hysteresis prevents pop
+# thrash when pack crosses threshold. Hidden authored skinning sleeps outside
+# short cross-fades; procedural pose state remains ready for instant handoff.
+const AUTHORED_RACER_LOD_ENTER_METERS: float = 18.0
+const AUTHORED_RACER_LOD_EXIT_METERS: float = 24.0
+const AUTHORED_RACER_LOD_CHECK_SECONDS: float = 0.20
+const AUTHORED_RACER_LOD_FADE_SECONDS: float = 0.18
+# Shadow/depth passes multiply the cost of seven authored LOD1 racers. Keep
+# full authored shadows only inside the immediate contact pack; beyond it baked
+# course contact/AO carries the grounded read. Separate enter/exit thresholds
+# prevent a visible shadow toggle while orbiting camera.
+const AUTHORED_RACER_SHADOW_ENTER_METERS: float = 8.5
+const AUTHORED_RACER_SHADOW_EXIT_METERS: float = 10.5
+## Frozen performance-baseline hook. Production never mutates this; isolated
+## QA projects compare the exact same race/camera with procedural characters.
+static var disable_authored_backend_for_tests: bool = false
 const IDENT_DEFAULT: Color = Color(0.64, 0.79, 1.0)
 
 static var _material_cache: Dictionary = {}
@@ -171,6 +197,23 @@ var _brow_r: MeshInstance3D
 var _hat_anchor: Node3D
 var _neck_anchor: Node3D
 var _face_anchor: Node3D
+var _trail_anchor: Node3D
+var _authored_backend: Node3D = null
+var _authored_sockets: Dictionary = {}
+var _look: CharacterLook = null
+var _setup_look_in_progress: bool = false
+var _render_role: RenderRole = RenderRole.HERO
+var _authored_lod_visible: bool = true
+var _authored_lod_blend: float = 1.0
+var _authored_lod_target_blend: float = 1.0
+var _authored_lod_clock: float = 0.0
+var _authored_racer_shadow_enabled: bool = false
+var _render_role_transparency: float = 0.0
+var _driven_speed_ratio: float = 0.0
+var _driven_turn: float = 0.0
+var _driven_slope: float = 0.0
+var _driven_vertical_speed: float = 0.0
+var _driven_grounded: bool = true
 var _time: float = 0.0
 var _pose_blend: float = 0.0
 var _current_tilt: Vector3 = Vector3.ZERO
@@ -860,6 +903,15 @@ static func _build_foot_mesh(base: Color) -> ArrayMesh:
 ## canonical dorsal color, and unknown/legacy palettes fall back to Emperor
 ## markings while keeping their authored colors.
 func setup(config: Dictionary) -> void:
+	if not _setup_look_in_progress:
+		_look = null
+	_authored_backend = null
+	_authored_sockets.clear()
+	_authored_lod_visible = true
+	_authored_lod_blend = 1.0
+	_authored_lod_target_blend = 1.0
+	_authored_lod_clock = 0.0
+	_authored_racer_shadow_enabled = false
 	for child in get_children():
 		child.queue_free()
 	var species_id := resolve_species_id(config)
@@ -881,9 +933,11 @@ func setup(config: Dictionary) -> void:
 	# goggles) scale consistently with the body — Little Blue's small head
 	# gets a matching small beanie.
 	_scale_root = Node3D.new()
+	_scale_root.name = "SpeciesScale"
 	_scale_root.scale = sp.get("scale", Vector3.ONE) as Vector3
 	add_child(_scale_root)
 	_root = Node3D.new()
+	_root.name = "AnimatedRoot"
 	_scale_root.add_child(_root)
 	# Fresh nodes start at identity; reset the smoothed-animation state that
 	# fed the old nodes so a re-setup (customize preview) doesn't inherit a
@@ -945,10 +999,12 @@ func setup(config: Dictionary) -> void:
 
 	# Head anchor at the head-sphere center (the lathe's upper bulge).
 	_head_anchor = Node3D.new()
+	_head_anchor.name = "HeadRoot"
 	_head_anchor.position = Vector3(0, HEAD_Y, -0.02)
 	_root.add_child(_head_anchor)
 
 	_face_anchor = Node3D.new()
+	_face_anchor.name = "FaceSocket"
 	_face_anchor.position = Vector3(0, 0, -0.20)
 	_head_anchor.add_child(_face_anchor)
 
@@ -1171,15 +1227,321 @@ func setup(config: Dictionary) -> void:
 					_prop(_head_anchor, quill_fine, crest_color, Vector3(0.042 * side, 0.100, -0.100), Vector3(deg_to_rad(-14), 0, deg_to_rad(88.0 * side)), Vector3(1.0, 1.2, 1.0), crest_deep)
 
 	_hat_anchor = Node3D.new()
+	_hat_anchor.name = "HeadSocket"
 	_hat_anchor.position = Vector3(0, 0.13, -0.005)
 	_head_anchor.add_child(_hat_anchor)
 	_neck_anchor = Node3D.new()
+	_neck_anchor.name = "NeckSocket"
 	_neck_anchor.position = Vector3(0, 0.72, 0)
 	_root.add_child(_neck_anchor)
+	_trail_anchor = Node3D.new()
+	_trail_anchor.name = "TrailSocket"
+	_trail_anchor.position = Vector3(0, 0.28, 0.24)
+	_root.add_child(_trail_anchor)
 
+	_try_enable_authored_backend(config, species_id)
 	_apply_cosmetic(String(config.get("hat", "")))
 	_apply_cosmetic(String(config.get("scarf", "")))
 	_apply_cosmetic(String(config.get("goggles", "")))
+	_apply_render_role()
+
+
+## Authored-character entry point. Explicit HERO/RACER/GHOST looks select the
+## shared rig when its full contract loads; CROWD and legacy setup callers keep
+## the cached procedural renderer so old saves and distant casts stay cheap.
+func setup_look(look: CharacterLook) -> void:
+	if look == null:
+		_look = null
+		setup({})
+		set_render_role(RenderRole.HERO)
+		return
+	_look = look
+	_setup_look_in_progress = true
+	setup(look.to_legacy_config())
+	_setup_look_in_progress = false
+	# Look-space corrections live below the gameplay node. setup_look() must
+	# never reset a racer's course transform or become accidental root motion.
+	if _scale_root != null:
+		_scale_root.position = look.visual_offset
+		_scale_root.rotation_degrees = look.visual_rotation_degrees
+		_scale_root.scale *= look.visual_scale
+	if _authored_backend != null:
+		_authored_backend.position = look.visual_offset
+		_authored_backend.rotation_degrees = look.visual_rotation_degrees
+		_authored_backend.scale = Vector3.ONE * AUTHORED_HERO_GAME_SCALE * look.visual_scale
+	set_render_role(look.render_role as RenderRole)
+
+
+## Supplies motion intent without moving this node. Gameplay remains the sole
+## transform/root-motion authority; this method only selects locomotion pose,
+## cadence and local presentation lean for authored and procedural backends.
+func drive_motion(speed_ratio: float, turn: float, slope: float,
+		vertical_speed: float, grounded: bool) -> void:
+	_driven_speed_ratio = clampf(speed_ratio, 0.0, 1.5)
+	_driven_turn = clampf(turn, -1.0, 1.0)
+	_driven_slope = clampf(slope, -0.60, 0.60)
+	_driven_vertical_speed = vertical_speed
+	_driven_grounded = grounded
+	anim_speed = _driven_speed_ratio
+	rotation.z = deg_to_rad(18.0) * -_driven_turn
+	rotation.x = _driven_slope if grounded else clampf(vertical_speed * 0.028, -0.34, 0.26)
+	if not grounded and pose in [Pose.RUN, Pose.IDLE]:
+		set_pose(Pose.AIR)
+	elif grounded and pose == Pose.AIR:
+		set_pose(Pose.RUN if _driven_speed_ratio > 0.08 else Pose.IDLE)
+	if _authored_backend != null and _authored_backend.has_method("drive_motion"):
+		_authored_backend.call("drive_motion", _driven_speed_ratio, _driven_turn,
+				_driven_slope, _driven_vertical_speed, _driven_grounded)
+
+
+## Stable semantic one-shot API used by presentation directors. Context is
+## deliberately open for forward compatibility; current keys include side,
+## strength, shielded and item_id.
+func trigger_event(event_id: StringName, context: Dictionary = {}) -> void:
+	var strength := clampf(float(context.get("strength", 1.0)), 0.0, 1.0)
+	var side := signf(float(context.get("side", 1.0)))
+	if is_zero_approx(side):
+		side = 1.0
+	match event_id:
+		&"jumped", &"jump_takeoff", &"ramp_launched", &"ramp_launch":
+			set_pose(Pose.AIR)
+		&"landed", &"jump_land", &"ramp_land":
+			trigger_squash(lerpf(0.86, 0.62, strength))
+			set_pose(Pose.RUN if _driven_speed_ratio > 0.08 else Pose.IDLE)
+		&"slid", &"slide_enter", &"slide_loop":
+			set_pose(Pose.SLIDE)
+		&"slide_exit", &"recover":
+			set_pose(Pose.RUN if _driven_speed_ratio > 0.08 else Pose.IDLE)
+		&"hit_taken", &"hit", &"stumble":
+			trigger_tumble(side)
+			trigger_squash(lerpf(0.88, 0.68, strength))
+		&"shield_spent", &"shield_hit":
+			trigger_squash(lerpf(0.94, 0.80, strength))
+		&"shove", &"shove_started":
+			trigger_lunge()
+		&"swim":
+			set_pose(Pose.SWIM)
+		&"died", &"defeat", &"wipeout":
+			set_pose(Pose.DEFEAT)
+		&"celebrate", &"celebration":
+			set_pose(Pose.CELEBRATE)
+	if _authored_backend != null and _authored_backend.has_method("trigger_event"):
+		_authored_backend.call("trigger_event", event_id, context)
+
+
+## Returns semantic attachment sockets. Both concise and manifest names are
+## accepted so legacy cosmetics and future GLB wrappers share one contract.
+func get_socket(socket_id: StringName) -> Node3D:
+	var authored_name := String(socket_id)
+	match socket_id:
+		&"head":
+			authored_name = "head_socket"
+		&"face":
+			authored_name = "face_socket"
+		&"neck":
+			authored_name = "neck_socket"
+		&"trail":
+			authored_name = "trail_socket"
+	if _authored_sockets.has(authored_name):
+		return _authored_sockets[authored_name] as Node3D
+	match socket_id:
+		&"head", &"head_socket":
+			return _hat_anchor
+		&"face", &"face_socket":
+			return _face_anchor
+		&"neck", &"neck_socket":
+			return _neck_anchor
+		&"trail", &"trail_socket":
+			return _trail_anchor
+	return null
+
+
+func is_authored_backend_active() -> bool:
+	return is_instance_valid(_authored_backend)
+
+
+func _try_enable_authored_backend(config: Dictionary, species_id: String) -> void:
+	# Legacy direct setup and CROWD stay on cached low-cost procedural geometry.
+	# Authored contract-budget LOD0 is reserved for HERO/RACER/GHOST looks;
+	# distant racers additionally use render-role visibility ranges below.
+	if disable_authored_backend_for_tests or (not _setup_look_in_progress or _look == null
+			or _look.render_role == CharacterLook.RenderRole.CROWD):
+		return
+	if not ResourceLoader.exists(AUTHORED_HERO_SCENE_PATH):
+		return
+	var packed := load(AUTHORED_HERO_SCENE_PATH) as PackedScene
+	if packed == null:
+		return
+	var candidate := packed.instantiate() as Node3D
+	if candidate == null:
+		return
+	candidate.name = "AuthoredHeroPenguin"
+	candidate.scale = Vector3.ONE * AUTHORED_HERO_GAME_SCALE
+	add_child(candidate)
+	if candidate.has_method("configure"):
+		candidate.call("configure", species_id, _ident)
+	if candidate.has_method("missing_contract_items"):
+		var gaps: PackedStringArray = candidate.call("missing_contract_items") as PackedStringArray
+		if not gaps.is_empty():
+			push_warning("Authored hero penguin contract incomplete: %s" % ", ".join(gaps))
+			candidate.queue_free()
+			return
+	_authored_backend = candidate
+	for socket_name: String in CharacterLook.REQUIRED_SOCKETS:
+		if candidate.has_method("get_socket"):
+			var socket := candidate.call("get_socket", StringName(socket_name)) as Node3D
+			if socket != null:
+				_authored_sockets[socket_name] = socket
+	# Keep procedural renderer alive and pose-synchronized as true far-racer LOD.
+	# Parent visibility swaps whole backend atomically; individual geometry never
+	# disappears at a visibility-range cliff.
+	_set_authored_lod_visible(true, true)
+
+
+func set_render_role(role: RenderRole) -> void:
+	_render_role = role
+	_update_authored_lod(true)
+	_apply_render_role()
+
+
+func _apply_render_role() -> void:
+	var range_end := 0.0
+	var shadow_mode := GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	var transparency := 0.0
+	match _render_role:
+		RenderRole.RACER:
+			range_end = 0.0
+		RenderRole.GHOST:
+			range_end = 0.0
+			shadow_mode = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			transparency = 0.42
+		RenderRole.CROWD:
+			range_end = 65.0
+			shadow_mode = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for child: Node in find_children("*", "GeometryInstance3D", true, false):
+		var geometry := child as GeometryInstance3D
+		geometry.visibility_range_end = range_end
+		geometry.cast_shadow = shadow_mode
+		geometry.transparency = transparency
+	_render_role_transparency = transparency
+	if is_instance_valid(_authored_backend) and _authored_backend.has_method("set_render_role"):
+		_authored_backend.call("set_render_role", int(_render_role))
+	var authored_shadow := (_render_role == RenderRole.HERO
+			or (_render_role == RenderRole.RACER and _authored_racer_shadow_enabled))
+	_set_authored_racer_shadow(authored_shadow, true)
+	_apply_authored_lod_blend()
+
+
+func _update_authored_lod(force: bool = false) -> void:
+	if not is_instance_valid(_authored_backend):
+		return
+	if not force and _authored_lod_clock < AUTHORED_RACER_LOD_CHECK_SECONDS:
+		return
+	_authored_lod_clock = 0.0
+	match _render_role:
+		RenderRole.HERO:
+			_set_authored_racer_shadow(true, force)
+			_set_authored_lod_visible(true, force)
+		RenderRole.GHOST:
+			_set_authored_racer_shadow(false, force)
+			_set_authored_lod_visible(true, force)
+		RenderRole.CROWD:
+			_set_authored_racer_shadow(false, force)
+			_set_authored_lod_visible(false, force)
+		RenderRole.RACER:
+			# Race construction/capture teardown can update roles before this facade
+			# enters a world, inside a camera-less SubViewport, or after detachment.
+			# All are valid cheap-LOD states; never query an incomplete viewport.
+			var camera := _foreground_camera_or_null()
+			if camera == null:
+				# Tests/background scenes have no foreground-camera claim. Cheap
+				# backend is safer than paying LOD0 for every offscreen racer.
+				_set_authored_racer_shadow(false, force)
+				_set_authored_lod_visible(false, force)
+				return
+			var distance := global_position.distance_to(camera.global_position)
+			var shadow_threshold := (AUTHORED_RACER_SHADOW_EXIT_METERS
+					if _authored_racer_shadow_enabled
+					else AUTHORED_RACER_SHADOW_ENTER_METERS)
+			_set_authored_racer_shadow(distance <= shadow_threshold, force)
+			var threshold := (AUTHORED_RACER_LOD_EXIT_METERS if _authored_lod_visible
+					else AUTHORED_RACER_LOD_ENTER_METERS)
+			_set_authored_lod_visible(distance <= threshold, force)
+
+
+func _foreground_camera_or_null() -> Camera3D:
+	if not is_inside_tree() or get_tree() == null:
+		return null
+	var viewport := get_viewport()
+	if not is_instance_valid(viewport) or not viewport.is_inside_tree():
+		return null
+	if viewport.get_world_3d() == null:
+		return null
+	var camera := viewport.get_camera_3d()
+	if not is_instance_valid(camera) or not camera.is_inside_tree() \
+			or not camera.current:
+		return null
+	return camera
+
+
+func _set_authored_racer_shadow(enabled: bool, force: bool = false) -> void:
+	if not force and _authored_racer_shadow_enabled == enabled:
+		return
+	_authored_racer_shadow_enabled = enabled
+	if not is_instance_valid(_authored_backend):
+		return
+	var mode := (GeometryInstance3D.SHADOW_CASTING_SETTING_ON if enabled
+			else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+	for child: Node in _authored_backend.find_children(
+			"*", "GeometryInstance3D", true, false):
+		(child as GeometryInstance3D).cast_shadow = mode
+
+
+func _set_authored_lod_visible(enabled: bool, immediate: bool = false) -> void:
+	_authored_lod_visible = enabled
+	_authored_lod_target_blend = 1.0 if enabled else 0.0
+	if immediate:
+		_authored_lod_blend = _authored_lod_target_blend
+	_apply_authored_lod_blend()
+
+
+func _advance_authored_lod_blend(delta: float) -> void:
+	if is_equal_approx(_authored_lod_blend, _authored_lod_target_blend):
+		return
+	_authored_lod_blend = move_toward(_authored_lod_blend,
+			_authored_lod_target_blend,
+			delta / maxf(AUTHORED_RACER_LOD_FADE_SECONDS, 0.001))
+	_apply_authored_lod_blend()
+
+
+func _apply_authored_lod_blend() -> void:
+	if is_instance_valid(_authored_backend):
+		_authored_backend.visible = _authored_lod_blend > 0.001
+		_authored_backend.process_mode = (Node.PROCESS_MODE_INHERIT
+				if _authored_lod_blend > 0.001 else Node.PROCESS_MODE_DISABLED)
+	if is_instance_valid(_scale_root):
+		_scale_root.visible = _authored_lod_blend < 0.999
+	# GeometryInstance3D transparency supplies a deterministic short dissolve.
+	# Procedural pose state remains current during this short dissolve, so
+	# crossing threshold cannot produce a disappearance or hard material cut.
+	for child: Node in find_children("*", "GeometryInstance3D", true, false):
+		var geometry := child as GeometryInstance3D
+		var authored := (is_instance_valid(_authored_backend)
+				and _authored_backend.is_ancestor_of(geometry))
+		var opacity := _authored_lod_blend if authored else 1.0 - _authored_lod_blend
+		geometry.transparency = 1.0 - opacity * (1.0 - _render_role_transparency)
+
+
+func is_authored_lod_visible() -> bool:
+	return is_instance_valid(_authored_backend) and _authored_lod_visible
+
+
+func is_authored_racer_shadow_enabled() -> bool:
+	return is_instance_valid(_authored_backend) and _authored_racer_shadow_enabled
+
+
+func authored_lod_blend() -> float:
+	return _authored_lod_blend if is_instance_valid(_authored_backend) else 0.0
 
 
 func _make_flipper(body_color: Color, belly_color: Color, mantle_color: Color, side: float) -> Node3D:
@@ -1229,96 +1591,101 @@ func _apply_cosmetic(id: String) -> void:
 		return
 	var info := CosmeticsDB.get_item(id)
 	var color: Color = info.get("color", Color.WHITE)
+	var head_socket := get_socket(&"head_socket")
+	var face_socket := get_socket(&"face_socket")
+	var neck_socket := get_socket(&"neck_socket")
+	if head_socket == null or face_socket == null or neck_socket == null:
+		return
 	match id:
 		"hat_beanie":
 			var dome := SphereMesh.new()
 			dome.radius = 0.24
 			dome.height = 0.26
-			_mesh(_hat_anchor, dome, color, Vector3(0, 0.03, 0))
+			_mesh(head_socket, dome, color, Vector3(0, 0.03, 0))
 			var pom := SphereMesh.new()
 			pom.radius = 0.07
 			pom.height = 0.14
-			_mesh(_hat_anchor, pom, Color(0.97, 0.97, 0.97), Vector3(0, 0.19, 0))
+			_mesh(head_socket, pom, Color(0.97, 0.97, 0.97), Vector3(0, 0.19, 0))
 		"hat_earwarmers":
 			var band := TorusMesh.new()
 			band.inner_radius = 0.20
 			band.outer_radius = 0.235
-			_mesh(_hat_anchor, band, Color(0.4, 0.4, 0.45), Vector3(0, -0.10, 0), Vector3(deg_to_rad(14), 0, 0))
+			_mesh(head_socket, band, Color(0.4, 0.4, 0.45), Vector3(0, -0.10, 0), Vector3(deg_to_rad(14), 0, 0))
 			var muff := SphereMesh.new()
 			muff.radius = 0.09
 			muff.height = 0.18
-			_mesh(_hat_anchor, muff, color, Vector3(-0.215, -0.13, 0.005))
-			_mesh(_hat_anchor, muff, color, Vector3(0.215, -0.13, 0.005))
+			_mesh(head_socket, muff, color, Vector3(-0.215, -0.13, 0.005))
+			_mesh(head_socket, muff, color, Vector3(0.215, -0.13, 0.005))
 		"hat_headset":
 			var band := TorusMesh.new()
 			band.inner_radius = 0.21
 			band.outer_radius = 0.24
-			_mesh(_hat_anchor, band, Color(0.2, 0.2, 0.24), Vector3(0, -0.08, 0), Vector3(deg_to_rad(10), 0, 0))
+			_mesh(head_socket, band, Color(0.2, 0.2, 0.24), Vector3(0, -0.08, 0), Vector3(deg_to_rad(10), 0, 0))
 			var can := CylinderMesh.new()
 			can.top_radius = 0.075
 			can.bottom_radius = 0.075
 			can.height = 0.05
-			_mesh(_hat_anchor, can, color, Vector3(-0.205, -0.13, 0.005), Vector3(0, 0, deg_to_rad(90)))
-			_mesh(_hat_anchor, can, color, Vector3(0.205, -0.13, 0.005), Vector3(0, 0, deg_to_rad(90)))
+			_mesh(head_socket, can, color, Vector3(-0.205, -0.13, 0.005), Vector3(0, 0, deg_to_rad(90)))
+			_mesh(head_socket, can, color, Vector3(0.205, -0.13, 0.005), Vector3(0, 0, deg_to_rad(90)))
 			var mic := CylinderMesh.new()
 			mic.top_radius = 0.015
 			mic.bottom_radius = 0.015
 			mic.height = 0.2
-			_mesh(_hat_anchor, mic, Color(0.2, 0.2, 0.24), Vector3(-0.14, -0.20, -0.12), Vector3(deg_to_rad(55), deg_to_rad(25), 0))
+			_mesh(head_socket, mic, Color(0.2, 0.2, 0.24), Vector3(-0.14, -0.20, -0.12), Vector3(deg_to_rad(55), deg_to_rad(25), 0))
 		"hat_crown":
 			var ring := CylinderMesh.new()
 			ring.top_radius = 0.15
 			ring.bottom_radius = 0.125
 			ring.height = 0.11
-			_mesh(_hat_anchor, ring, color, Vector3(0, 0.03, 0))
+			_mesh(head_socket, ring, color, Vector3(0, 0.03, 0))
 			var spike := CylinderMesh.new()
 			spike.top_radius = 0.0
 			spike.bottom_radius = 0.04
 			spike.height = 0.11
 			for i: int in 5:
 				var angle := TAU * float(i) / 5.0
-				_mesh(_hat_anchor, spike, color, Vector3(sin(angle) * 0.125, 0.12, cos(angle) * 0.125))
+				_mesh(head_socket, spike, color, Vector3(sin(angle) * 0.125, 0.12, cos(angle) * 0.125))
 		"scarf_red", "scarf_rainbow":
 			var scarf := TorusMesh.new()
 			scarf.inner_radius = 0.17
 			scarf.outer_radius = 0.30
-			_mesh(_neck_anchor, scarf, color, Vector3.ZERO, Vector3.ZERO, Vector3(1, 1.3, 1))
+			_mesh(neck_socket, scarf, color, Vector3.ZERO, Vector3.ZERO, Vector3(1, 1.3, 1))
 			var tail_mesh := BoxMesh.new()
 			tail_mesh.size = Vector3(0.12, 0.3, 0.05)
-			_mesh(_neck_anchor, tail_mesh, color, Vector3(0.10, -0.16, -0.24), Vector3(deg_to_rad(-8), 0, deg_to_rad(-8)))
+			_mesh(neck_socket, tail_mesh, color, Vector3(0.10, -0.16, -0.24), Vector3(deg_to_rad(-8), 0, deg_to_rad(-8)))
 			if id == "scarf_rainbow":
 				var stripe := BoxMesh.new()
 				stripe.size = Vector3(0.12, 0.1, 0.06)
-				_mesh(_neck_anchor, stripe, Color(0.3, 0.75, 0.95), Vector3(0.10, -0.08, -0.24))
-				_mesh(_neck_anchor, stripe, Color(0.45, 0.85, 0.4), Vector3(0.10, -0.24, -0.235))
+				_mesh(neck_socket, stripe, Color(0.3, 0.75, 0.95), Vector3(0.10, -0.08, -0.24))
+				_mesh(neck_socket, stripe, Color(0.45, 0.85, 0.4), Vector3(0.10, -0.24, -0.235))
 		"scarf_bowtie":
 			var knot := BoxMesh.new()
 			knot.size = Vector3(0.07, 0.07, 0.05)
-			_mesh(_neck_anchor, knot, color, Vector3(0, -0.06, -0.245))
+			_mesh(neck_socket, knot, color, Vector3(0, -0.06, -0.245))
 			var wing := BoxMesh.new()
 			wing.size = Vector3(0.14, 0.1, 0.04)
-			_mesh(_neck_anchor, wing, color, Vector3(-0.10, -0.06, -0.24), Vector3(0, 0, deg_to_rad(12)))
-			_mesh(_neck_anchor, wing, color, Vector3(0.10, -0.06, -0.24), Vector3(0, 0, deg_to_rad(-12)))
+			_mesh(neck_socket, wing, color, Vector3(-0.10, -0.06, -0.24), Vector3(0, 0, deg_to_rad(12)))
+			_mesh(neck_socket, wing, color, Vector3(0.10, -0.06, -0.24), Vector3(0, 0, deg_to_rad(-12)))
 		"goggles_ski":
 			var lens := BoxMesh.new()
 			lens.size = Vector3(0.26, 0.10, 0.05)
-			var lens_instance := _mesh(_face_anchor, lens, color, Vector3(0, 0.045, -0.02))
+			var lens_instance := _mesh(face_socket, lens, color, Vector3(0, 0.045, -0.02))
 			lens_instance.material_override = get_material(color, 0.2, 0.15)
 			var strap := TorusMesh.new()
 			strap.inner_radius = 0.20
 			strap.outer_radius = 0.225
-			_mesh(_head_anchor, strap, Color(0.25, 0.25, 0.3), Vector3(0, 0.045, 0), Vector3(deg_to_rad(80), 0, 0))
+			_mesh(head_socket, strap, Color(0.25, 0.25, 0.3), Vector3(0, 0.045, 0), Vector3(deg_to_rad(80), 0, 0))
 		"goggles_aviator":
 			var lens := SphereMesh.new()
 			lens.radius = 0.055
 			lens.height = 0.11
-			var l := _mesh(_face_anchor, lens, color, Vector3(-0.095, 0.03, -0.01))
-			var r := _mesh(_face_anchor, lens, color, Vector3(0.095, 0.03, -0.01))
+			var l := _mesh(face_socket, lens, color, Vector3(-0.095, 0.03, -0.01))
+			var r := _mesh(face_socket, lens, color, Vector3(0.095, 0.03, -0.01))
 			l.material_override = get_material(color, 0.6, 0.2)
 			r.material_override = get_material(color, 0.6, 0.2)
 			var bridge := BoxMesh.new()
 			bridge.size = Vector3(0.09, 0.018, 0.018)
-			_mesh(_face_anchor, bridge, Color(0.55, 0.42, 0.2), Vector3(0, 0.035, -0.055))
+			_mesh(face_socket, bridge, Color(0.55, 0.42, 0.2), Vector3(0, 0.035, -0.055))
 		_:
 			pass
 
@@ -1328,6 +1695,8 @@ func set_pose(new_pose: Pose) -> void:
 		return
 	pose = new_pose
 	_pose_blend = 0.0
+	if _authored_backend != null and _authored_backend.has_method("set_pose"):
+		_authored_backend.call("set_pose", int(new_pose))
 
 
 func trigger_squash(amount: float = 0.72) -> void:
@@ -1355,6 +1724,15 @@ func trigger_tumble(dir: float) -> void:
 
 ## Drives all animation. speed_ratio: 0..1.5 of normal speed.
 func tick(delta: float, speed_ratio: float) -> void:
+	_authored_lod_clock += delta
+	_update_authored_lod()
+	_advance_authored_lod_blend(delta)
+	# Legacy gameplay calls this facade directly. Visible authored state machines
+	# advance here; far LODs disable their hidden rig/skin until the dissolve
+	# starts, avoiding seven offscreen 60 Hz skeletons.
+	if _authored_backend != null and _authored_backend.visible \
+			and _authored_backend.has_method("tick"):
+		_authored_backend.call("tick", delta)
 	if _root == null:
 		return
 	_time += delta * (0.6 + anim_speed)

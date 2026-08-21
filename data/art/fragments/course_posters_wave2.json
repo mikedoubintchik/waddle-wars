@@ -1,0 +1,92 @@
+{
+  "runtime_assets": [
+    {
+      "groups": [
+        "course_posters",
+        "frontend",
+        "menu"
+      ],
+      "id": "course_poster_cinder_coast_wave2",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/course_posters/cinder_coast_wave2.png",
+      "production_ready": true,
+      "sha256": "41d5a0d4e66abf72d214a69b853950c6b2adbcec581b86b2d5cb31cae6ac71e9",
+      "source_export_id": "imagegen_course_poster_cinder_coast_wave2"
+    },
+    {
+      "groups": [
+        "course_posters",
+        "frontend",
+        "menu"
+      ],
+      "id": "course_poster_iceberg_bay_wave2",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/course_posters/iceberg_bay_wave2.png",
+      "production_ready": true,
+      "sha256": "a2d5b3181292c92f9dff661cc882ec8aac4d8d6049546d12a99965b28603a6d0",
+      "source_export_id": "imagegen_course_poster_iceberg_bay_wave2"
+    },
+    {
+      "groups": [
+        "course_posters",
+        "frontend",
+        "menu"
+      ],
+      "id": "course_poster_sapphire_hollow_wave2",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/course_posters/sapphire_hollow_wave2.png",
+      "production_ready": true,
+      "sha256": "80fd58d7037ae518b1461f3512c6763d66e7982f72a78954897c1ff572fbd630",
+      "source_export_id": "imagegen_course_poster_sapphire_hollow_wave2"
+    }
+  ],
+  "source_exports": [],
+  "generated_assets": [
+    {
+      "dimensions": [
+        1672,
+        941
+      ],
+      "generated_on": "2026-08-18",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_course_poster_cinder_coast_wave2",
+      "license_id": "project_original",
+      "path": "art_src/ui/course_posters/cinder_coast_wave2.png",
+      "prompt_path": "art_src/ui/course_posters/cinder_coast_wave2.prompt.md",
+      "sha256": "41d5a0d4e66abf72d214a69b853950c6b2adbcec581b86b2d5cb31cae6ac71e9",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1672,
+        941
+      ],
+      "generated_on": "2026-08-18",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_course_poster_iceberg_bay_wave2",
+      "license_id": "project_original",
+      "path": "art_src/ui/course_posters/iceberg_bay_wave2.png",
+      "prompt_path": "art_src/ui/course_posters/iceberg_bay_wave2.prompt.md",
+      "sha256": "a2d5b3181292c92f9dff661cc882ec8aac4d8d6049546d12a99965b28603a6d0",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1672,
+        941
+      ],
+      "generated_on": "2026-08-18",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_course_poster_sapphire_hollow_wave2",
+      "license_id": "project_original",
+      "path": "art_src/ui/course_posters/sapphire_hollow_wave2.png",
+      "prompt_path": "art_src/ui/course_posters/sapphire_hollow_wave2.prompt.md",
+      "sha256": "80fd58d7037ae518b1461f3512c6763d66e7982f72a78954897c1ff572fbd630",
+      "status": "production_source"
+    }
+  ],
+  "concepts": []
+}

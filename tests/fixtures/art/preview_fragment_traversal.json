@@ -1,0 +1,14 @@
+{
+  "concepts": [],
+  "generated_assets": [],
+  "runtime_assets": [
+    {
+      "groups": ["preview_test"],
+      "id": "preview_path_escape",
+      "kind": "resource",
+      "path": "res://assets/art/../scripts/art/art_catalog.gd",
+      "production_ready": false
+    }
+  ],
+  "source_exports": []
+}

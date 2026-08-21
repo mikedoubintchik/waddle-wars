@@ -29,6 +29,7 @@ func _ready() -> void:
 	_test_save_round_trip()
 	_test_save_corruption_recovery()
 	_test_default_settings()
+	_test_ui_font_contract()
 	_test_settings_round_trip()
 	_test_cosmetics_db()
 	_test_achievements_db()
@@ -36,6 +37,7 @@ func _ready() -> void:
 	_test_progression()
 	await _test_racer_instantiation()
 	_test_path_guide()
+	await _test_track_build_result_contract()
 	await _test_powerup_activation()
 	await _test_backward_snowball()
 	await _test_shield_lifetime()
@@ -150,6 +152,12 @@ func _test_default_settings() -> void:
 	_check("settings_defaults_music_range", music >= 0.0 and music <= 1.0, "music=%f" % music)
 	_check("settings_defaults_touch_mode",
 		String(defaults["gameplay"]["touch_controls"]) in ["auto", "on", "off"])
+
+
+func _test_ui_font_contract() -> void:
+	var font := UITheme.ui_font()
+	_check("ui_font_loads", font != null)
+	_check("ui_font_has_latin", font != null and font.has_char("A".unicode_at(0)))
 
 
 ## --- 4. Settings round trip ------------------------------------------------
@@ -323,6 +331,46 @@ func _test_path_guide() -> void:
 	var mid := guide.position_at(guide.length * 0.5)
 	_check("path_guide_position_finite",
 		is_finite(mid.x) and is_finite(mid.y) and is_finite(mid.z))
+
+
+## --- 10b. Semantic track result keeps legacy geometry stable --------------
+
+func _test_track_build_result_contract() -> void:
+	var course := CourseBase.new()
+	var points: Array = [
+		{"pos": Vector3(0.0, 2.0, 12.0), "width": 14.0,
+			"surface": SurfacesDB.Surface.PACKED_SNOW},
+		{"pos": Vector3(0.0, 1.0, -12.0), "width": 15.0,
+			"surface": SurfacesDB.Surface.PACKED_SNOW},
+		{"pos": Vector3(8.0, 0.0, -36.0), "width": 16.0,
+			"surface": SurfacesDB.Surface.ICE_SMOOTH},
+		{"pos": Vector3(12.0, -1.0, -60.0), "width": 16.0,
+			"surface": SurfacesDB.Surface.ICE_SMOOTH},
+	]
+	await course.setup_main(points)
+	var result := course.main_track_result
+	_check("track_result_valid", result != null and result.is_valid())
+	if result == null:
+		course.free()
+		return
+	_check("track_result_guide_identity",
+		result.guide == course.main_guide
+		and result.root.get_meta("guide", null) == course.main_guide)
+	_check("track_result_surface_runs", not result.surface_runs.is_empty(),
+		"runs=%d" % result.surface_runs.size())
+	_check("track_result_edge_samples_paired",
+		result.edge_left.size() > 2
+		and result.edge_left.size() == result.edge_right.size(),
+		"left=%d right=%d" % [result.edge_left.size(), result.edge_right.size()])
+	_check("track_result_legacy_child_layout",
+		not result.uses_split_roots
+		and result.visual_root == result.root
+		and result.collision_root == result.root
+		and result.root.name == "MainTrack"
+		and result.root.get_child_count() > 0,
+		"split=%s children=%d" % [result.uses_split_roots,
+			result.root.get_child_count()])
+	course.free()
 
 
 ## --- 11. Every powerup activates -------------------------------------------
@@ -725,6 +773,8 @@ func _test_menu_scenes() -> void:
 	Game.last_race_results = rows
 	Game.last_rewards = {"fish": 63, "xp": 145, "unlocks": []}
 
+	var runtime_theme_ok := true
+	var bad_theme_path := ""
 	for path: String in MENU_SCENES:
 		var short := path.get_file()
 		if not ResourceLoader.exists(path):
@@ -740,10 +790,16 @@ func _test_menu_scenes() -> void:
 		await get_tree().process_frame
 		var node_count := _count_nodes(instance)
 		var has_script := instance.get_script() != null
+		if path.begins_with("res://scenes/menus/"):
+			var control := instance as Control
+			if control == null or control.theme != UITheme.runtime_theme():
+				runtime_theme_ok = false
+				bad_theme_path = path
 		_check("menu_load_%s" % short, has_script and node_count > 3,
 			"script=%s nodes=%d" % [str(has_script), node_count])
 		instance.queue_free()
 		await get_tree().process_frame
+	_check("menu_roots_runtime_theme", runtime_theme_ok, bad_theme_path)
 
 
 ## --- 13. Touch controls instantiate ----------------------------------------

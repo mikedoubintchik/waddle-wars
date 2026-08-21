@@ -78,7 +78,8 @@ Create the project using:
 - Godot Engine 4.7.1.
 - Typed GDScript, not C#.
 - Godot Mobile renderer.
-- Landscape orientation.
+- Full-sensor orientation with portrait-first gameplay/UI composition and
+  independently art-directed landscape support.
 - A single cross-platform project.
 - Desktop targets:
   - Windows.
@@ -90,7 +91,8 @@ Create the project using:
 - Keyboard support.
 - Gamepad support.
 - Touchscreen support.
-- Responsive UI that supports 16:9, 16:10, ultrawide, and common landscape phone/tablet aspect ratios.
+- Responsive safe-area-aware UI for narrow/tall phones, portrait tablets,
+  16:9, 16:10, ultrawide phones, and landscape tablets.
 
 Do not use deprecated Godot APIs.
 
@@ -891,7 +893,7 @@ Build mobile readiness into the project now rather than treating it as a future 
 Requirements:
 
 - Use the Mobile renderer.
-- Use landscape orientation.
+- Use full-sensor orientation; portrait is primary and landscape remains fully supported.
 - Create responsive safe-area-aware UI.
 - Include touch controls.
 - Do not require hover interactions.
@@ -1104,6 +1106,8 @@ Test at representative resolutions:
 - 2560×1440 where practical.
 - A wide mobile landscape resolution such as 2400×1080.
 - A tablet-like landscape resolution.
+- 540×960 logical portrait phone and 1080×1920 phone.
+- A tall notched portrait phone and portrait tablet.
 
 Check for:
 

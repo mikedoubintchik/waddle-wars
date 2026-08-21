@@ -2,7 +2,7 @@ extends Control
 ## Control remapping screen.
 ##
 ## Same language as Settings and the results screen: eyebrow + headline hero, a
-## centered column, cards at radius 18 titled with an accent tick and an
+## focused workspace, cards at radius 18 titled with an accent tick and an
 ## uppercase tracked caption, rows at radius 10 with a faint zebra, and one
 ## promoted primary action — Back.
 ##
@@ -12,6 +12,8 @@ extends Control
 ## rebound, how to cancel) and the chip itself shows that it is listening.
 ## Duplicate bindings are called out on the chips and named underneath, because
 ## InputMap will happily fire two actions from one key.
+## Portrait stacks rows for finger-width controls; wide landscape places the
+## binding console and touch field guide side by side.
 
 const ACTION_NAMES: Dictionary = {
 	"steer_left": "Steer Left",
@@ -38,6 +40,7 @@ const ACTION_HINTS: Dictionary = {
 
 ## Authored desktop metrics; UITheme.scaled* enlarges them on touch only.
 const COLUMN_WIDTH: float = 860.0
+const WIDE_COLUMN_WIDTH: float = 1240.0
 const KEYCAP_WIDTH: float = 122.0
 const KEYCAP_HEIGHT: float = 40.0
 const COMPACT_COLUMN: float = 660.0
@@ -60,23 +63,55 @@ var _scroll: ScrollContainer
 var _boost: float = 1.0
 var _column: float = COLUMN_WIDTH
 var _compact: bool = false
+var _fit: float = 1.0
 var _row_index: int = 0
+var _profile: LayoutProfile = null
+var _layout_root: Control = null
 
 
 func _ready() -> void:
 	UITheme.make_background(self)
 	UITheme.apply_ui_scale(self)
+	var initial := UtilityScreenLayout.bind_view_class(self, _on_view_class_changed)
+	_build_layout(initial, true, 0.0)
+	UITheme.attach_swipe_back(self, _go_back)
+
+
+func _on_view_class_changed(next: LayoutProfile) -> void:
+	var fraction := UtilityScreenLayout.scroll_fraction(_scroll)
+	if not _capturing_action.is_empty():
+		_end_capture()
+	_build_layout(next, false, fraction)
+
+
+func _build_layout(next: LayoutProfile, animate: bool, scroll_fraction: float) -> void:
+	if _layout_root != null and is_instance_valid(_layout_root):
+		_layout_root.free()
+	_profile = next
+	_binding_buttons.clear()
+	_first_button = null
+	_back_button = null
+	_reset_button = null
+	_reset_armed = false
+	_conflict_note = null
 	_boost = _tall_boost()
 	_column = _measure_column()
-	_compact = _column < UITheme.scaled(COMPACT_COLUMN) * _boost
+	_fit = clampf(_column / maxf(UITheme.scaled(COLUMN_WIDTH), 1.0), 0.40, 1.0)
+	_compact = UtilityScreenLayout.uses_stacked_rows(_profile) \
+		or _column < UITheme.scaled(COMPACT_COLUMN)
+	_layout_root = Control.new()
+	_layout_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_layout_root)
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", UITheme.screen_margin())
-	margin.add_theme_constant_override("margin_right", UITheme.screen_margin())
-	margin.add_theme_constant_override("margin_top", _gap(24))
+	UtilityScreenLayout.bind_safe_rect(self, margin)
+	margin.add_theme_constant_override("margin_left", _page_gutter())
+	margin.add_theme_constant_override("margin_right", _page_gutter())
+	margin.add_theme_constant_override("margin_top", _gap(
+		16 if UtilityScreenLayout.is_phone(_profile) else 24))
 	margin.add_theme_constant_override("margin_bottom", _gap(20))
-	add_child(margin)
+	_layout_root.add_child(margin)
 
 	var centered := HBoxContainer.new()
 	centered.add_theme_constant_override("separation", 0)
@@ -96,12 +131,15 @@ func _ready() -> void:
 	# see them; this restores dragging the list on a phone.
 	TouchScroll.attach(_scroll)
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.follow_focus = true
 	layout.add_child(_scroll)
 	_style_scrollbar(_scroll.get_v_scroll_bar())
 
-	var list := VBoxContainer.new()
+	var list: BoxContainer = HBoxContainer.new() \
+		if _profile.view_class == LayoutProfile.ViewClass.LANDSCAPE_WIDE \
+		else VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# Fill and center: on a tall window the two cards sit in the middle of the
 	# viewport instead of clinging to the top over a void, and on a short one the
@@ -115,17 +153,19 @@ func _ready() -> void:
 	entrance_items.append(_build_bindings_card(list))
 	entrance_items.append(_build_touch_card(list))
 
-	var tail := Control.new()
-	tail.custom_minimum_size = Vector2(0.0, _u(20.0))
-	tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	list.add_child(tail)
+	if _profile.view_class != LayoutProfile.ViewClass.LANDSCAPE_WIDE:
+		var tail := Control.new()
+		tail.custom_minimum_size = Vector2(0.0, _u(20.0))
+		tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		list.add_child(tail)
 
-	UITheme.play_entrance(self, entrance_items)
+	if animate:
+		UITheme.play_entrance(self, entrance_items)
 
 	_build_capture_overlay()
 	_refresh_all_bindings()
-	UITheme.attach_swipe_back(self, _go_back)
-	if _back_button != null:
+	UtilityScreenLayout.restore_scroll_fraction(self, _scroll, scroll_fraction)
+	if animate and _back_button != null:
 		_back_button.grab_focus()
 
 
@@ -145,11 +185,12 @@ func _tall_boost() -> float:
 
 
 func _f(size: int) -> int:
-	return maxi(1, roundi(float(UITheme.scaled_font(size)) * _boost))
+	return maxi(1, roundi(float(UITheme.scaled_font(size)) * _boost \
+		* lerpf(1.0, _fit, 0.32)))
 
 
 func _u(value: float) -> float:
-	return UITheme.scaled(value) * _boost
+	return UITheme.scaled(value) * _fit
 
 
 func _ui(value: float) -> int:
@@ -161,21 +202,27 @@ func _gap(value: int) -> int:
 
 
 func _btn(width: float, height: float) -> Vector2:
-	return UITheme.scaled_size(Vector2(width, height)) * _boost
+	var out := UITheme.scaled_size(Vector2(width, height))
+	if width > 0.0:
+		out.x *= _fit
+	if height > 0.0:
+		out.y *= _boost
+	if height > 0.0:
+		out.y = maxf(out.y, UtilityScreenLayout.MIN_TOUCH_TARGET)
+	return out
 
 
 func _measure_column() -> float:
-	if UITheme.is_touch():
-		return UITheme.content_width(COLUMN_WIDTH, self)
-	if GameConfig.is_headless() or not is_inside_tree():
+	if _profile == null or GameConfig.is_headless() or not is_inside_tree():
 		return COLUMN_WIDTH
-	var view := get_viewport_rect().size
-	if view.x <= 0.0:
-		return COLUMN_WIDTH
-	var usable := maxf(view.x - float(UITheme.screen_margin()) * 2.0, 320.0)
-	if view.y > view.x:
-		return usable
-	return clampf(minf(COLUMN_WIDTH * _boost, view.x * 0.68), 420.0, usable)
+	var authored := WIDE_COLUMN_WIDTH if _profile.view_class \
+		== LayoutProfile.ViewClass.LANDSCAPE_WIDE else COLUMN_WIDTH * _boost
+	var page := UtilityScreenLayout.page_width(_profile, authored, 320.0, 0.82)
+	return maxf(page - float(_page_gutter() * 2), 300.0)
+
+
+func _page_gutter() -> int:
+	return 16 if UtilityScreenLayout.is_phone(_profile) else 24
 
 
 func _flex_spacer() -> Control:
@@ -326,7 +373,8 @@ func _build_header(parent: VBoxContainer) -> Control:
 	header.add_child(titles)
 	titles.add_child(_caption_label("Settings", 15, Color(UITheme.COLOR_ACCENT, 0.75)))
 	var title := UITheme.heading("Controls", maxi(1, roundi(
-		float(UITheme.scaled_heading(46)) * _boost)))
+		float(UITheme.scaled_heading(46)) * _boost \
+		* lerpf(1.0, _fit, 0.38))))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	titles.add_child(title)
 
@@ -501,7 +549,7 @@ func _build_capture_overlay() -> void:
 	_capture_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	_capture_overlay.visible = false
 	_capture_overlay.z_index = 10
-	add_child(_capture_overlay)
+	_layout_root.add_child(_capture_overlay)
 
 	var scrim := ColorRect.new()
 	scrim.color = Color(0.012, 0.027, 0.055, 0.72)
@@ -511,6 +559,7 @@ func _build_capture_overlay() -> void:
 
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	UtilityScreenLayout.bind_safe_rect(self, center)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_capture_overlay.add_child(center)
 
@@ -523,7 +572,8 @@ func _build_capture_overlay() -> void:
 	style.content_margin_bottom = _u(26.0)
 	style.shadow_size = 18
 	_capture_card.add_theme_stylebox_override("panel", style)
-	_capture_card.custom_minimum_size.x = _u(380.0)
+	_capture_card.custom_minimum_size.x = minf(_u(380.0),
+		maxf(_profile.safe_rect.size.x - 48.0, 260.0))
 	center.add_child(_capture_card)
 
 	var box := VBoxContainer.new()

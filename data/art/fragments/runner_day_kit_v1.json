@@ -1,0 +1,953 @@
+{
+  "concepts": [
+    {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "generated_on": "2026-08-18",
+      "generator": "built-in image_gen.imagegen",
+      "id": "runner_day_trim_reference_v1",
+      "license_id": "project_original",
+      "path": "art_src/runner/day/runner_day_trim_reference_v1.png",
+      "prompt_path": "art_src/runner/day/runner_day_trim_reference_v1.prompt.md",
+      "sha256": "7a7371a7cc93198ffea00999654ee3ce0686c28b319fb9facee861ebafdee983",
+      "status": "art_direction_only"
+    }
+  ],
+  "generated_assets": [],
+  "runtime_assets": [
+    {
+      "groups": [
+        "obstacle",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_barrier_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_barrier_v1.tscn",
+      "production_ready": false,
+      "sha256": "2be79776be0b07bcb1ac59e713a8b924025d13a88a8d5291c51e165f50aa328e",
+      "source_export_id": "runner_day_barrier_v1"
+    },
+    {
+      "groups": [
+        "obstacle",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_barrier_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_barrier_v1.glb",
+      "production_ready": false,
+      "sha256": "3a459c5434d67da446e25876e53d5c69d8ccfd81e4342bcae9b7cb4c7bc67a47",
+      "source_export_id": "runner_day_barrier_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_cargo_stack_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_cargo_stack_v1.tscn",
+      "production_ready": false,
+      "sha256": "ba6f46f01d6fecc8688dddf95dfb1d4e4646bc03571c5ee7cb576c72289b6d8d",
+      "source_export_id": "runner_day_cargo_stack_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_cargo_stack_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_cargo_stack_v1.glb",
+      "production_ready": false,
+      "sha256": "a9a50b23fdb30c63a301cbe8fdf9f036124a9ce3c3e7bd77bab450eaf1e807d5",
+      "source_export_id": "runner_day_cargo_stack_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_deck_kerb_b_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_deck_kerb_b_v1.tscn",
+      "production_ready": false,
+      "sha256": "f21c9c56ca68783b7728c7f6ff0933d4bd2885850cf52a38db7f2941b1d78c30",
+      "source_export_id": "runner_day_deck_kerb_b_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_deck_kerb_b_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_deck_kerb_b_v1.glb",
+      "production_ready": false,
+      "sha256": "85597cfa45a790eabc8afcc579f7d43a7e7155d0b44a9588a8fc4f10d35468a5",
+      "source_export_id": "runner_day_deck_kerb_b_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_deck_kerb_c_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_deck_kerb_c_v1.tscn",
+      "production_ready": false,
+      "sha256": "9e225d61a8adec5dcfddc3bd0f03864f640b986939efb546be40c5810c70607e",
+      "source_export_id": "runner_day_deck_kerb_c_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_deck_kerb_c_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_deck_kerb_c_v1.glb",
+      "production_ready": false,
+      "sha256": "476329a841dec82df31f8a795b59c4f7847eb28b81fd4f9b482622a196e7f1e6",
+      "source_export_id": "runner_day_deck_kerb_c_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_deck_kerb_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_deck_kerb_v1.tscn",
+      "production_ready": false,
+      "sha256": "f11fb79e30ae5f48b8c05dcd733ce6f3e9821bf1528f38eb845856daaaffc81e",
+      "source_export_id": "runner_day_deck_kerb_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_deck_kerb_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_deck_kerb_v1.glb",
+      "production_ready": false,
+      "sha256": "505efa1f3e21a59559d8caea6be8ed7f4d799de67811066293b62e6fcd92209f",
+      "source_export_id": "runner_day_deck_kerb_v1"
+    },
+    {
+      "groups": [
+        "obstacle",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_gantry_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_gantry_v1.tscn",
+      "production_ready": false,
+      "sha256": "f2f64b35734e4ca47fb60e0cd3aa85c7f81fcc1eefbf2490a2c5958f654c6288",
+      "source_export_id": "runner_day_gantry_v1"
+    },
+    {
+      "groups": [
+        "obstacle",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_gantry_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_gantry_v1.glb",
+      "production_ready": false,
+      "sha256": "da19d658be0ba45132d39cb2899e90d287b747d1def4bb2221aff61b131ec75a",
+      "source_export_id": "runner_day_gantry_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_iceberg_cluster_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_iceberg_cluster_v1.tscn",
+      "production_ready": false,
+      "sha256": "955eaa409907b7a0240b9b1efba76cb5a2f200d8ed59be5f5b8c4257087ce96c",
+      "source_export_id": "runner_day_iceberg_cluster_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_iceberg_cluster_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_iceberg_cluster_v1.glb",
+      "production_ready": false,
+      "sha256": "8598709411ce17ec956f0e915a4b9309c4eda0fe80a3896d6ae6c546e7b50268",
+      "source_export_id": "runner_day_iceberg_cluster_v1"
+    },
+    {
+      "groups": [
+        "landmark",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_icebreaker_landmark_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_icebreaker_landmark_v1.tscn",
+      "production_ready": false,
+      "sha256": "ebae6080cd08234c122302e4437e64e4b891dbdf4fa07062ae6399db63abb181",
+      "source_export_id": "runner_day_icebreaker_landmark_v1"
+    },
+    {
+      "groups": [
+        "landmark",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_icebreaker_landmark_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_icebreaker_landmark_v1.glb",
+      "production_ready": false,
+      "sha256": "6b0ba3b19626f26002e3e1bcc8322661fc344b6f71e260389b6925011353735e",
+      "source_export_id": "runner_day_icebreaker_landmark_v1"
+    },
+    {
+      "groups": [
+        "landmark",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_radar_landmark_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_radar_landmark_v1.tscn",
+      "production_ready": false,
+      "sha256": "49e7623b529af0a4ef6bb1b256857f8a63eab231cbc43cd07eb39908de05b2f4",
+      "source_export_id": "runner_day_radar_landmark_v1"
+    },
+    {
+      "groups": [
+        "landmark",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_radar_landmark_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_radar_landmark_v1.glb",
+      "production_ready": false,
+      "sha256": "577a575fc24e0150f9317a24cf6a0a2e92e34d9b3686994700df5c770ea57360",
+      "source_export_id": "runner_day_radar_landmark_v1"
+    },
+    {
+      "groups": [
+        "obstacle",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_ramp_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_ramp_v1.tscn",
+      "production_ready": false,
+      "sha256": "8143c04024dddd278f8a71f6ae24a76f7eaa9dd421c52e4f2f30bbe8e1ad8019",
+      "source_export_id": "runner_day_ramp_v1"
+    },
+    {
+      "groups": [
+        "obstacle",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_ramp_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_ramp_v1.glb",
+      "production_ready": false,
+      "sha256": "57ad6cf07a10982462bd34c0056fcb59e09316126dfb8bdafde27089108498ea",
+      "source_export_id": "runner_day_ramp_v1"
+    },
+    {
+      "groups": [
+        "landmark",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_research_hub_landmark_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_research_hub_landmark_v1.tscn",
+      "production_ready": false,
+      "sha256": "280d56abf0156a445c8afbe57fc9a4d47c4773b503718b4faa52f1ea628a48b6",
+      "source_export_id": "runner_day_research_hub_landmark_v1"
+    },
+    {
+      "groups": [
+        "landmark",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_research_hub_landmark_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_research_hub_landmark_v1.glb",
+      "production_ready": false,
+      "sha256": "adb296d947331376748bb633cbda06628957ee670e0a5013d0c938c96c10fb32",
+      "source_export_id": "runner_day_research_hub_landmark_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_research_lab_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_research_lab_v1.tscn",
+      "production_ready": false,
+      "sha256": "811aaedeedd50931c73fab41c4a9462c427f6fd90a2306e4e714e77c4a28b537",
+      "source_export_id": "runner_day_research_lab_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_research_lab_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_research_lab_v1.glb",
+      "production_ready": false,
+      "sha256": "c39c6c653f09771fedd34148ae08a2088c921e06747cc3ca99c4e70e9ce7b78a",
+      "source_export_id": "runner_day_research_lab_v1"
+    },
+    {
+      "groups": [
+        "material_family",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_shell_material_v1",
+      "kind": "material",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/materials/runner_day_shell_v1.tres",
+      "production_ready": false,
+      "sha256": "4cc73853f4feb9497e486469c5f44da0009ec98c26b6ba64b0d045898a1a040a",
+      "source_export_id": "runner_day_deck_kerb_v1"
+    },
+    {
+      "groups": [
+        "material_family",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_shell_shader_v1",
+      "kind": "resource",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/materials/runner_day_shell_v1.gdshader",
+      "production_ready": false,
+      "sha256": "5fd2b753ca502f07e1e478b334a08639ee5c64dcf1baf5d9f331e52b7969f4eb",
+      "source_export_id": "runner_day_deck_kerb_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_signal_pylon_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_signal_pylon_v1.tscn",
+      "production_ready": false,
+      "sha256": "535db5277c19d36e9c52c2afef4e543bf2b96ae249cfeafbfcdb331b66d91894",
+      "source_export_id": "runner_day_signal_pylon_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_signal_pylon_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_signal_pylon_v1.glb",
+      "production_ready": false,
+      "sha256": "a428779a854b68f52c6208cae4dbd56bf9f209047bb3fcb0de15ca02ce1cc1ae",
+      "source_export_id": "runner_day_signal_pylon_v1"
+    },
+    {
+      "groups": [
+        "obstacle",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_snowcat_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_snowcat_v1.tscn",
+      "production_ready": false,
+      "sha256": "36004e5ffcdb046e1ab3e45ebc6756eb8aeb025a88c58f8ffd2665653f6a40ef",
+      "source_export_id": "runner_day_snowcat_v1"
+    },
+    {
+      "groups": [
+        "obstacle",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_snowcat_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_snowcat_v1.glb",
+      "production_ready": false,
+      "sha256": "a079939b1e4c681b6ffaaab6a8e9049fd7f258c47004a674a048ec579751bc24",
+      "source_export_id": "runner_day_snowcat_v1"
+    },
+    {
+      "groups": [
+        "material_family",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_surface_albedo_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/textures/runner_day_surface_albedo_v1.png",
+      "production_ready": false,
+      "sha256": "e32c6c1408d518f5b51d823e8ee91276adf3845fcb91634d2cf76967f9d3a435",
+      "source_export_id": "runner_day_deck_kerb_v1"
+    },
+    {
+      "groups": [
+        "material_family",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_surface_material_v1",
+      "kind": "material",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/materials/runner_day_surface_v1.tres",
+      "production_ready": false,
+      "sha256": "5b5aed2996dc555746f6dd2954e4d39afa105f511d7242309d28081ca4a0ba98",
+      "source_export_id": "runner_day_deck_kerb_v1"
+    },
+    {
+      "groups": [
+        "material_family",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_surface_normal_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/textures/runner_day_surface_normal_v1.png",
+      "production_ready": false,
+      "sha256": "6236dd2dd0641e39cc44050f641c90dc4b657b597235388e2d464489ca19d53c",
+      "source_export_id": "runner_day_deck_kerb_v1"
+    },
+    {
+      "groups": [
+        "material_family",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_surface_orm_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/textures/runner_day_surface_orm_v1.png",
+      "production_ready": false,
+      "sha256": "e7d476cff92b2d8349357432d1b444eaeed37b6057b8f1d4935b6a2b85080521",
+      "source_export_id": "runner_day_deck_kerb_v1"
+    },
+    {
+      "groups": [
+        "material_family",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_surface_shader_v1",
+      "kind": "resource",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/materials/runner_day_surface_v1.gdshader",
+      "production_ready": false,
+      "sha256": "c410ba59f835b533ece5e3106790942f04836745cb20f37cbd6c442f51470477",
+      "source_export_id": "runner_day_deck_kerb_v1"
+    },
+    {
+      "groups": [
+        "obstacle",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_tunnel_shell_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_tunnel_shell_v1.tscn",
+      "production_ready": false,
+      "sha256": "066cccac070605183aa3d3eab62c251152d148eb14538bb36aff0630134cd3a9",
+      "source_export_id": "runner_day_tunnel_shell_v1"
+    },
+    {
+      "groups": [
+        "obstacle",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_tunnel_shell_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_tunnel_shell_v1.glb",
+      "production_ready": false,
+      "sha256": "742f9a9239c9c539f4bae0b2360a12e61bd147e7fedb5455c76334f22a3173ff",
+      "source_export_id": "runner_day_tunnel_shell_v1"
+    }
+  ],
+  "source_exports": [
+    {
+      "asset_class": "obstacle",
+      "collection": "runner_day_barrier_v1",
+      "expected": {
+        "bounds_meters_max": [
+          3.0,
+          1.5,
+          1.1
+        ],
+        "lod0_triangles_max": 5000,
+        "lod0_triangles_min": 1500,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_barrier_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_barrier_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "8c8146e0d4e501f7c0bde8858e5fc9915bfa2139fe2e736a50955a27104e2b46"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "runner_day_cargo_stack_v1",
+      "expected": {
+        "bounds_meters_max": [
+          4.5,
+          3.5,
+          2.5
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_cargo_stack_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_cargo_stack_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "8c8146e0d4e501f7c0bde8858e5fc9915bfa2139fe2e736a50955a27104e2b46"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "runner_day_deck_kerb_v1",
+      "expected": {
+        "bounds_meters_max": [
+          12.25,
+          6.5,
+          1.6
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_deck_kerb_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_deck_kerb_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "8c8146e0d4e501f7c0bde8858e5fc9915bfa2139fe2e736a50955a27104e2b46"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "runner_day_deck_kerb_b_v1",
+      "expected": {
+        "bounds_meters_max": [
+          12.25,
+          6.5,
+          1.6
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_deck_kerb_b_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_deck_kerb_b_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "8c8146e0d4e501f7c0bde8858e5fc9915bfa2139fe2e736a50955a27104e2b46"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "runner_day_deck_kerb_c_v1",
+      "expected": {
+        "bounds_meters_max": [
+          12.25,
+          6.5,
+          1.6
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_deck_kerb_c_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_deck_kerb_c_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "8c8146e0d4e501f7c0bde8858e5fc9915bfa2139fe2e736a50955a27104e2b46"
+    },
+    {
+      "asset_class": "obstacle",
+      "collection": "runner_day_gantry_v1",
+      "expected": {
+        "bounds_meters_max": [
+          11.5,
+          2.0,
+          5.5
+        ],
+        "lod0_triangles_max": 5000,
+        "lod0_triangles_min": 1500,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_gantry_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_gantry_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "8c8146e0d4e501f7c0bde8858e5fc9915bfa2139fe2e736a50955a27104e2b46"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "runner_day_iceberg_cluster_v1",
+      "expected": {
+        "bounds_meters_max": [
+          18.0,
+          10.0,
+          11.0
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_iceberg_cluster_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_iceberg_cluster_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "8c8146e0d4e501f7c0bde8858e5fc9915bfa2139fe2e736a50955a27104e2b46"
+    },
+    {
+      "asset_class": "landmark",
+      "collection": "runner_day_icebreaker_landmark_v1",
+      "expected": {
+        "bounds_meters_max": [
+          16.0,
+          22.0,
+          18.0
+        ],
+        "lod0_triangles_max": 30000,
+        "lod0_triangles_min": 10000,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 3,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_icebreaker_landmark_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_icebreaker_landmark_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "8c8146e0d4e501f7c0bde8858e5fc9915bfa2139fe2e736a50955a27104e2b46"
+    },
+    {
+      "asset_class": "landmark",
+      "collection": "runner_day_radar_landmark_v1",
+      "expected": {
+        "bounds_meters_max": [
+          14.0,
+          12.0,
+          15.0
+        ],
+        "lod0_triangles_max": 30000,
+        "lod0_triangles_min": 10000,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 3,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_radar_landmark_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_radar_landmark_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "8c8146e0d4e501f7c0bde8858e5fc9915bfa2139fe2e736a50955a27104e2b46"
+    },
+    {
+      "asset_class": "obstacle",
+      "collection": "runner_day_ramp_v1",
+      "expected": {
+        "bounds_meters_max": [
+          3.2,
+          4.5,
+          2.0
+        ],
+        "lod0_triangles_max": 5000,
+        "lod0_triangles_min": 1500,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_ramp_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_ramp_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "8c8146e0d4e501f7c0bde8858e5fc9915bfa2139fe2e736a50955a27104e2b46"
+    },
+    {
+      "asset_class": "landmark",
+      "collection": "runner_day_research_hub_landmark_v1",
+      "expected": {
+        "bounds_meters_max": [
+          25.0,
+          17.0,
+          15.0
+        ],
+        "lod0_triangles_max": 30000,
+        "lod0_triangles_min": 10000,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 3,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_research_hub_landmark_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_research_hub_landmark_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "8c8146e0d4e501f7c0bde8858e5fc9915bfa2139fe2e736a50955a27104e2b46"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "runner_day_research_lab_v1",
+      "expected": {
+        "bounds_meters_max": [
+          11.0,
+          6.0,
+          5.5
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_research_lab_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_research_lab_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "8c8146e0d4e501f7c0bde8858e5fc9915bfa2139fe2e736a50955a27104e2b46"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "runner_day_signal_pylon_v1",
+      "expected": {
+        "bounds_meters_max": [
+          2.5,
+          3.0,
+          4.2
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_signal_pylon_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_signal_pylon_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "8c8146e0d4e501f7c0bde8858e5fc9915bfa2139fe2e736a50955a27104e2b46"
+    },
+    {
+      "asset_class": "obstacle",
+      "collection": "runner_day_snowcat_v1",
+      "expected": {
+        "bounds_meters_max": [
+          2.8,
+          2.4,
+          2.6
+        ],
+        "lod0_triangles_max": 5000,
+        "lod0_triangles_min": 1500,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_snowcat_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_snowcat_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "8c8146e0d4e501f7c0bde8858e5fc9915bfa2139fe2e736a50955a27104e2b46"
+    },
+    {
+      "asset_class": "obstacle",
+      "collection": "runner_day_tunnel_shell_v1",
+      "expected": {
+        "bounds_meters_max": [
+          12.5,
+          6.5,
+          6.0
+        ],
+        "lod0_triangles_max": 5000,
+        "lod0_triangles_min": 1500,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_tunnel_shell_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_tunnel_shell_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "8c8146e0d4e501f7c0bde8858e5fc9915bfa2139fe2e736a50955a27104e2b46"
+    }
+  ]
+}

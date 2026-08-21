@@ -40,6 +40,7 @@ var _fov_extra: float = 0.0
 var _roll: float = 0.0  ## Smoothed corner lean, radians.
 var _prev_follow_yaw: float = 0.0
 var _initialized: bool = false
+var _layout: LayoutProfile = null
 
 
 func _ready() -> void:
@@ -48,6 +49,18 @@ func _ready() -> void:
 	camera.near = 0.1
 	camera.far = 900.0
 	add_child(camera)
+	_refresh_layout()
+	var viewport := get_viewport()
+	if viewport != null and not viewport.size_changed.is_connected(_refresh_layout):
+		viewport.size_changed.connect(_refresh_layout)
+
+
+func _refresh_layout() -> void:
+	var viewport := get_viewport()
+	_layout = LayoutProfile.for_viewport(viewport) if viewport != null \
+		else LayoutProfile.for_view_size(Vector2(1920.0, 1080.0))
+	if camera != null:
+		camera.fov = _layout.base_fov
 
 
 func attach_to(racer: Racer) -> void:
@@ -76,8 +89,11 @@ func _snap_behind_target() -> void:
 	_follow_yaw = yaw
 	_prev_follow_yaw = yaw
 	var follow_dir := Vector3(-sin(yaw), 0.0, -cos(yaw))
-	_smoothed_pos = target.global_position - follow_dir * 5.0 + Vector3.UP * 2.5
-	_smoothed_look = target.global_position + follow_dir * 3.2 + Vector3.UP * 0.9
+	var distance := _layout.chase_distance if _layout != null else 5.0
+	var height := _layout.chase_height if _layout != null else 2.5
+	var look_ahead := _layout.look_ahead if _layout != null else 3.2
+	_smoothed_pos = target.global_position - follow_dir * distance + Vector3.UP * height
+	_smoothed_look = target.global_position + follow_dir * look_ahead + Vector3.UP * 0.9
 	_initialized = true
 	global_position = _smoothed_pos
 	if _smoothed_pos.distance_squared_to(_smoothed_look) > 0.01:
@@ -133,8 +149,11 @@ func _physics_process(delta: float) -> void:
 				yaw_rate += (yaw_error - YAW_CATCHUP_START) * YAW_CATCHUP_GAIN
 			_follow_yaw = lerp_angle(_follow_yaw, heading_yaw, 1.0 - exp(-delta * yaw_rate))
 		var follow_dir := Vector3(-sin(_follow_yaw), 0.0, -cos(_follow_yaw))
-		var height := 2.5
-		var distance := 5.0
+		var layout_height := _layout.chase_height if _layout != null else 2.5
+		var layout_distance := _layout.chase_distance if _layout != null else 5.0
+		var layout_look := _layout.look_ahead if _layout != null else 3.2
+		var height := layout_height
+		var distance := layout_distance
 		var look_lift := 0.9
 		if target.state == Racer.State.SLIDING:
 			# Sliding used to DROP the camera (2.0) while the racer went prone
@@ -142,24 +161,17 @@ func _physics_process(delta: float) -> void:
 			# degrees of depression -- the fastest state in the game had the
 			# flattest, least readable view of the ground it was about to hit.
 			# Rise instead, and aim lower, so a slide looks down the track.
-			height = 3.15
-			distance = 6.2
+			height = layout_height + 0.65
+			distance = layout_distance + 1.2
 			look_lift = 0.55
 		elif target.state == Racer.State.SWIMMING:
-			height = 2.1
-			distance = 5.8
+			height = layout_height - 0.4
+			distance = layout_distance + 0.8
 		elif target.state == Racer.State.AIRBORNE:
-			height = 2.9
-		distance += speed_ratio * 0.7
-		# Portrait (phone held upright): the horizontal view is narrow, so sit
-		# higher and further back — the taller frame shows the track ahead
-		# instead of mostly sky and snow. Vertical FOV also opens up below.
-		var vp_size := get_viewport().get_visible_rect().size
-		if vp_size.x < vp_size.y:
-			height += 1.4
-			distance += 2.2
+			height = layout_height + 0.4
+			distance += speed_ratio * 0.7
 		desired_pos = target.global_position - follow_dir * distance + Vector3.UP * height
-		look_point = target.global_position + follow_dir * (3.2 + speed_ratio * 3.2) + Vector3.UP * look_lift
+		look_point = target.global_position + follow_dir * (layout_look + speed_ratio * 3.2) + Vector3.UP * look_lift
 
 	if not _initialized:
 		_smoothed_pos = desired_pos
@@ -204,10 +216,8 @@ func _physics_process(delta: float) -> void:
 	# FOV. Godot's fov is vertical: in portrait the horizontal view collapses,
 	# so widen the vertical FOV to compensate and keep the course readable.
 	_fov_extra = move_toward(_fov_extra, 0.0, delta * 10.0)
-	var target_fov := BASE_FOV + clampf(speed_ratio - 0.9, 0.0, 1.1) * MAX_FOV_BONUS + _fov_extra
-	var vp := get_viewport().get_visible_rect().size
-	if vp.x < vp.y:
-		target_fov += 10.0
+	var base_fov := _layout.base_fov if _layout != null else BASE_FOV
+	var target_fov := base_fov + clampf(speed_ratio - 0.9, 0.0, 1.1) * MAX_FOV_BONUS + _fov_extra
 	camera.fov = lerpf(camera.fov, target_fov, minf(delta * 5.0, 1.0))
 
 	# Corner lean: the frame rolls slightly into a turn, scaled by how fast the

@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CourseVisualProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/art/course_visual_profile.gd" id="1_profile"]
+
+[resource]
+script = ExtResource("1_profile")
+profile_id = "runner_cave"
+display_name = "Runner Blue-Ice Cave"
+biome_id = "cave"
+art_direction = "Deep navy void, opaque turquoise ice, cyan seams, small warm safety hardware accents."
+approved_for_runtime = false
+sky_top = Color(0.01, 0.05, 0.12, 1)
+sky_horizon = Color(0.06, 0.3, 0.46, 1)
+ground_horizon = Color(0.04, 0.18, 0.3, 1)
+ground_bottom = Color(0.01, 0.06, 0.14, 1)
+fog_color = Color(0.04, 0.18, 0.32, 1)
+fog_density = 0.003
+sun_color = Color(0.55, 0.82, 1, 1)
+sun_energy = 0.55
+ambient_energy = 0.26
+shaft_color = Color(0.4, 0.86, 1, 1)
+deck_dark = Color(0.02, 0.07, 0.16, 1)
+deck_mid = Color(0.14, 0.3, 0.44, 1)
+snow_bright = Color(0.3, 0.52, 0.7, 1)
+decorative_accent = Color(0.2, 0.95, 1, 1)

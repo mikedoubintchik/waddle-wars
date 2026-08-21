@@ -1,0 +1,53 @@
+[gd_resource type="Resource" script_class="CourseVisualProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/art/course_visual_profile.gd" id="1_profile"]
+
+[resource]
+script = ExtResource("1_profile")
+profile_id = "glacier_gauntlet_v1"
+display_name = "Glacier Gauntlet Premium"
+biome_id = "glacier"
+art_direction = "Bright polar expedition race. Warm cream groomed snow, deep blue lake, mineral-cyan midground ice, atmospheric far shelves, navy recesses and sparing orange route hardware. Paired hero labs, warm camp lamps, flags and authored deck polish create readable near/mid/far staging through a carved-strata ice arch, frozen-fall cave and summit station finish. Hazards read by silhouette and pattern before hue."
+approved_for_runtime = false
+sky_top = Color(0.06, 0.26, 0.54, 1)
+sky_horizon = Color(0.53, 0.70, 0.77, 1)
+ground_horizon = Color(0.11, 0.33, 0.46, 1)
+ground_bottom = Color(0.08, 0.27, 0.44, 1)
+fog_color = Color(0.24, 0.38, 0.49, 1)
+fog_density = 0.00145
+sun_color = Color(1, 0.91, 0.76, 1)
+sun_energy = 0.88
+ambient_energy = 0.48
+shaft_color = Color(1, 0.97, 0.88, 1)
+deck_dark = Color(0.035, 0.215, 0.405, 1)
+deck_mid = Color(0.115, 0.455, 0.655, 1)
+snow_bright = Color(0.935, 0.90, 0.815, 1)
+decorative_accent = Color(1, 0.27, 0.045, 1)
+collect_color = Color(1, 0.81, 0.18, 1)
+powerup_color = Color(0.86, 0.42, 1, 1)
+hazard_color = Color(1, 0.27, 0.045, 1)
+duck_color = Color(0.02, 0.9, 1, 1)
+go_color = Color(0.08, 0.95, 0.25, 1)
+quality_tiers = {
+"high": {
+"dressing_density": 1.0,
+"far_chunks": 7,
+"lod_threshold": 1.0,
+"shadow_distance": 150.0,
+"vfx_scale": 1.0
+},
+"low": {
+"dressing_density": 0.38,
+"far_chunks": 4,
+"lod_threshold": 4.0,
+"shadow_distance": 42.0,
+"vfx_scale": 0.35
+},
+"medium": {
+"dressing_density": 0.68,
+"far_chunks": 5,
+"lod_threshold": 2.0,
+"shadow_distance": 82.0,
+"vfx_scale": 0.62
+}
+}

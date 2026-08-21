@@ -35,6 +35,8 @@ static func staged_builds_enabled() -> bool:
 
 var course_id: String = ""
 var main_guide: PathGuide = null
+var main_track_result: TrackBuildResult = null
+var branch_track_results: Array[TrackBuildResult] = []
 var branches: Array[Dictionary] = []  # {id, guide, entry, exit, risk}
 var checkpoint_transforms: Array[Transform3D] = []
 var hints: Array[Dictionary] = []  # {offset, end_offset, type, branch_id}
@@ -138,22 +140,25 @@ func build_ready() -> void:
 func setup_main(points: Array) -> void:
 	# Handing the ribbon `self` lets it yield between its own mesh phases; it
 	# is the single fattest step in a build (20-50 ms of the 30-130 ms total).
-	var track := await TrackBuilder.build_ribbon(points, "MainTrack", self if _staged else null)
-	add_child(track)
-	main_guide = track.get_meta("guide") as PathGuide
+	main_track_result = await TrackBuilder.build_ribbon_result(
+		points, "MainTrack", self if _staged else null)
+	main_track_result.attach_to(self)
+	main_guide = main_track_result.guide
 	finish_offset = main_guide.length - 18.0
 
 
 func add_branch(points: Array, risk: float = 0.5, id_hint: String = "") -> PathGuide:
-	var track := await TrackBuilder.build_ribbon(points, "Branch_%s" % id_hint,
+	var track_result := await TrackBuilder.build_ribbon_result(points, "Branch_%s" % id_hint,
 		self if _staged else null)
-	add_child(track)
-	var guide := track.get_meta("guide") as PathGuide
+	track_result.attach_to(self)
+	branch_track_results.append(track_result)
+	var guide := track_result.guide
 	var entry := float(main_guide.nearest(guide.position_at(0.0), -1)["offset"])
 	var exit_offset := float(main_guide.nearest(guide.position_at(guide.length), -1)["offset"])
 	branches.append({
 		"id": branches.size(), "guide": guide,
 		"entry": entry, "exit": exit_offset, "risk": risk, "name": id_hint,
+		"track_result": track_result,
 		# Precomputed guide_cache key: get_guide/ai_target run per racer per
 		# frame, and formatting this string there allocated every call.
 		"cache_key": "branch_idx_%d" % branches.size(),

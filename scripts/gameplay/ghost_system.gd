@@ -134,25 +134,11 @@ func _load_ghost() -> void:
 	if _ghost_times.is_empty() or GameConfig.is_headless():
 		return
 	_ghost_visual = PenguinVisual.new()
-	_ghost_visual.setup({
+	var ghost_look := CharacterLook.from_legacy_config({
 		"body_color": Color(0.5, 0.8, 1.0),
 		"belly_color": Color(0.8, 0.95, 1.0),
-	})
+		"accent_color": Color(0.2, 0.75, 1.0),
+	}, CharacterLook.RenderRole.GHOST)
+	_ghost_visual.setup_look(ghost_look)
 	add_child(_ghost_visual)
-	_make_translucent(_ghost_visual)
 	_ghost_visual.visible = false
-
-
-func _make_translucent(node: Node) -> void:
-	for child: Node in node.get_children():
-		if child is MeshInstance3D:
-			var mesh_instance := child as MeshInstance3D
-			var mat := mesh_instance.material_override
-			if mat is StandardMaterial3D:
-				var ghost_mat := (mat as StandardMaterial3D).duplicate() as StandardMaterial3D
-				ghost_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-				ghost_mat.albedo_color.a = 0.42
-				ghost_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-				mesh_instance.material_override = ghost_mat
-			mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		_make_translucent(child)

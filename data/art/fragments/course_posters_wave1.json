@@ -1,0 +1,92 @@
+{
+  "runtime_assets": [
+    {
+      "groups": [
+        "course_posters",
+        "frontend",
+        "menu"
+      ],
+      "id": "course_poster_aurora_ascent_wave1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/course_posters/aurora_ascent_wave1.png",
+      "production_ready": true,
+      "sha256": "d381caec5087d9c408afc0cedad3ee0de7a9bed43564e2fe10a7a21e2554d8d5",
+      "source_export_id": "imagegen_course_poster_aurora_ascent_wave1"
+    },
+    {
+      "groups": [
+        "course_posters",
+        "frontend",
+        "menu"
+      ],
+      "id": "course_poster_glacier_gauntlet_wave1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/course_posters/glacier_gauntlet_wave1.png",
+      "production_ready": true,
+      "sha256": "f2397eb2b72c75a5a3415568a68ffe61f19265b3fdd0af723f3d67fa680391a7",
+      "source_export_id": "imagegen_course_poster_glacier_gauntlet_wave1"
+    },
+    {
+      "groups": [
+        "course_posters",
+        "frontend",
+        "menu"
+      ],
+      "id": "course_poster_waddle_school_wave1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/course_posters/waddle_school_wave1.png",
+      "production_ready": true,
+      "sha256": "0e71ffa5d1f678278e66f0bc6245edb4e3e1d5fdab7d5f41bf0c12bf391a98eb",
+      "source_export_id": "imagegen_course_poster_waddle_school_wave1"
+    }
+  ],
+  "source_exports": [],
+  "generated_assets": [
+    {
+      "dimensions": [
+        1672,
+        941
+      ],
+      "generated_on": "2026-08-18",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_course_poster_aurora_ascent_wave1",
+      "license_id": "project_original",
+      "path": "art_src/ui/course_posters/aurora_ascent_wave1.png",
+      "prompt_path": "art_src/ui/course_posters/aurora_ascent_wave1.prompt.md",
+      "sha256": "d381caec5087d9c408afc0cedad3ee0de7a9bed43564e2fe10a7a21e2554d8d5",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1672,
+        941
+      ],
+      "generated_on": "2026-08-18",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_course_poster_glacier_gauntlet_wave1",
+      "license_id": "project_original",
+      "path": "art_src/ui/course_posters/glacier_gauntlet_wave1.png",
+      "prompt_path": "art_src/ui/course_posters/glacier_gauntlet_wave1.prompt.md",
+      "sha256": "f2397eb2b72c75a5a3415568a68ffe61f19265b3fdd0af723f3d67fa680391a7",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1672,
+        941
+      ],
+      "generated_on": "2026-08-18",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_course_poster_waddle_school_wave1",
+      "license_id": "project_original",
+      "path": "art_src/ui/course_posters/waddle_school_wave1.png",
+      "prompt_path": "art_src/ui/course_posters/waddle_school_wave1.prompt.md",
+      "sha256": "0e71ffa5d1f678278e66f0bc6245edb4e3e1d5fdab7d5f41bf0c12bf391a98eb",
+      "status": "production_source"
+    }
+  ],
+  "concepts": []
+}

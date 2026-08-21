@@ -12,49 +12,46 @@ extends Node
 ##
 ## The fix is not fewer materials (the VisualLibrary dedup pass already took a
 ## course build down to roughly a dozen), it is compiling them all at a moment
-## nobody can see. This node draws one sub-pixel MeshInstance3D per unique
-## material, parented to the live camera just past its near plane, for two or
-## three frames immediately after a course finishes building — while
-## SceneRouter still holds its opaque "Loading…" overlay (it waits three
-## frame_post_draw signals before starting a 0.35 s fade). Then it frees
-## itself, well before the fade completes.
+## nobody can see. This node builds a deterministic queue, then submits exactly
+## one real probe/resource per rendered frame while SceneRouter keeps its opaque
+## loading overlay up. Prior probes stay resident through the final draw. This
+## is longer than a bulk two-frame sweep, but the loader keeps animating: a
+## measured 2.4-second single-frame compile freeze is not an acceptable way to
+## hide a later gameplay hitch.
 ##
 ## What it walks, in order of value:
-##   * the VisualLibrary registry (every shared course/prop material),
+##   * exact registered mesh/material pairs for streamed content,
 ##   * every GeometryInstance3D already in the scene (track ribbons, hazards,
 ##     racers, particle draw passes) — this catches TrackBuilder and
 ##     PenguinVisual materials the library never sees,
-##   * the library's helper meshes, whose vertex buffers are uploaded lazily,
+##   * the VisualLibrary registry and helper meshes, whose GPU resources are
+##     uploaded lazily,
 ##   * on Chrome only, synthetic BaseMaterial3D feature combinations plus the
 ##     particle process materials, which cover effects that do not exist yet
 ##     at race start (snowball splats, item-box shards, impact bursts).
 ##
-## Everything it spawns is about one screen pixel across, sits 0.2 m from the
-## camera behind a fully opaque overlay, carries no collision, and is gone in
-## under four frames — it cannot be seen and cannot be hit. Headless runs skip
-## the whole thing, so the sims are untouched.
+## Everything it spawns is a few screen pixels across, sits 0.2 m from the
+## camera behind a fully opaque overlay, carries no collision, and is gone as
+## soon as the queue's final item has drawn — it cannot be seen and cannot be hit.
+## Headless runs skip the whole thing, so the sims are untouched.
 ##
 ## The warmed programs survive the pass: VisualLibrary holds its materials in
 ## static dictionaries and the synthetic probes are held in a static array
 ## here, so nothing is refcounted away and later races start already warm.
 
-## Passes on a normal browser / desktop: registry + scene sweep, two frames.
-const BASE_PASSES: int = 2
-## Chrome pays the ANGLE link cost, so it gets one more pass and the extended
-## probe set. Still inside the overlay's three-frame hold.
-const CHROME_PASSES: int = 3
 ## Metres in front of the camera, clamped against its near plane below.
 const ANCHOR_DISTANCE: float = 0.2
 ## Target world size for a warm-up instance, in metres, at ANCHOR_DISTANCE.
 ## One 1080p pixel spans roughly 0.00025 m there under the chase camera's
-## 68 deg FOV, so every instance is scaled to land well under half a pixel no
-## matter which mesh it happens to wear — a 2 m iceberg included.
-const PROBE_WORLD_SIZE: float = 0.0001
+## 68 deg FOV. Six pixels guarantee raster submission (the old sub-pixel probes
+## could be discarded before creating the pipeline) while remaining fully
+## hidden by the opaque loader.
+const PROBE_WORLD_SIZE: float = 0.0015
 ## Model-space displacement budget added to the mesh extent before scaling.
 ## A vertex shader moves VERTEX before the model matrix runs, so a displacing
 ## material would otherwise render far larger than its mesh: the water shader
 ## pushes up to its wave amplitude (~0.6 m on the roughest course preset).
-## 1 m of headroom keeps every library shader sub-pixel here.
+## 1 m of headroom keeps every library shader within the tiny probe footprint.
 const MAX_VERTEX_DISPLACEMENT: float = 1.0
 ## Uniform scale for the throwaway particle emitters. Their extent is driven by
 ## the process material's velocity and gravity rather than by a mesh AABB, so
@@ -66,7 +63,11 @@ const PARTICLE_SCALE: float = 0.0002
 const MAX_INSTANCES: int = 128
 ## Ceiling on throwaway particle emitters (Chrome pass only).
 const MAX_PARTICLE_WARMERS: int = 12
-
+## Scene systems may register exact mesh/material pairs for content which is
+## deliberately absent at scene start (for example the runner's first tunnel).
+## Keep this bounded so a broken streamer cannot turn the loading overlay into
+## an unbounded pre-render pass.
+const MAX_EXTERNAL_PROBES: int = 32
 ## Synthetic BaseMaterial3D feature combinations, one letter per feature:
 ##   u unshaded, a alpha transparency, + additive blend, b billboard,
 ##   k billboard keep-scale, 2 two-sided (cull disabled), v vertex colour,
@@ -101,15 +102,33 @@ const PROBE_FLAGS: PackedStringArray = [
 
 ## Kept for the session so the linked programs are never refcounted away.
 static var _probes: Array[Material] = []
+## Exact late-content pairs retained for the session. Unlike the synthetic
+## flag probes, these warm both the real vertex-buffer layout and its material
+## pipeline in one draw.
+static var _external_probes: Array[Dictionary] = []
+static var _external_probe_keys: Dictionary = {}
+## Opt-in wall-clock evidence for the material census. Production stays on the
+## single false branch; timings are never allocated during ordinary loading.
+static var perf_trace_enabled: bool = false
+static var _perf_trace_events: Array[Dictionary] = []
 
 var _world: Node = null
 var _anchor: Node3D = null
 var _extended: bool = false
-var _passes_left: int = 0
 var _instances: int = 0
 var _particle_warmers: int = 0
-var _last_cache: Vector2i = Vector2i(-1, -1)
-var _seen: Dictionary = {}  # resource instance id -> true
+var _queued_particles: int = 0
+var _queue: Array[Dictionary] = []
+var _queue_keys: Dictionary = {}
+var _queue_cursor: int = 0
+var _last_submit_frame: int = -1
+var _awaiting_draw: bool = false
+var _render_serial: int = 0
+var _trace_item_started_usec: int = 0
+var _trace_item: Dictionary = {}
+var _trace_item_index: int = 0
+var _trace_item_submit_frame: int = -1
+var _trace_item_submit_render_serial: int = -1
 
 
 ## Starts a warm-up pass over `world` (the race root). Call it once, after the
@@ -126,27 +145,79 @@ static func warm(world: Node) -> ShaderWarmup:
 	return warmup
 
 
+## Registers content which a scene will stream only after its opening frame.
+## Call during scene construction, before warm(). Registration is idempotent;
+## static resource caches may safely call this on every retry.
+static func register_external_probe(mesh: Mesh, material: Material) -> void:
+	if mesh == null or material == null or _external_probes.size() >= MAX_EXTERNAL_PROBES:
+		return
+	var key := "%d:%d" % [mesh.get_instance_id(), material.get_instance_id()]
+	if _external_probe_keys.has(key):
+		return
+	_external_probe_keys[key] = true
+	_external_probes.append({"mesh": mesh, "material": material, "key": key})
+
+
+static func external_probe_count() -> int:
+	return _external_probes.size()
+
+
+static func has_external_probe(mesh: Mesh, material: Material) -> bool:
+	if mesh == null or material == null:
+		return false
+	var key := "%d:%d" % [mesh.get_instance_id(), material.get_instance_id()]
+	return _external_probe_keys.has(key)
+
+
+static func clear_perf_trace() -> void:
+	_perf_trace_events.clear()
+
+
+static func drain_perf_trace_events() -> Array[Dictionary]:
+	var events := _perf_trace_events.duplicate(true)
+	_perf_trace_events.clear()
+	return events
+
+
 func _ready() -> void:
-	# Run ahead of gameplay scripts so a pass always precedes the frame's draw,
-	# and keep ticking through a pause so the pass can never be left resident.
+	# Run ahead of gameplay scripts so submission always precedes the frame's
+	# draw, and keep ticking through a pause so the queue cannot remain resident.
 	process_priority = -100
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_extended = GameConfig.is_web_chrome()
-	_passes_left = CHROME_PASSES if _extended else BASE_PASSES
 	_anchor = Node3D.new()
 	_anchor.name = "ShaderWarmupAnchor"
-	_run_pass()
+	add_child(_anchor)
+	_build_queue()
+	if not RenderingServer.frame_post_draw.is_connected(_on_frame_post_draw):
+		RenderingServer.frame_post_draw.connect(_on_frame_post_draw)
+	_submit_next_item()
 
 
 func _process(_delta: float) -> void:
-	if _passes_left > 0:
-		_run_pass()
+	# A resource remains the only new submission until renderer confirms its
+	# frame completed. Process ticks without a draw (minimized/background window)
+	# cannot advance this queue or stack multiple probes into a later frame.
+	if _awaiting_draw:
 		return
-	# Every instance spawned by the final pass has now been through a draw.
+	if _queue_cursor < _queue.size():
+		_submit_next_item()
+		return
+	# Final item reached frame_post_draw before _awaiting_draw was cleared.
 	queue_free()
 
 
+func _on_frame_post_draw() -> void:
+	_render_serial += 1
+	if not _awaiting_draw:
+		return
+	_record_trace_item()
+	_awaiting_draw = false
+
+
 func _exit_tree() -> void:
+	if RenderingServer.frame_post_draw.is_connected(_on_frame_post_draw):
+		RenderingServer.frame_post_draw.disconnect(_on_frame_post_draw)
 	# The anchor lives under the camera, not under this node, so it has to be
 	# released explicitly.
 	if _anchor != null and is_instance_valid(_anchor):
@@ -154,31 +225,266 @@ func _exit_tree() -> void:
 	_anchor = null
 
 
-## --- Passes ------------------------------------------------------------------
+## --- Deterministic queue -----------------------------------------------------
 
-func _run_pass() -> void:
-	_passes_left -= 1
-	if not _place_anchor():
-		return
-	var before := _instances
-	# The registry only grows, so re-listing it is pointless when its size has
-	# not moved since the last pass.
-	if VisualLibrary.cache_sizes() != _last_cache:
-		for mat: Material in VisualLibrary.cached_materials():
-			_warm_material(mat)
-		for mesh: Mesh in VisualLibrary.cached_meshes():
-			_warm_mesh(mesh)
-		# Read again: warming mints the probe mesh and its material, so the
-		# pre-loop size would never match on the next pass.
-		_last_cache = VisualLibrary.cache_sizes()
+func _build_queue() -> void:
+	_queue.clear()
+	_queue_keys.clear()
+	_queue_cursor = 0
+	_queued_particles = 0
+	_last_submit_frame = -1
+	_awaiting_draw = false
+	# 1. Exact streamed mesh/material pairs. A late buffer+pipeline combination
+	# matters more than any generic cache entry and cannot be truncated by cap.
+	for probe: Dictionary in _external_probes:
+		var mesh := probe.get("mesh") as Mesh
+		var material := probe.get("material") as Material
+		_enqueue({
+			"type": "external",
+			"key": "external:%s" % String(probe.get("key", "")),
+			"name": "%s + %s" % [_resource_label(mesh), _resource_label(material)],
+			"mesh": mesh,
+			"material": material,
+		})
+	# 2. Live scene resources in node/surface order. This catches imported hero,
+	# track-builder and HUD-adjacent 3D material instances absent from caches.
+	_collect_queue(_world)
+	# 3. Shared cached materials and buffers in stable semantic-name order.
+	for row: Dictionary in _sorted_resources(VisualLibrary.cached_materials(), "material"):
+		_enqueue(row)
+	for row: Dictionary in _sorted_resources(VisualLibrary.cached_meshes(), "mesh"):
+		_enqueue(row)
+	# 4. Chrome-only absent-at-start feature and particle combinations.
 	if _extended:
-		for mat: Material in probe_materials():
-			_warm_material(mat)
-	_collect(_world)
-	if _instances == before and before > 0:
-		# A whole pass found nothing new: everything in reach is linked, so
-		# give the frame back instead of spending the rest of the budget.
-		_passes_left = 0
+		for material: Material in probe_materials():
+			_enqueue_material(material, "synthetic")
+		_collect_particle_queue(_world)
+
+
+func _enqueue(item: Dictionary) -> void:
+	if _queue.size() >= MAX_INSTANCES:
+		return
+	var key := String(item.get("key", ""))
+	if key == "" or _queue_keys.has(key):
+		return
+	_queue_keys[key] = true
+	_queue.append(item)
+
+
+func _enqueue_material(material: Material, source: String = "live") -> void:
+	if material == null:
+		return
+	_enqueue({
+		"type": "material",
+		"key": "material:%d" % material.get_instance_id(),
+		"name": "%s:%s" % [source, _resource_label(material)],
+		"material": material,
+	})
+
+
+func _enqueue_mesh(mesh: Mesh, source: String = "live") -> void:
+	if mesh == null:
+		return
+	_enqueue({
+		"type": "mesh",
+		"key": "mesh:%d" % mesh.get_instance_id(),
+		"name": "%s:%s" % [source, _resource_label(mesh)],
+		"mesh": mesh,
+	})
+
+
+func _enqueue_particle(particles: GPUParticles3D) -> void:
+	if particles == null or particles.process_material == null \
+			or _queued_particles >= MAX_PARTICLE_WARMERS:
+		return
+	var material := particles.process_material
+	var before := _queue.size()
+	_enqueue({
+		"type": "particle",
+		"key": "particle:%d" % material.get_instance_id(),
+		"name": "particle:%s" % _resource_label(material),
+		"source": particles,
+	})
+	if _queue.size() > before:
+		_queued_particles += 1
+
+
+func _sorted_resources(resources: Array, type: String) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for value: Variant in resources:
+		var resource := value as Resource
+		if resource == null:
+			continue
+		var name := _resource_label(resource)
+		var row: Dictionary = {
+			"type": type,
+			"key": "%s:%d" % [type, resource.get_instance_id()],
+			"name": "cache:%s" % name,
+			"sort": "%s:%020d" % [name, resource.get_instance_id()],
+		}
+		if type == "material":
+			var material := resource as Material
+			if material == null:
+				continue
+			row["material"] = material
+		elif type == "mesh":
+			var mesh := resource as Mesh
+			if mesh == null:
+				continue
+			row["mesh"] = mesh
+		else:
+			continue
+		rows.append(row)
+	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return String(a.get("sort", "")) < String(b.get("sort", "")))
+	for row: Dictionary in rows:
+		row.erase("sort")
+	return rows
+
+
+static func _resource_label(resource: Resource) -> String:
+	if resource == null:
+		return "null"
+	if resource.resource_path != "":
+		return resource.resource_path
+	var prefix: String = resource.get_class()
+	if resource.resource_name != "":
+		prefix += ":%s" % resource.resource_name
+	var standard := resource as StandardMaterial3D
+	if standard != null:
+		return ("%s[shade=%d transp=%d blend=%d cull=%d vc=%d tex=%d "
+				+ "emit=%d shadows=%d]") % [
+			prefix, standard.shading_mode, standard.transparency,
+			standard.blend_mode, standard.cull_mode,
+			int(standard.vertex_color_use_as_albedo),
+			int(standard.albedo_texture != null), int(standard.emission_enabled),
+			int(not standard.disable_receive_shadows),
+		]
+	var shader_material := resource as ShaderMaterial
+	if shader_material != null:
+		var shader_path := "null"
+		if shader_material.shader != null:
+			shader_path = shader_material.shader.resource_path
+			if shader_path == "":
+				shader_path = shader_material.shader.resource_name
+		return "%s[shader=%s]" % [prefix, shader_path]
+	var mesh := resource as Mesh
+	if mesh != null:
+		var size: Vector3 = mesh.get_aabb().size
+		return "%s[surfaces=%d aabb=%.3fx%.3fx%.3f]" % [
+			prefix, mesh.get_surface_count(), size.x, size.y, size.z,
+		]
+	return prefix
+
+
+func _collect_queue(node: Node) -> void:
+	if node == null or node == _anchor or _queue.size() >= MAX_INSTANCES:
+		return
+	var geometry := node as GeometryInstance3D
+	if geometry != null:
+		_enqueue_material(geometry.material_override)
+		_enqueue_material(geometry.material_overlay)
+	var instance := node as MeshInstance3D
+	if instance != null and instance.mesh != null:
+		_enqueue_mesh(instance.mesh)
+		for surface: int in instance.mesh.get_surface_count():
+			_enqueue_material(instance.mesh.surface_get_material(surface))
+			_enqueue_material(instance.get_surface_override_material(surface))
+	var multi := node as MultiMeshInstance3D
+	if multi != null and multi.multimesh != null and multi.multimesh.mesh != null:
+		_enqueue_mesh(multi.multimesh.mesh)
+		for surface: int in multi.multimesh.mesh.get_surface_count():
+			_enqueue_material(multi.multimesh.mesh.surface_get_material(surface))
+	var gpu := node as GPUParticles3D
+	if gpu != null:
+		for pass_index: int in mini(gpu.draw_passes, 4):
+			var draw_mesh := gpu.get("draw_pass_%d" % (pass_index + 1)) as Mesh
+			_enqueue_mesh(draw_mesh)
+			_enqueue_surface_materials(draw_mesh)
+	var cpu := node as CPUParticles3D
+	if cpu != null:
+		_enqueue_mesh(cpu.mesh)
+		_enqueue_surface_materials(cpu.mesh)
+	for child: Node in node.get_children():
+		_collect_queue(child)
+
+
+func _collect_particle_queue(node: Node) -> void:
+	if node == null or node == _anchor or _queue.size() >= MAX_INSTANCES:
+		return
+	if node is GPUParticles3D:
+		_enqueue_particle(node as GPUParticles3D)
+	for child: Node in node.get_children():
+		_collect_particle_queue(child)
+
+
+func _enqueue_surface_materials(mesh: Mesh) -> void:
+	if mesh == null:
+		return
+	for surface: int in mesh.get_surface_count():
+		_enqueue_material(mesh.surface_get_material(surface))
+
+
+func _submit_next_item(require_placement: bool = true) -> bool:
+	if _queue_cursor >= _queue.size() or _awaiting_draw:
+		return false
+	# _ready() can run while another node is processing. Guarding the engine
+	# frame makes the one-new-resource-per-rendered-frame contract explicit even
+	# if Godot schedules this node's first _process() in that same frame.
+	var frame := Engine.get_process_frames()
+	if frame == _last_submit_frame:
+		return false
+	if require_placement and not _place_anchor():
+		return false
+	if _anchor == null or not is_instance_valid(_anchor):
+		return false
+	var item: Dictionary = _queue[_queue_cursor]
+	_queue_cursor += 1
+	_last_submit_frame = frame
+	if perf_trace_enabled:
+		_trace_item_started_usec = Time.get_ticks_usec()
+		_trace_item = item
+		_trace_item_index = _queue_cursor
+		_trace_item_submit_frame = frame
+		_trace_item_submit_render_serial = _render_serial
+	var before := _instances
+	_spawn_queue_item(item)
+	var submitted := _instances == before + 1
+	_awaiting_draw = submitted
+	return submitted
+
+
+func _spawn_queue_item(item: Dictionary) -> void:
+	match String(item.get("type", "")):
+		"external":
+			_spawn_external(item.get("mesh") as Mesh, item.get("material") as Material)
+		"material":
+			_spawn_material(item.get("material") as Material)
+		"mesh":
+			_spawn_mesh(item.get("mesh") as Mesh)
+		"particle":
+			_spawn_particle(item.get("source") as GPUParticles3D)
+
+
+func _record_trace_item() -> void:
+	if not perf_trace_enabled or _trace_item_started_usec <= 0:
+		return
+	_perf_trace_events.append({
+		"submit_frame": _trace_item_submit_frame,
+		"following_frame": Engine.get_process_frames(),
+		"submit_render_serial": _trace_item_submit_render_serial,
+		"following_render_serial": _render_serial,
+		"item_index": _trace_item_index,
+		"queue_size": _queue.size(),
+		"key": String(_trace_item.get("key", "")),
+		"type": String(_trace_item.get("type", "")),
+		"name": String(_trace_item.get("name", "")),
+		"ms": float(Time.get_ticks_usec() - _trace_item_started_usec) / 1000.0,
+	})
+	_trace_item_started_usec = 0
+	_trace_item = {}
+	_trace_item_submit_frame = -1
+	_trace_item_submit_render_serial = -1
 
 
 ## Parents the anchor to whatever camera is current, just past its near plane.
@@ -203,59 +509,18 @@ func _place_anchor() -> bool:
 
 
 ## Per-instance scale that shrinks any mesh to PROBE_WORLD_SIZE across. The
-## draw call and its program bind still happen at sub-pixel coverage — that is
-## the part the compile hangs off — while nothing reaches the screen.
+## draw call and its program bind still happen at a tiny rasterized footprint —
+## that is the part the compile hangs off — while the loader hides it.
 static func _fit_scale(mesh: Mesh) -> Vector3:
 	var extent := mesh.get_aabb().size.length() + 2.0 * MAX_VERTEX_DISPLACEMENT
 	return Vector3.ONE * (PROBE_WORLD_SIZE / maxf(extent, 0.0001))
 
 
-## Walks the live scene for materials the library never minted: TrackBuilder
-## surfaces, PenguinVisual shader materials, hazard props, particle draw passes.
-func _collect(node: Node) -> void:
-	if node == null or node == _anchor:
-		return
-	if node is GeometryInstance3D:
-		var geometry := node as GeometryInstance3D
-		_warm_material(geometry.material_override)
-		_warm_material(geometry.material_overlay)
-		if node is MeshInstance3D:
-			var instance := node as MeshInstance3D
-			_warm_surfaces(instance.mesh)
-			if instance.mesh != null:
-				for i: int in instance.mesh.get_surface_count():
-					_warm_material(instance.get_surface_override_material(i))
-		elif node is GPUParticles3D:
-			var particles := node as GPUParticles3D
-			# Only the passes the emitter actually declares: reading draw_pass_2 on
-			# a one-pass emitter is an out-of-bounds error per node per warm pass,
-			# which floods the browser console badly enough to hang devtools.
-			for pass_index: int in mini(particles.draw_passes, 4):
-				_warm_surfaces(particles.get("draw_pass_%d" % (pass_index + 1)) as Mesh)
-			if _extended:
-				_warm_particle_process(particles)
-		elif node is CPUParticles3D:
-			_warm_surfaces((node as CPUParticles3D).mesh)
-	for child: Node in node.get_children():
-		_collect(child)
-
-
-func _warm_surfaces(mesh: Mesh) -> void:
-	if mesh == null:
-		return
-	for i: int in mesh.get_surface_count():
-		_warm_material(mesh.surface_get_material(i))
-
-
 ## --- Spawning ----------------------------------------------------------------
 
-func _warm_material(mat: Material) -> void:
-	if mat == null or _instances >= MAX_INSTANCES:
+func _spawn_material(mat: Material) -> void:
+	if mat == null:
 		return
-	var id := mat.get_instance_id()
-	if _seen.has(id):
-		return
-	_seen[id] = true
 	var instance := MeshInstance3D.new()
 	instance.mesh = VisualLibrary.warmup_mesh()
 	instance.scale = _fit_scale(instance.mesh)
@@ -269,13 +534,9 @@ func _warm_material(mat: Material) -> void:
 ## Draws a library mesh once so its vertex buffers reach the GPU here rather
 ## than on the frame it first enters the frustum. The material is a cached
 ## library one, so this adds no program of its own.
-func _warm_mesh(mesh: Mesh) -> void:
-	if mesh == null or _instances >= MAX_INSTANCES:
+func _spawn_mesh(mesh: Mesh) -> void:
+	if mesh == null:
 		return
-	var id := mesh.get_instance_id()
-	if _seen.has(id):
-		return
-	_seen[id] = true
 	var instance := MeshInstance3D.new()
 	instance.mesh = mesh
 	instance.scale = _fit_scale(mesh)
@@ -284,19 +545,32 @@ func _warm_mesh(mesh: Mesh) -> void:
 	_instances += 1
 
 
+## Draws the real late-content mesh with its real material. A separate generic
+## material probe cannot guarantee the same vertex-input pipeline, and a
+## separate mesh upload leaves the exact material/buffer combination lazy.
+func _spawn_external(mesh: Mesh, material: Material) -> void:
+	if mesh == null or material == null:
+		return
+	var instance := MeshInstance3D.new()
+	instance.mesh = mesh
+	instance.scale = _fit_scale(mesh)
+	instance.material_override = material
+	_anchor.add_child(instance)
+	_instances += 1
+
+
 ## Compiles a particle process shader by running one particle for one frame.
 ## local_coords keeps the simulation inside the anchor's transform, so the
-## anchor's sub-pixel scale bounds the motion too and nothing can drift into
+## anchor's tiny scale bounds the motion too and nothing can drift into
 ## view. Chrome-only: on a native GL driver this is not worth the frame.
-func _warm_particle_process(source: GPUParticles3D) -> void:
+func _spawn_particle(source: GPUParticles3D) -> void:
+	if source == null:
+		return
 	var mat := source.process_material
 	if mat == null or _particle_warmers >= MAX_PARTICLE_WARMERS:
 		return
-	var id := mat.get_instance_id()
-	if _seen.has(id):
-		return
-	_seen[id] = true
 	_particle_warmers += 1
+	_instances += 1
 	var particles := GPUParticles3D.new()
 	particles.process_material = mat
 	var draw_mesh := source.draw_pass_1
@@ -315,8 +589,9 @@ func _warm_particle_process(source: GPUParticles3D) -> void:
 
 ## --- Synthetic feature probes -------------------------------------------------
 
-## Shared with BootWarmup, which links the same feature combinations during the
-## studio splash so the first race and the first menu both start warm.
+## Synthetic fallback for programs whose owners do not exist at scene start.
+## BootWarmup intentionally stays Canvas-only; gameplay compilation belongs to
+## this scene-specific pass while SceneRouter holds its loading overlay.
 static func probe_materials() -> Array[Material]:
 	if not _probes.is_empty():
 		return _probes

@@ -49,79 +49,123 @@ var _auth_chip_button: Button = null
 var _column_width: float = COLUMN_BASE
 ## Extra enlargement for tall/narrow (portrait) viewports — see _tall_boost().
 var _boost: float = 1.0
+var _safe_scroll: ScrollContainer = null
+var _profile: LayoutProfile = null
 
 
 func _ready() -> void:
 	UITheme.make_background(self)
 	UITheme.apply_ui_scale(self)
-	_boost = _tall_boost()
-	_column_width = _measure_column_width()
+	_profile = LayoutProfile.for_viewport(get_viewport())
+	_boost = minf(_tall_boost(), 1.85)
+	_column_width = _hub_width()
 
-	# Single centered column filling the screen — the old side diorama shrank
-	# the menu into a corner on phones. The scroll wrapper keeps every entry
-	# reachable when the column outgrows the viewport (touch enlargement, a
-	# large Menu Scale, or a short landscape phone); while it fits, the
-	# expanding CenterContainer keeps the composition exactly centered.
-	var scroll := ScrollContainer.new()
-	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.follow_focus = true
-	add_child(scroll)
-	var center := CenterContainer.new()
-	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.add_child(center)
+	# Expedition hub: authored destination art remains dominant while one
+	# high-contrast glass dock carries every action. Portrait uses a lower dock;
+	# landscape uses a right rail. Both are separate compositions, not a stretch.
+	_safe_scroll = ScrollContainer.new()
+	_safe_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_safe_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	if _is_narrow_portrait():
+		# Mobile hub scrolls by touch/focus; desktop-style scrollbar chrome cuts
+		# through the key art and is unnecessary on a 540px-wide screen.
+		_safe_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	_safe_scroll.follow_focus = true
+	TouchScroll.attach(_safe_scroll)
+	add_child(_safe_scroll)
+	var viewport := get_viewport()
+	if viewport != null and not viewport.size_changed.is_connected(_apply_safe_area):
+		viewport.size_changed.connect(_apply_safe_area)
+	_apply_safe_area()
+
+	var composition: BoxContainer
+	if _profile.is_portrait():
+		composition = VBoxContainer.new()
+	else:
+		composition = HBoxContainer.new()
+	composition.custom_minimum_size = _profile.safe_rect.size
+	composition.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	composition.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	composition.add_theme_constant_override("separation", _gap(18))
+	_safe_scroll.add_child(composition)
+
+	var art_space := Control.new()
+	art_space.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	art_space.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	art_space.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if _profile.is_portrait():
+		art_space.custom_minimum_size.y = _portrait_art_height()
+	else:
+		art_space.custom_minimum_size.x = maxf(
+			_profile.safe_rect.size.x - _column_width - _gap(36),
+			_profile.safe_rect.size.x * 0.40)
+	composition.add_child(art_space)
+
+	var dock := _make_hub_dock()
+	dock.custom_minimum_size.x = _column_width
+	if _is_narrow_portrait():
+		# Fixed physical composition target for phone portrait. Content may grow
+		# taller and scroll, but it never collapses into a tiny lower strip.
+		dock.custom_minimum_size.y = _profile.safe_rect.size.y * 0.60
+	elif not _profile.is_portrait():
+		dock.custom_minimum_size.y = maxf(
+			_profile.safe_rect.size.y - _gap(32), _u(680.0))
+		dock.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	composition.add_child(dock)
+
 	var vbox := VBoxContainer.new()
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.custom_minimum_size.x = _column_width
-	vbox.add_theme_constant_override("separation", _gap(12))
-	center.add_child(vbox)
+	vbox.add_theme_constant_override("separation", _gap(9))
+	dock.add_child(vbox)
 
-	var title := UITheme.heading(GameConfig.GAME_NAME, _title_size())
+	var eyebrow := UITheme.sub_label("ANTARCTIC EXPEDITION BASE", _f(15))
+	eyebrow.add_theme_color_override("font_color", Color(UITheme.COLOR_GOLD, 0.92))
+	eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(eyebrow)
+	var title := UITheme.heading(GameConfig.GAME_NAME, _hub_title_size())
 	title.add_theme_color_override("font_color", Color(0.97, 0.99, 1.0))
-	title.add_theme_color_override("font_shadow_color", Color(0.25, 0.65, 1.0, 0.35))
+	title.add_theme_color_override("font_shadow_color", Color(0.01, 0.04, 0.10, 0.82))
 	title.add_theme_constant_override("shadow_offset_x", 0)
-	title.add_theme_constant_override("shadow_offset_y", 6)
-	title.add_theme_constant_override("shadow_outline_size", 14)
+	title.add_theme_constant_override("shadow_offset_y", 4)
+	title.add_theme_constant_override("shadow_outline_size", 10)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
-	# Shared header treatment: full-column rule sweeping in under the wordmark
-	# (same make_header_rule every other menu uses).
-	vbox.add_child(UITheme.make_header_rule())
-	var tagline := UITheme.sub_label("Slide. Shove. Snack. Repeat.", _f(24))
+	var tagline := UITheme.sub_label("Choose your next expedition", _f(19))
 	tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(tagline)
-	_spacer(vbox, UITheme.SPACE_M)
+	vbox.add_child(UITheme.accent_rule(minf(_column_width * 0.34, _u(220.0)),
+		UITheme.COLOR_ACCENT))
 
-	# Rank one: the two games. Waddle Run is a mode in the same sense that
-	# racing is — its own rules, its own scoreboard, its own session length — so
-	# burying it in the mode list would have made a whole half of the game
-	# something you have to already know about. Both get the hero treatment and
-	# the player picks between two obvious things.
-	_add_button(vbox, "Play", UITheme.ICON_PLAY, func() -> void:
-		SceneRouter.go_to(Game.SCENE_MODE_SELECT), true)
-	_add_button(vbox, _runner_label(), RUN_ICON_SVG, func() -> void:
-		Game.start_runner(), true)
-	_spacer(vbox, 6)
-	# The daily sits directly under the heroes: it is the reason to open the
-	# game on a day you were not otherwise going to, so it has to be visible
-	# without a menu dive. Its label carries the state (streak, or done for
-	# today) so the button itself is the reminder.
-	_add_button(vbox, _daily_label(), UITheme.ICON_TROPHY, func() -> void:
-		Game.start_daily_challenge(), false)
-	# Rank two: the rest of the game, full width and evenly weighted.
-	_add_button(vbox, "Waddle School", UITheme.ICON_SCHOOL, func() -> void:
-		Game.start_tutorial(), false)
-	_add_button(vbox, "Customize", UITheme.ICON_PALETTE, func() -> void:
-		SceneRouter.go_to(Game.SCENE_CUSTOMIZE), false)
-	_add_button(vbox, "Leaderboard", UITheme.ICON_PODIUM, func() -> void:
-		SceneRouter.go_to(Game.SCENE_LEADERBOARD), false)
-	_add_button(vbox, "Achievements", UITheme.ICON_TROPHY, func() -> void:
-		SceneRouter.go_to(Game.SCENE_ACHIEVEMENTS), false)
+	var modes := GridContainer.new()
+	modes.columns = 1 if _is_narrow_portrait() else 2
+	modes.add_theme_constant_override("h_separation", _gap(10))
+	modes.add_theme_constant_override("v_separation", _gap(10))
+	modes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(modes)
+	_add_mode_card(modes, "RACE", "Circuits · Cups · Ghosts", UITheme.ICON_PLAY,
+		Color(0.22, 0.62, 0.90), func() -> void:
+			SceneRouter.go_to(Game.SCENE_MODE_SELECT))
+	_add_mode_card(modes, "WADDLE RUN", _runner_record_line(), RUN_ICON_SVG,
+		Color(0.53, 0.38, 0.88), func() -> void:
+			Game.start_runner())
 
-	# Rank three: housekeeping, grouped behind a divider and sized down so the
-	# stack reads as three deliberate tiers instead of one long list.
-	_spacer(vbox, 6)
+	var secondary := GridContainer.new()
+	secondary.columns = _secondary_columns()
+	secondary.add_theme_constant_override("h_separation", _gap(8))
+	secondary.add_theme_constant_override("v_separation", _gap(8))
+	secondary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(secondary)
+	_add_hub_nav(secondary, _daily_label(), UITheme.ICON_TROPHY, func() -> void:
+		Game.start_daily_challenge())
+	_add_hub_nav(secondary, "Waddle School", UITheme.ICON_SCHOOL, func() -> void:
+		Game.start_tutorial())
+	_add_hub_nav(secondary, "Customize", UITheme.ICON_PALETTE, func() -> void:
+		SceneRouter.go_to(Game.SCENE_CUSTOMIZE))
+	_add_hub_nav(secondary, "Leaderboard", UITheme.ICON_PODIUM, func() -> void:
+		SceneRouter.go_to(Game.SCENE_LEADERBOARD))
+	_add_hub_nav(secondary, "Achievements", UITheme.ICON_TROPHY, func() -> void:
+		SceneRouter.go_to(Game.SCENE_ACHIEVEMENTS))
+
 	vbox.add_child(_divider())
 	var utility := HBoxContainer.new()
 	utility.add_theme_constant_override("separation", _gap(10))
@@ -146,7 +190,7 @@ func _ready() -> void:
 	_maybe_announce_tilt()
 	UITheme.attach_swipe_back(self, func() -> void:
 		SceneRouter.go_to(Game.SCENE_TITLE))
-	var entrance_items: Array[Control] = [title, tagline]
+	var entrance_items: Array[Control] = [eyebrow, title, tagline]
 	for button: Button in _buttons:
 		entrance_items.append(button)
 	entrance_items.append(chip)
@@ -155,6 +199,151 @@ func _ready() -> void:
 	if not _buttons.is_empty():
 		_buttons[0].grab_focus()
 	AudioManager.play_music("music_title")
+
+
+func _hub_width() -> float:
+	if _is_narrow_portrait():
+		return _profile.safe_rect.size.x * 0.90
+	match _profile.view_class:
+		LayoutProfile.ViewClass.PORTRAIT_TABLET:
+			return minf(_profile.safe_rect.size.x * 0.90, _u(1260.0))
+		LayoutProfile.ViewClass.LANDSCAPE_COMPACT:
+			return minf(_profile.safe_rect.size.x * 0.52, _u(720.0))
+		_:
+			return minf(_profile.safe_rect.size.x * 0.42, _u(680.0))
+
+
+func _portrait_art_height() -> float:
+	if _is_narrow_portrait():
+		# Container chrome/separation adds ~5% of a 540x960 frame before the
+		# dock face begins; 35% logical renders as a 40% physical art stage.
+		return _profile.safe_rect.size.y * 0.35
+	match _profile.view_class:
+		_:
+			return _profile.safe_rect.size.y * 0.40
+
+
+func _secondary_columns() -> int:
+	if _is_narrow_portrait():
+		return 2
+	match _profile.view_class:
+		LayoutProfile.ViewClass.PORTRAIT_TABLET:
+			return 3
+		LayoutProfile.ViewClass.LANDSCAPE_COMPACT:
+			return 2
+		_:
+			return 3
+
+
+func _hub_title_size() -> int:
+	var authored := 54 if _profile.is_portrait() else 48
+	return roundi(float(UITheme.scaled_heading(authored)) * minf(_boost, 1.28))
+
+
+## Project stretch exposes a 1920-wide logical canvas even inside a 540-wide
+## phone window, which classifies as PORTRAIT_TABLET. Fold physical phone
+## geometry back into the LayoutProfile contract so narrow composition is used
+## on-device and in the windowed QA matrix.
+func _is_narrow_portrait() -> bool:
+	if _profile == null or not _profile.is_portrait():
+		return false
+	if _profile.view_class == LayoutProfile.ViewClass.PORTRAIT_NARROW:
+		return true
+	var window := get_window()
+	return window != null and window.size.y >= window.size.x \
+		and window.size.x <= 700
+
+
+func _physical_height_floor(pixels: float) -> float:
+	if not _is_narrow_portrait():
+		return 0.0
+	var window := get_window()
+	if window == null or window.size.y <= 0:
+		return pixels
+	return pixels * _profile.viewport_size.y / float(window.size.y)
+
+
+func _make_hub_dock() -> PanelContainer:
+	var panel := PanelContainer.new()
+	var style := UITheme.make_panel_style(
+		Color(0.025, 0.060, 0.115, 0.91), Color(0.67, 0.86, 1.0, 0.45))
+	style.set_corner_radius_all(roundi(_u(24.0)))
+	style.content_margin_left = _u(24.0)
+	style.content_margin_right = _u(24.0)
+	style.content_margin_top = _u(22.0)
+	style.content_margin_bottom = _u(20.0)
+	style.shadow_color = Color(0.0, 0.02, 0.07, 0.62)
+	style.shadow_size = roundi(_u(20.0))
+	style.shadow_offset = Vector2(-_u(5.0), _u(8.0))
+	panel.add_theme_stylebox_override("panel", style)
+	return panel
+
+
+func _add_mode_card(parent: Control, heading: String, detail: String,
+		icon_svg: String, tint: Color, action: Callable) -> void:
+	var button := UITheme.make_menu_button(
+		"%s\n%s" % [heading, detail], icon_svg, Vector2.ZERO, 26)
+	button.custom_minimum_size = Vector2(0.0, maxf(
+		_row_size(Vector2(0.0, 132.0)).y, _physical_height_floor(64.0)))
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.add_theme_font_override("font", UITheme.display_font())
+	button.add_theme_font_size_override("font_size", _f(22))
+	button.add_theme_constant_override("icon_max_width", roundi(_u(48.0)))
+	button.add_theme_constant_override("h_separation", roundi(_u(14.0)))
+	button.add_theme_stylebox_override("normal", _mode_card_box(
+		Color(tint, 0.30), Color(tint, 0.84), 7))
+	button.add_theme_stylebox_override("hover", _mode_card_box(
+		Color(tint, 0.46), Color(0.92, 0.98, 1.0, 0.95), 12))
+	button.add_theme_stylebox_override("pressed", _mode_card_box(
+		Color(tint.darkened(0.35), 0.75), UITheme.COLOR_GOLD, 2))
+	UITheme.hook_sounds(button)
+	button.pressed.connect(action)
+	parent.add_child(button)
+	_buttons.append(button)
+
+
+func _mode_card_box(bg: Color, border: Color, shadow: int) -> StyleBoxFlat:
+	var box := UITheme.make_panel_style(bg, border)
+	box.set_corner_radius_all(roundi(_u(16.0)))
+	box.content_margin_left = _u(18.0)
+	box.content_margin_right = _u(14.0)
+	box.content_margin_top = _u(12.0)
+	box.content_margin_bottom = _u(12.0)
+	box.shadow_color = Color(border, 0.22)
+	box.shadow_size = shadow
+	return box
+
+
+func _add_hub_nav(parent: Control, text: String, icon_svg: String,
+		action: Callable) -> void:
+	var button := UITheme.make_menu_button(text, icon_svg, Vector2.ZERO, 18)
+	button.custom_minimum_size = Vector2(0.0, maxf(
+		_row_size(Vector2(0.0, 52.0)).y, _physical_height_floor(44.0)))
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.add_theme_font_size_override("font_size", _f(17))
+	button.add_theme_constant_override("icon_max_width", roundi(_u(22.0)))
+	button.add_theme_constant_override("h_separation", roundi(_u(8.0)))
+	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	UITheme.hook_sounds(button)
+	button.pressed.connect(action)
+	parent.add_child(button)
+	_buttons.append(button)
+
+
+func _runner_record_line() -> String:
+	var best := Progression.runner_high_score()
+	return "Dodge · Leap · Escape" if best <= 0 else "Best %s" % _grouped(best)
+
+
+func _apply_safe_area() -> void:
+	if _safe_scroll == null:
+		return
+	var insets := LayoutProfile.for_viewport(get_viewport()).safe_insets
+	_safe_scroll.offset_left = insets.x
+	_safe_scroll.offset_top = insets.y
+	_safe_scroll.offset_right = -insets.z
+	_safe_scroll.offset_bottom = -insets.w
 
 
 ## --- Layout scaling ---------------------------------------------------------
@@ -329,7 +518,8 @@ func _add_utility_button(parent: Control, text: String, icon_svg: String,
 		on_pressed: Callable) -> void:
 	var authored := Vector2(0.0, 54.0)
 	var button := UITheme.make_menu_button(text, icon_svg, authored, 20)
-	button.custom_minimum_size = Vector2(0.0, _row_size(authored).y)
+	button.custom_minimum_size = Vector2(0.0, maxf(
+		_row_size(authored).y, _physical_height_floor(44.0)))
 	button.add_theme_font_size_override("font_size", _f(20))
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.add_theme_constant_override("icon_max_width", roundi(UITheme.scaled(22.0) * minf(_boost, 1.5)))

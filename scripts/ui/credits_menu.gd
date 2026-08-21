@@ -38,41 +38,102 @@ var _scroll: ScrollContainer
 var _reduced: bool = false
 var _boost: float = 1.0
 var _column: float = COLUMN_WIDTH
+var _fit: float = 1.0
 ## Roll state. `_rolling` goes false for good once the reader takes over.
 var _rolling: bool = true
 var _roll_delay: float = ROLL_DELAY
 var _roll_pos: float = 0.0
+var _profile: LayoutProfile = null
+var _layout_root: Control = null
+var _reflowing: bool = false
 
 
 func _ready() -> void:
 	UITheme.make_background(self)
 	UITheme.apply_ui_scale(self)
 	_reduced = UITheme.reduced_motion()
+	var initial := UtilityScreenLayout.bind_view_class(self, _on_view_class_changed)
+	_build_layout(initial, true, 0.0)
+	UITheme.attach_swipe_back(self, _go_back)
+
+
+func _on_view_class_changed(next: LayoutProfile) -> void:
+	var fraction := UtilityScreenLayout.scroll_fraction(_scroll)
+	_build_layout(next, false, fraction)
+
+
+func _build_layout(next: LayoutProfile, animate: bool, scroll_fraction: float) -> void:
+	if _layout_root != null and is_instance_valid(_layout_root):
+		_layout_root.free()
+	_profile = next
+	_reflowing = not animate
 	_boost = _tall_boost()
 	_column = _measure_column()
+	_fit = clampf(_column / maxf(UITheme.scaled(COLUMN_WIDTH), 1.0), 0.42, 1.0)
+	_layout_root = Control.new()
+	_layout_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_layout_root)
 
 	_scroll = ScrollContainer.new()
 	# The roll is automatic, but a reader who grabs the list must be able to
 	# drag it; without this the touch never reaches the ScrollContainer.
 	TouchScroll.attach(_scroll)
 	_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	UtilityScreenLayout.bind_safe_rect(self, _scroll)
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.follow_focus = true
-	add_child(_scroll)
+	_layout_root.add_child(_scroll)
 	_style_scrollbar(_scroll.get_v_scroll_bar())
 
 	# Expand flags let the CenterContainer fill the scroll viewport while the
 	# content fits (keeping the centered composition) and grow past it when it
 	# does not, which is what makes the roll scrollable.
-	var center := CenterContainer.new()
-	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_scroll.add_child(center)
-
 	var pad := MarginContainer.new()
-	pad.add_theme_constant_override("margin_top", _gap(UITheme.SPACE_L))
+	pad.add_theme_constant_override("margin_top", _gap(UITheme.SPACE_L) \
+		+ (roundi(_u(58.0)) if _profile.is_portrait() else 0))
 	pad.add_theme_constant_override("margin_bottom", _gap(UITheme.SPACE_L))
-	center.add_child(pad)
+
+	if _profile.is_portrait():
+		var center := CenterContainer.new()
+		center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		_scroll.add_child(center)
+		# Phone art often places the sun directly behind the centered roll. A
+		# translucent journal keeps every role readable while retaining enough
+		# destination art to make the page feel like part of the expedition.
+		var journal := PanelContainer.new()
+		journal.custom_minimum_size.x = _column + _u(28.0)
+		var journal_style := UITheme.make_panel_style(
+			Color(0.025, 0.058, 0.116, 0.82), Color(UITheme.COLOR_ACCENT, 0.28))
+		journal_style.content_margin_left = _u(14.0)
+		journal_style.content_margin_right = _u(14.0)
+		journal_style.shadow_color = Color(0.0, 0.02, 0.06, 0.48)
+		journal_style.shadow_size = maxi(8, roundi(_u(16.0)))
+		journal.add_theme_stylebox_override("panel", journal_style)
+		center.add_child(journal)
+		journal.add_child(pad)
+	else:
+		# Landscape is a deliberate right-hand credit journal, leaving destination
+		# art readable on the left instead of floating a narrow list in dead space.
+		var composition := HBoxContainer.new()
+		composition.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		composition.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		composition.add_theme_constant_override("separation", _gap(UITheme.SPACE_L))
+		_scroll.add_child(composition)
+		var art_stage := Control.new()
+		art_stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		art_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		composition.add_child(art_stage)
+		var journal := PanelContainer.new()
+		journal.custom_minimum_size.x = _column + _u(56.0)
+		journal.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		var journal_style := UITheme.make_panel_style(
+			Color(0.035, 0.071, 0.132, 0.88), Color(UITheme.COLOR_ACCENT, 0.24))
+		journal_style.content_margin_left = _u(28.0)
+		journal_style.content_margin_right = _u(28.0)
+		journal.add_theme_stylebox_override("panel", journal_style)
+		composition.add_child(journal)
+		journal.add_child(pad)
 
 	_content = VBoxContainer.new()
 	_content.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -94,13 +155,25 @@ func _ready() -> void:
 	for child in _content.get_children():
 		if child is Control:
 			entrance_items.append(child as Control)
-	UITheme.play_entrance(self, entrance_items, 14.0)
+	if animate:
+		UITheme.play_entrance(self, entrance_items, 14.0)
 
 	_build_exit_affordance()
-	UITheme.attach_swipe_back(self, _go_back)
-	back_button.grab_focus()
-	# grab_focus + follow_focus would scroll the roll straight to its end.
-	_snap_to_top()
+	if animate:
+		back_button.grab_focus()
+		# grab_focus + follow_focus would scroll the roll straight to its end.
+		_snap_to_top()
+	else:
+		UtilityScreenLayout.restore_scroll_fraction(self, _scroll, scroll_fraction)
+		var sync_roll := func() -> void:
+			if is_instance_valid(_scroll):
+				_roll_pos = float(_scroll.scroll_vertical)
+			_reflowing = false
+		var tree := get_tree()
+		if tree != null:
+			tree.process_frame.connect(sync_roll, CONNECT_ONE_SHOT)
+		else:
+			_reflowing = false
 
 
 ## --- Layout scaling ---------------------------------------------------------
@@ -119,15 +192,17 @@ func _tall_boost() -> float:
 
 
 func _f(size: int) -> int:
-	return maxi(1, roundi(float(UITheme.scaled_font(size)) * _boost))
+	return maxi(1, roundi(float(UITheme.scaled_font(size)) * _boost \
+		* lerpf(1.0, _fit, 0.22)))
 
 
 func _h(size: int) -> int:
-	return maxi(1, roundi(float(UITheme.scaled_heading(size)) * _boost))
+	return maxi(1, roundi(float(UITheme.scaled_heading(size)) * _boost \
+		* lerpf(1.0, _fit, 0.32)))
 
 
 func _u(value: float) -> float:
-	return UITheme.scaled(value) * _boost
+	return UITheme.scaled(value) * minf(_boost, 1.15) * maxf(_fit, 0.62)
 
 
 func _gap(value: int) -> int:
@@ -135,15 +210,10 @@ func _gap(value: int) -> int:
 
 
 func _measure_column() -> float:
-	if UITheme.is_touch():
-		return UITheme.content_width(COLUMN_WIDTH, self)
-	if GameConfig.is_headless() or not is_inside_tree():
+	if _profile == null or GameConfig.is_headless() or not is_inside_tree():
 		return COLUMN_WIDTH
-	var view := get_viewport_rect().size
-	if view.x <= 0.0:
-		return COLUMN_WIDTH
-	var usable := maxf(view.x - float(UITheme.screen_margin()) * 2.0, 300.0)
-	return clampf(COLUMN_WIDTH * _boost, 300.0, usable)
+	return UtilityScreenLayout.page_width(_profile, COLUMN_WIDTH * _boost,
+		280.0, 0.44)
 
 
 func _style_scrollbar(bar: VScrollBar) -> void:
@@ -299,7 +369,14 @@ func _build_partner_credit() -> void:
 
 
 func _btn(width: float, height: float) -> Vector2:
-	return UITheme.scaled_size(Vector2(width, height)) * _boost
+	var out := UITheme.scaled_size(Vector2(width, height))
+	if width > 0.0:
+		out.x *= lerpf(1.0, _fit, 0.45)
+	if height > 0.0:
+		out.y *= _boost
+	if height > 0.0:
+		out.y = maxf(out.y, UtilityScreenLayout.MIN_TOUCH_TARGET)
+	return out
 
 
 ## Tools, provenance and version — the small print, set as small print.
@@ -308,7 +385,10 @@ func _build_colophon() -> void:
 	_content.add_child(_name_label("Godot Engine", 22))
 	_content.add_child(_spacer(10))
 	_content.add_child(_text_label(
-		"All art, audio and code are original and procedurally generated.", 16))
+		"Original Waddle Wars art. Selected concept, UI and course images were "
+		+ "generated with OpenAI ImageGen, then reviewed and integrated. Authored "
+		+ "3D assets were created in Blender. Licenses and attribution: "
+		+ "ATTRIBUTION.md.", 16))
 	_content.add_child(_caption_label("Version %s" % GameConfig.GAME_VERSION, 14))
 
 
@@ -337,16 +417,21 @@ func _build_farewell() -> Button:
 ## involve waiting: a quiet pinned Back, over the scroll, out of the reading
 ## column.
 func _build_exit_affordance() -> void:
+	var safe_layer := Control.new()
+	safe_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	safe_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	UtilityScreenLayout.bind_safe_rect(self, safe_layer)
+	_layout_root.add_child(safe_layer)
 	var holder := MarginContainer.new()
 	holder.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	holder.add_theme_constant_override("margin_left", roundi(_u(14.0)))
 	holder.add_theme_constant_override("margin_top", roundi(_u(12.0)))
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(holder)
+	safe_layer.add_child(holder)
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(row)
-	var exit_button := UITheme.make_ghost_button("Back", _btn(0.0, 40.0), _f(17))
+	var exit_button := UITheme.make_button("Back", _btn(124.0, 48.0), _f(17))
 	exit_button.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	var icon := UITheme.make_icon(UITheme.ICON_BACK, 1.0)
 	if icon != null:
@@ -383,7 +468,7 @@ func _snap_to_top() -> void:
 
 
 func _process(delta: float) -> void:
-	if not _rolling or _reduced or GameConfig.is_headless():
+	if _reflowing or not _rolling or _reduced or GameConfig.is_headless():
 		return
 	if not is_instance_valid(_scroll):
 		return

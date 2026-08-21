@@ -1,51 +1,30 @@
 class_name PenguinLoader
 extends Control
-## Dancing-penguin busy indicator: the game's real penguin, rendered live.
+## Premium 2D expedition loading indicator.
 ##
-## Every "loading" state shows this instead of a bare label. It builds a tiny
-## transparent SubViewport holding one PenguinVisual — the same hero asset the
-## racers use, with its full plumage, bill and eye detail — lit by a warm key
-## and a cool rim, and dances it: a bouncing hop cycle, a hip sway, a slow
-## turn, and a squash on every landing.
-##
-## Rendering the real penguin here is close to free at the moment it matters:
-## the loader only ever exists behind a loading overlay, and touching those
-## materials early means the engine compiles their shaders there instead of on
-## the first frame of gameplay (the same trick ShaderWarmup uses for course
-## materials).
-##
-## Under reduced motion the dance settles to a gentle idle sway.
-##
-## The penguin is built the first time the loader is shown, never at startup,
-## and the viewport only renders while visible. Both matter: SceneRouter's
-## overlay lives for the whole session, and an always-updating SubViewport
-## holding a lathe-built penguin cost enough main-thread time on the
-## single-threaded web build to stall the boot splash outright.
+## Public construction remains `PenguinLoader.new(size)`. Former live 3D
+## SubViewport is replaced by one authored transparent character texture,
+## baked radial glow, and ordinary Controls. Cheap while incoming scene builds;
+## introduces no 3D shader programs.
 
-## Seconds per hop; the sway and turn are derived from it so the whole dance
-## reads as one rhythm.
-const CYCLE: float = 0.52
-const HOP_HEIGHT: float = 0.30
-const SWAY_DEG: float = 15.0
-const TURN_DEG: float = 62.0
-## Side-to-side shuffle, in metres, and the slow drift of the whole routine so
-## the loop never reads as one bar repeating.
-const SHUFFLE: float = 0.16
-const ROUTINE_DRIFT: float = 0.19
-## Every few beats the penguin commits to a full spin instead of a half turn.
-const SPIN_EVERY: int = 8
+const TEXTURE_PATH: String = \
+		"res://assets/art/ui/loader_penguin_expedition_v1.png"
+const CYCLE: float = 0.58
+const UPDATE_STEP: float = 1.0 / 30.0
 
-var penguin_size: float = 200.0  ## Rendered square edge in logical pixels.
+static var _loader_texture: Texture2D = null
+static var _glow_texture: Texture2D = null
 
-var _viewport: SubViewport = null
-## Wall-clock origin for the routine (see _process).
+var penguin_size: float = 200.0
+
+var _character_holder: Control = null
+var _shadow: TextureRect = null
+var _route_dots: Array[Panel] = []
 var _start_ms: int = 0
-var _penguin: PenguinVisual = null
-var _pivot: Node3D = null
 var _time: float = 0.0
-var _reduced: bool = false
-var _last_hop: int = -1
-var _spin_from: float = 0.0
+var _accumulator: float = 0.0
+var _reduced_motion: bool = false
+var _progress: float = -1.0
 
 
 func _init(p_size: float = 200.0) -> void:
@@ -55,142 +34,203 @@ func _init(p_size: float = 200.0) -> void:
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(penguin_size, penguin_size)
-	set_process(false)
-	if GameConfig.is_headless():
-		return
-	_reduced = UITheme.reduced_motion()
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_reduced_motion = UITheme.reduced_motion()
+	_build()
 	visibility_changed.connect(_on_visibility_changed)
+	resized.connect(_update_pivots)
 	_on_visibility_changed()
+	_update_pivots.call_deferred()
 
 
-## Builds on first reveal, then parks the viewport whenever it is hidden.
-func _on_visibility_changed() -> void:
-	var showing := is_visible_in_tree()
-	if showing and _viewport == null:
-		_build()
-	if _viewport != null:
-		_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if showing \
-			else SubViewport.UPDATE_DISABLED
-	if showing:
-		# Restart the clock each time the overlay appears, so every transition
-		# opens on the same beat rather than wherever the session happens to be.
-		_start_ms = Time.get_ticks_msec()
-	set_process(showing and _viewport != null)
+## Optional determinate seam for SceneRouter. Negative returns to indeterminate.
+func set_progress(value: float) -> void:
+	_progress = clampf(value, 0.0, 1.0) if value >= 0.0 else -1.0
+	_update_route()
+
+
+func get_progress() -> float:
+	return _progress
+
+
+func set_reduced_motion(reduced: bool) -> void:
+	_reduced_motion = reduced
+	if reduced:
+		_apply_static_pose()
+	_update_processing()
+
+
+func reset_animation() -> void:
+	_start_ms = Time.get_ticks_msec()
+	_time = 0.0
+	_accumulator = 0.0
+	if _reduced_motion:
+		_apply_static_pose()
+
+
+func is_motion_active() -> bool:
+	return is_processing()
+
+
+## Public cache seam used by BootWarmup and focused tests.
+static func loader_texture() -> Texture2D:
+	if _loader_texture == null and ResourceLoader.exists(TEXTURE_PATH):
+		_loader_texture = ResourceLoader.load(TEXTURE_PATH) as Texture2D
+	return _loader_texture
 
 
 func _build() -> void:
-	var container := SubViewportContainer.new()
-	container.stretch = true
-	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	container.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(container)
+	var glow := TextureRect.new()
+	glow.name = "ExpeditionGlow"
+	glow.texture = _radial_glow()
+	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glow.stretch_mode = TextureRect.STRETCH_SCALE
+	glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	glow.offset_left = penguin_size * 0.08
+	glow.offset_top = penguin_size * 0.05
+	glow.offset_right = -penguin_size * 0.08
+	glow.offset_bottom = -penguin_size * 0.10
+	glow.modulate = Color(0.38, 0.78, 1.0, 0.32)
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(glow)
 
-	_viewport = SubViewport.new()
-	_viewport.own_world_3d = true
-	_viewport.transparent_bg = true
-	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	# The loader is a small square of screen showing one hero asset, so it can
-	# afford multisampling -- except on web, where this overlay is on screen
-	# exactly when frames are scarcest and a resolve every frame is competing
-	# with the work it is covering for.
-	_viewport.msaa_3d = Viewport.MSAA_DISABLED if OS.has_feature("web") \
-		else Viewport.MSAA_2X
-	container.add_child(_viewport)
-	UITheme.crisp_subviewport(_viewport, self)
+	_shadow = TextureRect.new()
+	_shadow.name = "ContactShadow"
+	_shadow.texture = _radial_glow()
+	_shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_shadow.stretch_mode = TextureRect.STRETCH_SCALE
+	_shadow.anchor_left = 0.27
+	_shadow.anchor_top = 0.75
+	_shadow.anchor_right = 0.73
+	_shadow.anchor_bottom = 0.86
+	_shadow.modulate = Color(0.005, 0.015, 0.035, 0.62)
+	_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_shadow)
 
-	# Ambient-only environment: no sky, so the penguin floats on the overlay
-	# instead of carrying a box of background with it.
-	var env := Environment.new()
-	env.background_mode = Environment.BG_CANVAS
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.56, 0.66, 0.86)
-	env.ambient_light_energy = 0.72
-	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = 0.86
-	var world_env := WorldEnvironment.new()
-	world_env.environment = env
-	_viewport.add_child(world_env)
+	_character_holder = Control.new()
+	_character_holder.name = "ExpeditionCourier"
+	_character_holder.anchor_left = 0.12
+	_character_holder.anchor_top = 0.01
+	_character_holder.anchor_right = 0.88
+	_character_holder.anchor_bottom = 0.83
+	_character_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_character_holder)
 
-	# Warm key from the front-left, cool rim from behind-right: the same
-	# two-light read the customize preview uses, so the penguin looks like it
-	# does everywhere else in the game.
-	var key := DirectionalLight3D.new()
-	key.rotation_degrees = Vector3(-34.0, 148.0, 0.0)
-	key.light_color = Color(1.0, 0.95, 0.86)
-	key.light_energy = 1.05
-	key.shadow_enabled = false
-	_viewport.add_child(key)
-	var rim := DirectionalLight3D.new()
-	rim.rotation_degrees = Vector3(-14.0, -32.0, 0.0)
-	rim.light_color = Color(0.66, 0.82, 1.0)
-	rim.light_energy = 0.55
-	rim.shadow_enabled = false
-	_viewport.add_child(rim)
+	var penguin := TextureRect.new()
+	penguin.name = "CourierArt"
+	penguin.texture = loader_texture()
+	penguin.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	penguin.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	penguin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	penguin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_character_holder.add_child(penguin)
 
-	_pivot = Node3D.new()
-	_viewport.add_child(_pivot)
-	_penguin = PenguinVisual.new()
-	_penguin.setup({})
-	_penguin.pose = PenguinVisual.Pose.CELEBRATE
-	_pivot.add_child(_penguin)
+	var route := Control.new()
+	route.name = "ExpeditionRoute"
+	route.anchor_left = 0.18
+	route.anchor_top = 0.90
+	route.anchor_right = 0.82
+	route.anchor_bottom = 0.94
+	route.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(route)
 
-	var camera := Camera3D.new()
-	_viewport.add_child(camera)
-	camera.current = true
-	camera.fov = 42.0
-	# Framed so the hop keeps the whole bird — crown to feet — inside the
-	# square at the top of its arc.
-	# Pulled back and raised: the routine now hops higher, shuffles sideways and
-	# spins, so the frame has to hold all of it without cropping his feet.
-	camera.look_at_from_position(Vector3(0.0, 1.02, -2.62), Vector3(0.0, 0.60, 0.0), Vector3.UP)
+	for i: int in 3:
+		var dot := Panel.new()
+		dot.name = "Waypoint%d" % (i + 1)
+		dot.anchor_left = float(i) * 0.5
+		dot.anchor_right = float(i) * 0.5
+		dot.anchor_top = 0.5
+		dot.anchor_bottom = 0.5
+		var side := maxf(penguin_size * 0.035, 5.0)
+		dot.offset_left = -side * 0.5
+		dot.offset_top = -side * 0.5
+		dot.offset_right = side * 0.5
+		dot.offset_bottom = side * 0.5
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0.86, 0.95, 1.0, 0.94)
+		style.border_color = Color(0.18, 0.44, 0.68, 0.95)
+		style.set_border_width_all(maxi(1, roundi(side * 0.16)))
+		style.set_corner_radius_all(roundi(side))
+		dot.add_theme_stylebox_override("panel", style)
+		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		route.add_child(dot)
+		_route_dots.append(dot)
+
+	_update_route()
 
 
-func _process(_delta: float) -> void:
-	if _pivot == null:
+func _process(delta: float) -> void:
+	_accumulator += delta
+	if _accumulator < UPDATE_STEP:
 		return
-	# Wall clock, not accumulated delta.
-	#
-	# This overlay exists to cover a scene build, and on a single-threaded web
-	# build that build blocks the main loop outright -- no frames at all for as
-	# long as it takes. Integrating delta meant the routine resumed from
-	# wherever it had been frozen and then had to catch up, so a one-second
-	# stall showed as a stutter and a lurch. Reading the clock means the dance
-	# is always at the pose the elapsed time says it should be: the freeze is
-	# still a freeze, but what comes out the far side is continuous.
+	_accumulator = fmod(_accumulator, UPDATE_STEP)
 	_time = float(Time.get_ticks_msec() - _start_ms) * 0.001
-	var amp := 0.35 if _reduced else 1.0
 	var phase := _time / CYCLE * TAU
-	var beat := int(_time / (CYCLE * 0.5))
+	var lift := pow(absf(sin(phase)), 0.78)
+	var hop := penguin_size * 0.034 * lift
+	_character_holder.position = Vector2(
+		sin(phase * 0.5) * penguin_size * 0.012, -hop)
+	_character_holder.rotation = sin(phase * 0.5) * 0.030
+	_character_holder.scale = Vector2(1.0 + lift * 0.012, 1.0 - lift * 0.010)
 
-	# Hop: |sin| gives a bounce that sits on the floor between beats rather
-	# than a sine that spends half its time underground. Sharpened with a power
-	# curve so the launch is quick and the hang is brief -- a flat sine reads as
-	# floating, not jumping.
-	var bounce := pow(absf(sin(phase)), 0.72)
-	_pivot.position.y = bounce * HOP_HEIGHT * amp
-	# Shuffle across the floor, at half hop rate so he lands alternate feet.
-	_pivot.position.x = sin(phase * 0.5) * SHUFFLE * amp
+	_shadow.scale = Vector2(1.0 - lift * 0.13, 1.0 - lift * 0.05)
+	_shadow.modulate.a = 0.62 - lift * 0.20
+	_update_route()
 
-	# Turn: mostly a half-turn shimmy, but every SPIN_EVERY beats he commits to
-	# a full rotation. The spin is driven off the beat counter rather than the
-	# raw phase so it always starts on a landing.
-	var spin_cycle := int(beat / SPIN_EVERY)
-	var spinning := (beat % SPIN_EVERY) >= SPIN_EVERY - 2
-	if spinning and not _reduced:
-		var t := fmod(_time, CYCLE * SPIN_EVERY * 0.5) / (CYCLE)
-		_pivot.rotation.y = _spin_from + TAU * clampf(t, 0.0, 1.0)
-	else:
-		_spin_from = float(spin_cycle) * TAU
-		_pivot.rotation.y = sin(phase * 0.5) * deg_to_rad(TURN_DEG) * amp
 
-	# Lean into the shuffle, plus a slow drift so the routine never loops
-	# visibly on itself.
-	_pivot.rotation.z = (sin(phase + PI * 0.25) * deg_to_rad(SWAY_DEG)
-		+ sin(_time * ROUTINE_DRIFT) * deg_to_rad(6.0)) * amp
-	# A little pitch bob out of the hop: nose up on the way, tucked on landing.
-	_pivot.rotation.x = -cos(phase) * deg_to_rad(7.0) * amp
+func _update_route() -> void:
+	if _route_dots.is_empty():
+		return
+	var amount := _progress
+	if amount < 0.0:
+		amount = 0.18 if _reduced_motion else 0.12 + 0.88 * \
+			(0.5 + 0.5 * sin(_time * 1.65 - PI * 0.5))
+	for i: int in _route_dots.size():
+		var threshold := float(i) * 0.5
+		var reached := amount + 0.03 >= threshold
+		_route_dots[i].modulate = Color.WHITE if reached \
+			else Color(0.48, 0.60, 0.74, 0.58)
 
-	# Squash on each landing (the moment |sin| returns to zero).
-	if not _reduced and _penguin != null and beat != _last_hop:
-		_last_hop = beat
-		_penguin.trigger_squash(0.82)
+
+func _apply_static_pose() -> void:
+	if _character_holder != null:
+		_character_holder.position = Vector2.ZERO
+		_character_holder.rotation = 0.0
+		_character_holder.scale = Vector2.ONE
+	if _shadow != null:
+		_shadow.scale = Vector2.ONE
+		_shadow.modulate.a = 0.55
+	_update_route()
+
+
+func _on_visibility_changed() -> void:
+	if is_visible_in_tree():
+		reset_animation()
+	_update_processing()
+
+
+func _update_processing() -> void:
+	set_process(is_inside_tree() and is_visible_in_tree() \
+		and not _reduced_motion and not GameConfig.is_headless())
+
+
+func _update_pivots() -> void:
+	if _character_holder != null:
+		_character_holder.pivot_offset = _character_holder.size * Vector2(0.5, 0.82)
+	if _shadow != null:
+		_shadow.pivot_offset = _shadow.size * 0.5
+
+
+static func _radial_glow() -> Texture2D:
+	if _glow_texture != null:
+		return _glow_texture
+	var side := 96
+	var image := Image.create_empty(side, side, false, Image.FORMAT_RGBA8)
+	for y: int in side:
+		for x: int in side:
+			var p := (Vector2(float(x), float(y)) / float(side - 1)) \
+				* 2.0 - Vector2.ONE
+			var alpha := pow(clampf(1.0 - p.length(), 0.0, 1.0), 2.2)
+			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
+	_glow_texture = ImageTexture.create_from_image(image)
+	return _glow_texture

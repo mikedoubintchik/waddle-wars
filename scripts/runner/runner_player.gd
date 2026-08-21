@@ -34,6 +34,24 @@ signal slid
 signal lane_changed
 signal shield_spent
 signal died
+## Stable presentation bus. Existing narrow signals above remain authoritative
+## for gameplay/HUD consumers; this additive seam gives cameras, VFX, capture
+## harnesses and future animation systems one typed event plus canonical context.
+signal presentation_event(event_id: StringName, context: Dictionary)
+
+const PRESENT_LANE_CHANGED: StringName = &"lane_changed"
+const PRESENT_JUMPED: StringName = &"jumped"
+const PRESENT_LANDED: StringName = &"landed"
+const PRESENT_SLID: StringName = &"slid"
+const PRESENT_SLIDE_EXIT: StringName = &"slide_exit"
+const PRESENT_FISH_COLLECTED: StringName = &"fish_collected"
+const PRESENT_POWERUP_GAINED: StringName = &"powerup_gained"
+const PRESENT_POWERUP_EXPIRED: StringName = &"powerup_expired"
+const PRESENT_NEAR_MISS: StringName = &"near_miss"
+const PRESENT_RAMP_LAUNCHED: StringName = &"ramp_launched"
+const PRESENT_SHIELD_SPENT: StringName = &"shield_spent"
+const PRESENT_HIT_TAKEN: StringName = &"hit_taken"
+const PRESENT_DIED: StringName = &"died"
 
 enum State { RUN, JUMP, SLIDE, DEAD }
 
@@ -71,6 +89,10 @@ var _passed: Dictionary = {}
 ## penguin is inside it, so without this a single ramp re-launched every frame.
 var _used_ramps: Dictionary = {}
 var _trail: SnowTrail = null
+## Every burst in the mode, in one draw call. Built by runner_vfx.gd and wired
+## here: the world has to acknowledge a pickup, a landing, a hit and a launch,
+## or the mode reads as a slideshow with a score on top.
+var _vfx: RunnerVfx = null
 ## Test hook: an autopilot that dodges what it can see, so a headless sim can
 ## run the mode end to end without a human.
 static var autopilot: bool = false
@@ -79,7 +101,9 @@ var _autopilot_cooldown: float = 0.0
 
 func setup(visual_config: Dictionary) -> void:
 	_visual = PenguinVisual.new()
-	_visual.setup(visual_config)
+	var look := CharacterLook.from_legacy_config(
+			visual_config, CharacterLook.RenderRole.HERO)
+	_visual.setup_look(look)
 	add_child(_visual)
 	_area = Area3D.new()
 	_area.name = "Hitbox"
@@ -102,6 +126,13 @@ func setup(visual_config: Dictionary) -> void:
 		_trail = SnowTrail.new()
 		add_child(_trail)
 		_trail.setup()
+		_vfx = RunnerVfx.new()
+		add_child(_vfx)
+		_vfx.setup()
+		# One subscriber on the existing bus rather than a call at each site:
+		# the rig, the camera and the world effects then all react to the same
+		# semantic event, and none of them can quietly fall out of step.
+		presentation_event.connect(_on_presentation_vfx)
 	position = Vector3(RunnerConfig.lane_x(lane), 0.0, 0.0)
 
 
@@ -111,8 +142,28 @@ func set_input_enabled(enabled: bool) -> void:
 	_input_enabled = enabled
 
 
+func _emit_presentation(event_id: StringName, extra: Dictionary = {}) -> void:
+	var context: Dictionary = {
+		"world_position": global_position,
+		"side": 0.0,
+		"strength": 1.0,
+		"shielded": false,
+		"item_id": &"",
+	}
+	context.merge(extra, true)
+	# PenguinVisual consumes the same semantic event as cameras/VFX. This keeps
+	# the authored-rig migration behind one facade and prevents a second set of
+	# runner-only pose or squash calls from drifting away from world effects.
+	if _visual != null:
+		_visual.trigger_event(event_id, context)
+	presentation_event.emit(event_id, context)
+
+
 func tick(delta: float, run_speed: float) -> void:
 	if state == State.DEAD:
+		# Gameplay freezes, presentation does not: the facade still needs time to
+		# blend the wipeout/defeat pose instead of stopping on its first frame.
+		_drive_visual(delta)
 		return
 	speed = run_speed
 	distance += speed * delta
@@ -138,6 +189,7 @@ func tick(delta: float, run_speed: float) -> void:
 	if _trail != null:
 		_trail.tick(global_position, Vector3.UP, position.y < 0.05,
 			state == State.SLIDE, speed)
+	_tick_vfx(delta)
 	_drive_visual(delta)
 
 
@@ -159,6 +211,7 @@ func move_lane(direction: int) -> void:
 	var target := clampi(lane + direction, 0, RunnerConfig.LANE_COUNT - 1)
 	if target == lane:
 		return
+	var side := float(target - lane)
 	lane = target
 	# Interpolate from where the penguin actually IS, not from the lane it was
 	# nominally in: a second tap mid-slide would otherwise snap it sideways.
@@ -166,6 +219,7 @@ func move_lane(direction: int) -> void:
 	_lane_to = RunnerConfig.lane_x(lane)
 	_lane_t = 0.0
 	lane_changed.emit()
+	_emit_presentation(PRESENT_LANE_CHANGED, {"side": side, "lane": lane})
 
 
 func jump() -> void:
@@ -178,8 +232,10 @@ func jump() -> void:
 	_vertical = RunnerConfig.JUMP_SPEED
 	_set_height(RunnerConfig.STAND_HEIGHT)
 	jumped.emit()
-	if _visual != null:
-		_visual.trigger_squash(0.8)
+	_emit_presentation(PRESENT_JUMPED, {
+		"strength": 1.0,
+		"vertical_speed": RunnerConfig.JUMP_SPEED,
+	})
 
 
 func slide() -> void:
@@ -195,6 +251,7 @@ func slide() -> void:
 	_slide_left = RunnerConfig.SLIDE_TIME
 	_set_height(RunnerConfig.SLIDE_HEIGHT)
 	slid.emit()
+	_emit_presentation(PRESENT_SLID)
 
 
 ## --- Motion -----------------------------------------------------------------
@@ -216,15 +273,16 @@ func _advance_vertical(delta: float) -> void:
 	_vertical -= RunnerConfig.GRAVITY * delta
 	position.y += _vertical * delta
 	if position.y <= 0.0:
+		var was_launched := _launched
 		position.y = 0.0
 		_vertical = 0.0
 		state = State.RUN
-		if _visual != null:
-			# A ramp landing hits harder than a hop, and the squash sells the
-			# height the player just had.
-			_visual.trigger_squash(0.56 if _launched else 0.72)
 		_launched = false
 		_roll = 0.0
+		_emit_presentation(PRESENT_LANDED, {
+			"strength": 1.0 if was_launched else 0.55,
+			"launched": was_launched,
+		})
 
 
 func _advance_slide(delta: float) -> void:
@@ -234,6 +292,7 @@ func _advance_slide(delta: float) -> void:
 	if _slide_left <= 0.0:
 		state = State.RUN
 		_set_height(RunnerConfig.STAND_HEIGHT)
+		_emit_presentation(PRESENT_SLIDE_EXIT)
 
 
 func _set_height(height: float) -> void:
@@ -249,12 +308,16 @@ func _set_height(height: float) -> void:
 
 ## --- Power-ups --------------------------------------------------------------
 
-func grant_powerup(id: StringName) -> void:
+func grant_powerup(id: StringName, presentation_position: Variant = null) -> void:
 	# Re-collecting a live power-up refreshes it rather than stacking: stacked
 	# timers make the pill meaningless and let one lucky stretch carry a whole
 	# run.
 	powerups[id] = RunnerConfig.POWERUP_TIME
 	powerup_gained.emit(id)
+	var context: Dictionary = {"item_id": id}
+	if presentation_position is Vector3:
+		context["world_position"] = presentation_position
+	_emit_presentation(PRESENT_POWERUP_GAINED, context)
 
 
 func has_powerup(id: StringName) -> bool:
@@ -269,6 +332,7 @@ func _advance_powerups(delta: float) -> void:
 		if left <= 0.0:
 			powerups.erase(id)
 			powerup_expired.emit(id)
+			_emit_presentation(PRESENT_POWERUP_EXPIRED, {"item_id": id})
 		else:
 			powerups[id] = left
 
@@ -320,10 +384,15 @@ func _scan_near_miss(delta: float) -> void:
 		if behind < 0.0 or behind > 1.6:
 			continue
 		_passed[id] = true
-		var side := absf(hazard.global_position.x - global_position.x)
+		var offset_x := hazard.global_position.x - global_position.x
+		var side := absf(offset_x)
 		if side < RunnerConfig.LANE_WIDTH * 0.92 and invulnerable_for <= 0.0:
 			_near_miss_cooldown = 0.35
 			near_miss.emit()
+			_emit_presentation(PRESENT_NEAR_MISS, {
+				"side": offset_x,
+				"strength": 1.0 - side / (RunnerConfig.LANE_WIDTH * 0.92),
+			})
 			return
 	# The pass-list is only ever consulted for hazards within 1.6 m, so it can
 	# be dropped wholesale once it grows rather than reference-counted.
@@ -344,9 +413,11 @@ func launch(power: float) -> void:
 	_roll = 0.0
 	_vertical = maxf(_vertical, power)
 	_set_height(RunnerConfig.STAND_HEIGHT)
-	if _visual != null:
-		_visual.trigger_squash(0.62)
 	ramp_launched.emit()
+	_emit_presentation(PRESENT_RAMP_LAUNCHED, {
+		"strength": clampf(power / RunnerConfig.RAMP_LAUNCH, 0.0, 1.5),
+		"launch_power": power,
+	})
 
 
 ## --- Collision --------------------------------------------------------------
@@ -359,15 +430,23 @@ func _resolve_overlaps() -> void:
 			continue
 		if area.is_in_group(RunnerConfig.GROUP_PICKUP):
 			if area.has_method("collect"):
+				var pickup_at := area.global_position
 				var value: int = area.call("collect")
 				if value > 0:
 					fish_collected.emit(value)
+					_emit_presentation(PRESENT_FISH_COLLECTED, {
+						"world_position": pickup_at,
+						"strength": float(value),
+						"item_id": &"fish",
+						"value": value,
+					})
 			continue
 		if area.is_in_group(RunnerConfig.GROUP_POWERUP):
 			if area.has_method("collect"):
+				var powerup_at := area.global_position
 				var id: StringName = area.call("collect")
 				if id != &"":
-					grant_powerup(id)
+					grant_powerup(id, powerup_at)
 			continue
 		if area.is_in_group(RunnerConfig.GROUP_HAZARD):
 			# A ramp is a hazard node so the track can place it with the same
@@ -378,12 +457,16 @@ func _resolve_overlaps() -> void:
 					_used_ramps[ramp_id] = true
 					launch(RunnerConfig.RAMP_LAUNCH)
 				continue
-			take_hit()
+			take_hit(area.global_position.x - global_position.x,
+					area.global_position)
 
 
-func take_hit() -> void:
+func take_hit(side: float = 0.0, presentation_position: Variant = null) -> void:
 	if invulnerable_for > 0.0 or state == State.DEAD:
 		return
+	var hit_context: Dictionary = {"side": side}
+	if presentation_position is Vector3:
+		hit_context["world_position"] = presentation_position
 	# The shield's whole job is to turn the run-ending mistake into a moment of
 	# relief, so it is spent silently here rather than costing a life first.
 	if has_powerup(RunnerConfig.POWERUP_SHIELD):
@@ -391,14 +474,30 @@ func take_hit() -> void:
 		invulnerable_for = RunnerConfig.HIT_IFRAMES
 		_stumble = 0.35
 		powerup_expired.emit(RunnerConfig.POWERUP_SHIELD)
+		var expired_context := hit_context.duplicate()
+		expired_context.merge({
+			"item_id": RunnerConfig.POWERUP_SHIELD,
+			"shielded": true,
+		}, true)
+		_emit_presentation(PRESENT_POWERUP_EXPIRED, expired_context)
 		shield_spent.emit()
+		var shield_context := hit_context.duplicate()
+		shield_context.merge({
+			"shielded": true,
+			"item_id": RunnerConfig.POWERUP_SHIELD,
+		}, true)
+		_emit_presentation(PRESENT_SHIELD_SPENT, shield_context)
 		return
 	invulnerable_for = RunnerConfig.HIT_IFRAMES
 	hits_left -= 1
 	_stumble = 0.75
-	if _visual != null:
-		_visual.trigger_tumble(1.0)
 	hit_taken.emit(hits_left)
+	var damage_context := hit_context.duplicate()
+	damage_context.merge({
+		"strength": 1.0,
+		"hits_left": hits_left,
+	}, true)
+	_emit_presentation(PRESENT_HIT_TAKEN, damage_context)
 	if hits_left <= 0:
 		kill()
 
@@ -408,9 +507,46 @@ func kill() -> void:
 		return
 	state = State.DEAD
 	_input_enabled = false
-	if _visual != null:
-		_visual.set_pose(PenguinVisual.Pose.DEFEAT)
 	died.emit()
+	_emit_presentation(PRESENT_DIED)
+
+
+## Discrete bursts, driven entirely by the presentation bus.
+func _on_presentation_vfx(event_id: StringName, context: Dictionary) -> void:
+	if _vfx == null:
+		return
+	var at: Vector3 = context.get("world_position", global_position)
+	match event_id:
+		PRESENT_FISH_COLLECTED:
+			_vfx.pickup(at)
+		PRESENT_POWERUP_GAINED:
+			_vfx.powerup(at)
+		PRESENT_LANDED:
+			_vfx.land(at, float(context.get("strength", 0.55)))
+		PRESENT_RAMP_LAUNCHED:
+			_vfx.launch(at)
+		PRESENT_SHIELD_SPENT:
+			_vfx.impact(at, true)
+		PRESENT_HIT_TAKEN:
+			_vfx.impact(at, false)
+		PRESENT_NEAR_MISS:
+			_vfx.whoosh(at, float(context.get("side", 0.0)))
+
+
+## Continuous effects: the spray under the feet, the streaks that thicken with
+## pace, and the trail that only exists while a ramp arc is in flight.
+func _tick_vfx(delta: float) -> void:
+	if _vfx == null:
+		return
+	var pace := clampf((speed - RunnerConfig.START_SPEED)
+		/ maxf(RunnerConfig.MAX_SPEED - RunnerConfig.START_SPEED, 0.001), 0.0, 1.0)
+	_vfx.set_cull_centre(global_position)
+	if position.y < 0.05:
+		_vfx.ground_spray(global_position, pace, delta, state == State.SLIDE)
+	if _launched:
+		_vfx.launch_trail(global_position, delta)
+	_vfx.speed_motes(global_position, pace, delta)
+	_vfx.tick(delta)
 
 
 ## --- Presentation -----------------------------------------------------------
@@ -418,42 +554,40 @@ func kill() -> void:
 func _drive_visual(delta: float) -> void:
 	if _visual == null:
 		return
-	match state:
-		State.SLIDE:
-			_visual.set_pose(PenguinVisual.Pose.SLIDE)
-		State.JUMP:
-			_visual.set_pose(PenguinVisual.Pose.AIR)
-		State.DEAD:
-			_visual.set_pose(PenguinVisual.Pose.DEFEAT)
-		_:
-			_visual.set_pose(PenguinVisual.Pose.RUN)
 	# Lean into the lane change: the penguin banks toward the direction it is
 	# moving, which is most of what sells a lane change as a decision rather
 	# than a teleport.
 	var lean := clampf((_lane_to - position.x) / RunnerConfig.LANE_WIDTH, -1.0, 1.0)
 	if _lane_t >= 1.0:
 		lean = 0.0
+	var grounded := state != State.JUMP
+	var speed_ratio := clampf(speed / RunnerConfig.MAX_SPEED, 0.35, 1.0)
+	_visual.drive_motion(speed_ratio, lean, 0.0, _vertical, grounded)
+	# setup_look starts at IDLE. Recover is the semantic transition into the
+	# running loop; drive_motion remains continuous intent, never root motion.
+	if state == State.RUN and _visual.pose != PenguinVisual.Pose.RUN:
+		_visual.trigger_event(&"recover", {"strength": 1.0})
 	_stumble = maxf(0.0, _stumble - delta)
 	# A stumble adds a drunken wobble on top of everything else for a beat, so
 	# a hit is readable from the animation alone with the HUD covered.
 	var wobble := sin(_stumble * 34.0) * _stumble * 0.5
-	rotation.z = lerp_angle(rotation.z, -lean * 0.32 + wobble, minf(1.0, delta * 14.0))
+	# Lane roll belongs to PenguinVisual.drive_motion. Gameplay root retains
+	# only impact wobble and the shallow turn yaw used by the chase camera.
+	rotation.z = lerp_angle(rotation.z, wobble, minf(1.0, delta * 14.0))
 	rotation.y = lerp_angle(rotation.y, lean * 0.24 + wobble * 0.6, minf(1.0, delta * 12.0))
 	# Airborne pitch: a tuck on the way up, an open-armed reach on the way down
 	# for an ordinary jump; a full forward roll for a ramp launch, which is the
 	# showpiece of the mode.
 	var pitch := 0.0
-	if state == State.JUMP:
-		if _launched:
-			_roll += delta * 7.4
-			pitch = -_roll
-		else:
-			pitch = clampf(_vertical / RunnerConfig.JUMP_SPEED, -1.0, 1.0) * -0.42
+	if state == State.JUMP and _launched:
+		_roll += delta * 7.4
+		pitch = -_roll
 	rotation.x = lerp_angle(rotation.x, pitch, minf(1.0, delta * (18.0 if _launched else 12.0)))
-	# Blink while invulnerable so a hit is unmistakable.
-	_visual.visible = invulnerable_for <= 0.0 \
-		or fmod(invulnerable_for, 0.18) > 0.09
-	_visual.tick(delta, clampf(speed / RunnerConfig.MAX_SPEED, 0.35, 1.0))
+	# Blink while invulnerable so a hit is unmistakable. Reduced flashing keeps
+	# the stumble pose and world-space impact burst, but never strobes the model.
+	_visual.visible = true if UITheme.reduced_motion() else (invulnerable_for <= 0.0 \
+		or fmod(invulnerable_for, 0.18) > 0.09)
+	_visual.tick(delta, speed_ratio)
 
 
 ## --- Autopilot (headless sim only) -----------------------------------------

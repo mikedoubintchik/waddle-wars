@@ -63,6 +63,7 @@ var _preview_trail: GPUParticles3D = null
 var _sway_time: float = 0.0
 ## Extra enlargement for tall/narrow (portrait) viewports — see _tall_boost().
 var _boost: float = 1.0
+var _profile: LayoutProfile = null
 ## Rasterize-once cache: switching category rebuilds every tile, and a phone
 ## re-rasterizing the same swatches on each tab press is pure jank.
 static var _icon_cache: Dictionary = {}
@@ -71,16 +72,21 @@ static var _icon_cache: Dictionary = {}
 func _ready() -> void:
 	UITheme.make_background(self)
 	UITheme.apply_ui_scale(self)
+	_profile = LayoutProfile.for_viewport(get_viewport())
 	_boost = _tall_boost()
-	var portrait := _is_portrait()
+	var portrait := _profile.is_portrait()
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var side := roundi(_u(32.0))
-	margin.add_theme_constant_override("margin_left", side)
-	margin.add_theme_constant_override("margin_right", side)
-	margin.add_theme_constant_override("margin_top", _gap(20))
-	margin.add_theme_constant_override("margin_bottom", _gap(20))
+	margin.add_theme_constant_override("margin_left",
+		roundi(_profile.safe_insets.x) + side)
+	margin.add_theme_constant_override("margin_right",
+		roundi(_profile.safe_insets.z) + side)
+	margin.add_theme_constant_override("margin_top",
+		roundi(_profile.safe_insets.y) + _gap(20))
+	margin.add_theme_constant_override("margin_bottom",
+		roundi(_profile.safe_insets.w) + _gap(20))
 	add_child(margin)
 
 	var layout := VBoxContainer.new()
@@ -135,6 +141,12 @@ func _f(size: int) -> int:
 
 
 func _u(value: float) -> float:
+	# Horizontal metrics must follow usable width, not portrait height. Applying
+	# tall boost here pushed header, tabs, grid column 2 and action off 540px.
+	return UITheme.scaled(value)
+
+
+func _v(value: float) -> float:
 	return UITheme.scaled(value) * _boost
 
 
@@ -208,7 +220,8 @@ static func _cached_icon(svg: String) -> ImageTexture:
 ## --- Header -----------------------------------------------------------------
 
 func _build_header(parent: Control) -> void:
-	var header := HBoxContainer.new()
+	var portrait := _profile != null and _profile.is_portrait()
+	var header: BoxContainer = VBoxContainer.new() if portrait else HBoxContainer.new()
 	header.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
 	parent.add_child(header)
 
@@ -223,11 +236,23 @@ func _build_header(parent: Control) -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	titles.add_child(title)
 
-	header.add_child(_build_fish_chip())
+	var actions: HBoxContainer = null
+	if portrait:
+		actions = HBoxContainer.new()
+		actions.add_theme_constant_override("separation", _gap(10))
+		actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		header.add_child(actions)
+	else:
+		actions = header as HBoxContainer
+	actions.add_child(_build_fish_chip())
+	if portrait:
+		var action_space := Control.new()
+		action_space.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		actions.add_child(action_space)
 
 	var back_button := UITheme.make_button(
 		"Back", UITheme.scaled_size(Vector2(160.0, 50.0)), _f(20))
-	back_button.custom_minimum_size.y = _u(50.0)
+	back_button.custom_minimum_size.y = _v(50.0)
 	back_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	back_button.add_theme_color_override("font_color", Color(0.78, 0.86, 0.95))
 	var back_icon := _cached_icon(UITheme.ICON_BACK)
@@ -238,7 +263,7 @@ func _build_header(parent: Control) -> void:
 		back_button.add_theme_constant_override("h_separation", roundi(_u(10.0)))
 	UITheme.hook_sounds(back_button)
 	back_button.pressed.connect(_go_back)
-	header.add_child(back_button)
+	actions.add_child(back_button)
 
 	parent.add_child(UITheme.make_header_rule())
 
@@ -302,7 +327,7 @@ func _build_preview(parent: BoxContainer, portrait: bool) -> void:
 	container.stretch = true
 	container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	container.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	container.custom_minimum_size.y = _u(220.0)
+	container.custom_minimum_size.y = _v(220.0)
 	column.add_child(container)
 
 	var viewport := SubViewport.new()
@@ -405,7 +430,8 @@ func _refresh_preview() -> void:
 	}
 	if body_info.has("crest_color"):
 		config["crest_color"] = body_info["crest_color"]
-	_penguin.setup(config)
+	_penguin.setup_look(CharacterLook.from_legacy_config(
+			config, CharacterLook.RenderRole.HERO))
 	_penguin.set_pose(PenguinVisual.Pose.IDLE)
 	# Preview the equipped trail as gentle ambient particles around the floe.
 	if _preview_trail != null:
@@ -475,13 +501,16 @@ func _build_wardrobe(parent: BoxContainer, portrait: bool) -> void:
 
 	# Segmented category strip: the active tab is a filled accent pill rather
 	# than another identical glass button, so "where am I" is instant.
-	var tabs := HBoxContainer.new()
+	var tabs := GridContainer.new()
+	tabs.columns = 3 if portrait else CosmeticsDB.CATEGORIES.size()
 	tabs.add_theme_constant_override("separation", _gap(6))
+	tabs.add_theme_constant_override("h_separation", _gap(6))
+	tabs.add_theme_constant_override("v_separation", _gap(6))
 	right.add_child(tabs)
 	for category: String in CosmeticsDB.CATEGORIES:
 		var tab := Button.new()
 		tab.text = String(CosmeticsDB.CATEGORY_NAMES[category])
-		tab.custom_minimum_size = Vector2(0.0, _u(46.0))
+		tab.custom_minimum_size = Vector2(0.0, _v(46.0))
 		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tab.toggle_mode = true
 		tab.add_theme_font_override("font", UITheme.bold_font())
@@ -685,7 +714,7 @@ func _make_item_tile(id: String) -> Button:
 
 	var button := Button.new()
 	button.set_meta("cosmetic_id", id)
-	button.custom_minimum_size = Vector2(0.0, _u(152.0))
+	button.custom_minimum_size = Vector2(0.0, _v(152.0))
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.tooltip_text = desc
 	button.focus_mode = Control.FOCUS_ALL
@@ -846,9 +875,14 @@ func _state_pill(parent: Control, text: String, tint: Color, filled: bool,
 ## description line: on touch there is no hover, so the price has to live here.
 func _build_detail_bar(parent: Control) -> void:
 	var card := _make_card(parent, 16.0)
+	var portrait := _profile != null and _profile.is_portrait()
+	var stack: BoxContainer = VBoxContainer.new() if portrait else HBoxContainer.new()
+	stack.add_theme_constant_override("separation", _gap(10))
+	card.add_child(stack)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", _gap(14))
-	card.add_child(row)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stack.add_child(row)
 
 	_detail_swatch = _make_swatch_rect("", _u(52.0))
 	_detail_swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -875,13 +909,16 @@ func _build_detail_bar(parent: Control) -> void:
 
 	_detail_action = UITheme.make_button(
 		"Equip", UITheme.scaled_size(Vector2(250.0, 54.0)), _f(21))
-	_detail_action.custom_minimum_size = Vector2(_u(250.0), _u(54.0))
+	_detail_action.custom_minimum_size = Vector2(
+		0.0 if portrait else _u(250.0), _v(54.0))
+	_detail_action.size_flags_horizontal = (
+		Control.SIZE_EXPAND_FILL if portrait else Control.SIZE_SHRINK_END)
 	_detail_action.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_style_primary(_detail_action)
 	UITheme.hook_sounds(_detail_action)
 	_detail_action.pressed.connect(func() -> void:
 		_on_item_pressed(_selected_id))
-	row.add_child(_detail_action)
+	stack.add_child(_detail_action)
 
 
 ## Filled ice-blue treatment for the promoted action, matching the main menu's
@@ -1048,12 +1085,12 @@ func _open_buy_dialog(id: String, category: String, item_name: String, cost: int
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	column.add_child(buttons)
 
-	var cancel := UITheme.make_button("Cancel", Vector2(_u(170.0), _u(50.0)), _f(20))
+	var cancel := UITheme.make_button("Cancel", Vector2(_u(170.0), _v(50.0)), _f(20))
 	UITheme.hook_sounds(cancel)
 	cancel.pressed.connect(_close_buy_dialog)
 	buttons.add_child(cancel)
 
-	var confirm := UITheme.make_button("Buy", Vector2(_u(170.0), _u(50.0)), _f(20))
+	var confirm := UITheme.make_button("Buy", Vector2(_u(170.0), _v(50.0)), _f(20))
 	UITheme.style_primary(confirm)
 	UITheme.hook_sounds(confirm)
 	confirm.pressed.connect(func() -> void: _commit_buy(id, category))

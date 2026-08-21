@@ -35,6 +35,7 @@ static func tabs() -> Array[Dictionary]:
 
 ## Authored width of the board column on the 1920x1080 desktop canvas.
 const CARD_WIDTH: float = 880.0
+const WIDE_CARD_WIDTH: float = 1280.0
 
 ## Corner language shared with results.gd.
 const RADIUS_CARD: int = 18
@@ -68,6 +69,30 @@ const ICON_OFFLINE: String = """<svg xmlns="http://www.w3.org/2000/svg" width="7
 ## Number of skeleton rows drawn while a board request is in flight.
 const SKELETON_ROWS: int = 6
 
+
+## HTTPRequest outlives a menu that the player backs out of mid-fetch. A lambda
+## owned by the menu becomes an invalid Callable in that case, so the transport
+## reports a script error before the lambda can run its is_inside_tree guard.
+## This ref-counted gate stays alive with the request and keeps only a weak
+## reference back to the screen.
+class BoardRequestGate:
+	extends RefCounted
+
+	var owner: WeakRef
+	var serial: int
+	var tab: Dictionary
+
+	func _init(screen: Node, request_serial: int, requested_tab: Dictionary) -> void:
+		owner = weakref(screen)
+		serial = request_serial
+		tab = requested_tab
+
+	func deliver(ok: bool, data: Dictionary) -> void:
+		var screen: Variant = owner.get_ref()
+		if screen == null or not is_instance_valid(screen):
+			return
+		(screen as Node).call("_receive_board", ok, data, tab, serial)
+
 var _tab_index: int = 0
 var _tab_buttons: Array[Button] = []
 var _list_box: VBoxContainer
@@ -90,21 +115,68 @@ var _fetch_serial: int = 0
 ## Extra enlargement for tall/narrow (portrait) viewports — see _tall_boost().
 var _boost: float = 1.0
 var _card_width: float = CARD_WIDTH
+var _fit: float = 1.0
+var _profile: LayoutProfile = null
+var _stacked: bool = false
+var _layout_root: Control = null
+var _scroll: ScrollContainer = null
 
 
 func _ready() -> void:
 	UITheme.make_background(self)
 	UITheme.apply_ui_scale(self)
+	var initial := UtilityScreenLayout.bind_view_class(self, _on_view_class_changed)
+	_build_layout(initial, true, 0.0, 0)
+	UITheme.attach_swipe_back(self, _go_back)
+	LeaderboardClient.auth_changed.connect(_on_auth_changed)
+	AudioManager.play_music("music_title")
+
+
+func _on_view_class_changed(next: LayoutProfile) -> void:
+	var fraction := UtilityScreenLayout.scroll_fraction(_scroll)
+	_build_layout(next, false, fraction, _tab_index)
+
+
+func _build_layout(next: LayoutProfile, animate: bool, scroll_fraction: float,
+		selected_tab: int) -> void:
+	_fetch_serial += 1
+	if _layout_root != null and is_instance_valid(_layout_root):
+		_layout_root.free()
+	_profile = next
+	_tab_buttons.clear()
+	_list_box = null
+	_state_box = null
+	_header_row = null
+	_board_caption = null
+	_value_caption = null
+	_records_box = null
+	_status_label = null
+	_status_dancers = null
+	_dancer_holder = null
+	_auth_button = null
+	_auth_label = null
+	_auth_title = null
+	_auth_card = null
+	_name_row = null
+	_name_edit = null
+	_name_status = null
 	_boost = _tall_boost()
 	_card_width = _measure_card_width()
+	_fit = clampf(_card_width / maxf(UITheme.scaled(CARD_WIDTH), 1.0), 0.42, 1.0)
+	_stacked = UtilityScreenLayout.uses_stacked_rows(_profile)
+	_layout_root = Control.new()
+	_layout_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_layout_root)
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", UITheme.screen_margin())
-	margin.add_theme_constant_override("margin_right", UITheme.screen_margin())
-	margin.add_theme_constant_override("margin_top", _gap(22))
+	UtilityScreenLayout.bind_safe_rect(self, margin)
+	margin.add_theme_constant_override("margin_left", _page_gutter())
+	margin.add_theme_constant_override("margin_right", _page_gutter())
+	margin.add_theme_constant_override("margin_top", _gap(
+		16 if UtilityScreenLayout.is_phone(_profile) else 22))
 	margin.add_theme_constant_override("margin_bottom", _gap(20))
-	add_child(margin)
+	_layout_root.add_child(margin)
 	var layout := VBoxContainer.new()
 	layout.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
 	margin.add_child(layout)
@@ -128,10 +200,13 @@ func _ready() -> void:
 	title_box.add_theme_constant_override("separation", 0)
 	top_row.add_child(title_box)
 	_eyebrow(title_box, "Global board · Top 20", Color(UITheme.COLOR_ACCENT, 0.75))
-	var title := UITheme.heading("Leaderboard", _heading(50))
+	var title_size := 30 if UtilityScreenLayout.is_phone(_profile) \
+		else (38 if _stacked else 50)
+	var title := UITheme.heading("Leaderboard", _heading(title_size))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	title_box.add_child(title)
 	var back := UITheme.make_button("Back", _row_size(Vector2(176, 50)), _f(22))
+	UtilityScreenLayout.enforce_target(back)
 	back.add_theme_color_override("font_color", UITheme.COLOR_GOLD)
 	var back_icon := UITheme.make_icon(UITheme.ICON_BACK, 1.0)
 	if back_icon != null:
@@ -146,14 +221,16 @@ func _ready() -> void:
 	header.add_child(UITheme.make_header_rule())
 	_build_tabs(header)
 
-	var scroll := ScrollContainer.new()
+	_scroll = ScrollContainer.new()
 	# Rows and buttons swallow touch drags before the ScrollContainer can see
 	# them; this restores dragging the page on a phone.
-	TouchScroll.attach(scroll)
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.follow_focus = true
-	layout.add_child(scroll)
+	TouchScroll.attach(_scroll)
+	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.follow_focus = true
+	layout.add_child(_scroll)
+	UtilityScreenLayout.style_scrollbar(_scroll, _u(9.0))
 	var center := CenterContainer.new()
 	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# Horizontal centring only. ScrollContainer stretches a child to its own size
@@ -162,18 +239,38 @@ func _ready() -> void:
 	# with EXPAND a short page (empty board on a tall phone) floated in the
 	# middle of the viewport with a dead gap under the tabs.
 	center.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	scroll.add_child(center)
-	var column := VBoxContainer.new()
-	column.custom_minimum_size.x = _card_width
-	column.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
-	center.add_child(column)
+	_scroll.add_child(center)
+	var board: Control
+	var records: Control
+	var cta: Control
+	if _profile.view_class == LayoutProfile.ViewClass.LANDSCAPE_WIDE:
+		var workspace := HBoxContainer.new()
+		workspace.custom_minimum_size.x = _card_width
+		workspace.add_theme_constant_override("separation", _gap(UITheme.SPACE_M))
+		center.add_child(workspace)
+		var board_column := VBoxContainer.new()
+		board_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		board_column.size_flags_stretch_ratio = 0.56
+		workspace.add_child(board_column)
+		var detail_column := VBoxContainer.new()
+		detail_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		detail_column.size_flags_stretch_ratio = 0.44
+		detail_column.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
+		workspace.add_child(detail_column)
+		board = _build_board_card(board_column)
+		records = _build_records_card(detail_column)
+		_build_auth_card(detail_column)
+		cta = _build_cta_row(detail_column)
+	else:
+		var column := VBoxContainer.new()
+		column.custom_minimum_size.x = _card_width
+		column.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
+		center.add_child(column)
+		board = _build_board_card(column)
+		records = _build_records_card(column)
+		_build_auth_card(column)
+		cta = _build_cta_row(column)
 
-	var board := _build_board_card(column)
-	var records := _build_records_card(column)
-	_build_auth_card(column)
-	var cta := _build_cta_row(column)
-
-	UITheme.attach_swipe_back(self, _go_back)
 	# Only the header takes UITheme's fade+rise. The cards below sit above a
 	# panel whose height changes when the fetch lands (skeletons -> rows, or an
 	# empty/error block), and a position tween running across that re-sort
@@ -183,14 +280,13 @@ func _ready() -> void:
 	if _auth_card != null:
 		cards.append(_auth_card)
 	cards.append(cta)
-	if not UITheme.reduced_motion():
+	if animate and not UITheme.reduced_motion():
 		UITheme.play_entrance(self, [header] as Array[Control])
 		_fade_in(cards)
-	LeaderboardClient.auth_changed.connect(_on_auth_changed)
-	_select_tab(0)
-	if not _tab_buttons.is_empty():
+	_select_tab(clampi(selected_tab, 0, maxi(tabs().size() - 1, 0)))
+	UtilityScreenLayout.restore_scroll_fraction(self, _scroll, scroll_fraction)
+	if animate and not _tab_buttons.is_empty():
 		_tab_buttons[0].grab_focus()
-	AudioManager.play_music("music_title")
 
 
 ## Staggered opacity-only cascade for the card stack. Never touches position,
@@ -226,15 +322,17 @@ func _tall_boost() -> float:
 
 
 func _f(size: int) -> int:
-	return maxi(1, roundi(float(UITheme.scaled_font(size)) * _boost))
+	return maxi(1, roundi(float(UITheme.scaled_font(size)) * _boost \
+		* lerpf(1.0, _fit, 0.38)))
 
 
 func _heading(size: int) -> int:
-	return maxi(1, roundi(float(UITheme.scaled_heading(size)) * minf(_boost, 1.5)))
+	return maxi(1, roundi(float(UITheme.scaled_heading(size)) * minf(_boost, 1.5) \
+		* lerpf(1.0, _fit, 0.45)))
 
 
 func _u(value: float) -> float:
-	return UITheme.scaled(value) * _boost
+	return UITheme.scaled(value) * _fit
 
 
 func _gap(value: int) -> int:
@@ -243,22 +341,25 @@ func _gap(value: int) -> int:
 
 func _row_size(size: Vector2) -> Vector2:
 	var out := UITheme.scaled_size(size)
+	if out.x > 0.0:
+		out.x *= _fit
 	out.y *= _boost
+	if out.y > 0.0:
+		out.y = maxf(out.y, UtilityScreenLayout.MIN_TOUCH_TARGET)
 	return out
 
 
 func _measure_card_width() -> float:
-	if UITheme.is_touch():
-		return UITheme.content_width(CARD_WIDTH, self)
-	if GameConfig.is_headless() or not is_inside_tree():
+	if _profile == null or GameConfig.is_headless() or not is_inside_tree():
 		return CARD_WIDTH
-	var view := get_viewport_rect().size
-	if view.x <= 0.0:
-		return CARD_WIDTH
-	var usable := view.x - float(UITheme.screen_margin()) * 2.0
-	if view.y > view.x:  # portrait window: fill it rather than float in it
-		return clampf(usable, 440.0, 1500.0)
-	return clampf(minf(CARD_WIDTH * _boost, view.x * 0.62), 440.0, usable)
+	var authored := WIDE_CARD_WIDTH if _profile.view_class \
+		== LayoutProfile.ViewClass.LANDSCAPE_WIDE else CARD_WIDTH * _boost
+	var page := UtilityScreenLayout.page_width(_profile, authored, 300.0, 0.82)
+	return maxf(page - float(_page_gutter() * 2), 280.0)
+
+
+func _page_gutter() -> int:
+	return 16 if UtilityScreenLayout.is_phone(_profile) else 24
 
 
 ## --- Shared building blocks -------------------------------------------------
@@ -276,7 +377,7 @@ func _eyebrow(parent: Control, text: String, color: Color) -> Label:
 
 func _make_card(parent: Control, accent: Color = Color(UITheme.COLOR_ACCENT, 0.22)) -> VBoxContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size.x = _card_width
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var style := UITheme.make_panel_style(Color(0.063, 0.114, 0.204, 0.90), accent)
 	style.set_corner_radius_all(RADIUS_CARD)
 	style.content_margin_left = _u(20.0)
@@ -346,8 +447,9 @@ func _head_label(text: String, width: float,
 
 ## --- Course tabs ------------------------------------------------------------
 
-## Segmented picker: the four boards sit in one grouped strip, and the active
-## segment is the only filled thing in the header.
+## Segmented picker: every board sits in one grouped strip, and the active
+## segment is the only filled thing. Compact layouts wrap into a deliberate
+## grid instead of squeezing seven course names into one clipped row.
 func _build_tabs(parent: Control) -> void:
 	var strip := PanelContainer.new()
 	var style := StyleBoxFlat.new()
@@ -361,14 +463,23 @@ func _build_tabs(parent: Control) -> void:
 	style.content_margin_bottom = _u(6.0)
 	strip.add_theme_stylebox_override("panel", style)
 	parent.add_child(strip)
-	var row := HBoxContainer.new()
+	var use_grid := _profile.view_class != LayoutProfile.ViewClass.LANDSCAPE_WIDE
+	var row: Container
+	if use_grid:
+		var grid := GridContainer.new()
+		grid.columns = 3 if _profile.is_portrait() else 4
+		row = grid
+	else:
+		row = HBoxContainer.new()
 	row.add_theme_constant_override("separation", _gap(6))
+	row.add_theme_constant_override("h_separation", _gap(6))
+	row.add_theme_constant_override("v_separation", _gap(6))
 	strip.add_child(row)
 	var tab_list := tabs()
 	for i: int in tab_list.size():
 		var tab: Dictionary = tab_list[i]
 		var button := UITheme.make_button(
-			String(tab["label"]), _row_size(Vector2(0, 48)), _f(21))
+			String(tab["label"]), _row_size(Vector2(0, 48)), _f(19 if use_grid else 21))
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.toggle_mode = true
 		_style_tab(button)
@@ -449,10 +560,8 @@ func _build_board_card(parent: Control) -> PanelContainer:
 	_state_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	_state_box.add_theme_constant_override("separation", _gap(8))
 	box.add_child(_state_box)
-	# Dancing penguins mark the fetch. Built once and kept parented at the top of
-	# the state area for the whole screen's life: it owns a SubViewport and a 3D
-	# penguin, so rebuilding it per tab switch (or orphaning it on the way to
-	# another state) would churn real resources.
+	# Cached mascot animation marks the fetch. Built once and kept parented at
+	# the top of the state area so tab switches never churn its texture state.
 	if not GameConfig.is_headless():
 		_dancer_holder = CenterContainer.new()
 		_dancer_holder.visible = false
@@ -613,8 +722,7 @@ static func _row_color(highlight: bool, rank: int) -> Color:
 ## Clears the rows and the state block so a state can be drawn fresh.
 func _clear_board() -> void:
 	for child in _list_box.get_children():
-		_list_box.remove_child(child)
-		child.queue_free()
+		child.free()
 	# The status label outlives every state block, so it is detached before the
 	# block that held it is freed. The penguin loader's holder is a permanent
 	# child of _state_box and is skipped entirely.
@@ -623,8 +731,7 @@ func _clear_board() -> void:
 	for child in _state_box.get_children():
 		if child == _dancer_holder:
 			continue
-		_state_box.remove_child(child)
-		child.queue_free()
+		child.free()
 
 
 ## Grey placeholder rows while a request is in flight — the board keeps its
@@ -755,8 +862,7 @@ func _refresh_records() -> void:
 	if _records_box == null:
 		return
 	for child in _records_box.get_children():
-		_records_box.remove_child(child)
-		child.queue_free()
+		child.free()
 	var active_course := String(tabs()[_tab_index]["course"])
 	var index := 0
 	for course_id: String in CoursesDB.ORDER:
@@ -850,7 +956,8 @@ func _build_auth_card(parent: Control) -> void:
 	_name_edit = LineEdit.new()
 	_name_edit.max_length = 20
 	_name_edit.placeholder_text = "2-20 letters/numbers"
-	_name_edit.custom_minimum_size = _row_size(Vector2(260, 46))
+	_name_edit.custom_minimum_size = _row_size(Vector2(
+		220 if _profile.view_class == LayoutProfile.ViewClass.LANDSCAPE_WIDE else 260, 46))
 	_name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_name_edit.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_name_edit.add_theme_font_size_override("font_size", _f(20))
@@ -867,7 +974,8 @@ func _build_auth_card(parent: Control) -> void:
 	focus_style.set_border_width_all(2)
 	_name_edit.add_theme_stylebox_override("focus", focus_style)
 	_name_row.add_child(_name_edit)
-	var save_button := UITheme.make_button("Save", _row_size(Vector2(112, 46)), _f(20))
+	var save_button := UITheme.make_button("Save", _row_size(Vector2(
+		104 if _profile.view_class == LayoutProfile.ViewClass.LANDSCAPE_WIDE else 112, 46)), _f(20))
 	save_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	UITheme.hook_sounds(save_button)
 	save_button.pressed.connect(func() -> void:
@@ -1004,11 +1112,20 @@ func _select_tab(index: int) -> void:
 	_show_loading(tab)
 	_fetch_serial += 1
 	var serial := _fetch_serial
-	LeaderboardClient.fetch_board(mode, String(tab["course"]), 20,
-		func(ok: bool, data: Dictionary) -> void:
-			if not is_inside_tree() or serial != _fetch_serial:
-				return
-			_populate(ok, data, tab))
+	var gate := BoardRequestGate.new(self, serial, tab)
+	# A bound method Callable keeps only a weak target in Godot. Capture the
+	# RefCounted gate in a closure so it stays alive until HTTP completion even
+	# when the screen is closed during the request.
+	var deliver := func(ok: bool, data: Dictionary) -> void:
+		gate.deliver(ok, data)
+	LeaderboardClient.fetch_board(
+		mode, String(tab["course"]), 20, deliver)
+
+
+func _receive_board(ok: bool, data: Dictionary, tab: Dictionary, serial: int) -> void:
+	if not is_inside_tree() or serial != _fetch_serial:
+		return
+	_populate(ok, data, tab)
 
 
 func _populate(ok: bool, data: Dictionary, tab: Dictionary) -> void:
@@ -1091,8 +1208,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_go_back()
 
 
-## Toggles the dancing-penguin busy row (headless builds have none). Hiding the
-## holder also parks the loader's SubViewport, so an idle board costs nothing.
+## Toggles the mascot busy row (headless builds have none). Hidden loaders stop
+## processing, so an idle board costs nothing.
 func _set_busy(busy: bool) -> void:
 	if _dancer_holder != null and is_instance_valid(_dancer_holder):
 		_dancer_holder.visible = busy

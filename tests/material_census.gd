@@ -14,6 +14,7 @@ extends Node
 ## mid-run, and belongs in ShaderWarmup's probe list instead.
 ##
 ##   godot --path . --resolution 960x540 res://tests/material_census.tscn -- seconds=70
+##   godot --path . --resolution 960x540 res://tests/material_census.tscn -- loader_only=true
 ##
 ## Run WITH a window: headless builds no visuals at all.
 
@@ -24,24 +25,55 @@ var _seen: Dictionary = {}
 var _timeline: Array[Dictionary] = []
 var _done: bool = false
 var _spikes: Array[Dictionary] = []
+var _stream_events: Array[Dictionary] = []
+var _warmup_events: Array[Dictionary] = []
+var _loader_frame_ms: PackedFloat64Array = PackedFloat64Array()
+var _last_wall_usec: int = 0
+var _loader_complete: bool = false
+var _loader_only: bool = false
 
 
 func _ready() -> void:
 	for arg: String in OS.get_cmdline_user_args():
 		if arg.begins_with("seconds="):
 			_seconds = float(arg.trim_prefix("seconds="))
+		elif arg == "loader_only=true":
+			_loader_only = true
 	RunnerPlayer.autopilot = true
-	Engine.time_scale = 2.0
+	RunnerTrack.perf_trace_enabled = true
+	ShaderWarmup.perf_trace_enabled = true
+	ShaderWarmup.clear_perf_trace()
+	Engine.time_scale = 1.0 if _loader_only else 2.0
+	# Start before scene instantiation so the first loader-covered synchronous
+	# build cost is included in the first wall-clock frame.
+	_last_wall_usec = Time.get_ticks_usec()
 	var scene: PackedScene = load(Game.SCENE_RUNNER)
 	_game = scene.instantiate()
 	add_child(_game)
-	print("[census] walking the runner for %.0fs of run time" % _seconds)
+	print("[census] %s" % ("loader-only warmup trace"
+			if _loader_only else "walking the runner for %.0fs of run time" % _seconds))
 
 
 func _process(delta: float) -> void:
 	if _done or _game == null or not is_instance_valid(_game):
 		return
+	var now_usec := Time.get_ticks_usec()
+	var wall_ms := float(now_usec - _last_wall_usec) / 1000.0 \
+			if _last_wall_usec > 0 else 0.0
+	_last_wall_usec = now_usec
 	_elapsed += delta
+	_drain_stream_trace()
+	_drain_warmup_trace()
+	if not _loader_complete:
+		# Include transition frame after final warmup draw. ShaderWarmup removes
+		# itself during previous process callback; this interval contains that
+		# final item's raster/compile cost and must not disappear from loader max.
+		_loader_frame_ms.append(wall_ms)
+		if not _runner_loader_active():
+			_loader_complete = true
+			if _loader_only:
+				_report()
+				return
 	# Sampling every frame would dominate the frame time on a big tree; every
 	# few frames is plenty to catch a first appearance.
 	if Engine.get_process_frames() % 6 == 0:
@@ -50,13 +82,19 @@ func _process(delta: float) -> void:
 	# frame that blew past a normal budget, with what was on screen at the time
 	# (light count especially: gl_compatibility compiles a shader variant per
 	# light count, so a tunnel coming into view can link a whole new set).
-	if delta > 0.1:
-		_spikes.append({
+	if wall_ms > 100.0:
+		var spike := _runtime_snapshot()
+		spike.merge({
 			"t": _elapsed,
-			"ms": delta * 1000.0,
+			"frame": Engine.get_process_frames(),
+			"ms": wall_ms,
+			"sim_delta_ms": delta * 1000.0,
 			"lights": _count_lights(_game),
 			"materials": _seen.size(),
-		})
+		}, true)
+		if not _stream_events.is_empty():
+			spike["recent_stream"] = _stream_events.back()
+		_spikes.append(spike)
 	if _elapsed >= _seconds:
 		_report()
 
@@ -68,6 +106,142 @@ func _count_lights(node: Node) -> int:
 	for child: Node in node.get_children():
 		total += _count_lights(child)
 	return total
+
+
+func _runner_track() -> RunnerTrack:
+	if _game == null:
+		return null
+	return _game.get("track") as RunnerTrack
+
+
+func _drain_stream_trace() -> void:
+	var track := _runner_track()
+	if track == null:
+		return
+	for event: Dictionary in track.drain_perf_trace_events():
+		event["t"] = _elapsed
+		_stream_events.append(event)
+		print("[census-stream] t=%.2fs %s" % [_elapsed, event])
+
+
+func _drain_warmup_trace() -> void:
+	for event: Dictionary in ShaderWarmup.drain_perf_trace_events():
+		event["t"] = _elapsed
+		_warmup_events.append(event)
+		print(("[census-warmup] item=%d/%d type=%s key=%s name=%s "
+				+ "submit=%d following=%d wall=%.2fms") % [
+			event.get("item_index", 0), event.get("queue_size", 0),
+			event.get("type", ""), event.get("key", ""), event.get("name", ""),
+			event.get("submit_frame", 0), event.get("following_frame", 0),
+			event.get("ms", 0.0),
+		])
+
+
+func _runner_loader_active() -> bool:
+	if _game == null or not is_instance_valid(_game):
+		return false
+	if not bool(_game.get("build_finished")):
+		return true
+	return _contains_shader_warmup(_game)
+
+
+func _contains_shader_warmup(node: Node) -> bool:
+	if node is ShaderWarmup:
+		return true
+	for child: Node in node.get_children():
+		if _contains_shader_warmup(child):
+			return true
+	return false
+
+
+func _percentile_ms(values: PackedFloat64Array, percentile: float) -> float:
+	if values.is_empty():
+		return 0.0
+	var sorted := values.duplicate()
+	sorted.sort()
+	var index := clampi(int(ceil(percentile * float(sorted.size()))) - 1,
+			0, sorted.size() - 1)
+	return sorted[index]
+
+
+func _max_ms(values: PackedFloat64Array) -> float:
+	var maximum := 0.0
+	for value: float in values:
+		maximum = maxf(maximum, value)
+	return maximum
+
+
+## Expensive tree/RID-proxy walk, executed only after a >100 ms frame. This
+## keeps census overhead out of normal frames while preserving enough state to
+## distinguish shader compilation from chunk construction and light churn.
+func _runtime_snapshot() -> Dictionary:
+	var state := {
+		"geometry": 0,
+		"material_ids": {},
+		"mesh_ids": {},
+	}
+	_collect_runtime_stats(_game, state)
+	var snapshot := {
+		"distance": 0.0,
+		"geometry": int(state["geometry"]),
+		"material_resources": (state["material_ids"] as Dictionary).size(),
+		"mesh_resources": (state["mesh_ids"] as Dictionary).size(),
+		# Rendering objects/draws and Resource count are stable public proxies for
+		# live renderer RIDs; Godot exposes no portable per-scene RID enumeration.
+		"render_objects": int(Performance.get_monitor(
+				Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)),
+		"draw_calls": int(Performance.get_monitor(
+				Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)),
+		"resource_count": int(Performance.get_monitor(
+				Performance.OBJECT_RESOURCE_COUNT)),
+		"node_count": int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
+		"orphan_count": int(Performance.get_monitor(
+				Performance.OBJECT_ORPHAN_NODE_COUNT)),
+	}
+	var player := _game.get("player") as Node3D
+	if player != null:
+		snapshot["distance"] = float(player.get("distance"))
+	var track := _runner_track()
+	if track != null:
+		snapshot.merge(track.perf_trace_snapshot(
+				player.position.z if player != null else 0.0), true)
+	return snapshot
+
+
+func _collect_runtime_stats(node: Node, state: Dictionary) -> void:
+	if node == null:
+		return
+	var mesh_ids := state["mesh_ids"] as Dictionary
+	var geometry := node as GeometryInstance3D
+	if geometry != null:
+		state["geometry"] = int(state["geometry"]) + 1
+		_note_runtime_material(geometry.material_override, state)
+		_note_runtime_material(geometry.material_overlay, state)
+	var mesh_instance := node as MeshInstance3D
+	if mesh_instance != null and mesh_instance.mesh != null:
+		mesh_ids[mesh_instance.mesh.get_instance_id()] = true
+		for surface: int in mesh_instance.mesh.get_surface_count():
+			_note_runtime_material(mesh_instance.get_active_material(surface), state)
+	var multi := node as MultiMeshInstance3D
+	if multi != null and multi.multimesh != null and multi.multimesh.mesh != null:
+		var mesh := multi.multimesh.mesh
+		mesh_ids[mesh.get_instance_id()] = true
+		for surface: int in mesh.get_surface_count():
+			_note_runtime_material(mesh.surface_get_material(surface), state)
+	var particles := node as GPUParticles3D
+	if particles != null and particles.draw_pass_1 != null:
+		var draw_mesh := particles.draw_pass_1
+		mesh_ids[draw_mesh.get_instance_id()] = true
+		for surface: int in draw_mesh.get_surface_count():
+			_note_runtime_material(draw_mesh.surface_get_material(surface), state)
+	for child: Node in node.get_children():
+		_collect_runtime_stats(child, state)
+
+
+func _note_runtime_material(material: Material, state: Dictionary) -> void:
+	if material != null:
+		var material_ids := state["material_ids"] as Dictionary
+		material_ids[material.get_instance_id()] = true
 
 
 func _walk(node: Node) -> void:
@@ -118,6 +292,28 @@ func _note(material: Material) -> void:
 
 func _report() -> void:
 	_done = true
+	_drain_warmup_trace()
+	var warmup_frame_ms := PackedFloat64Array()
+	var worst_warmup: Dictionary = {}
+	for event: Dictionary in _warmup_events:
+		var item_ms := float(event.get("ms", 0.0))
+		warmup_frame_ms.append(item_ms)
+		if worst_warmup.is_empty() or item_ms > float(worst_warmup.get("ms", 0.0)):
+			worst_warmup = event
+	print("[census-loader] frames=%d p95=%.2fms max=%.2fms" % [
+		_loader_frame_ms.size(), _percentile_ms(_loader_frame_ms, 0.95),
+		_max_ms(_loader_frame_ms),
+	])
+	print("[census-warmup] frames=%d p95=%.2fms max=%.2fms" % [
+		warmup_frame_ms.size(), _percentile_ms(warmup_frame_ms, 0.95),
+		_max_ms(warmup_frame_ms),
+	])
+	if not worst_warmup.is_empty():
+		print("[census-warmup-worst] item=%d/%d type=%s key=%s name=%s wall=%.2fms" % [
+			worst_warmup.get("item_index", 0), worst_warmup.get("queue_size", 0),
+			worst_warmup.get("type", ""), worst_warmup.get("key", ""),
+			worst_warmup.get("name", ""), worst_warmup.get("ms", 0.0),
+		])
 	print("[census] %d distinct material programs over %.0fs" % [_seen.size(), _elapsed])
 	var late := 0
 	for row: Dictionary in _timeline:
@@ -131,9 +327,27 @@ func _report() -> void:
 		var worst := 0.0
 		for spike: Dictionary in _spikes:
 			worst = maxf(worst, float(spike["ms"]))
-			print("[census] SPIKE %6.1fs  %7.1f ms  lights=%d  materials=%d"
-				% [spike["t"], spike["ms"], spike["lights"], spike["materials"]])
+			print(("[census] SPIKE %6.1fs %7.1fms frame=%d distance=%.1fm "
+					+ "chunk=%d biome=%d next=%d live=%d tunnels=%d cues=%d "
+					+ "dynamic_tunnel_lights=%d scene_lights=%d "
+					+ "signatures=%d geometry=%d material_res=%d mesh_res=%d "
+					+ "render_objects=%d draws=%d resources=%d nodes=%d orphans=%d recent=%s"
+				) % [
+					spike["t"], spike["ms"], spike["frame"], spike.get("distance", 0.0),
+					spike.get("current_chunk", -1), spike.get("current_biome", -1),
+					spike.get("next_chunk", -1), spike.get("live_chunks", -1),
+					spike.get("tunnel_chunks", -1), spike.get("tunnel_light_cues", -1),
+					spike.get("tunnel_lights", -1), spike["lights"],
+					spike["materials"], spike.get("geometry", -1),
+					spike.get("material_resources", -1), spike.get("mesh_resources", -1),
+					spike.get("render_objects", -1), spike.get("draw_calls", -1),
+					spike.get("resource_count", -1), spike.get("node_count", -1),
+					spike.get("orphan_count", -1), spike.get("recent_stream", {}),
+				])
 		print("[census] %d spikes over 100 ms, worst %.0f ms" % [_spikes.size(), worst])
 	print("[census] %d of %d first appeared after the opening 6s — each of those is a stall a player hits mid-run on web"
 		% [late, _seen.size()])
+	RunnerTrack.perf_trace_enabled = false
+	ShaderWarmup.perf_trace_enabled = false
+	Engine.time_scale = 1.0
 	get_tree().quit(0)

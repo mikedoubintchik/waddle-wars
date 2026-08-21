@@ -41,7 +41,7 @@ window/size/window_width_override=1600
 window/size/window_height_override=900
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-window/handheld/orientation=4
+window/handheld/orientation=6
 
 [input]
 
@@ -167,7 +167,9 @@ renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality=3
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality.mobile=2
-anti_aliasing/quality/msaa_3d=2
+; Compatibility caps 3D MSAA at 2x in SettingsManager. Starting at the same
+; sample count avoids compiling a throwaway 4x pipeline before autoloads apply.
+anti_aliasing/quality/msaa_3d=1
 anti_aliasing/quality/use_debanding=true
 lights_and_shadows/directional_shadow/size.web=4096
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality.web=3

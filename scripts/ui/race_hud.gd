@@ -140,6 +140,7 @@ var _race_over: bool = false
 var _hud_scale: float = 1.0
 var _hint_bottom: float = -92.0
 var _root: Control
+var _layout: LayoutProfile = null
 
 
 func setup(p_manager: RaceManager, p_player: Racer) -> void:
@@ -478,6 +479,7 @@ func _build() -> void:
 	var hud_scale := float(SettingsManager.get_setting("accessibility", "hud_scale"))
 	_hud_scale = hud_scale
 	add_child(_root)
+	_apply_safe_area()
 
 	# Top-left column. The position card and the timed-effect pill share it so
 	# the pill can appear and vanish mid-race without anything being measured
@@ -500,7 +502,11 @@ func _build() -> void:
 	# pause reminder when logical pixels render physically tiny, where they are
 	# unreadable noise rather than help.
 	if not GameConfig.is_headless():
-		get_viewport().size_changed.connect(_update_bar_tags)
+		var viewport := get_viewport()
+		if not viewport.size_changed.is_connected(_update_bar_tags):
+			viewport.size_changed.connect(_update_bar_tags)
+		if not viewport.size_changed.is_connected(_apply_safe_area):
+			viewport.size_changed.connect(_apply_safe_area)
 		_update_bar_tags()
 
 	# Course minimap (top-right card under the item slot; hides itself on
@@ -508,6 +514,19 @@ func _build() -> void:
 	var minimap := RaceMinimap.new()
 	_root.add_child(minimap)
 	minimap.setup(manager, hud_scale)
+
+
+## Every anchored HUD element composes inside one platform-safe canvas. This
+## preserves authored relative geometry while keeping top cards, bottom rails,
+## minimap, and messages out of notches/home indicators in either orientation.
+func _apply_safe_area() -> void:
+	if _root == null:
+		return
+	_layout = LayoutProfile.for_viewport(get_viewport())
+	_root.offset_left = _layout.safe_insets.x
+	_root.offset_top = _layout.safe_insets.y
+	_root.offset_right = -_layout.safe_insets.z
+	_root.offset_bottom = -_layout.safe_insets.w
 
 
 ## Position card (top left): a podium-coloured edge stripe, the place numeral

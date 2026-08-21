@@ -66,26 +66,33 @@ var _fit: float = 1.0
 var _card_width: float = CARD_WIDTH
 ## Rows/tiles that cascade in after the screen's blocks land, in build order.
 var _reveal_items: Array[Control] = []
+var _safe_scroll: ScrollContainer = null
+var _profile: LayoutProfile = null
 
 
 func _ready() -> void:
 	UITheme.make_background(self)
 	UITheme.apply_ui_scale(self)
+	_profile = LayoutProfile.for_viewport(get_viewport())
 	_boost = _tall_boost()
 	_card_width = _measure_card_width()
 	_fit = _measure_fit()
 
 	_add_celebration_glow()
 
-	var scroll := ScrollContainer.new()
-	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.follow_focus = true
-	add_child(scroll)
+	_safe_scroll = ScrollContainer.new()
+	_safe_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_safe_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_safe_scroll.follow_focus = true
+	add_child(_safe_scroll)
 	var center := CenterContainer.new()
 	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.add_child(center)
+	_safe_scroll.add_child(center)
+	var viewport := get_viewport()
+	if viewport != null and not viewport.size_changed.is_connected(_apply_safe_area):
+		viewport.size_changed.connect(_apply_safe_area)
+	_apply_safe_area()
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
 	vbox.custom_minimum_size.x = _card_width
@@ -119,7 +126,17 @@ func _ready() -> void:
 		# also scrolls the freshly focused button into view — on a long screen
 		# (Grand Prix: two tables) that would open on the buttons instead of the
 		# player's placement. Snap back to the top once the focus settles.
-		_scroll_to_top(scroll)
+		_scroll_to_top(_safe_scroll)
+
+
+func _apply_safe_area() -> void:
+	if _safe_scroll == null:
+		return
+	var insets := LayoutProfile.for_viewport(get_viewport()).safe_insets
+	_safe_scroll.offset_left = insets.x
+	_safe_scroll.offset_top = insets.y
+	_safe_scroll.offset_right = -insets.z
+	_safe_scroll.offset_bottom = -insets.w
 
 
 func _scroll_to_top(scroll: ScrollContainer) -> void:
@@ -680,13 +697,13 @@ func _build_race_results(parent: Control) -> void:
 	panel.add_child(list)
 	_card_title(list, "Final Standings")
 	_standings_header(list)
-	for i: int in Game.last_race_results.size():
-		var row: Dictionary = Game.last_race_results[i]
+	var shown_rows: Array[Dictionary] = _visible_race_rows()
+	for row: Dictionary in shown_rows:
 		var is_player := bool(row.get("is_player", false))
 		var place := int(row.get("position", 0))
 		var podium := place >= 1 and place <= 3
 		var color := _row_color(is_player, place)
-		var line := _make_row(list, i, is_player, podium)
+		var line := _make_row(list, maxi(place - 1, 0), is_player, podium)
 		line.add_child(_position_cell(place))
 		_name_cell(line, String(row.get("name", "?")),
 			25 if (podium or is_player) else 23, color, podium or is_player, is_player)
@@ -700,6 +717,46 @@ func _build_race_results(parent: Control) -> void:
 		line.add_child(_cell(gap_text, COL_GAP, 20,
 			Color(color, 0.62) if place > 1 else Color(color, 0.45), false))
 		line.add_child(_cell(str(int(row.get("fish", 0))), COL_FISH, 24, color, is_player))
+	_add_omitted_racers(list, shown_rows)
+
+
+## Desktop results should deliver the whole payoff without a needless scroll.
+## Keep podium plus player as full data rows; preserve everyone else in one
+## compact placement line. Portrait has ample vertical runway and keeps all.
+func _visible_race_rows() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	if _profile == null or _profile.is_portrait() \
+			or Game.last_race_results.size() <= 4:
+		for row: Dictionary in Game.last_race_results:
+			rows.append(row)
+		return rows
+	for row: Dictionary in Game.last_race_results:
+		if int(row.get("position", 0)) <= 3 or bool(row.get("is_player", false)):
+			rows.append(row)
+	return rows
+
+
+func _add_omitted_racers(parent: Control, shown: Array[Dictionary]) -> void:
+	if shown.size() >= Game.last_race_results.size():
+		return
+	var visible_names: Dictionary = {}
+	for row: Dictionary in shown:
+		visible_names[String(row.get("name", ""))] = true
+	var entries: PackedStringArray = []
+	for row: Dictionary in Game.last_race_results:
+		var name := String(row.get("name", "?"))
+		if visible_names.has(name):
+			continue
+		entries.append("%s %s" % [_ordinal(int(row.get("position", 0))), name])
+	var summary := Label.new()
+	summary.text = "REST OF FIELD  ·  %s" % "  ·  ".join(entries)
+	summary.add_theme_font_override("font", UITheme.display_font())
+	summary.add_theme_font_size_override("font_size", _f(14))
+	summary.add_theme_color_override("font_color", Color(0.58, 0.70, 0.84))
+	summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	summary.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(summary)
 
 
 ## Column captions above the standings rows, on the same fixed widths as the
@@ -833,17 +890,17 @@ func _build_podium(parent: Control, standings: Array[Dictionary]) -> void:
 		var penguin := PenguinVisual.new()
 		if key == "player":
 			var body := CosmeticsDB.get_item(Progression.get_equipped("body"))
-			penguin.setup({
+			penguin.setup_look(CharacterLook.from_legacy_config({
 				"body_color": body.get("body_color", Color(0.13, 0.16, 0.22)),
 				"belly_color": body.get("belly_color", Color(0.95, 0.94, 0.9)),
 				"hat": Progression.get_equipped("hat"),
-			})
+			}, CharacterLook.RenderRole.HERO))
 		else:
 			var info := PersonalitiesDB.get_item(key)
-			penguin.setup({
+			penguin.setup_look(CharacterLook.from_legacy_config({
 				"body_color": info.get("body_color", Color(0.13, 0.16, 0.22)),
 				"belly_color": info.get("belly_color", Color(0.95, 0.94, 0.9)),
-			})
+			}, CharacterLook.RenderRole.RACER))
 		penguin.position = slots[i] + Vector3(0, float(heights[i]), 0)
 		penguin.rotation.y = PI  # penguin forward is -Z; camera sits at +Z
 		penguin.set_pose(PenguinVisual.Pose.CELEBRATE if i == 0 else PenguinVisual.Pose.IDLE)
@@ -1225,7 +1282,9 @@ func _add_share_button(parent: Control) -> void:
 
 
 func _add_button(parent: Control, text: String, action: Callable, primary: bool) -> void:
-	var size := Vector2(270.0, 62.0) if primary else Vector2(210.0, 56.0)
+	var landscape := _profile != null and not _profile.is_portrait()
+	var size := (Vector2(250.0, 62.0) if primary else Vector2(185.0, 56.0)) \
+		if landscape else (Vector2(270.0, 62.0) if primary else Vector2(210.0, 56.0))
 	# Width through the same fit as everything else. At full touch scale these
 	# three buttons demanded 1026 units on a canvas 771 wide -- on their own
 	# they were the single widest thing on the screen.

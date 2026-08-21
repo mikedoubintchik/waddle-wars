@@ -7,24 +7,22 @@ Godot scenes that print `PASS`/`FAIL`/`SKIP` lines and exit `0` on success,
 nonzero on failure.
 
 ```sh
-# Full suite (discovers the Godot binary; override with GODOT=/path/to/godot)
+# Full suite. It snapshots the project under a unique custom user://, cold
+# imports it, resets that isolated save before each case, then removes it.
 ./run_tests.sh
 
-# Individual cases
-godot --headless --path . res://tests/unit_tests.tscn
-godot --headless --path . res://tests/menu_load_test.tscn
-godot --headless --path . res://tests/race_sim.tscn -- course=glacier
-godot --headless --path . res://tests/race_sim.tscn -- course=aurora
-godot --headless --path . res://tests/race_sim.tscn -- course=iceberg
-godot --headless --path . res://tests/race_sim.tscn -- course=glacier difficulty=emperor
+# Filter labels without bypassing save isolation
+./run_tests.sh runner
+./run_tests.sh art
+./run_tests.sh glacier
 
 # Parser / import / resource validation (no gameplay)
-godot --headless --path . --quit-after 2
+godot --headless --import --path .
 ```
 
-`run_tests.sh` skips the aurora and iceberg race sims automatically while
-`scripts/courses/course_aurora.gd` / `course_iceberg.gd` do not exist yet, and
-reports them as `SKIP` in its summary.
+Avoid direct unit/simulation commands against the normal project identity:
+several tests deliberately exercise saves, settings, missions, corruption
+recovery, and retry. Use the isolated harness or a temporary custom user path.
 
 ## Automated test coverage
 
@@ -42,9 +40,51 @@ reports them as `SKIP` in its summary.
 | Progression | `add_fish`/`spend_fish` arithmetic; unlock rejected when broke and charged correctly when affordable; equip works; equipping a locked item is rejected. Runs against a fresh default save with deep backup/restore. |
 | Racer | `Racer.new()` + `setup()` with a `RacerController`, `PenguinVisual`, and null course survives physics ticks in-tree. |
 | PathGuide | `TrackBuilder.make_curve` + `PathGuide`: nearest-point distance small for on-curve probes, offsets monotonic along the path, yaw/positions finite and sane. |
+| TrackBuildResult | Guide identity, surface runs, paired edge samples, and unchanged legacy visual/collision root layout. |
+| UI font | Bundled OFL font loads from a cold import, carries Latin glyphs, and all menu roots receive the runtime theme. |
 | Powerups activate | `PowerupSystem.activate` for every id in `PowerupsDB.ORDER`: snowball node spawns, shield applies, frenzy boosts, magnet registers, blizzard cloud spawns; live effects tick one physics frame without errors. |
 | Menu scenes | title, main_menu, mode_select, results (with a pre-filled 8-row `Game.last_race_results`), settings, controls, customize, achievements, credits each instantiate, build > 3 nodes with a live script, and free cleanly. Scenes not yet written by the parallel UI stream are reported as `SKIP`, not failures. |
 | Touch controls | `TouchControls.new()` + `setup(PlayerController.new())` builds the steer zone, action buttons, and pause button without a racer or course. |
+
+### Runner and art foundation
+
+- `tests/runner_platform_tests.tscn`: four portrait/landscape layout classes,
+  asymmetric safe areas, touch controls at 0.5/1/2 scale, camera-shake
+  full/reduced/off, reduced flashing, runner quality-governor registration,
+  and Compatibility AA policy.
+- `tests/runner_golden_slice.tscn`: deterministic 360 m DAY slice, every runner
+  verb/obstacle/power-up, art-RNG isolation, typed presentation contexts,
+  layout refresh, and instant retry contract.
+- `tests/runner_golden_shot.tscn`: five deterministic moving-render review
+  positions spanning that slice. Run only through `run_runner_capture.sh`; its
+  cold snapshot and custom `user://` protect live saves. Defaults are 1600×900;
+  pass `w=540 h=960` for portrait review. It emulates touch metrics by default;
+  pass `touch=0` for a desktop-window comparison.
+- `tests/runner_sim.tscn` / `runner_churn.tscn`: 60-second gameplay soak plus
+  repeated retry/resource-growth checks.
+- `tests/art_foundation_test.tscn`, `tools/art/validate_art.py`, and
+  `tests/test_art_tools.py`: catalog/resource contracts, pinned budgets and
+  toolchain, source/runtime manifests, provenance, hashes, schemas, and
+  actionable authoring failure modes.
+- `tests/runner_perf_probe.tscn`: windowed tier/resolution probe with JSON+CSV
+  frame, draw, primitive, memory, and acceptance-gate output. It is report-only
+  unless `enforce=true` is passed. Run through `run_runner_perf.sh`; the wrapper
+  cold-imports a temporary project identity so benchmarking cannot touch the
+  player's save/settings. `tier=` fixes preset, shadows, particles, and MSAA as
+  one profile; reports record actual and requested window size and refuse an
+  enforced pass when the platform clamps either resolution or tier. A stopped
+  runner or incomplete sample exits with a timeout instead of hanging.
+
+### Front-end presentation
+
+- `tests/frontend_presentation_test.tscn`: 65 contract checks covering the
+  Canvas-only boot, title, shared backdrop, and loading indicator; authored
+  texture bounds; portrait/landscape crop selection; reduced motion; semantic
+  title CTA; and public loader progress API.
+- `tests/frontend_shot.tscn`: isolated title, menu, boot, loader, and router
+  captures through `run_frontend_qa.sh shot`. Use `touch=1` for phone layout.
+- `tests/frontend_perf_probe.tscn`: cold first-present, boot-route hitch, title
+  frame pacing, and draw-call gates through `run_frontend_qa.sh perf`.
 
 ### `tests/menu_load_test.tscn` (`tests/menu_load_test.gd`)
 
@@ -91,11 +131,14 @@ Player-facing flow (run on every release candidate):
 
 ### Resolutions to test (per GAME_SPEC section 20)
 
+- [ ] 540×960 and 1080×1920 (portrait phones)
+- [ ] Tall notched portrait phone safe area
+- [ ] Portrait tablet (e.g. 1600×2560)
 - [ ] 1920×1080 (baseline 16:9)
 - [ ] 1280×720 (small window)
 - [ ] 2560×1440 (where practical)
 - [ ] 2400×1080 (wide mobile landscape)
-- [ ] Tablet-like landscape (e.g. 2160×1620 or 1600×1200)
+- [ ] Landscape tablet (e.g. 1600×1200)
 
 At each: no text overlap or clipping, HUD anchored correctly, menus centered,
 touch buttons reachable, no horizontal letterboxing artifacts.
@@ -106,6 +149,30 @@ touch buttons reachable, no horizontal letterboxing artifacts.
 - [ ] Gamepad (steer axis with deadzone setting, buttons, pause)
 - [ ] Touch (steer drag zone, jump/slide/shove/item buttons, pause button,
       touch scale and opacity settings)
+
+## Premium overhaul validation — 2026-08-18
+
+- **Godot:** 4.7.1.stable.official.a13da4feb.
+- **Full isolated suite:** 20/20 cases PASS. Includes 115/115 units, menu
+  routing, 65/65 front-end presentation checks, 54/54 art-foundation checks,
+  PenguinVisual facade, 96/96 runner platform checks, 25/25 golden-slice
+  checks, 60-second runner simulation, eight-retry churn, all five race-course
+  simulations, time-trial ghost, Endless, tutorial, and three-round Grand Prix.
+- **Art authoring:** manifest validator PASS (`assets=3 exports=0 generated=3
+  concepts=1`); Python tooling 5/5 PASS.
+- **Cold Compatibility front end, 1920x1080:** two enforced runs PASS. First
+  present 62.17/61.24 ms; worst boot frame 22.36/18.70 ms; steady title 60 FPS,
+  p95/max 16.67 ms, 19 draw calls. No BPTC fallback warnings.
+- **Runner, 1920x1080 after warmup:** Compatibility High 59.82 FPS, p95
+  16.67 ms, max 84.76 ms, 241/268 average/peak draws; Compatibility Medium
+  59.81 FPS, p95 16.67 ms, max 59.82 ms, 198/227 draws; Mobile High 59.98 FPS,
+  p95 16.67 ms, max 18.06 ms, 189/224 draws. Every enforced run had zero
+  frames above 100 ms.
+- **Resource stability:** runner soak grew 0 resources over measured 30 s;
+  retry churn reported zero orphans and no sustained resource growth.
+- **Visual QA:** title, boot, route loader, and main menu reviewed at portrait
+  phone and 1920x1080 landscape. Phone main-menu physical targets: hero cards
+  104-107 px, secondary rows 59 px, utility floor 45.8 px.
 
 ## Last validation results
 
@@ -312,3 +379,37 @@ guesses from the screenshot alone (the title Label's minimum width, then the
 column width) were both wrong; printing `get_combined_minimum_size()` down the
 tree found it immediately — card 647, inner content 720. When a layout overflows
 and the cause is not obvious, walk the tree and print the minimums.
+
+## Premium visual foundation and runner golden slice — 2026-08-18
+
+All final probes used cold source snapshots with unique project identities and
+isolated `user://` directories. The player's live save, settings and ghost
+hashes were unchanged by this validation run.
+
+| Check | Command | Result |
+|-------|---------|--------|
+| Cold import + full regression | `./run_tests.sh` | PASS, 19/19 cases |
+| Units | isolated suite case | 115/115 |
+| Art foundation | isolated suite case | 53/53; validator + Python 5/5 |
+| Runner platform/layout/accessibility | isolated suite case | 88/88 |
+| Runner golden contract | isolated suite case | 25/25 |
+| Runner simulation | `runner_sim -- seconds=60` | PASS; 1,221 m, +1 resource/30 s, -0.1 MiB static |
+| Runner retry churn | `runner_churn -- runs=8` | PASS; 0 orphans, +0 resources/cycle, +0.00 MiB/cycle |
+| Five race courses | isolated suite cases | PASS: glacier, aurora, iceberg, cinder, hollow |
+| Other modes | isolated suite cases | PASS: time-trial ghost, endless, tutorial, Grand Prix |
+| Runner Compatibility performance | `./run_runner_perf.sh tier=high w=1920 h=1080 seconds=30 enforce=true` | PASS: 70.28 FPS avg, 19.2 ms p95, 80.65 ms max, 230/251 draws, 47,262 primitives |
+| Touch portrait framing | `./run_runner_capture.sh w=540 h=960 ...` | PASS: 15.0–17.5% hero height |
+| Touch compact-landscape framing | `./run_runner_capture.sh ...` | PASS: 15.7–17.4% hero height |
+
+`run_runner_capture.sh` now treats the 14–18% framing contract as a hard
+failure. `run_runner_perf.sh` verifies requested/effective resolution and tier,
+writes JSON + CSV, enforces a wall-clock timeout, and works under macOS Bash 3.
+
+Godot still reports pre-existing ObjectDB/resource-in-use diagnostics when some
+full scenes exit. Runtime runner churn shows zero orphans and no sustained
+resource growth, but the shutdown diagnostics are not represented as fixed.
+The runtime art manifest now registers the three production frontend textures
+(orientation-specific expedition backgrounds and loading mascot) with exact
+generated-source provenance. Authored character, obstacle, and course GLBs are
+still outstanding; this remains a runner/frontend milestone, not the completed
+full-app asset overhaul.

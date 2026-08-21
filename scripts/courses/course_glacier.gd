@@ -15,6 +15,95 @@ const RICE := SurfacesDB.Surface.ICE_ROUGH
 ## degrees off the sun yaw (-35) so their lee faces model in shadow.
 const WIND_YAW_DEG := 24.0
 
+## Authored Glacier Gauntlet runtime kit. Kept path-driven until visual signoff
+## and the fragment merge; a complete-kit check makes fallback transactional.
+## One missing import means the existing procedural presentation stays intact.
+const AUTHORED_ART_SEED: int = 0x474C4143494552
+const AUTHORED_ART_ROOT := "res://assets/art/courses/glacier"
+const AUTHORED_MATERIAL_PATH := \
+	"res://assets/art/courses/glacier/materials/glacier_surface_v1.tres"
+const AUTHORED_PROFILE_PATH := \
+	"res://data/art/course_profiles/glacier_gauntlet_v1.tres"
+const AUTHORED_SCENE_IDS: PackedStringArray = [
+	"glacier_edge_kerb_v1",
+	"glacier_surface_inlay_v1",
+	"glacier_track_skin_patch_v1",
+	"glacier_route_beacon_v1",
+	"glacier_route_flag_v1",
+	"glacier_snow_fence_v1",
+	"glacier_expedition_crate_v1",
+	"glacier_rescue_sled_v1",
+	"glacier_field_tent_v1",
+	"glacier_field_lab_v1",
+	"glacier_camp_lamp_v1",
+	"glacier_weather_mast_v1",
+	"glacier_ice_spire_v1",
+	"glacier_ice_boulder_v1",
+	"glacier_snowbank_v1",
+	"glacier_layered_ridge_v1",
+	"glacier_cave_buttress_v1",
+	"glacier_duck_gate_v1",
+	"glacier_snowball_warning_v1",
+	"glacier_cracking_ice_marker_v1",
+	"glacier_boost_marker_v1",
+	"glacier_ice_arch_landmark_v1",
+	"glacier_frozen_fall_landmark_v1",
+	"glacier_summit_station_landmark_v1",
+]
+const AUTHORED_LATE_WARM_IDS: PackedStringArray = [
+	"glacier_duck_gate_v1",
+	"glacier_snowball_warning_v1",
+	"glacier_cracking_ice_marker_v1",
+	"glacier_boost_marker_v1",
+	"glacier_summit_station_landmark_v1",
+]
+const AUTHORED_ICE_RESPONSE_IDS: PackedStringArray = [
+	"glacier_track_skin_patch_v1",
+	"glacier_ice_spire_v1",
+	"glacier_ice_boulder_v1",
+	"glacier_layered_ridge_v1",
+	"glacier_cave_buttress_v1",
+	"glacier_ice_arch_landmark_v1",
+	"glacier_frozen_fall_landmark_v1",
+]
+const AUTHORED_CONTACT_RADII := {
+	"glacier_route_beacon_v1": 0.7,
+	"glacier_route_flag_v1": 0.3,
+	"glacier_snow_fence_v1": 2.4,
+	"glacier_expedition_crate_v1": 1.0,
+	"glacier_rescue_sled_v1": 1.5,
+	"glacier_field_tent_v1": 2.7,
+	"glacier_field_lab_v1": 4.6,
+	"glacier_camp_lamp_v1": 0.8,
+	"glacier_weather_mast_v1": 0.8,
+	"glacier_ice_spire_v1": 1.8,
+	"glacier_ice_boulder_v1": 1.4,
+	"glacier_snowbank_v1": 2.5,
+	"glacier_cave_buttress_v1": 2.3,
+	"glacier_duck_gate_v1": 4.2,
+	"glacier_snowball_warning_v1": 2.6,
+	"glacier_cracking_ice_marker_v1": 3.8,
+	"glacier_boost_marker_v1": 3.0,
+}
+
+## Focused tests compare the exact normal build with visuals disabled/enabled.
+## Normal headless race simulation never imports art.
+static var force_authored_art_for_tests: bool = false
+static var disable_authored_art_for_tests: bool = false
+
+var art_rng := RandomNumberGenerator.new()
+var _authored_preload_paths := PackedStringArray()
+var _authored_loaded: Dictionary = {}
+var _authored_meshes: Dictionary = {}
+var _authored_material: StandardMaterial3D = null
+var _authored_ice_material: StandardMaterial3D = null
+var _authored_far_ice_material: StandardMaterial3D = null
+var _authored_lab_material: StandardMaterial3D = null
+var _authored_profile: CourseVisualProfile = null
+var _authored_art_active: bool = false
+var _authored_art_root: Node3D = null
+var _authored_layout_rows := PackedStringArray()
+
 
 func _init() -> void:
 	course_id = "glacier"
@@ -27,6 +116,7 @@ static func p(x: float, y: float, z: float, extra: Dictionary = {}) -> Dictionar
 
 
 func build_course() -> void:
+	_begin_authored_art_preload()
 	var pts: Array = [
 		# Start plateau and pre-start straight.
 		p(0, 60, 35, {"width": 18.0}),
@@ -88,6 +178,10 @@ func build_course() -> void:
 
 	finalize()
 	await stage()
+	# Mesh decoding overlaps guide/ribbon/finalize work above. Resolve the
+	# requests while the loading overlay is still opaque, before first sight.
+	await _finish_authored_art_preload()
+	await stage()
 
 	# --- Track furniture ----------------------------------------------------
 	var tunnel_offset := _offset_near(Vector3(0, 50.3, -620))
@@ -100,12 +194,22 @@ func build_course() -> void:
 	var final_downhill := _offset_near(Vector3(-10, 33, -1220))
 	add_hint(final_downhill - 10.0, "slide", final_downhill + 190.0)
 	add_hint(10.0, "slide", 120.0, 0)  # shortcut: slide the cracking ice fast
+	var first_bar_index := get_child_count()
 	TrackBuilder.add_overhead_bar(self, main_guide, tunnel_offset - 12.0)
+	_hide_procedural_visual(get_child(first_bar_index) if get_child_count() > first_bar_index else null)
+	var second_bar_index := get_child_count()
 	TrackBuilder.add_overhead_bar(self, main_guide, tunnel_offset + 10.0)
+	_hide_procedural_visual(get_child(second_bar_index) if get_child_count() > second_bar_index else null)
 
 	var downhill_offset := _offset_near(Vector3(-10, 33, -1220))
+	var downhill_pad_a_index := get_child_count()
 	TrackBuilder.add_boost_pad(self, main_guide, downhill_offset + 20.0, -3.0)
+	_hide_procedural_visual(
+		get_child(downhill_pad_a_index) if get_child_count() > downhill_pad_a_index else null)
+	var downhill_pad_b_index := get_child_count()
 	TrackBuilder.add_boost_pad(self, main_guide, downhill_offset + 60.0, 3.0)
+	_hide_procedural_visual(
+		get_child(downhill_pad_b_index) if get_child_count() > downhill_pad_b_index else null)
 	await stage()
 
 	# More acceleration pads: the opening-dip exit (launch through the roll
@@ -114,9 +218,18 @@ func build_course() -> void:
 	# of the snowball lanes and the crevasse field.
 	var open_dip := _offset_near(Vector3(4, 54, -90))
 	var dip_exit := _offset_near(Vector3(14, 46, -170))
+	var opening_pad_index := get_child_count()
 	TrackBuilder.add_boost_pad(self, main_guide, dip_exit + 5.0)
+	_hide_procedural_visual(
+		get_child(opening_pad_index) if get_child_count() > opening_pad_index else null)
+	var cave_pad_index := get_child_count()
 	TrackBuilder.add_boost_pad(self, main_guide, _offset_near(Vector3(-6, 44, -420)) + 8.0)
+	_hide_procedural_visual(
+		get_child(cave_pad_index) if get_child_count() > cave_pad_index else null)
+	var climb_pad_index := get_child_count()
 	TrackBuilder.add_boost_pad(self, main_guide, _offset_near(Vector3(4, 35, -1070)) - 6.0)
+	_hide_procedural_visual(
+		get_child(climb_pad_index) if get_child_count() > climb_pad_index else null)
 	# Slide hints for the new smooth-ice patches (surfaces set in the point
 	# list): opening dip, crest-to-downhill bridge, finish straight.
 	add_hint(open_dip - 5.0, "slide", dip_exit + 5.0)
@@ -148,7 +261,10 @@ func build_course() -> void:
 		tile.global_position = shortcut.point_at(tile_offset, 0.0, -0.25)
 		tile_offset += 5.8
 	# Shortcut-survivor reward: a boost pad on solid ice past the crevasse.
+	var shortcut_pad_index := get_child_count()
 	TrackBuilder.add_boost_pad(self, shortcut, gap_end + 12.0)
+	_hide_procedural_visual(
+		get_child(shortcut_pad_index) if get_child_count() > shortcut_pad_index else null)
 	await stage()
 
 	# Item rows and fish.
@@ -172,13 +288,13 @@ func build_course() -> void:
 	add_fish_line(_offset_near(Vector3(-16, 18, -1290)), 12, 5.5, 0.0)
 	await stage()
 
-	_retint_track_walls()
+	_restyle_track()
 	# Frozen lake sheet first: the mountains, lake cracks and sun-glint bands
 	# all seat themselves on it, so it has to exist before _decorate() runs.
 	# Sparkle raised so the distant ice sheet reads as sunlit glitter, backing
 	# the additive sun-glint bands placed by _decorate_sun_glint().
-	add_ground_plane(-24.0, Color(0.78, 0.86, 0.97), 4000.0,
-		VisualLibrary.snow_material(Color(0.78, 0.86, 0.97), 0.5))
+	add_ground_plane(-24.0, Color(0.11, 0.33, 0.46), 4000.0,
+		VisualLibrary.ice_material(Color(0.11, 0.33, 0.46), 0.52))
 	await stage()
 	await _decorate()
 	await stage()
@@ -188,18 +304,22 @@ func build_course() -> void:
 	# sky-fill shadows, restrained ambient/exposure so snow stays textured
 	# instead of blowing out, cream clouds for depth.
 	await build_environment({
-		"sky_top": Color(0.05, 0.24, 0.7),
-		"sky_horizon": Color(0.6, 0.8, 0.98),
-		"ground_color": Color(0.42, 0.6, 0.84),
+		# Authored ridge modules own every depth band. Suppress CourseBase's
+		# procedural faceted skyline only when the complete premium kit activated;
+		# fallback builds retain the established environment unchanged.
+		"skyline": not _authored_art_active,
+		"sky_top": Color(0.06, 0.26, 0.54),
+		"sky_horizon": Color(0.53, 0.70, 0.77),
+		"ground_color": Color(0.12, 0.31, 0.42),
 		"sun_angle_deg": -38.0,
 		"sun_yaw_deg": -35.0,
-		"sun_energy": 1.38,
-		"sun_color": Color(1.0, 0.94, 0.82),
+		"sun_energy": 0.88,
+		"sun_color": Color(1.0, 0.91, 0.76),
 		"sun_angle_max": 22.0,
 		"sun_curve": 0.12,
-		"sky_energy": 1.0,
-		"ambient_energy": 0.72,
-		"exposure": 0.90,
+		"sky_energy": 0.78,
+		"ambient_energy": 0.48,
+		"exposure": 0.74,
 		# Aerial perspective, retuned. The old haze was both too thin (0.0012) and
 		# too BRIGHT (0.7/0.84/0.98, a hair off the horizon sky itself), with the
 		# default 0.5 aerial blend carrying far geometry the rest of the way to
@@ -208,8 +328,8 @@ func build_course() -> void:
 		# at all, which is why the horizon read as one undifferentiated pale mass.
 		# Real distance haze on a clear polar day is a deeper, more saturated blue
 		# than the sky it sits under, so far forms stay a readable silhouette.
-		"fog_color": Color(0.44, 0.6, 0.82),
-		"fog_density": 0.0019,
+		"fog_color": Color(0.24, 0.38, 0.49),
+		"fog_density": 0.00145,
 		"fog_horizon_blend": 0.2,
 		"fog_aerial": 0.3,
 		"fog_sky_affect": 0.08,
@@ -218,7 +338,9 @@ func build_course() -> void:
 		"fog_height_density": 0.045,
 		"glow_threshold": 1.5,
 		"shadow_distance": 150.0,
-		"snow": true,
+		# Authored route uses directional spindrift; the generic large billboard
+		# flakes obscured landmarks and read as soft circles in capture.
+		"snow": not _authored_art_active,
 		"clouds": true,
 		# Late-morning sun low enough to throw rays between the peaks.
 		"shafts": true,
@@ -227,36 +349,806 @@ func build_course() -> void:
 		"spindrift": true,
 		"spindrift_dir": Vector2(0.28, 1.0),
 		"spindrift_speed": 8.0,
-		"cloud_color": Color(1.0, 0.96, 0.87, 0.82),
+		"cloud_color": Color(0.94, 0.89, 0.80, 0.80),
 	})
 
 
-## TrackBuilder ships edge walls as a pale translucent blue and skirts as a
-## soft grey-blue; both vanish into sunlit snow on this bright course. Retint
-## them to a saturated azure so the track boundary reads clearly against the
-## white floor. Walls and skirts get unique StandardMaterial3D instances per
-## build_ribbon call, so mutating in place is safe; floors use ShaderMaterial
-## overrides and are skipped by the type filter.
-func _retint_track_walls() -> void:
+## Course-local track response. The stock snow is deliberately neutral so it
+## can serve every biome; here that collapses into the pale skyline. Glacier
+## gets a groomed cream-blue deck, saturated ice runs and cobalt edge mass.
+## Materials are duplicated/replaced per ribbon, never mutated in shared caches.
+func _restyle_track() -> void:
+	var packed := VisualLibrary.snow_material(
+		Color(0.88, 0.84, 0.73), 0.18, -1.0, 0.60).duplicate() as ShaderMaterial
+	packed.set_shader_parameter("shadow_tint", Color(0.38, 0.51, 0.61))
+	packed.set_shader_parameter("cavity_tint", Color(0.29, 0.45, 0.57))
+	packed.set_shader_parameter("cavity_strength", 0.16)
+	packed.set_shader_parameter("detail_strength", 0.15)
+	packed.set_shader_parameter("normal_strength", 0.13)
+	packed.set_shader_parameter("sastrugi_strength", 0.11)
+	packed.set_shader_parameter("micro_bump_strength", 0.10)
+	packed.set_shader_parameter("noise_scale", 0.082)
+	packed.set_shader_parameter("groom_edge", 0.10)
+	packed.set_shader_parameter("groom_lines", 14.0)
+	packed.set_shader_parameter("sss_tint", Color(1.0, 0.76, 0.53))
+	packed.set_shader_parameter("sss_strength", 0.25)
+	var deep := VisualLibrary.snow_material(
+		Color(0.82, 0.80, 0.74), 0.10, -1.0, 0.42).duplicate() as ShaderMaterial
+	deep.set_shader_parameter("shadow_tint", Color(0.43, 0.54, 0.64))
+	deep.set_shader_parameter("cavity_tint", Color(0.34, 0.48, 0.60))
+	deep.set_shader_parameter("cavity_strength", 0.40)
+	deep.set_shader_parameter("normal_strength", 0.56)
+	deep.set_shader_parameter("sastrugi_strength", 0.62)
+	deep.set_shader_parameter("roughness_value", 0.96)
+	var ice := VisualLibrary.ice_material(
+		Color(0.18, 0.55, 0.70), 0.82).duplicate() as ShaderMaterial
+	ice.set_shader_parameter("deep_tint", Color(0.025, 0.15, 0.30))
+	ice.set_shader_parameter("depth_tint", Color(0.045, 0.25, 0.43))
+	ice.set_shader_parameter("crack_strength", 0.22)
+	ice.set_shader_parameter("crack_sharpness", 0.055)
+	ice.set_shader_parameter("vein_strength", 0.17)
+	ice.set_shader_parameter("depth_strength", 0.24)
+	ice.set_shader_parameter("glint_strength", 0.24)
+	ice.set_shader_parameter("streak_strength", 0.19)
+	ice.set_shader_parameter("roughness_base", 0.22)
+	ice.set_shader_parameter("frost_tint", Color(0.86, 0.94, 0.96))
+	var rough_ice := VisualLibrary.ice_material(
+		Color(0.22, 0.57, 0.69), 0.48).duplicate() as ShaderMaterial
+	rough_ice.set_shader_parameter("deep_tint", Color(0.06, 0.25, 0.42))
+	rough_ice.set_shader_parameter("depth_tint", Color(0.10, 0.39, 0.52))
+	rough_ice.set_shader_parameter("crack_strength", 0.29)
+	rough_ice.set_shader_parameter("vein_strength", 0.18)
+	rough_ice.set_shader_parameter("streak_strength", 0.12)
+	rough_ice.set_shader_parameter("roughness_base", 0.38)
+	var skirt := VisualLibrary.rock_material(
+		Color(0.28, 0.49, 0.61), 0.72).duplicate() as StandardMaterial3D
+	skirt.vertex_color_use_as_albedo = true
+	skirt.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var wall: ShaderMaterial = null
 	for track: Node in get_children():
 		if track.name != &"MainTrack" and not String(track.name).begins_with("Branch_"):
 			continue
-		for child: Node in track.get_children():
-			var instance := child as MeshInstance3D
+		var children := track.get_children()
+		for index: int in children.size():
+			var instance := children[index] as MeshInstance3D
 			if instance == null:
 				continue
-			var mat := instance.material_override as StandardMaterial3D
-			if mat == null:
+			var body: StaticBody3D = null
+			if index + 1 < children.size():
+				body = children[index + 1] as StaticBody3D
+			if body == null:
+				instance.material_override = skirt
 				continue
-			if mat.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA:
-				mat.albedo_color = Color(0.16, 0.47, 0.9, 0.78)  # wall: saturated ice-blue
-				mat.roughness = 0.12
-			else:
-				mat.albedo_color = Color(0.3, 0.48, 0.72)  # skirt: deep glacial flank
+			if not body.has_meta("surface"):
+				if wall == null:
+					var source := instance.material_override as ShaderMaterial
+					if source != null:
+						wall = source.duplicate() as ShaderMaterial
+						wall.set_shader_parameter("tint", Color(0.45, 0.70, 0.77))
+						wall.set_shader_parameter("strata_tint", Color(0.76, 0.86, 0.84))
+						wall.set_shader_parameter("lip_tint", Color(0.95, 0.89, 0.74))
+						wall.set_shader_parameter("base_alpha", 0.88)
+						wall.set_shader_parameter("rim_strength", 0.42)
+						wall.set_shader_parameter("lip_glow", 0.10)
+				if wall != null:
+					instance.material_override = wall
+				continue
+			match int(body.get_meta("surface")):
+				SNOW: instance.material_override = packed
+				DEEP: instance.material_override = deep
+				ICE: instance.material_override = ice
+				RICE: instance.material_override = rough_ice
 
 
 func _offset_near(point: Vector3) -> float:
 	return float(main_guide.nearest(point, -1)["offset"])
+
+
+## --- Authored Glacier art loading -----------------------------------------
+
+func _begin_authored_art_preload() -> void:
+	_authored_art_active = false
+	_authored_preload_paths.clear()
+	_authored_loaded.clear()
+	_authored_meshes.clear()
+	_authored_ice_material = null
+	_authored_far_ice_material = null
+	_authored_lab_material = null
+	_authored_layout_rows.clear()
+	art_rng.seed = AUTHORED_ART_SEED ^ hash(course_id + "::premium_v1")
+	if disable_authored_art_for_tests:
+		return
+	if GameConfig.is_headless() and not force_authored_art_for_tests:
+		return
+	var paths := PackedStringArray([AUTHORED_MATERIAL_PATH, AUTHORED_PROFILE_PATH])
+	for asset_id: String in AUTHORED_SCENE_IDS:
+		paths.append(_authored_scene_path(asset_id))
+	# Transactional complete-kit request. Never mix a partial imported pass
+	# into the established course; it produces both visual gaps and unstable
+	# retry cost depending on which resource happened to import first.
+	for path: String in paths:
+		if not ResourceLoader.exists(path):
+			_authored_preload_paths.clear()
+			return
+		if ResourceLoader.has_cached(path):
+			var cached := ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_REUSE)
+			if cached == null:
+				_authored_preload_paths.clear()
+				return
+			_authored_loaded[path] = cached
+			_authored_preload_paths.append(path)
+			continue
+		var request_error := ResourceLoader.load_threaded_request(
+			path, "", true, ResourceLoader.CACHE_MODE_REUSE)
+		if request_error != OK:
+			_authored_preload_paths.clear()
+			return
+		_authored_preload_paths.append(path)
+
+
+func _finish_authored_art_preload() -> void:
+	if _authored_preload_paths.size() != AUTHORED_SCENE_IDS.size() + 2:
+		return
+	# `load_threaded_get` may block only for work not hidden behind course guide
+	# construction. On staged/web builds, yield between each resolution so the
+	# loading penguin retains its 8 ms worst-frame contract.
+	for path: String in _authored_preload_paths:
+		var resource: Resource = _authored_loaded.get(path) as Resource
+		if resource == null:
+			resource = ResourceLoader.load_threaded_get(path)
+		if resource == null:
+			_authored_loaded.clear()
+			return
+		_authored_loaded[path] = resource
+		await stage()
+	_authored_material = _authored_loaded.get(AUTHORED_MATERIAL_PATH) as StandardMaterial3D
+	_authored_profile = _authored_loaded.get(AUTHORED_PROFILE_PATH) as CourseVisualProfile
+	if _authored_material == null or _authored_profile == null \
+			or not _authored_profile.validation_errors().is_empty():
+		_authored_loaded.clear()
+		return
+	# One Compatibility-safe material family adds crystalline edge response to
+	# natural ice without making canvas, rubber or expedition hardware glossy.
+	# Geometry/atlas AO remains the primary depth cue; this is a restrained rim.
+	_authored_ice_material = _authored_material.duplicate() as StandardMaterial3D
+	_authored_ice_material.resource_name = "Glacier crystalline ice response"
+	_authored_ice_material.rim_enabled = true
+	_authored_ice_material.rim = 0.30
+	_authored_ice_material.rim_tint = 0.58
+	_authored_ice_material.clearcoat_enabled = true
+	_authored_ice_material.clearcoat = 0.12
+	_authored_ice_material.clearcoat_roughness = 0.28
+	# Atmospheric skyline family: same atlas and baked AO, but lower contrast,
+	# rougher response and no clearcoat. Distance fog can then recede the layer
+	# without leaving glossy cyan cut-outs against the sky.
+	_authored_far_ice_material = _authored_material.duplicate() as StandardMaterial3D
+	_authored_far_ice_material.resource_name = "Glacier atmospheric ridge response"
+	_authored_far_ice_material.albedo_color = Color(0.62, 0.74, 0.78)
+	_authored_far_ice_material.roughness = 0.95
+	_authored_far_ice_material.rim_enabled = true
+	_authored_far_ice_material.rim = 0.12
+	_authored_far_ice_material.rim_tint = 0.36
+	_authored_far_ice_material.clearcoat_enabled = false
+	# Camp architecture sits under its own curved canopy normals and otherwise
+	# crushes into navy silhouette against bright snow. Lift response—not light
+	# count—so cyan canvas/ribs retain separation from chase view.
+	_authored_lab_material = _authored_material.duplicate() as StandardMaterial3D
+	_authored_lab_material.resource_name = "Glacier expedition lab response"
+	_authored_lab_material.albedo_color = Color(1.22, 1.18, 1.10)
+	_authored_lab_material.roughness = 0.72
+	_authored_lab_material.rim_enabled = true
+	_authored_lab_material.rim = 0.22
+	_authored_lab_material.rim_tint = 0.48
+	_authored_lab_material.clearcoat_enabled = false
+	for asset_id: String in AUTHORED_SCENE_IDS:
+		var packed := _authored_loaded.get(_authored_scene_path(asset_id)) as PackedScene
+		var mesh := _mesh_from_scene(packed)
+		if mesh == null:
+			_authored_meshes.clear()
+			return
+		_authored_meshes[asset_id] = mesh
+		# Opening scenery submits naturally while the loading overlay is opaque.
+		# Register only meshes whose first real instance sits beyond that opening
+		# frustum; otherwise this course would consume most of the global 32-probe
+		# ceiling with nineteen copies of one shared shader signature.
+		if asset_id in AUTHORED_LATE_WARM_IDS:
+			ShaderWarmup.register_external_probe(mesh, _authored_material)
+	_authored_art_active = _authored_meshes.size() == AUTHORED_SCENE_IDS.size()
+
+
+func _authored_scene_path(asset_id: String) -> String:
+	return "%s/%s.tscn" % [AUTHORED_ART_ROOT, asset_id]
+
+
+func _mesh_from_scene(packed: PackedScene) -> Mesh:
+	if packed == null:
+		return null
+	var root := packed.instantiate()
+	var mesh := _first_mesh_resource(root)
+	root.free()
+	return mesh
+
+
+func _first_mesh_resource(node: Node) -> Mesh:
+	if node is MeshInstance3D and (node as MeshInstance3D).mesh != null:
+		return (node as MeshInstance3D).mesh
+	for child: Node in node.get_children():
+		var found := _first_mesh_resource(child)
+		if found != null:
+			return found
+	return null
+
+
+func _hide_procedural_visual(node: Node) -> void:
+	if not _authored_art_active or node == null:
+		return
+	if node is GeometryInstance3D:
+		(node as GeometryInstance3D).visible = false
+	for child: Node in node.get_children():
+		_hide_procedural_visual(child)
+
+
+func authored_art_status() -> Dictionary:
+	return {
+		"active": _authored_art_active,
+		"loaded": _authored_meshes.size(),
+		"expected": AUTHORED_SCENE_IDS.size(),
+		"layout_count": _authored_layout_rows.size(),
+		"profile": _authored_profile.profile_id if _authored_profile != null else "",
+	}
+
+
+func authored_layout_signature() -> String:
+	var rows := _authored_layout_rows.duplicate()
+	rows.sort()
+	return "\n".join(rows)
+
+
+## Visual-only authored pass. Placement consumes `art_rng` exclusively; it
+## cannot perturb gameplay generation, branch selection or replay snapshots.
+func _decorate_authored_course(base_density: float) -> void:
+	if not _authored_art_active or _authored_material == null:
+		return
+	art_rng.seed = AUTHORED_ART_SEED ^ hash(course_id + "::premium_v1")
+	_authored_layout_rows.clear()
+	_authored_art_root = Node3D.new()
+	_authored_art_root.name = "AuthoredGlacierArt"
+	_authored_art_root.set_meta("authored_course", "glacier_gauntlet_v1")
+	add_child(_authored_art_root)
+
+	var tier := String(SettingsManager.get_setting("display", "particle_quality"))
+	if tier not in CourseVisualProfile.TIERS:
+		tier = "medium"
+	var tier_settings := _authored_profile.quality_settings(tier)
+	var density := clampf(
+		float(tier_settings.get("dressing_density", base_density)), 0.25, 1.0)
+	# Profile threshold grows as quality drops; GeometryInstance3D's lod_bias
+	# has the inverse meaning (smaller selects generated coarse LODs sooner).
+	var lod_bias := 1.0 / maxf(float(tier_settings.get("lod_threshold", 2.0)), 1.0)
+	var shadows := tier != "low"
+
+	# Authored surface rhythm and chunky snow-capped kerbs. Chunking is
+	# deliberate: one world-spanning MultiMesh never range-culls individual
+	# instances and submits the full 1.5 km course from the opening camera.
+	var kerbs: Array[Transform3D] = []
+	var inlays: Array[Transform3D] = []
+	var skin_patches: Array[Transform3D] = []
+	# Wider cadence, deterministic missing blocks and three length scales break
+	# V5's identical cyan rail chain. Every block stays at the measured deck edge;
+	# only authored visual scale/cadence changes.
+	var kerb_step := lerpf(17.5, 10.6, density)
+	var inlay_step := lerpf(31.0, 22.0, density)
+	var offset := 4.0
+	var kerb_index := 0
+	while offset < main_guide.length - 4.0:
+		var xform := TrackBuilder.deck_transform_at(main_guide, offset)
+		for side: float in [-1.0, 1.0]:
+			var side_index := 0 if side < 0.0 else 1
+			if (kerb_index * 3 + side_index * 5) % 11 == 0:
+				continue
+			var edge := track_edge_lateral(main_guide, offset, side, 9.0)
+			var position := xform.origin + xform.basis.x * ((edge + 0.12) * side)
+			position += xform.basis.y * 0.02
+			var length_scale := 0.74 + float((kerb_index * 37
+				+ side_index * 19) % 43) / 100.0
+			var width_scale := 0.92 + float((kerb_index * 13
+				+ side_index * 7) % 17) / 100.0
+			var micro_yaw := side * float((kerb_index % 3) - 1) * 0.012
+			var basis := xform.basis * Basis(Vector3.UP,
+				(0.0 if side > 0.0 else PI) + micro_yaw) \
+				* Basis.from_scale(Vector3(width_scale, length_scale, 1.0))
+			kerbs.append(Transform3D(basis, position))
+		kerb_index += 1
+		offset += kerb_step
+	offset = 6.0
+	while offset < main_guide.length - 6.0:
+		var deck := TrackBuilder.deck_transform_at(main_guide, offset)
+		inlays.append(Transform3D(deck.basis,
+			deck.origin + deck.basis.y * 0.075))
+		offset += inlay_step
+	# Broad wind-polished plates provide authored deck breakup between tiny
+	# medallions. Sparse spacing, lateral drift and mirror/scale variation keep
+	# them from becoming procedural crack wallpaper.
+	var skin_offset := 18.0
+	var skin_index := 0
+	while skin_offset < main_guide.length - 12.0:
+		# Opening camp is one authored composition. Keep its immediate chase
+		# foreground clean; adjacent plates at ~173 m and ~240 m still frame it.
+		if skin_offset >= 195.0 and skin_offset <= 225.0:
+			skin_index += 1
+			skin_offset += lerpf(46.0, 31.0, density) \
+				+ sin(float(skin_index) * 1.19) * 3.5
+			continue
+		var skin_deck := TrackBuilder.deck_transform_at(main_guide, skin_offset)
+		var skin_lateral := sin(float(skin_index) * 1.73) * 1.15
+		var skin_yaw := sin(float(skin_index) * 2.31) * 0.16
+		var skin_scale := Vector3(
+			0.78 + float((skin_index * 17) % 31) / 100.0,
+			0.84 + float((skin_index * 29) % 37) / 100.0,
+			1.0)
+		var skin_basis := skin_deck.basis * Basis(Vector3.UP, skin_yaw) \
+			* Basis.from_scale(skin_scale)
+		var skin_position := skin_deck.origin + skin_deck.basis.x * skin_lateral \
+			+ skin_deck.basis.y * 0.012
+		skin_patches.append(Transform3D(skin_basis, skin_position))
+		skin_index += 1
+		skin_offset += lerpf(46.0, 31.0, density) \
+			+ sin(float(skin_index) * 1.19) * 3.5
+	_add_authored_multimesh("glacier_edge_kerb_v1", kerbs, 155.0, 26, lod_bias, shadows)
+	_add_authored_multimesh("glacier_surface_inlay_v1", inlays, 125.0, 24, lod_bias, false)
+	_add_authored_multimesh(
+		"glacier_track_skin_patch_v1", skin_patches, 135.0, 20, lod_bias, false)
+
+	# The cracking-ice branch gets its own edge/inlay read without altering the
+	# branch guide, tiles or collision ribbon.
+	if not branches.is_empty():
+		var branch_guide := branches[0].get("guide") as PathGuide
+		if branch_guide != null:
+			var branch_kerbs: Array[Transform3D] = []
+			var branch_inlays: Array[Transform3D] = []
+			var branch_offset := 3.0
+			while branch_offset < branch_guide.length - 3.0:
+				var branch_xform := TrackBuilder.deck_transform_at(branch_guide, branch_offset)
+				if int(branch_offset / kerb_step) % 2 == 0:
+					for side: float in [-1.0, 1.0]:
+						var branch_edge := track_edge_lateral(
+							branch_guide, branch_offset, side, 4.0)
+						branch_kerbs.append(Transform3D(
+							branch_xform.basis * Basis(Vector3.UP, 0.0 if side > 0.0 else PI),
+							branch_xform.origin + branch_xform.basis.x \
+							* ((branch_edge + 0.12) * side) + branch_xform.basis.y * 0.02))
+				branch_inlays.append(Transform3D(branch_xform.basis,
+					branch_xform.origin + branch_xform.basis.y * 0.075))
+				branch_offset += inlay_step
+			_add_authored_multimesh(
+				"glacier_edge_kerb_v1", branch_kerbs, 125.0, 20, lod_bias, shadows)
+			_add_authored_multimesh(
+				"glacier_surface_inlay_v1", branch_inlays, 110.0, 18, lod_bias, false)
+
+	# Route furniture: alternate shapes and sides so distance cadence never
+	# reads as a repeated stamp. Start/finish receive denser event clusters.
+	var beacons: Array[Transform3D] = []
+	var flags: Array[Transform3D] = []
+	offset = 36.0
+	var side_sign := 1.0
+	while offset < main_guide.length - 34.0:
+		var marker_xform := main_guide.transform_at(offset)
+		var lateral := (track_edge_lateral(main_guide, offset, side_sign, 9.0)
+			+ art_rng.randf_range(1.1, 2.7)) * side_sign
+		var marker_pos := seat_dressing(marker_xform, lateral, 3.6, 4.0, 0.08)
+		var marker_basis := marker_xform.basis * Basis(Vector3.UP,
+			art_rng.randf_range(-0.18, 0.18))
+		if int(offset / 68.0) % 2 == 0:
+			beacons.append(Transform3D(marker_basis, marker_pos))
+		else:
+			flags.append(Transform3D(marker_basis, marker_pos))
+		side_sign = -side_sign
+		offset += lerpf(84.0, 61.0, density)
+	for event_offset: float in [10.0, 22.0, 36.0, 174.0, 194.0, 214.0, 234.0,
+			finish_offset - 34.0,
+			finish_offset - 19.0, finish_offset - 5.0]:
+		var event_xform := main_guide.transform_at(clampf(event_offset, 0.0, main_guide.length))
+		for event_side: float in [-1.0, 1.0]:
+			var event_lateral := (track_edge_lateral(
+				main_guide, event_offset, event_side, 9.0) + 1.2) * event_side
+			flags.append(Transform3D(event_xform.basis,
+				seat_dressing(event_xform, event_lateral, 3.4, 4.0, 0.08)))
+	# Two-sided opening camp beacons form a readable destination corridor in
+	# chase view. Their larger scale survives the track wall silhouette.
+	for camp_beacon_offset: float in [238.0, 276.0, 318.0]:
+		var beacon_xform := main_guide.transform_at(camp_beacon_offset)
+		for beacon_side: float in [-1.0, 1.0]:
+			var beacon_lateral := (track_edge_lateral(
+				main_guide, camp_beacon_offset, beacon_side, 9.0) + 1.6) * beacon_side
+			beacons.append(_authored_seated_transform(
+				beacon_xform, beacon_lateral, 3.6, 0.0, 1.30))
+			var flag_lateral := (track_edge_lateral(
+				main_guide, camp_beacon_offset + 4.0, beacon_side, 9.0)
+				+ 0.9) * beacon_side
+			flags.append(_authored_seated_transform(
+				main_guide.transform_at(camp_beacon_offset + 4.0), flag_lateral,
+				3.6, -0.10 * beacon_side, 1.34))
+	_add_authored_multimesh("glacier_route_beacon_v1", beacons, 230.0, 4, lod_bias, shadows)
+	_add_authored_multimesh("glacier_route_flag_v1", flags, 190.0, 4, lod_bias, shadows)
+
+	# Curated expedition stories anchor opening, climb, shortcut rejoin and
+	# crest. These are stable authored compositions, not RNG litter.
+	var crates: Array[Transform3D] = []
+	var sleds: Array[Transform3D] = []
+	var tents: Array[Transform3D] = []
+	var labs: Array[Transform3D] = []
+	var camp_lamps: Array[Transform3D] = []
+	var camp_light_points: Array[Vector3] = []
+	var masts: Array[Transform3D] = []
+	var fences: Array[Transform3D] = []
+	for authored_offset: float in [74.0, 177.0, 198.0, 221.0, 248.0, 828.0, 1092.0,
+			finish_offset - 88.0]:
+		var story_xform := main_guide.transform_at(authored_offset)
+		var story_side := -1.0 if int(authored_offset) % 2 == 0 else 1.0
+		var story_edge := track_edge_lateral(main_guide, authored_offset, story_side, 9.0)
+		var story_lat := (story_edge + 3.4) * story_side
+		crates.append(_authored_seated_transform(story_xform, story_lat, 2.0,
+			art_rng.randf_range(-0.45, 0.45)))
+		if density > 0.55:
+			crates.append(_authored_seated_transform(story_xform,
+				story_lat + 1.9 * story_side, 2.0, art_rng.randf_range(-0.7, 0.7)))
+	for authored_offset: float in [115.0, 846.0, 1128.0]:
+		var sled_xform := main_guide.transform_at(authored_offset)
+		var sled_side := -1.0 if int(authored_offset) % 3 == 0 else 1.0
+		var sled_lat := (track_edge_lateral(main_guide, authored_offset, sled_side, 9.0)
+			+ 4.2) * sled_side
+		sleds.append(_authored_seated_transform(sled_xform, sled_lat, 2.0,
+			art_rng.randf_range(-0.3, 0.3)))
+	for authored_offset: float in [388.0, 1078.0, finish_offset - 58.0]:
+		var camp_xform := main_guide.transform_at(authored_offset)
+		var camp_side := 1.0 if int(authored_offset) % 2 else -1.0
+		var camp_lat := (track_edge_lateral(main_guide, authored_offset, camp_side, 9.0)
+			+ 3.2) * camp_side
+		tents.append(_authored_seated_transform(camp_xform, camp_lat, 4.2,
+			art_rng.randf_range(-0.5, 0.5)))
+		masts.append(_authored_seated_transform(camp_xform,
+			camp_lat + 2.8 * camp_side, 6.0, art_rng.randf_range(-0.3, 0.3)))
+	# Paired hero labs form one unmistakable opening destination. Support tents,
+	# sleds and cases step back into two smaller depth gates; lamps and flags own
+	# warm vertical rhythm. Everything remains visual-only outside immutable
+	# wall/collider envelope.
+	for lab_side: float in [-1.0, 1.0]:
+		var lab_offset := 238.0 + (3.5 if lab_side > 0.0 else 0.0)
+		var lab_xform := main_guide.transform_at(lab_offset)
+		var lab_lateral := (track_edge_lateral(
+			main_guide, lab_offset, lab_side, 9.0) + 4.25) * lab_side
+		labs.append(_authored_seated_transform(lab_xform, lab_lateral,
+			5.4, -0.055 * lab_side, 1.12 if lab_side < 0.0 else 1.04))
+	for lamp_spec: Vector2 in [Vector2(228.0, -1.0), Vector2(228.0, 1.0),
+			Vector2(253.0, -1.0), Vector2(253.0, 1.0)]:
+		var lamp_offset := lamp_spec.x
+		var lamp_side := lamp_spec.y
+		var lamp_xform := main_guide.transform_at(lamp_offset)
+		var lamp_lateral := (track_edge_lateral(
+			main_guide, lamp_offset, lamp_side, 9.0) + 1.05) * lamp_side
+		var lamp_transform := _authored_seated_transform(
+			lamp_xform, lamp_lateral, 4.7, 0.08 * lamp_side, 1.08)
+		camp_lamps.append(lamp_transform)
+		camp_light_points.append(lamp_transform.origin + lamp_xform.basis.y * 4.15)
+	for camp_spec: Vector3 in [
+			Vector3(276.0, -1.0, 1.18), Vector3(276.0, 1.0, 1.12),
+			Vector3(318.0, -1.0, 1.02), Vector3(318.0, 1.0, 0.96)]:
+		var opening_offset := camp_spec.x
+		var opening_side := camp_spec.y
+		var opening_scale := camp_spec.z
+		var opening_xform := main_guide.transform_at(opening_offset)
+		var opening_lateral := (track_edge_lateral(
+			main_guide, opening_offset, opening_side, 9.0) + 2.2) * opening_side
+		tents.append(_authored_seated_transform(opening_xform,
+			opening_lateral, 4.2, -0.08 * opening_side, opening_scale))
+		masts.append(_authored_seated_transform(opening_xform,
+			opening_lateral + 4.2 * opening_side, 6.0, 0.12 * opening_side,
+			opening_scale * 0.88))
+		var sled_xform := main_guide.transform_at(opening_offset + 4.0)
+		var sled_lateral := (track_edge_lateral(
+			main_guide, opening_offset + 4.0, opening_side, 9.0) + 1.6) * opening_side
+		sleds.append(_authored_seated_transform(sled_xform,
+			sled_lateral, 2.0, 0.20 * opening_side, opening_scale * 0.78))
+		for case_delta: float in [-4.5, 1.5, 5.0]:
+			var case_xform := main_guide.transform_at(opening_offset + case_delta)
+			var case_lateral := (track_edge_lateral(main_guide,
+				opening_offset + case_delta, opening_side, 9.0)
+				+ 1.0 + absf(case_delta) * 0.16) * opening_side
+			crates.append(_authored_seated_transform(case_xform,
+				case_lateral, 2.0, art_rng.randf_range(-0.32, 0.32),
+				opening_scale * 0.76))
+	for authored_offset: float in [18.0, 31.0, 172.0, 204.0, 236.0, 932.0, 950.0,
+			finish_offset - 31.0, finish_offset - 16.0]:
+		var fence_xform := main_guide.transform_at(authored_offset)
+		var fence_side := -1.0 if int(authored_offset / 10.0) % 2 == 0 else 1.0
+		var fence_lat := (track_edge_lateral(main_guide, authored_offset, fence_side, 9.0)
+			+ 3.0) * fence_side
+		fences.append(_authored_seated_transform(fence_xform, fence_lat, 3.0,
+			deg_to_rad(WIND_YAW_DEG) - main_guide.yaw_at(authored_offset)))
+	_add_authored_multimesh("glacier_expedition_crate_v1", crates, 170.0, 4, lod_bias, shadows)
+	_add_authored_multimesh("glacier_rescue_sled_v1", sleds, 210.0, 1, lod_bias, shadows)
+	_add_authored_multimesh("glacier_field_tent_v1", tents, 300.0, 1, lod_bias, shadows)
+	_add_authored_multimesh(
+		"glacier_field_lab_v1", labs, 360.0, 1, lod_bias, shadows, &"lab")
+	_add_authored_multimesh(
+		"glacier_camp_lamp_v1", camp_lamps, 250.0, 2, lod_bias, shadows)
+	_add_authored_multimesh("glacier_weather_mast_v1", masts, 340.0, 1, lod_bias, shadows)
+	_add_authored_multimesh("glacier_snow_fence_v1", fences, 220.0, 2, lod_bias, shadows)
+	# Two unshadowed Compatibility lights supply local warm/cool separation. Low
+	# tier keeps authored lamp silhouettes but skips dynamic light evaluation.
+	if tier != "low":
+		for light_index: int in mini(2, camp_light_points.size()):
+			var camp_light := OmniLight3D.new()
+			camp_light.name = "ExpeditionCampWarmLight%d" % light_index
+			camp_light.position = camp_light_points[light_index]
+			camp_light.light_color = Color(1.0, 0.54, 0.23)
+			camp_light.light_energy = 0.72
+			camp_light.omni_range = 11.0
+			camp_light.shadow_enabled = false
+			camp_light.distance_fade_enabled = true
+			camp_light.distance_fade_begin = 68.0
+			camp_light.distance_fade_length = 34.0
+			_authored_art_root.add_child(camp_light)
+			_record_authored_transform("expedition_camp_warm_light",
+				Transform3D(Basis.IDENTITY, camp_light.position))
+
+	# Near/mid natural staging. Three small silhouettes cycle with large
+	# deterministic spacing; authored broad ridges own the skyline separately.
+	var spires: Array[Transform3D] = []
+	var boulders: Array[Transform3D] = []
+	var banks: Array[Transform3D] = []
+	offset = 28.0
+	side_sign = -1.0
+	var scatter_index := 0
+	while offset < main_guide.length - 24.0:
+		var scatter_xform := main_guide.transform_at(offset)
+		var edge := track_edge_lateral(main_guide, offset, side_sign, 9.0)
+		var cluster_count := 3 if density > 0.82 else (2 if density > 0.48 else 1)
+		for cluster_index: int in cluster_count:
+			var cluster_side := side_sign if cluster_index < 2 else -side_sign
+			var cluster_edge := edge if cluster_side == side_sign \
+				else track_edge_lateral(main_guide, offset, cluster_side, 9.0)
+			var scatter_lat := (cluster_edge + 2.6 + cluster_index * 2.25 \
+				+ art_rng.randf_range(-0.45, 0.65)) * cluster_side
+			var scale_value := art_rng.randf_range(0.72, 1.34) \
+				* (1.0 - cluster_index * 0.08)
+			var basis := scatter_xform.basis * Basis(
+				Vector3.UP, art_rng.randf_range(-0.65, 0.65)) \
+				* Basis.from_scale(Vector3.ONE * scale_value)
+			var asset_index := (scatter_index + cluster_index) % 3
+			var asset_height: float = float([4.6, 2.2, 1.2][asset_index]) * scale_value
+			var scatter_pos := seat_dressing(scatter_xform, scatter_lat,
+				asset_height, 14.0, 0.08)
+			if _clear_of_wildlife(scatter_pos, 2.4) \
+					and clear_of_branches(scatter_pos, 2.4):
+				var transform := Transform3D(basis, scatter_pos)
+				match asset_index:
+					0: spires.append(transform)
+					1: boulders.append(transform)
+					_: banks.append(transform)
+		scatter_index += 1
+		side_sign = -side_sign
+		offset += lerpf(54.0, 31.0, density) + art_rng.randf_range(-3.0, 5.0)
+	_add_authored_multimesh("glacier_ice_spire_v1", spires, 280.0, 3, lod_bias, shadows)
+	_add_authored_multimesh("glacier_ice_boulder_v1", boulders, 190.0, 3, lod_bias, shadows)
+	_add_authored_multimesh("glacier_snowbank_v1", banks, 170.0, 3, lod_bias, shadows)
+
+	# Layered authored glacier silhouettes replace all procedural triangle
+	# mountains. First two frame the route in mineral cyan; later modules recede
+	# through a lower-contrast atmospheric material. Broad asymmetry, mirroring
+	# and scale variation prevent a repeated wallpaper read.
+	var ridge_specs: Array[Vector4] = [
+		Vector4(370.0, -1.0, 112.0, 0.60),
+		Vector4(450.0, 1.0, 124.0, 0.68),
+		Vector4(560.0, -1.0, 136.0, 0.78),
+		Vector4(720.0, 1.0, 130.0, 0.82),
+		Vector4(900.0, -1.0, 140.0, 0.88),
+		Vector4(1110.0, 1.0, 148.0, 0.94),
+		Vector4(1320.0, -1.0, 154.0, 0.98),
+	]
+	var ridge_limit := mini(int(tier_settings.get("far_chunks", 5)), ridge_specs.size())
+	var mineral_ridges: Array[Transform3D] = []
+	var atmospheric_ridges: Array[Transform3D] = []
+	for ridge_index: int in ridge_limit:
+		var ridge_spec := ridge_specs[ridge_index]
+		var ridge_xform := main_guide.transform_at(ridge_spec.x)
+		var ridge_side := ridge_spec.y
+		var ridge_scale := ridge_spec.w
+		var ridge_basis := ridge_xform.basis * Basis(
+			Vector3.UP, ridge_side * (0.12 + ridge_index * 0.025)) \
+			* Basis.from_scale(Vector3.ONE * ridge_scale)
+		var ridge_position := ridge_xform.origin \
+			+ ridge_xform.basis.x * ridge_spec.z * ridge_side \
+			+ Vector3.DOWN * (8.0 + ridge_scale * 4.0)
+		var ridge_transform := Transform3D(ridge_basis, ridge_position)
+		if ridge_index < 2:
+			mineral_ridges.append(ridge_transform)
+		else:
+			atmospheric_ridges.append(ridge_transform)
+	_add_authored_multimesh("glacier_layered_ridge_v1",
+		mineral_ridges, 620.0, 1, lod_bias, shadows)
+	_add_authored_multimesh("glacier_layered_ridge_v1",
+		atmospheric_ridges, 1150.0, 1, lod_bias, false, &"far_ice")
+
+	# Cave body: paired one-sided mineral buttresses replace legacy repeated
+	# hoops. Alternating yaw/scale makes a carved corridor while keeping every
+	# immutable lane/collider clear. Hero arch remains sole full-span silhouette.
+	var cave_buttresses: Array[Transform3D] = []
+	var buttress_start := _offset_near(Vector3(8, 49, -460)) + 15.0
+	var buttress_end := _offset_near(Vector3(0, 52.5, -565)) - 4.0
+	var buttress_offset := buttress_start
+	var buttress_index := 0
+	while buttress_offset < buttress_end:
+		var buttress_xform := TrackBuilder.deck_transform_at(main_guide, buttress_offset)
+		for buttress_side: float in [-1.0, 1.0]:
+			var buttress_side_index := 1 if buttress_side > 0.0 else 0
+			var buttress_scale := 0.86 \
+				+ float((buttress_index + buttress_side_index) % 4) * 0.075
+			var buttress_edge := track_edge_lateral(
+				main_guide, buttress_offset, buttress_side, 6.0)
+			var buttress_lateral := (buttress_edge + 3.6) * buttress_side
+			var buttress_basis := buttress_xform.basis * Basis(Vector3.UP,
+				(PI if buttress_side < 0.0 else 0.0)
+				+ (0.10 if buttress_index % 2 == 0 else -0.08)) \
+				* Basis.from_scale(Vector3.ONE * buttress_scale)
+			var buttress_pos := seat_dressing(buttress_xform, buttress_lateral,
+				8.0 * buttress_scale, 5.0, 0.10)
+			cave_buttresses.append(Transform3D(buttress_basis, buttress_pos))
+		buttress_index += 1
+		buttress_offset += 24.0 + float(buttress_index % 2) * 3.5
+	_add_authored_multimesh(
+		"glacier_cave_buttress_v1", cave_buttresses, 300.0, 2, lod_bias, shadows)
+
+	# Hazard families: exact mechanics remain in their original nodes. Authored
+	# shells/markers mirror their real offsets and add shape/pattern cues.
+	var tunnel_offset := _offset_near(Vector3(0, 50.3, -620))
+	var duck_gates: Array[Transform3D] = []
+	for bar_offset: float in [tunnel_offset - 12.0, tunnel_offset + 10.0]:
+		var bar_xform := TrackBuilder.deck_transform_at(main_guide, bar_offset)
+		duck_gates.append(Transform3D(bar_xform.basis, bar_xform.origin))
+	_add_authored_multimesh("glacier_duck_gate_v1", duck_gates, 190.0, 4, lod_bias, true)
+
+	var snowball_start := _offset_near(Vector3(0, 41.5, -880))
+	var snowball_xform := main_guide.transform_at(maxf(0.0, snowball_start - 22.0))
+	_add_authored_multimesh("glacier_snowball_warning_v1", [
+		Transform3D(snowball_xform.basis, snowball_xform.origin)
+	], 210.0, 2, lod_bias, true)
+
+	if not branches.is_empty():
+		var shortcut := branches[0].get("guide") as PathGuide
+		if shortcut != null:
+			var crack_xform := TrackBuilder.deck_transform_at(shortcut, 8.0)
+			_add_authored_multimesh("glacier_cracking_ice_marker_v1", [
+				Transform3D(crack_xform.basis, crack_xform.origin)
+			], 185.0, 2, lod_bias, true)
+
+	var boost_markers: Array[Transform3D] = []
+	var boost_placements: Array[Vector2] = [
+		Vector2(_offset_near(Vector3(14, 46, -170)) + 5.0, 0.0),
+		Vector2(_offset_near(Vector3(-6, 44, -420)) + 8.0, 0.0),
+		Vector2(_offset_near(Vector3(4, 35, -1070)) - 6.0, 0.0),
+		Vector2(_offset_near(Vector3(-10, 33, -1220)) + 20.0, -3.0),
+		Vector2(_offset_near(Vector3(-10, 33, -1220)) + 60.0, 3.0),
+	]
+	for placement: Vector2 in boost_placements:
+		var boost_xform := TrackBuilder.deck_transform_at(main_guide, placement.x)
+		boost_markers.append(Transform3D(boost_xform.basis,
+			boost_xform.origin + boost_xform.basis.x * placement.y))
+	if not branches.is_empty():
+		var boost_shortcut := branches[0].get("guide") as PathGuide
+		if boost_shortcut != null:
+			var gap_end := float(boost_shortcut.nearest(
+				Vector3(-4, 45, -790), -1)["offset"]) + 6.0
+			var branch_boost_xform := TrackBuilder.deck_transform_at(
+				boost_shortcut, gap_end + 12.0)
+			boost_markers.append(Transform3D(
+				branch_boost_xform.basis, branch_boost_xform.origin))
+	_add_authored_multimesh("glacier_boost_marker_v1", boost_markers, 150.0, 5, lod_bias, false)
+
+	# Destination hierarchy. All three remain at every tier; density only trims
+	# repeated dressing. Ice arch owns cave entry, frozen fall owns mid-course
+	# right skyline, summit station owns the finish horizon.
+	var cave_start := _offset_near(Vector3(8, 49, -460))
+	var arch_xform := TrackBuilder.deck_transform_at(main_guide, cave_start - 6.0)
+	_add_authored_multimesh("glacier_ice_arch_landmark_v1", [
+		Transform3D(arch_xform.basis * Basis.from_scale(Vector3.ONE * 1.22),
+			arch_xform.origin + Vector3.DOWN * 0.18)
+	], 900.0, 1, lod_bias, true)
+	var cave_end := _offset_near(Vector3(0, 52.5, -565))
+	var fall_xform := main_guide.transform_at(cave_end + 18.0)
+	var fall_side := 1.0
+	var fall_lateral := (track_edge_lateral(main_guide, cave_end + 18.0, fall_side, 7.0)
+		+ 17.0) * fall_side
+	# Frozen fall is skyline cliff, not shoulder dressing. Ray seating at this
+	# lateral correctly finds no ribbon, but would incorrectly drop it 75 m to
+	# lake plane. Anchor buried foot to nearby cave deck instead.
+	var fall_position := fall_xform.origin + fall_xform.basis.x * fall_lateral \
+		+ Vector3.DOWN * 0.55
+	var fall_basis := fall_xform.basis * Basis(Vector3.UP, -PI * 0.42)
+	_add_authored_multimesh("glacier_frozen_fall_landmark_v1", [
+		Transform3D(fall_basis, fall_position)
+	], 980.0, 1, lod_bias, true)
+	var station_offset := minf(main_guide.length - 9.0, finish_offset + 12.0)
+	var station_xform := TrackBuilder.deck_transform_at(main_guide, station_offset)
+	_add_authored_multimesh("glacier_summit_station_landmark_v1", [
+		Transform3D(station_xform.basis, station_xform.origin + Vector3.DOWN * 0.08)
+	], 1100.0, 1, lod_bias, true)
+
+
+func _authored_seated_transform(xform: Transform3D, lateral: float,
+		height: float, yaw: float, scale_value: float = 1.0) -> Transform3D:
+	var basis := xform.basis * Basis(Vector3.UP, yaw) \
+		* Basis.from_scale(Vector3.ONE * scale_value)
+	return Transform3D(basis,
+		seat_dressing(xform, lateral, height * scale_value, 14.0, 0.08))
+
+
+func _add_authored_multimesh(asset_id: String,
+		transforms_value: Variant, range_end: float, chunk_size: int,
+		lod_bias_value: float, shadows: bool,
+		material_role: StringName = &"auto") -> void:
+	if not _authored_meshes.has(asset_id) or _authored_art_root == null:
+		return
+	var transforms: Array[Transform3D] = []
+	if transforms_value is Array:
+		for value: Variant in transforms_value:
+			if value is Transform3D:
+				transforms.append(value)
+	if transforms.is_empty():
+		return
+	for transform: Transform3D in transforms:
+		_record_authored_transform(asset_id, transform)
+		if AUTHORED_CONTACT_RADII.has(asset_id):
+			var authored_scale := transform.basis.get_scale()
+			var contact_scale := maxf(authored_scale.x,
+				maxf(authored_scale.y, authored_scale.z))
+			_add_contact_patch(transform.origin,
+				float(AUTHORED_CONTACT_RADII[asset_id]) * contact_scale)
+	var first := 0
+	var chunk_index := 0
+	while first < transforms.size():
+		var count := mini(chunk_size, transforms.size() - first)
+		var centroid := Vector3.ZERO
+		for index: int in count:
+			centroid += transforms[first + index].origin
+		centroid /= float(count)
+		var multimesh := MultiMesh.new()
+		multimesh.transform_format = MultiMesh.TRANSFORM_3D
+		multimesh.mesh = _authored_meshes[asset_id] as Mesh
+		multimesh.instance_count = count
+		for index: int in count:
+			var source := transforms[first + index]
+			multimesh.set_instance_transform(index,
+				Transform3D(source.basis, source.origin - centroid))
+		var instance := MultiMeshInstance3D.new()
+		instance.name = "%s_%02d" % [asset_id.to_pascal_case(), chunk_index]
+		instance.multimesh = multimesh
+		if material_role == &"far_ice" and _authored_far_ice_material != null:
+			instance.material_override = _authored_far_ice_material
+		elif material_role == &"lab" and _authored_lab_material != null:
+			instance.material_override = _authored_lab_material
+		else:
+			instance.material_override = _authored_ice_material \
+				if asset_id in AUTHORED_ICE_RESPONSE_IDS and _authored_ice_material != null \
+				else _authored_material
+		instance.position = centroid
+		instance.visibility_range_end = range_end
+		instance.visibility_range_end_margin = minf(20.0, range_end * 0.12)
+		instance.lod_bias = lod_bias_value
+		if not shadows:
+			instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		instance.set_meta("authored_asset_id", asset_id)
+		instance.set_meta("visual_only", true)
+		_authored_art_root.add_child(instance)
+		first += count
+		chunk_index += 1
+
+
+func _record_authored_transform(asset_id: String, xform: Transform3D) -> void:
+	_authored_layout_rows.append("%s|%.3f|%.3f|%.3f|%.3f|%.3f|%.3f" % [
+		asset_id, xform.origin.x, xform.origin.y, xform.origin.z,
+		xform.basis.x.x, xform.basis.y.y, xform.basis.z.z,
+	])
 
 
 ## --- Decoration -------------------------------------------------------------
@@ -266,6 +1158,8 @@ func _offset_near(point: Vector3) -> float:
 
 func _decorate() -> void:
 	if GameConfig.is_headless():
+		if force_authored_art_for_tests and _authored_art_active:
+			_decorate_authored_course(1.0)
 		return
 	var quality := String(SettingsManager.get_setting("display", "particle_quality"))
 	var density := 1.0
@@ -280,29 +1174,40 @@ func _decorate() -> void:
 	# so no boulder, drift, route flag or spectator is ever placed inside one.
 	await _decorate_wildlife(density)
 	await stage()
-	_decorate_flags()
+	if not _authored_art_active:
+		_decorate_flags()
 	await stage()
 	_decorate_cave(crystal_transforms, icicle_transforms)
 	await stage()
-	_decorate_scatter(density, crystal_transforms)
+	if not _authored_art_active:
+		_decorate_scatter(density, crystal_transforms)
 	await stage()
-	_decorate_snowbanks(density)
+	if not _authored_art_active:
+		_decorate_snowbanks(density)
 	await stage()
-	_decorate_sastrugi(density)
+	if not _authored_art_active:
+		_decorate_sastrugi(density)
 	await stage()
-	_decorate_walkways()
+	if not _authored_art_active:
+		_decorate_walkways()
 	await stage()
 	await _decorate_spectators(density)
 	await stage()
-	_decorate_mountains()
+	if not _authored_art_active:
+		_decorate_mountains()
 	await stage()
-	_decorate_cliffs(density)
+	# Authored frozen fall, clustered spires and destination arch own the near /
+	# mid silhouette. The legacy swept cliff walls are intentionally retired in
+	# this mode: their giant pale facets hid every premium prop and landmark.
+	if not _authored_art_active:
+		_decorate_cliffs(density)
 	await stage()
-	if OS.get_environment("DBG_NO_ICEFALL") == "":
+	if not _authored_art_active and OS.get_environment("DBG_NO_ICEFALL") == "":
 		_decorate_icefall()
 		await stage()
 	_dbg_camera()
-	_decorate_boulders(density)
+	if not _authored_art_active:
+		_decorate_boulders(density)
 	await stage()
 	_decorate_cave_glints(density)
 	await stage()
@@ -316,6 +1221,9 @@ func _decorate() -> void:
 	await stage()
 	_decorate_birds()
 	await stage()
+	if _authored_art_active:
+		_decorate_authored_course(density)
+		await stage()
 
 	# One shared multimesh for every ice crystal cluster on the course, plus a
 	# second for hanging icicles (same mesh flipped in the instance transform).
@@ -487,24 +1395,21 @@ func _decorate_cave(crystal_transforms: Array[Transform3D], icicle_transforms: A
 
 	# Monumental gateway spanning the track where the slalom begins.
 	var gate_xform := main_guide.transform_at(cave_start - 6.0)
-	var arch_gate := MeshInstance3D.new()
-	arch_gate.name = "IceArchGateway"
-	arch_gate.mesh = _ice_arch_mesh(4242)
-	var gate_mat := VisualLibrary.rock_material(Color(1.0, 1.0, 1.0)).duplicate() as StandardMaterial3D
-	gate_mat.roughness = 0.18
-	gate_mat.rim_enabled = true
-	gate_mat.rim = 0.35
-	# The arch is a hollow sweep the racer passes THROUGH, so its inner surface
-	# has to draw. Two-sided here rather than two windings in the mesh (see
-	# _ice_arch_mesh): coplanar duplicates z-fight and shade half the crown black.
-	gate_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	arch_gate.material_override = gate_mat
-	# Feet buried deeper than the mesh's own flare: they land ~12m out, well
-	# past the 6m-half cave deck, so a shallow set left two thick stumps
-	# hanging over the drop. At -3.2 they sit below the track-edge sight line
-	# and the crown still clears 8m over the gateway.
-	arch_gate.transform = Transform3D(gate_xform.basis, gate_xform.origin + Vector3.DOWN * 3.2)
-	add_child(arch_gate)
+	if not _authored_art_active:
+		var arch_gate := MeshInstance3D.new()
+		arch_gate.name = "IceArchGateway"
+		arch_gate.mesh = _ice_arch_mesh(4242)
+		var gate_mat := VisualLibrary.rock_material(Color(1.0, 1.0, 1.0)).duplicate() as StandardMaterial3D
+		gate_mat.roughness = 0.18
+		gate_mat.rim_enabled = true
+		gate_mat.rim = 0.35
+		# The arch is a hollow sweep the racer passes THROUGH, so its inner surface
+		# has to draw. Two-sided here rather than two windings in the mesh.
+		gate_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		arch_gate.material_override = gate_mat
+		arch_gate.transform = Transform3D(
+			gate_xform.basis, gate_xform.origin + Vector3.DOWN * 3.2)
+		add_child(arch_gate)
 	# Icicle fringe under the arch crown (well above racer height).
 	for _i: int in 6:
 		var hang := gate_xform.origin + gate_xform.basis.x * rng.randf_range(-4.5, 4.5) \
@@ -524,21 +1429,29 @@ func _decorate_cave(crystal_transforms: Array[Transform3D], icicle_transforms: A
 				(track_edge_lateral(main_guide, gate_offset + 6.0, side_sign, 8.0) + 3.2) * side_sign, 4.7, 4.5, 0.1),
 			rng.randf_range(3.5, 6.0)))
 
-	# Slalom interior: smooth high-segment ice arches (no low-poly banding).
-	var torus := TorusMesh.new()
-	torus.inner_radius = 8.0
-	torus.outer_radius = 10.5
-	torus.rings = 48
-	torus.ring_segments = 16
-	var arch_mat := VisualLibrary.ice_material(Color(0.28, 0.6, 0.98), 0.8)
+	# Slalom interior. Authored mode gets paired Blender-built mineral
+	# buttresses in _decorate_authored_course(); no repeated full-span hoops.
+	# Legacy mode keeps its established tori unchanged.
+	var torus: TorusMesh = null
+	var arch_mat: ShaderMaterial = null
+	if not _authored_art_active:
+		torus = TorusMesh.new()
+		torus.inner_radius = 8.0
+		torus.outer_radius = 10.5
+		torus.rings = 48
+		torus.ring_segments = 16
+		arch_mat = VisualLibrary.ice_material(Color(0.28, 0.6, 0.98), 0.8)
 	var cave_offset := cave_start + 20.0
 	while cave_offset < cave_end:
 		var xform := main_guide.transform_at(cave_offset)
-		var arch := MeshInstance3D.new()
-		arch.mesh = torus
-		arch.material_override = arch_mat
-		arch.transform = Transform3D(xform.basis.rotated(xform.basis.x, deg_to_rad(90)), xform.origin + Vector3.UP * 1.0)
-		add_child(arch)
+		if not _authored_art_active:
+			var arch := MeshInstance3D.new()
+			arch.mesh = torus
+			arch.material_override = arch_mat
+			arch.transform = Transform3D(
+				xform.basis.rotated(xform.basis.x, deg_to_rad(90)),
+				xform.origin + Vector3.UP * 1.0)
+			add_child(arch)
 		for side_sign: float in [-1.0, 1.0]:
 			crystal_transforms.append(_crystal_transform(
 				seat_dressing(xform,
@@ -677,7 +1590,8 @@ func _decorate_scatter(density: float, crystal_transforms: Array[Transform3D]) -
 			"face_shade": 0.34,
 			"snow_catch": 0.42,
 		}), "Rocks")
-	_add_multimesh(cap_mesh, cap_transforms, TrackBuilder.prop_material(Color(0.96, 0.98, 1.0), 0.9), "RockCaps")
+	_add_multimesh(cap_mesh, cap_transforms,
+		TrackBuilder.prop_material(Color(0.90, 0.91, 0.87), 0.9), "RockCaps")
 
 
 ## Wind-sculpted snowbank drifts hugging the track edges: every bank is
@@ -749,7 +1663,7 @@ func _decorate_snowbanks(density: float) -> void:
 			run_side = -run_side
 			run_offset += rng.randf_range(7.0, 11.0) / maxf(density, 0.5)
 	_add_multimesh(VisualLibrary.snow_drift_mesh(), transforms,
-		VisualLibrary.rock_material(Color(1.0, 1.0, 1.0)), "Snowbanks")
+		VisualLibrary.rock_material(Color(0.88, 0.90, 0.88)), "Snowbanks")
 
 
 ## Sastrugi: strips of parallel wind-carved snow ridges beside the track, all
@@ -778,7 +1692,7 @@ func _decorate_sastrugi(density: float) -> void:
 				seat_dressing(main_guide.transform_at(ridge_offset), ridge_lateral,
 					ridge_basis.get_scale().y, 5.0, 0.15)))
 	_add_multimesh(_sastrugi_mesh(), transforms,
-		VisualLibrary.rock_material(Color(1.0, 1.0, 1.0)), "Sastrugi")
+		VisualLibrary.rock_material(Color(0.86, 0.89, 0.90)), "Sastrugi")
 
 
 ## Unit sastrugi ridge: a wind-carved snow blade along X with the real
@@ -1891,6 +2805,17 @@ func _decorate_mountains() -> void:
 	# would silently drift apart if the sheet height is ever retuned, leaving a
 	# whole skyline hanging above (or sunk into) the ice.
 	var center := Vector3(0.0, ground_plane_y(), -700.0)
+	if _authored_art_active:
+		# Authored props/landmarks own near and middle staging. Legacy 480 m ring
+		# crossed the long 1.5 km course and became a foreground wall from several
+		# zones. Two distant rings now remain true skyline only.
+		for i: int in 9:
+			_place_mountain(2000 + i, center, 1320.0, 1580.0,
+				140.0, 220.0, 0.38)
+		for i: int in 7:
+			_place_mountain(3000 + i, center, 1700.0, 1980.0,
+				210.0, 320.0, 0.74)
+		return
 	for i: int in 10:
 		_place_mountain(1000 + i, center, 300.0, 470.0, 130.0, 220.0, 0.08)
 	for i: int in 11:
@@ -2051,7 +2976,8 @@ func _mountain_face_color(height: float, snowline: float, rock_base: Color, stre
 		haze: float, steep: float, mrng: RandomNumberGenerator) -> Color:
 	# Blue channel decays slower than red/green so shadowed streaks cool off.
 	var rock := Color(rock_base.r * streak, rock_base.g * streak, rock_base.b * (0.6 + 0.4 * streak))
-	var snow := Color(0.95, 0.97, 1.0)
+	var snow := Color(0.46, 0.61, 0.68) if _authored_art_active \
+		else Color(0.90, 0.90, 0.86)
 	var band := 0.1
 	var col: Color
 	if height > snowline + 0.05:
@@ -2069,7 +2995,9 @@ func _mountain_face_color(height: float, snowline: float, rock_base: Color, stre
 		col = rock
 	# Exposed glacial blue ice where faces are too steep to hold snow cover.
 	if height < snowline + 0.06 and steep > 0.5:
-		col = col.lerp(Color(0.3, 0.55, 0.8),
+		var steep_ice := Color(0.18, 0.45, 0.61) if _authored_art_active \
+			else Color(0.3, 0.55, 0.8)
+		col = col.lerp(steep_ice,
 			clampf((steep - 0.5) * 1.6 * mrng.randf_range(0.35, 1.0), 0.0, 0.65))
 	# Subtle glacial blue ice band where the peak meets the snowfield. Faces
 	# carry the average height of their corners (bottom band ~0.15-0.2), so
@@ -2086,7 +3014,9 @@ func _mountain_face_color(height: float, snowline: float, rock_base: Color, stre
 	# distant peaks and sky measured within a couple of percent of each other and
 	# the skyline read as one pale mass. Real aerial perspective desaturates and
 	# converges toward the horizon while staying a distinctly darker silhouette.
-	return col.lerp(Color(0.34, 0.45, 0.62), haze)
+	var haze_target := Color(0.26, 0.39, 0.52) if _authored_art_active \
+		else Color(0.34, 0.45, 0.62)
+	return col.lerp(haze_target, haze)
 
 
 static func _ctri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, color: Color) -> void:

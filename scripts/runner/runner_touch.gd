@@ -27,10 +27,21 @@ var _start: Vector2 = Vector2.ZERO
 var _start_time: float = 0.0
 var _tracking: bool = false
 var _fired: bool = false
+var _layout: LayoutProfile = null
+var _layout_override: LayoutProfile = null
 
 
-func setup(player: RunnerPlayer) -> void:
+func _ready() -> void:
+	var viewport := get_viewport()
+	if viewport != null and not viewport.size_changed.is_connected(_refresh_layout):
+		viewport.size_changed.connect(_refresh_layout)
+	_refresh_layout()
+
+
+func setup(player: RunnerPlayer, layout_override: LayoutProfile = null) -> void:
 	_player = player
+	_layout_override = layout_override
+	_refresh_layout()
 	# Runs while the tree is paused so a swipe cannot be swallowed mid-pause and
 	# then applied on resume.
 	process_mode = Node.PROCESS_MODE_PAUSABLE
@@ -51,6 +62,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _begin(at: Vector2) -> void:
+	if not input_zone().has_point(at):
+		_tracking = false
+		_fired = false
+		return
 	_start = at
 	_start_time = float(Time.get_ticks_msec()) * 0.001
 	_tracking = true
@@ -92,8 +107,27 @@ func _end(at: Vector2) -> void:
 
 
 func _threshold() -> float:
-	var viewport := get_viewport()
-	if viewport == null:
-		return 40.0
-	var size := viewport.get_visible_rect().size
+	var size := _layout.viewport_size if _layout != null else Vector2(1080.0, 1080.0)
 	return maxf(minf(size.x, size.y) * SWIPE_FRACTION, 24.0)
+
+
+## Gesture starts are accepted only inside the platform-safe gameplay surface.
+## Once a gesture starts it may travel outside that rect; clipping mid-swipe
+## would make edge-origin flicks unreliable.
+func input_zone() -> Rect2:
+	if _layout == null:
+		_refresh_layout()
+	return _layout.safe_rect if _layout != null else Rect2(Vector2.ZERO, Vector2.ONE)
+
+
+static func input_zone_for_profile(profile: LayoutProfile) -> Rect2:
+	return profile.safe_rect if profile != null else Rect2()
+
+
+static func can_start_at(profile: LayoutProfile, point: Vector2) -> bool:
+	return profile != null and profile.safe_rect.has_point(point)
+
+
+func _refresh_layout() -> void:
+	_layout = _layout_override if _layout_override != null \
+		else LayoutProfile.for_viewport(get_viewport())

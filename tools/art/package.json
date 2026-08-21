@@ -1,0 +1,10 @@
+{
+  "name": "waddle-wars-art-tools",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Pinned authoring-only validators for Waddle Wars runtime art.",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "gltf-validator": "2.0.0-dev.3.10"
+  }
+}

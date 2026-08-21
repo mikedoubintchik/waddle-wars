@@ -215,7 +215,8 @@ func setup(key: String, name_text: String, player: bool, visual_config: Dictiona
 	if player:
 		add_to_group(GameConfig.GROUP_PLAYER)
 	visual = PenguinVisual.new()
-	visual.setup(visual_config)
+	var render_role := CharacterLook.RenderRole.HERO if player else CharacterLook.RenderRole.RACER
+	visual.setup_look(CharacterLook.from_legacy_config(visual_config, render_role))
 	add_child(visual)
 	var trail_id := String(visual_config.get("trail", ""))
 	if trail_id != "" and not GameConfig.is_headless():
