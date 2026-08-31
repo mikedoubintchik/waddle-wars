@@ -177,6 +177,9 @@ func _build_layout(next: LayoutProfile, animate: bool, scroll_fraction: float) -
 	tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_sections.add_child(tail)
 
+	if _docks_back():
+		_entrance_items.append(_build_action_bar(layout))
+
 	if animate:
 		UITheme.play_entrance(self, _entrance_items)
 	UtilityScreenLayout.restore_scroll_fraction(self, _scroll, scroll_fraction)
@@ -247,7 +250,12 @@ func _control_height() -> float:
 ## window, the touch content band on phones, and the full usable width on a
 ## portrait window (where floating a narrow column would waste the screen).
 func _measure_column() -> float:
-	if _profile == null or GameConfig.is_headless() or not is_inside_tree():
+	# Headless is NOT a reason to fall back to the authored desktop width. The
+	# profile is built from the live viewport, which is just as valid without a
+	# window, and returning 940 here meant every automated portrait check laid a
+	# 940-unit column out inside an 800-unit canvas -- which is exactly how Back
+	# ended up measured at x=786 on a phone-sized viewport.
+	if _profile == null or not is_inside_tree():
 		return COLUMN_WIDTH
 	var authored := WIDE_COLUMN_WIDTH if _profile.view_class \
 		== LayoutProfile.ViewClass.LANDSCAPE_WIDE else COLUMN_WIDTH * _boost
@@ -312,7 +320,26 @@ func _build_header(parent: VBoxContainer) -> Control:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	titles.add_child(title)
 
-	_back_button = UITheme.make_button("Back", _btn(168.0, 48.0), _f(22))
+	if _docks_back():
+		return header
+	header.add_child(_make_back_button(_btn(168.0, 48.0)))
+	return header
+
+
+## True when Back belongs at the foot of the screen rather than in the header.
+##
+## On a phone the top-right corner is the one place a thumb cannot reach without
+## shifting grip, and the header there is already carrying the headline across
+## the full column -- so a right-aligned Back both fights the title for width
+## and sits where nobody can press it. Landscape keeps the authored header
+## action, where the corner is close and vertical space is the scarce axis.
+func _docks_back() -> bool:
+	return _profile != null and _profile.is_portrait()
+
+
+## The one promoted action, built identically wherever it is parked.
+func _make_back_button(size: Vector2) -> Button:
+	_back_button = UITheme.make_button("Back", size, _f(22))
 	UITheme.style_primary(_back_button)
 	_back_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var icon := UITheme.make_icon(UITheme.ICON_BACK, 1.0)
@@ -323,8 +350,23 @@ func _build_header(parent: VBoxContainer) -> Control:
 		_back_button.add_theme_constant_override("h_separation", _ui(10.0))
 	UITheme.hook_sounds(_back_button)
 	_back_button.pressed.connect(_go_back)
-	header.add_child(_back_button)
-	return header
+	return _back_button
+
+
+## Portrait action bar: a rule, then one full-width primary target pinned under
+## the scrolling list. Being a sibling of the ScrollContainer rather than a
+## child of it means the list shortens to make room instead of the button
+## scrolling away, so Back is on screen at every scroll position.
+func _build_action_bar(parent: VBoxContainer) -> Control:
+	var bar := VBoxContainer.new()
+	bar.add_theme_constant_override("separation", _gap(8))
+	parent.add_child(bar)
+	bar.add_child(UITheme.make_header_rule())
+	var button := _make_back_button(_btn(0.0, 52.0))
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.size_flags_vertical = Control.SIZE_SHRINK_END
+	bar.add_child(button)
+	return bar
 
 
 ## Jump strip: one small quiet button per card. On a long settings list this is
@@ -963,15 +1005,42 @@ func _add_tilt_status_row(body: VBoxContainer) -> void:
 
 ## --- Section builders -------------------------------------------------------
 
+## True where the game owns a desktop window it can actually resize and re-mode.
+##
+## Window Mode and Resolution write straight through DisplayServer, and on a
+## phone -- native or in a browser -- neither call does anything: the page owns
+## the canvas size, and iOS has no Fullscreen API outside video. A row that
+## cannot move is worse than an absent one, so these two only appear where they
+## act. Judged on live geometry rather than a device name, like every other
+## layout decision here: a touch machine laying out in phone or tablet geometry
+## is a handheld, while a touch laptop in a wide landscape window is a desktop
+## and keeps both rows.
+func _owns_window() -> bool:
+	if GameConfig.is_mobile() or SettingsManager.is_mobile_web():
+		return false
+	if GameConfig.has_touchscreen() \
+			and not UtilityScreenLayout.is_wide_landscape(_profile):
+		return false
+	return true
+
+
 func _build_display_section() -> void:
 	var body := _section("display", "Display")
-	_add_choice_row(body, "display", "window_mode", "Window Mode", [
-		["windowed", "Windowed"], ["fullscreen", "Fullscreen"], ["borderless", "Borderless"],
-	])
-	_add_choice_row(body, "display", "resolution", "Resolution", [
-		["1280x720", "1280 x 720"], ["1600x900", "1600 x 900"],
-		["1920x1080", "1920 x 1080"], ["2560x1440", "2560 x 1440"],
-	], "Windowed size. Fullscreen always uses the display's own.")
+	if _owns_window():
+		_add_choice_row(body, "display", "window_mode", "Window Mode", [
+			["windowed", "Windowed"], ["fullscreen", "Fullscreen"], ["borderless", "Borderless"],
+		])
+		# Even on a desktop, a web build's canvas is sized by the page around
+		# it, so a resolution list there would be four choices that all do the
+		# same nothing.
+		if not OS.has_feature("web"):
+			_add_choice_row(body, "display", "resolution", "Resolution", [
+				["1280x720", "1280 x 720"], ["1600x900", "1600 x 900"],
+				["1920x1080", "1920 x 1080"], ["2560x1440", "2560 x 1440"],
+			], "Windowed size. Fullscreen always uses the display's own.")
+	else:
+		_note(body, "Your browser sets the window size here. "
+			+ "Menu and HUD size are under Accessibility.")
 	_add_toggle_row(body, "display", "vsync", "V-Sync",
 		"Matches the display's refresh rate and removes tearing.")
 	_add_choice_row(body, "display", "quality_preset", "Quality Preset", [

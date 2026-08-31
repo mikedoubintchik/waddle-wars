@@ -134,6 +134,11 @@ func _build_layout(next: LayoutProfile, animate: bool, scroll_fraction: float) -
 		else (38 if _stacked else 50)
 	var title := UITheme.heading("Achievements", _heading(title_size))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	# A non-wrapping heading reports its full text width as a minimum, and the
+	# header row is centred by a container that lets a too-wide child spill to
+	# the right rather than shrink — which is how Back leaves the screen. Let the
+	# title give up characters instead of pushing the way out off a phone.
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	title_box.add_child(title)
 
 	var back_button := UITheme.make_button(
@@ -241,12 +246,23 @@ func _row_size(size: Vector2) -> Vector2:
 
 ## Width of the content column: authored on desktop landscape, the touch
 ## content band on phones, most of the screen on a portrait window.
+##
+## Headless is deliberately NOT an early exit. The column is authored at 940
+## units on the 1920-wide desktop canvas and a portrait phone lays out in
+## roughly 800, so returning the authored width whenever no display server
+## exists meant the mobile UI audit — which runs headless — measured a column
+## wider than the canvas holding it, and Back ended up past the right edge with
+## nothing able to scroll to it. Only a missing profile or an unparented screen
+## can skip the measurement now.
 func _measure_card_width() -> float:
-	if _profile == null or GameConfig.is_headless() or not is_inside_tree():
+	if _profile == null or not is_inside_tree():
 		return CARD_WIDTH
 	var page := UtilityScreenLayout.page_width(
 		_profile, CARD_WIDTH * _boost, 300.0, 0.70)
-	return maxf(page - float(_page_gutter() * 2), 280.0)
+	# No readability floor after the subtraction: page_width() already floors the
+	# page, and a floor applied here could only ever hand back a column wider
+	# than the container it sits in — the unreachable content described above.
+	return maxf(page - float(_page_gutter() * 2), 1.0)
 
 
 func _page_gutter() -> int:
@@ -262,8 +278,15 @@ func _eyebrow(parent: Control, text: String, color: Color) -> Label:
 	var label := Label.new()
 	label.text = text.to_upper()
 	label.add_theme_font_override("font", UITheme.display_font())
-	label.add_theme_font_size_override("font_size", _f(17))
+	var size := _f(17)
+	label.add_theme_font_size_override("font_size", size)
 	label.add_theme_color_override("font_color", color)
+	# The header is pinned over the live backdrop rather than a card, and on a
+	# portrait phone the sky's bright band sits exactly behind it — ice blue on
+	# sunlit cloud disappeared. The heading beside it already carries UITheme's
+	# deep-navy outline; the eyebrow now earns the same, scaled to its own size.
+	label.add_theme_color_override("font_outline_color", UITheme.COLOR_BG_DEEP)
+	label.add_theme_constant_override("outline_size", maxi(3, roundi(float(size) * 0.22)))
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	parent.add_child(label)
 	return label

@@ -111,6 +111,11 @@ var _buttons: Array[Button] = []
 var _card_width: float = COLUMN_BASE
 ## Extra enlargement for tall/narrow (portrait) viewports — see _tall_boost().
 var _boost: float = 1.0
+## Shared viewport contract (class, safe insets, safe rect). Resolved once per
+## build so every step measures against the same rectangle.
+var _profile: LayoutProfile = null
+## Gradient under the pinned footer. Held so a rotation can re-measure it.
+var _scrim: TextureRect = null
 ## Rasterized SVG cache: menu steps rebuild on every navigation and a phone
 ## rasterizing the same poster three times is pure jank.
 static var _icon_cache: Dictionary = {}
@@ -119,6 +124,7 @@ static var _icon_cache: Dictionary = {}
 func _ready() -> void:
 	UITheme.make_background(self)
 	UITheme.apply_ui_scale(self)
+	_profile = LayoutProfile.for_viewport(get_viewport())
 	_boost = _tall_boost()
 	_card_width = _measure_card_width()
 	# The gallery outgrows a short landscape phone, so the step lives in a
@@ -131,22 +137,18 @@ func _ready() -> void:
 	_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.follow_focus = true
+	# A phone cannot fit four mode cards, so the step scrolls -- and with the
+	# default invisible scrollbar the fold landed on a card boundary and the
+	# list read as finished. The shared slim bar is the only signal that a
+	# fourth mode exists. Same treatment as settings, controls and credits.
+	UtilityScreenLayout.style_scrollbar(_scroll)
 	add_child(_scroll)
-	var profile := LayoutProfile.for_viewport(get_viewport())
-	_scroll.offset_left = profile.safe_insets.x
-	_scroll.offset_top = profile.safe_insets.y
-	_scroll.offset_right = -profile.safe_insets.z
-	# Footer owns this band. Content never renders under Back, even before the
-	# final spacer reaches the viewport during a portrait course scroll.
-	_scroll.offset_bottom = -(profile.safe_insets.w + _u(92.0))
 	var center := CenterContainer.new()
 	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(center)
 	_content = VBoxContainer.new()
 	_content.alignment = BoxContainer.ALIGNMENT_CENTER
-	_content.custom_minimum_size.x = _card_width
-	_content.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
 	center.add_child(_content)
 
 	# Back lives OUTSIDE the scroll, pinned to the bottom.
@@ -159,17 +161,11 @@ func _ready() -> void:
 	_footer = MarginContainer.new()
 	_footer.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	_footer.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_footer.add_theme_constant_override("margin_bottom",
-		roundi(profile.safe_insets.w) + _gap(UITheme.SPACE_S))
-	_footer.add_theme_constant_override("margin_left",
-		roundi(profile.safe_insets.x) + UITheme.screen_margin())
-	_footer.add_theme_constant_override("margin_right",
-		roundi(profile.safe_insets.z) + UITheme.screen_margin())
 	_footer.mouse_filter = Control.MOUSE_FILTER_PASS
 	# Scrim under the footer so cards scrolling beneath it fade out rather than
 	# running into the button. Without it the Back control reads as an unrelated
 	# thing dropped on top of the list.
-	var scrim := TextureRect.new()
+	_scrim = TextureRect.new()
 	var fade := Gradient.new()
 	fade.colors = PackedColorArray([Color(0.02, 0.04, 0.09, 0.0), Color(0.02, 0.04, 0.09, 0.92)])
 	fade.offsets = PackedFloat32Array([0.0, 1.0])
@@ -177,16 +173,14 @@ func _ready() -> void:
 	fade_tex.gradient = fade
 	fade_tex.fill_from = Vector2(0.0, 0.0)
 	fade_tex.fill_to = Vector2(0.0, 1.0)
-	scrim.texture = fade_tex
-	scrim.stretch_mode = TextureRect.STRETCH_SCALE
-	scrim.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	scrim.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	# Tall enough to actually be a fade. A strip only as tall as the button
-	# reads as a hard edge rather than content receding under a bar.
-	scrim.offset_top = -(_u(52.0) * 2.6 + float(_gap(UITheme.SPACE_L)))
-	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(scrim)
+	_scrim.texture = fade_tex
+	_scrim.stretch_mode = TextureRect.STRETCH_SCALE
+	_scrim.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_scrim.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_scrim)
 	add_child(_footer)
+	_apply_frame()
 	# Normally the top of the flow, but a caller can send the player straight to
 	# a later step -- "Change Course" from a pause menu or the results screen
 	# opens here rather than walking mode/course/difficulty again.
@@ -201,6 +195,52 @@ func _ready() -> void:
 		_:
 			_show_mode_step()
 	UITheme.attach_swipe_back(self, _go_back_step)
+	# Portrait is a supported orientation (see RotateOverlay), so a player can
+	# turn the phone mid-flow. Every metric here -- column width, grid columns,
+	# the safe-area gutters -- is measured once at build time, so without this
+	# a rotation left a landscape-width column inside a portrait canvas: the
+	# exact "cards run off the edge and nothing scrolls sideways" defect, just
+	# reached by turning the device instead of opening the screen.
+	UtilityScreenLayout.bind_view_class(self, _reflow)
+
+
+## Re-measures and rebuilds the current step for a new layout class. Only fires
+## when the class actually changes, so a resize burst costs one rebuild.
+func _reflow(profile: LayoutProfile) -> void:
+	_profile = profile
+	_boost = _tall_boost()
+	_card_width = _measure_card_width()
+	_apply_frame()
+	match _step:
+		"course":
+			_show_course_step()
+		"difficulty":
+			_show_difficulty_step()
+		_:
+			_show_mode_step()
+
+
+## Safe-area gutters, footer band and column width, in one place so _ready and
+## a rotation cannot drift apart.
+func _apply_frame() -> void:
+	var profile := _layout()
+	_scroll.offset_left = profile.safe_insets.x
+	_scroll.offset_top = profile.safe_insets.y
+	_scroll.offset_right = -profile.safe_insets.z
+	# Footer owns this band. Content never renders under Back, even before the
+	# final spacer reaches the viewport during a portrait course scroll.
+	_scroll.offset_bottom = -(profile.safe_insets.w + _u(92.0))
+	_content.custom_minimum_size.x = _card_width
+	_content.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
+	_footer.add_theme_constant_override("margin_bottom",
+		roundi(profile.safe_insets.w) + _gap(UITheme.SPACE_S))
+	_footer.add_theme_constant_override("margin_left",
+		roundi(profile.safe_insets.x) + UITheme.screen_margin())
+	_footer.add_theme_constant_override("margin_right",
+		roundi(profile.safe_insets.z) + UITheme.screen_margin())
+	# Tall enough to actually be a fade. A strip only as tall as the button
+	# reads as a hard edge rather than content receding under a bar.
+	_scrim.offset_top = -(_u(52.0) * 2.6 + float(_gap(UITheme.SPACE_L)))
 
 
 ## --- Layout scaling ---------------------------------------------------------
@@ -238,25 +278,49 @@ func _gap(value: int) -> int:
 	return maxi(1, roundi(float(UITheme.spacing(value)) * _boost))
 
 
+## Shared viewport contract, resolved lazily so helpers called before _ready
+## (or from a test harness) still get a sane rectangle.
+##
+## Deliberately NOT gated on GameConfig.is_headless(). The gate used to live in
+## every measuring helper here, which meant a headless run measured the screen
+## as if it were a 1920-wide desktop no matter what viewport it was actually
+## given -- so the automated mobile audit built the two-column desktop grid
+## inside an 800-unit phone canvas and could not see the overflow a player
+## sees. Geometry comes from the viewport; the display server has no opinion
+## about it.
+func _layout() -> LayoutProfile:
+	if _profile == null:
+		_profile = LayoutProfile.for_viewport(get_viewport()) if is_inside_tree() \
+			else LayoutProfile.for_view_size(Vector2(1920.0, 1080.0))
+	return _profile
+
+
 ## True for tall/narrow viewports, where galleries stack into single-file rows.
 func _is_portrait() -> bool:
-	if GameConfig.is_headless() or not is_inside_tree():
-		return false
-	var view := get_viewport_rect().size
-	return view.x > 0.0 and view.y > view.x * 1.05
+	return _layout().is_portrait()
 
 
+## Width of the setup column: the authored width on desktop landscape, the
+## touch content band on phones, and most of the safe rect on any portrait
+## viewport.
+##
+## The final clamp is the load-bearing part. The step lives in a
+## ScrollContainer with horizontal scrolling DISABLED, so a column even one
+## unit wider than the safe rect is not "a bit tight" -- it is a card the
+## player's thumb can never reach, because nothing can scroll sideways to it.
 func _measure_card_width() -> float:
+	var profile := _layout()
+	var usable := maxf(profile.safe_rect.size.x, 1.0)
+	var want := COLUMN_BASE
 	if UITheme.is_touch():
-		return UITheme.content_width(COLUMN_BASE, self)
-	if GameConfig.is_headless() or not is_inside_tree():
-		return COLUMN_BASE
-	var view := get_viewport_rect().size
-	if view.x <= 0.0:
-		return COLUMN_BASE
-	if view.y > view.x:  # portrait window: fill it rather than float in it
-		return clampf(view.x * 0.86, COLUMN_BASE, 1700.0)
-	return minf(COLUMN_BASE * _boost, view.x * 0.78)
+		want = UITheme.content_width(COLUMN_BASE, self)
+	elif profile.is_portrait():
+		# Portrait desktop/test window: fill it rather than float a 1080-wide
+		# desktop column in a canvas that is 800 across.
+		want = usable * 0.90
+	else:
+		want = minf(COLUMN_BASE * _boost, profile.viewport_size.x * 0.78)
+	return clampf(want, 1.0, usable)
 
 
 ## --- Shared building blocks -------------------------------------------------
@@ -654,10 +718,18 @@ func _show_mode_step() -> void:
 	_play_entrance()
 
 
+## Card footprint for the mode grid. Height is authored per orientation, not
+## shared, because the single-column card carries strictly more text than the
+## two-column one: the record leaves the right-hand stat tile and becomes an
+## extra line under the metadata (see _mode_card), and the longest mode name --
+## "Endless Expedition" -- no longer fits one line beside the icon plate.
+## Measured on a 390x844 phone (canvas 800x1731, card 662 wide): content came
+## to 307 units against a 271-unit card, and _make_card clips, so the blurb and
+## the record were sliced off the bottom of three of the four cards.
 func _mode_tile_size(columns: int) -> Vector2:
 	var gaps := float(_gap(14)) * float(columns - 1)
 	var width := (_card_width - gaps) / float(columns)
-	return Vector2(width, _u(154.0))
+	return Vector2(width, _u(196.0) if columns == 1 else _u(154.0))
 
 
 func _mode_card(parent: Control, tile: Vector2, title: String, icon_svg: String,

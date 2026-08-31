@@ -159,6 +159,9 @@ func _build_layout(next: LayoutProfile, animate: bool, scroll_fraction: float) -
 		tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		list.add_child(tail)
 
+	if _docks_back():
+		entrance_items.append(_build_action_bar(layout))
+
 	if animate:
 		UITheme.play_entrance(self, entrance_items)
 
@@ -213,7 +216,12 @@ func _btn(width: float, height: float) -> Vector2:
 
 
 func _measure_column() -> float:
-	if _profile == null or GameConfig.is_headless() or not is_inside_tree():
+	# Headless is NOT a reason to fall back to the authored desktop width. The
+	# profile is built from the live viewport, which is just as valid without a
+	# window, and returning 860 here laid an 860-unit column out inside the
+	# 800-unit canvas a portrait phone actually has -- pushing Back off the
+	# right edge in every automated check.
+	if _profile == null or not is_inside_tree():
 		return COLUMN_WIDTH
 	var authored := WIDE_COLUMN_WIDTH if _profile.view_class \
 		== LayoutProfile.ViewClass.LANDSCAPE_WIDE else COLUMN_WIDTH * _boost
@@ -378,7 +386,22 @@ func _build_header(parent: VBoxContainer) -> Control:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	titles.add_child(title)
 
-	_back_button = UITheme.make_button("Back", _btn(168.0, 48.0), _f(22))
+	if _docks_back():
+		return header
+	header.add_child(_make_back_button(_btn(168.0, 48.0)))
+	return header
+
+
+## True when Back belongs at the foot of the screen rather than in the header.
+## Same rule as the settings screen: on a phone the top-right corner is out of
+## thumb reach and the headline already wants the whole column width, so the
+## promoted action moves to a docked bar. Landscape keeps the header action.
+func _docks_back() -> bool:
+	return _profile != null and _profile.is_portrait()
+
+
+func _make_back_button(size: Vector2) -> Button:
+	_back_button = UITheme.make_button("Back", size, _f(22))
 	UITheme.style_primary(_back_button)
 	_back_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var back_icon := UITheme.make_icon(UITheme.ICON_BACK, 1.0)
@@ -389,8 +412,22 @@ func _build_header(parent: VBoxContainer) -> Control:
 		_back_button.add_theme_constant_override("h_separation", _ui(10.0))
 	UITheme.hook_sounds(_back_button)
 	_back_button.pressed.connect(_go_back)
-	header.add_child(_back_button)
-	return header
+	return _back_button
+
+
+## Portrait action bar: a rule, then one full-width primary target under the
+## scrolling list. A sibling of the ScrollContainer, not a child of it, so the
+## list shortens to make room and Back stays on screen at every scroll offset.
+func _build_action_bar(parent: VBoxContainer) -> Control:
+	var bar := VBoxContainer.new()
+	bar.add_theme_constant_override("separation", _gap(8))
+	parent.add_child(bar)
+	bar.add_child(UITheme.make_header_rule())
+	var button := _make_back_button(_btn(0.0, 52.0))
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.size_flags_vertical = Control.SIZE_SHRINK_END
+	bar.add_child(button)
+	return bar
 
 
 ## --- Bindings card ----------------------------------------------------------

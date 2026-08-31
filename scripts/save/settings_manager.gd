@@ -741,7 +741,13 @@ func _load_settings() -> void:
 			display["quality_preset"] = "medium"
 			display["shadow_quality"] = "medium"
 			display["particle_quality"] = "medium"
-			display["msaa"] = "2x"
+			# MSAA off rather than 2x. Multisampling on a mobile tiler costs
+			# bandwidth proportional to the sample count over the whole frame,
+			# and a phone is already spending its entire budget on a ~1.2
+			# megapixel canvas. The governor's first quality step is exactly
+			# this trade — drop MSAA, keep full resolution, cover the edges
+			# with FXAA — so phones simply start where it would have put them.
+			display["msaa"] = "off"
 
 
 func _save_settings() -> void:

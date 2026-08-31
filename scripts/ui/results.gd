@@ -67,6 +67,19 @@ var _card_width: float = CARD_WIDTH
 ## Rows/tiles that cascade in after the screen's blocks land, in build order.
 var _reveal_items: Array[Control] = []
 var _safe_scroll: ScrollContainer = null
+## Centering host for the results column. Held so a rotation can throw the
+## column away and rebuild it against the new geometry.
+var _center: CenterContainer = null
+## One-shot guards for the parts of this screen that are not pure rendering.
+## _build_column() runs again when the device rotates, and a cup result or a
+## leaderboard post has to happen exactly once per visit however many times the
+## column gets laid out.
+var _gp_committed: bool = false
+var _score_posted: bool = false
+## Live online-status line and its latest text, so a rebuilt column can show
+## the outcome (and receive a late response) instead of posting the run again.
+var _online_label: Label = null
+var _online_text: String = ""
 var _profile: LayoutProfile = null
 
 
@@ -79,24 +92,67 @@ func _ready() -> void:
 	_fit = _measure_fit()
 
 	_add_celebration_glow()
+	AudioManager.play_music("music_title")
 
 	_safe_scroll = ScrollContainer.new()
+	# Every row on this screen that a finger might land on is a Button, and a
+	# Button consumes the touch drag before the ScrollContainer's own _gui_input
+	# ever sees it -- so on a phone the results screen simply would not scroll,
+	# on the one screen a player reaches after every single race. TouchScroll
+	# watches the gesture in _input, ahead of GUI routing, which fixes it.
+	TouchScroll.attach(_safe_scroll)
 	_safe_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_safe_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_safe_scroll.follow_focus = true
+	# Grand Prix results run two tables deep and do not fit a phone; the slim
+	# shared bar is what tells the player the rewards and the actions are still
+	# down there. Only drawn when the content actually overflows.
+	UtilityScreenLayout.style_scrollbar(_safe_scroll)
 	add_child(_safe_scroll)
-	var center := CenterContainer.new()
-	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_safe_scroll.add_child(center)
+	_center = CenterContainer.new()
+	_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_safe_scroll.add_child(_center)
 	var viewport := get_viewport()
 	if viewport != null and not viewport.size_changed.is_connected(_apply_safe_area):
 		viewport.size_changed.connect(_apply_safe_area)
 	_apply_safe_area()
+	_build_column()
+	# Portrait is a supported orientation (see RotateOverlay), so the player can
+	# turn the phone while reading their result. Every metric on this screen --
+	# the column width, the standings column widths, _fit, _boost -- is baked at
+	# build time, so a landscape-built column left inside a portrait canvas puts
+	# Race Again and Main Menu off both edges with no sideways scroll to reach
+	# them. Rebuilding on a class change is the only honest fix.
+	UtilityScreenLayout.bind_view_class(self, _reflow)
+
+
+## Re-measures and rebuilds the results column for a new layout class. Only
+## fires when the class actually changes, so a rotation costs one rebuild.
+func _reflow(profile: LayoutProfile) -> void:
+	if _center == null:
+		return
+	_profile = profile
+	_boost = _tall_boost()
+	_card_width = _measure_card_width()
+	_fit = _measure_fit()
+	_apply_safe_area()
+	for child in _center.get_children():
+		_center.remove_child(child)
+		child.queue_free()
+	_build_column()
+
+
+## Builds the whole results column into the centering host. Split out of
+## _ready() so a rotation can run it again without replaying the background
+## glow or restarting the music.
+func _build_column() -> void:
+	_buttons.clear()
+	_reveal_items.clear()
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
 	vbox.custom_minimum_size.x = _card_width
-	center.add_child(vbox)
+	_center.add_child(vbox)
 
 	match Game.mode:
 		Game.Mode.ENDLESS:
@@ -119,7 +175,6 @@ func _ready() -> void:
 			entrance_items.append(child as Control)
 	UITheme.play_entrance(self, entrance_items)
 	_play_reveal()
-	AudioManager.play_music("music_title")
 	if not _buttons.is_empty():
 		_buttons[0].grab_focus()
 		# follow_focus keeps later gamepad/keyboard navigation on screen, but it
@@ -216,19 +271,44 @@ func _gap(value: int) -> int:
 	return maxi(1, roundi(float(UITheme.spacing(value)) * _boost * _fit))
 
 
+## Shared viewport contract, resolved lazily so a helper called before _ready
+## still measures against a sane rectangle.
+##
+## Deliberately NOT gated on GameConfig.is_headless(). That gate used to sit in
+## _measure_card_width(), so a headless run measured the column as a 900-unit
+## desktop card whatever viewport it was handed -- which is why the automated
+## mobile audit built a 900-wide action row inside an 800-unit phone canvas and
+## pushed Race Again and Main Menu off both edges. Geometry comes from the
+## viewport; the display server has no opinion about it.
+func _layout() -> LayoutProfile:
+	if _profile == null:
+		_profile = LayoutProfile.for_viewport(get_viewport()) if is_inside_tree() \
+			else LayoutProfile.for_view_size(Vector2(1920.0, 1080.0))
+	return _profile
+
+
 ## Width of the results column: the authored width on desktop landscape, the
-## touch content band on phones, and most of the screen on a portrait window.
+## touch content band on phones, and most of the safe rect on any portrait
+## viewport.
+##
+## The final clamp is the load-bearing part. This screen scrolls vertically and
+## horizontal scrolling is DISABLED, so a column wider than the safe rect is
+## not merely tight -- the action row inside it becomes buttons no thumb can
+## ever reach, with no gesture that could bring them back.
 func _measure_card_width() -> float:
+	var profile := _layout()
+	var usable := maxf(profile.safe_rect.size.x, 1.0)
+	var want := CARD_WIDTH
 	if UITheme.is_touch():
-		return UITheme.content_width(CARD_WIDTH, self)
-	if GameConfig.is_headless() or not is_inside_tree():
-		return CARD_WIDTH
-	var view := get_viewport_rect().size
-	if view.x <= 0.0:
-		return CARD_WIDTH
-	if view.y > view.x:  # portrait window: fill it rather than float in it
-		return clampf(view.x * 0.86, CARD_WIDTH, 1700.0)
-	return minf(CARD_WIDTH * _boost, view.x * 0.72)
+		want = UITheme.content_width(CARD_WIDTH, self)
+	elif profile.is_portrait():
+		# Portrait window: fill it rather than float a desktop card in it. The
+		# old form clamped the LOW end to CARD_WIDTH, which on an 800-wide
+		# canvas forced a 900-wide column -- a floor wider than the screen.
+		want = usable * 0.92
+	else:
+		want = minf(CARD_WIDTH * _boost, profile.viewport_size.x * 0.72)
+	return clampf(want, 1.0, usable)
 
 
 ## Warm radial glow behind the headline area; brighter gold when the player
@@ -820,7 +900,11 @@ func _build_gp_standings(parent: Control) -> void:
 		line.add_child(_cell("—" if behind <= 0 else "-%d" % behind, COL_GAP, 20,
 			Color(color, 0.6), false))
 		line.add_child(_cell("%d pts" % points, COL_TIME, 24, color, true))
-	if Game.is_final_gp_round():
+	# `or _gp_committed`: committing the cup sets Game.gp_round past the final
+	# round, so on a rebuild is_final_gp_round() is already false -- without
+	# this the ceremony, the podium and the winner line would silently vanish
+	# from the rotated screen.
+	if Game.is_final_gp_round() or _gp_committed:
 		var standings_sorted := standings
 		if not standings_sorted.is_empty():
 			var winner := String(standings_sorted[0]["name"])
@@ -831,9 +915,11 @@ func _build_gp_standings(parent: Control) -> void:
 			for i: int in standings_sorted.size():
 				if String(standings_sorted[i].get("key", "")) == "player":
 					player_place = i + 1
-			Game.gp_round = CoursesDB.GRAND_PRIX_ORDER.size()  # mark complete
-			Progression.submit_gp_result(Game.difficulty_id, player_place, int(standings_sorted[player_place - 1]["points"]) if player_place <= standings_sorted.size() else 0)
-			AudioManager.play_sfx("sfx_victory")
+			if not _gp_committed:
+				_gp_committed = true
+				Game.gp_round = CoursesDB.GRAND_PRIX_ORDER.size()  # mark complete
+				Progression.submit_gp_result(Game.difficulty_id, player_place, int(standings_sorted[player_place - 1]["points"]) if player_place <= standings_sorted.size() else 0)
+				AudioManager.play_sfx("sfx_victory")
 
 
 ## Cup ceremony: 3D podium with the top three penguins, winner celebrating.
@@ -1009,21 +1095,37 @@ func _build_online_section(parent: Control, mode: String, course: String, value:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.custom_minimum_size.x = _card_width
+	_online_label = label
+	# Status goes through the member, not the captured local: a rotation frees
+	# the label this call built, and a response that lands afterwards should
+	# still reach whatever line is on screen now.
+	var set_text := func(text: String) -> void:
+		_online_text = text
+		if is_instance_valid(_online_label):
+			_online_label.text = text
 	var submit := func() -> void:
-		label.text = "Posting to global leaderboard…"
+		# The run is posted once per visit. Re-posting it because the player
+		# turned the phone would file the same score twice.
+		_score_posted = true
+		set_text.call("Posting to global leaderboard…")
 		LeaderboardClient.submit_score(mode, course, value,
 			func(ok: bool, data: Dictionary) -> void:
-				if not is_instance_valid(label):
-					return
 				if not ok:
-					label.text = "Couldn't reach the leaderboard."
+					set_text.call("Couldn't reach the leaderboard.")
 					return
 				var rank := int(data.get("rank", 0))
 				if bool(data.get("improved", false)):
-					label.text = "Global rank #%d — new personal best posted!" % rank
+					set_text.call("Global rank #%d — new personal best posted!" % rank)
 				else:
-					label.text = "Global rank #%d (your best: %s)" % [
-						rank, LeaderboardClient.format_value(mode, int(data.get("best", value)))])
+					set_text.call("Global rank #%d (your best: %s)" % [
+						rank, LeaderboardClient.format_value(mode, int(data.get("best", value)))]))
+	if _score_posted:
+		# Rebuilt column: show how the post went rather than repeating it.
+		if _online_text.is_empty():
+			return
+		label.text = _online_text
+		parent.add_child(label)
+		return
 	if LeaderboardClient.signed_in:
 		parent.add_child(label)
 		submit.call()

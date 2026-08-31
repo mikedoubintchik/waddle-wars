@@ -972,7 +972,24 @@ func _build_hints(s: float) -> void:
 		_controls_hint.offset_bottom = _hint_bottom
 		_controls_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_controls_hint.add_theme_stylebox_override("panel", _card_style(16.0 * s, 7.0 * s))
-		_controls_hint.add_child(build_controls_strip(s))
+		# Wrap the strip on narrow screens. Six gesture/verb pairs in one row
+		# needs about 1100 logical units; a portrait phone has 800, so the row
+		# ran off both edges and the first and last hints were unreadable.
+		var per_row := 0
+		var profile := LayoutProfile.for_viewport(get_viewport())
+		match profile.view_class:
+			LayoutProfile.ViewClass.PORTRAIT_NARROW:
+				per_row = 2
+			LayoutProfile.ViewClass.PORTRAIT_TABLET, LayoutProfile.ViewClass.LANDSCAPE_COMPACT:
+				per_row = 3
+		_controls_hint.add_child(build_controls_strip(s, per_row))
+		# Clear of the touch action buttons: on a phone they sit in the same
+		# bottom corner the strip is centred over, and a hint the thumb covers
+		# is not a hint. Sits above them in portrait, where there is height to
+		# spare, rather than fighting for the same band.
+		if UITheme.is_touch() and per_row > 0:
+			_controls_hint.offset_bottom = _hint_bottom \
+				- TouchControls.BUTTON_SIZE_PX * (1.5 if per_row == 2 else 1.0)
 		_root.add_child(_controls_hint)
 
 

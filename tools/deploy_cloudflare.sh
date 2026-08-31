@@ -57,12 +57,18 @@ content_type() {
     *.js)   echo "text/javascript; charset=utf-8" ;;
     *.wasm) echo "application/wasm" ;;
     *.png)  echo "image/png" ;;
+    *.webmanifest) echo "application/manifest+json" ;;
     *)      echo "application/octet-stream" ;;
   esac
 }
 
 # CNAME is a GitHub Pages artifact and must not be served here.
-for f in build/web/index.* build/web/share.png; do
+# The installable-app files ride along with the build: without the manifest
+# and its icons a phone can only ever open the game in a browser tab, where
+# the URL bar eats a chunk of the viewport and resizes it mid-session.
+cp web/manifest.webmanifest web/icon-192.png web/icon-512.png build/web/ 2>/dev/null || true
+
+for f in build/web/index.* build/web/share.png build/web/manifest.webmanifest build/web/icon-*.png; do
   b=$(basename "$f")
   echo "uploading $b"
   $WRANGLER r2 object put "waddle-wars-web/$b" --file "$f" \
