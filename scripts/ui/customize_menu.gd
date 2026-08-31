@@ -91,14 +91,36 @@ func _ready() -> void:
 
 	var layout := VBoxContainer.new()
 	layout.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
-	margin.add_child(layout)
+	# A phone held sideways gives this page 800 units of height and the page
+	# needs 954: a header, a preview, the wardrobe grid and the Equip bar do
+	# not compress below their minimums, so the bar at the bottom — the only
+	# way to actually put an item on — was pushed past the edge with no way to
+	# reach it. Rather than shave every element until it happens to fit one
+	# device, the whole page scrolls when it does not fit. Tall screens keep
+	# the authored fixed layout, where scrolling would be wrong.
+	var page_scroll: ScrollContainer = null
+	if _profile != null \
+			and _profile.view_class == LayoutProfile.ViewClass.LANDSCAPE_COMPACT:
+		page_scroll = ScrollContainer.new()
+		page_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		page_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		margin.add_child(page_scroll)
+		layout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		page_scroll.add_child(layout)
+		TouchScroll.attach(page_scroll)
+	else:
+		margin.add_child(layout)
 
 	_build_header(layout)
 
 	# Landscape: preview beside the wardrobe. Portrait: preview on top, because
 	# two columns inside a phone's width leave neither of them usable.
 	var columns: BoxContainer = VBoxContainer.new() if portrait else HBoxContainer.new()
-	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# Expanding to fill is right on a page that fits, and wrong inside a scroll
+	# view, where "fill" means fill the viewport and the rest of the page is
+	# then unreachable.
+	columns.size_flags_vertical = Control.SIZE_SHRINK_BEGIN if page_scroll != null \
+		else Control.SIZE_EXPAND_FILL
 	columns.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
 	layout.add_child(columns)
 	_build_preview(columns, portrait)
@@ -327,7 +349,10 @@ func _build_preview(parent: BoxContainer, portrait: bool) -> void:
 	container.stretch = true
 	container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	container.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	container.custom_minimum_size.y = _v(220.0)
+	# Same reasoning as _preview_height(): a minimum that does not shrink with
+	# the screen is what forces a page taller than the phone it is on.
+	container.custom_minimum_size.y = minf(
+		_v(220.0), get_viewport_rect().size.y * 0.18)
 	column.add_child(container)
 
 	var viewport := SubViewport.new()
@@ -416,7 +441,23 @@ func _build_preview(parent: BoxContainer, portrait: bool) -> void:
 func _preview_height() -> float:
 	if GameConfig.is_headless() or not is_inside_tree():
 		return 420.0
-	return clampf(get_viewport_rect().size.y * 0.30, 320.0, 1100.0)
+	# The floor has to scale with the canvas. A fixed 320 is a third of a
+	# compact landscape phone (800 tall) and, stacked with the wardrobe and the
+	# header, pushed the Equip button clean off the bottom — the page's only
+	# way to actually put an item on. Nothing here may claim more than a
+	# quarter of the screen as its MINIMUM; it can still grow to 30% when there
+	# is room.
+	var available := get_viewport_rect().size.y
+	# A phone held sideways has 800 units of height for a header, a preview, a
+	# wardrobe grid and the Equip bar. At 30% the preview alone took 240 of
+	# them and the Equip button — the page's whole purpose — ended up one row
+	# below the bottom edge. Short screens give the preview a fifth instead;
+	# there is nothing to read in it that a smaller penguin does not show.
+	var share := 0.30
+	if _profile != null \
+			and _profile.view_class == LayoutProfile.ViewClass.LANDSCAPE_COMPACT:
+		share = 0.20
+	return clampf(available * share, minf(320.0, available * 0.20), 1100.0)
 
 
 func _refresh_preview() -> void:

@@ -35,6 +35,9 @@ const SCENES: Array[Dictionary] = [
 	{"name": "achievements", "path": "res://scenes/menus/achievements.tscn"},
 	{"name": "leaderboard", "path": "res://scenes/menus/leaderboard.tscn"},
 	{"name": "credits", "path": "res://scenes/menus/credits.tscn"},
+	# Reachable from Settings > Key Bindings, and it had the same off-screen
+	# Back defect as the rest, so it belongs in the audit.
+	{"name": "controls", "path": "res://scenes/menus/controls.tscn"},
 	{"name": "results", "path": "res://scenes/menus/results.tscn"},
 ]
 
@@ -63,6 +66,12 @@ func _ready() -> void:
 		print("[mobile-ui] SKIP — needs a window; menus size themselves from it")
 		get_tree().quit(0)
 		return
+	# Force touch before anything lays out. SettingsManager applies a 1.35 UI
+	# boost on touch devices by shrinking content_scale_size, so a phone lays
+	# out on an ~800-wide canvas while the same window without touch reports
+	# 1080. Auditing the 1080 canvas measures a screen no phone ever sees.
+	GameConfig.force_touch = true
+	SettingsManager.apply_all()
 	_sizes = _devices.duplicate()
 	await _run()
 
