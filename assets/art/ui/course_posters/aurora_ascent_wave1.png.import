@@ -3,21 +3,19 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c3tu46i2uujoa"
-path.s3tc="res://.godot/imported/aurora_ascent_wave1.png-828ab424e2464001a0fbd62516fe610c.s3tc.ctex"
-path.etc2="res://.godot/imported/aurora_ascent_wave1.png-828ab424e2464001a0fbd62516fe610c.etc2.ctex"
+path="res://.godot/imported/aurora_ascent_wave1.png-828ab424e2464001a0fbd62516fe610c.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
-"vram_texture": true
+"vram_texture": false
 }
 
 [deps]
 
 source_file="res://assets/art/ui/course_posters/aurora_ascent_wave1.png"
-dest_files=["res://.godot/imported/aurora_ascent_wave1.png-828ab424e2464001a0fbd62516fe610c.s3tc.ctex", "res://.godot/imported/aurora_ascent_wave1.png-828ab424e2464001a0fbd62516fe610c.etc2.ctex"]
+dest_files=["res://.godot/imported/aurora_ascent_wave1.png-828ab424e2464001a0fbd62516fe610c.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

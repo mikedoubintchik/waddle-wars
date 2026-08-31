@@ -3,21 +3,19 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cghkqy1fx6uui"
-path.s3tc="res://.godot/imported/iceberg_bay_wave2.png-81d88b1aa85653f71e65a64aacda9256.s3tc.ctex"
-path.etc2="res://.godot/imported/iceberg_bay_wave2.png-81d88b1aa85653f71e65a64aacda9256.etc2.ctex"
+path="res://.godot/imported/iceberg_bay_wave2.png-81d88b1aa85653f71e65a64aacda9256.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
-"vram_texture": true
+"vram_texture": false
 }
 
 [deps]
 
 source_file="res://assets/art/ui/course_posters/iceberg_bay_wave2.png"
-dest_files=["res://.godot/imported/iceberg_bay_wave2.png-81d88b1aa85653f71e65a64aacda9256.s3tc.ctex", "res://.godot/imported/iceberg_bay_wave2.png-81d88b1aa85653f71e65a64aacda9256.etc2.ctex"]
+dest_files=["res://.godot/imported/iceberg_bay_wave2.png-81d88b1aa85653f71e65a64aacda9256.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

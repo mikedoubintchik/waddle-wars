@@ -208,6 +208,20 @@ def gdscript_int_constant(path: Path, constant_name: str) -> int | None:
     return int(match.group(1).replace("_", "")) if match is not None else None
 
 
+
+def _is_power_of_two(value: int) -> bool:
+    return value > 0 and (value & (value - 1)) == 0
+
+
+def _png_size(path) -> tuple[int, int]:
+    """Width and height from a PNG header, without an image library."""
+    import struct
+    with open(path, "rb") as handle:
+        header = handle.read(24)
+    if len(header) < 24 or header[:8] != b"\x89PNG\r\n\x1a\n":
+        return (0, 0)
+    return struct.unpack(">II", header[16:24])
+
 class ArtValidator:
     def __init__(self) -> None:
         self.errors: list[str] = []
@@ -372,8 +386,23 @@ class ArtValidator:
                 except OSError:
                     self.error(f"frontend texture {asset_id} is missing Godot import settings")
                 else:
-                    if "compress/mode=2" not in import_settings:
+                    # VRAM compression is required only where the hardware can
+                    # actually decode it. A block-compressed texture whose
+                    # dimensions are not powers of two renders as magenta
+                    # garbage on iOS Safari's WebGL — the whole front end
+                    # shipped that way once, looking perfect in desktop Chrome
+                    # the entire time. Non-power-of-two front-end art must be
+                    # lossless; power-of-two art must still be compressed.
+                    width, height = _png_size(path)
+                    power_of_two = _is_power_of_two(width) and _is_power_of_two(height)
+                    compressed = "compress/mode=2" in import_settings
+                    if power_of_two and not compressed:
                         self.error(f"frontend texture {asset_id} must use VRAM compression")
+                    elif not power_of_two and compressed:
+                        self.error(
+                            f"frontend texture {asset_id} is {width}x{height} and VRAM "
+                            "compressed; iOS Safari renders that as garbage, so it must "
+                            "be imported lossless (compress/mode=0)")
                     if "mipmaps/generate=true" not in import_settings:
                         self.error(f"frontend texture {asset_id} must generate mipmaps")
             if str(entry.get("license_id", "")) not in license_ids:

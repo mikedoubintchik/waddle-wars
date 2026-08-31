@@ -3,21 +3,19 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://4gciugihv4du"
-path.s3tc="res://.godot/imported/glacier_gauntlet_wave1.png-e8eadb6664d78042d0c9e4899f886558.s3tc.ctex"
-path.etc2="res://.godot/imported/glacier_gauntlet_wave1.png-e8eadb6664d78042d0c9e4899f886558.etc2.ctex"
+path="res://.godot/imported/glacier_gauntlet_wave1.png-e8eadb6664d78042d0c9e4899f886558.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
-"vram_texture": true
+"vram_texture": false
 }
 
 [deps]
 
 source_file="res://assets/art/ui/course_posters/glacier_gauntlet_wave1.png"
-dest_files=["res://.godot/imported/glacier_gauntlet_wave1.png-e8eadb6664d78042d0c9e4899f886558.s3tc.ctex", "res://.godot/imported/glacier_gauntlet_wave1.png-e8eadb6664d78042d0c9e4899f886558.etc2.ctex"]
+dest_files=["res://.godot/imported/glacier_gauntlet_wave1.png-e8eadb6664d78042d0c9e4899f886558.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

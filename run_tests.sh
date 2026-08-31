@@ -208,6 +208,11 @@ run_case "runner_day_kit_test" res://tests/runner_day_kit_test.tscn
 # Needs a real window (it resizes one per device), so it is skipped in the
 # headless suite and run explicitly:
 #   godot --path . --resolution 390x844 res://tests/mobile_ui_audit.tscn
+# A VRAM-compressed non-power-of-two texture renders as magenta garbage on
+# iOS Safari while looking perfect in desktop Chrome. Cheap to check, and it
+# shipped once already.
+run_case "texture_format" --script tests/texture_format_test.gd
+
 run_case "mobile_ui_audit" res://tests/mobile_ui_audit.tscn
 run_case "runner_sim" res://tests/runner_sim.tscn -- seconds=60
 run_case "runner_churn" res://tests/runner_churn.tscn -- runs=8

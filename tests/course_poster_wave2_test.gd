@@ -109,8 +109,14 @@ func _check_asset_contract() -> void:
 		_check(import_file != null, "%s import metadata exists" % course_id)
 		if import_file != null:
 			var import_text := import_file.get_as_text()
-			_check("compress/mode=2" in import_text,
-				"%s uses VRAM compression" % course_id)
+			# Posters are 1672x941 — not powers of two — and a block-compressed
+			# non-power-of-two texture decodes to magenta garbage on iOS
+			# Safari's WebGL while looking perfect in desktop Chrome. They are
+			# imported lossless for that reason; tests/texture_format_test.gd
+			# enforces the rule across every texture in the project.
+			_check("compress/mode=0" in import_text,
+				"%s is lossless (non-power-of-two art must not be VRAM compressed)"
+				% course_id)
 			_check("mipmaps/generate=true" in import_text,
 				"%s generates mipmaps" % course_id)
 		var texture := ResourceLoader.load(path) as Texture2D
