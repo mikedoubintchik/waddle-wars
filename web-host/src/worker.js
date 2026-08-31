@@ -15,6 +15,10 @@ const CONTENT_TYPES = {
   png: 'image/png',
   json: 'application/json',
   pck: 'application/octet-stream',
+  // Chrome will not treat a page as installable unless its manifest arrives
+  // with this exact type, so the extension has to be known here as well as in
+  // the upload script.
+  webmanifest: 'application/manifest+json',
 };
 
 // The engine and its data change on every deploy and carry no version in their
