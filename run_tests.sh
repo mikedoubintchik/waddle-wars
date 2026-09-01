@@ -213,6 +213,10 @@ run_case "runner_day_kit_test" res://tests/runner_day_kit_test.tscn
 # shipped once already.
 run_case "texture_format" --script tests/texture_format_test.gd
 
+# Needs a window: the design canvas is display-only, and this asserts it
+# recovers when the first window shape read was wrong (the iOS Safari case).
+run_case "orientation_recovery" res://tests/orientation_recovery_test.tscn
+
 run_case "mobile_ui_audit" res://tests/mobile_ui_audit.tscn
 run_case "runner_sim" res://tests/runner_sim.tscn -- seconds=60
 run_case "runner_churn" res://tests/runner_churn.tscn -- runs=8

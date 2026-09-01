@@ -344,6 +344,49 @@ func _apply_one(section: String, key: String, value: Variant) -> void:
 ## the 1920x1080 canvas shrunk onto a phone leaves menus physically tiny.
 const TOUCH_UI_BOOST: float = 1.35
 
+## How often the design canvas is re-checked against the real window, in
+## seconds. Four times a second is invisible to a player and free next to a
+## frame.
+const ORIENTATION_POLL: float = 0.25
+
+var _orientation_timer: float = 0.0
+## Window size the current design canvas was chosen for. Vector2i.ZERO means
+## nothing has been applied yet.
+var _design_basis: Vector2i = Vector2i.ZERO
+
+
+## The resize signal is not enough on its own.
+##
+## On iOS Safari the canvas can be reported landscape-shaped for the first
+## frames and then simply BE the right size, with no resize event ever firing —
+## so a design canvas chosen from that first reading is never corrected. Every
+## menu then lays out for a wide screen on a tall one: on a real iPhone the
+## main menu ran about 40% wider than the display, slicing the Sign In button
+## and the whole right-hand column off the edge. Desktop never showed it,
+## because there the window genuinely resizes and the signal does fire.
+##
+## Polling the window shape makes the fix independent of whether the event
+## arrives.
+func _process(delta: float) -> void:
+	if GameConfig.is_headless():
+		return
+	_orientation_timer += delta
+	if _orientation_timer < ORIENTATION_POLL:
+		return
+	_orientation_timer = 0.0
+	var window := get_window()
+	if window == null:
+		return
+	if _is_portrait(window.size) == _is_portrait(_design_basis) \
+			and _design_basis != Vector2i.ZERO:
+		return
+	_apply_ui_scale(float(get_setting("accessibility", "ui_scale")))
+
+
+static func _is_portrait(size: Vector2i) -> bool:
+	return size.y > size.x
+
+
 ## Re-applies the UI scale whenever the window changes shape, so rotating a
 ## phone swaps the design size with it rather than leaving a portrait device on
 ## a landscape canvas.
@@ -386,6 +429,7 @@ func _apply_ui_scale(user_scale: float) -> void:
 		base = Vector2(1080.0, 1920.0)
 	window.content_scale_size = Vector2i(
 		roundi(base.x / scale), roundi(base.y / scale))
+	_design_basis = win_size
 
 
 func _apply_display(key: String, value: Variant) -> void:

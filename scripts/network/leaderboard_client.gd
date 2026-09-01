@@ -54,7 +54,17 @@ func _process(delta: float) -> void:
 
 
 ## Sign-in requires the Clerk JS bundle, which only exists in the web export.
+## Test hook, in the style of GameConfig.force_touch. The sign-in chip is
+## web-only, so a desktop test run never builds it — and it was the chip's
+## minimum widths that pushed the whole main menu off the right edge of a real
+## iPhone. A layout audit that cannot construct it cannot catch that class of
+## bug, which is exactly what happened.
+static var force_available: bool = false
+
+
 func can_sign_in() -> bool:
+	if force_available:
+		return true
 	return OS.has_feature("web") and not GameConfig.is_headless()
 
 

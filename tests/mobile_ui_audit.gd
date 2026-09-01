@@ -52,6 +52,7 @@ var _devices: Array[Vector2i] = [
 ]
 var _sizes: Array[Vector2i] = []
 
+var _widest_name: String = ""
 var _failures: PackedStringArray = PackedStringArray()
 var _warnings: PackedStringArray = PackedStringArray()
 
@@ -71,15 +72,30 @@ func _ready() -> void:
 	# out on an ~800-wide canvas while the same window without touch reports
 	# 1080. Auditing the 1080 canvas measures a screen no phone ever sees.
 	GameConfig.force_touch = true
+	# Build the web-only sign-in chip too. It is the widest thing on the main
+	# menu and the reason the whole panel overflowed a real phone; without this
+	# the audit measures a menu the web build never shows.
+	LeaderboardClient.force_available = true
 	SettingsManager.apply_all()
 	_sizes = _devices.duplicate()
+	# Two passes. A desktop window reports no safe-area insets, so the first
+	# pass measures a screen no notched phone has; the second forces the insets
+	# a real handset gives up to the notch and the home indicator. The main
+	# menu's status chip passed the first pass and overflowed the second by 80
+	# units, which is precisely what shipped to a real iPhone.
 	await _run()
+	print("")
+	print("[mobile-ui] --- second pass: 24-unit safe-area insets ---")
+	LayoutProfile.forced_insets = Vector4(24.0, 24.0, 24.0, 24.0)
+	await _run(true)
 
 
-func _run() -> void:
+func _run(final: bool = false) -> void:
 	for size: Vector2i in _sizes:
 		for entry: Dictionary in SCENES:
 			await _audit(String(entry["name"]), String(entry["path"]), size)
+	if not final:
+		return
 	print("")
 	for warning: String in _warnings:
 		print("[mobile-ui] WARN  %s" % warning)
@@ -112,6 +128,24 @@ func _audit(scene_name: String, path: String, size: Vector2i) -> void:
 	var rect := get_tree().root.get_visible_rect()
 	var offenders: Array[Dictionary] = []
 	_walk(instance, rect, offenders)
+
+	# Overflow check, separate from reachability. The main-menu bug that shipped
+	# to a real iPhone put no single button outside the viewport — the status
+	# chip's minimum widths made it 856 units wide inside a 752-unit safe area
+	# and pushed the row of controls under the screen edge. So the thing to
+	# measure is the bounding box of everything interactive: on a phone that
+	# must fit between the notch and the home indicator, not merely inside the
+	# canvas.
+	var profile := LayoutProfile.for_viewport(get_tree().root)
+	_widest_name = ""
+	var touchable := _interactive_bounds(instance, Rect2())
+	var safe := profile.safe_rect
+	if touchable.size.x > 0.0 and (touchable.position.x < safe.position.x - EDGE_TOLERANCE
+			or touchable.end.x > safe.end.x + EDGE_TOLERANCE):
+		_failures.append("%s @ %dx%d: controls span x %.0f..%.0f, outside the safe area %.0f..%.0f (widest: %s)"
+			% [scene_name, size.x, size.y, touchable.position.x, touchable.end.x,
+				safe.position.x, safe.end.x, _widest_name])
+
 	var label := "%s @ device %dx%d (canvas %dx%d)" % [
 		scene_name, size.x, size.y, rect.size.x, rect.size.y]
 	for offender: Dictionary in offenders:
@@ -126,6 +160,59 @@ func _audit(scene_name: String, path: String, size: Vector2i) -> void:
 		print("[mobile-ui] ok    %s" % label)
 	instance.queue_free()
 	await get_tree().process_frame
+
+
+## Bounding box of every visible interactive control under `node`.
+func _interactive_bounds(node: Node, best: Rect2) -> Rect2:
+	var control := node as Control
+	if control != null and control.is_visible_in_tree() and _is_interactive(control):
+		var r := control.get_global_rect()
+		if r.size.x > 0.0 and r.size.y > 0.0:
+			if best.size.x == 0.0 or r.end.x > best.end.x or r.position.x < best.position.x:
+				_widest_name = _describe(control)
+			best = r if best.size.x == 0.0 else best.merge(r)
+	for child: Node in node.get_children():
+		best = _interactive_bounds(child, best)
+	return best
+
+
+## The widest visible container that overflows `budget` AND contains something
+## a player interacts with.
+func _widest_interactive_host(node: Node, budget: float, best: Rect2) -> Rect2:
+	var control := node as Control
+	if control != null and control.is_visible_in_tree():
+		var r := control.get_global_rect()
+		if r.size.x > budget + EDGE_TOLERANCE and r.size.x > best.size.x \
+				and _holds_interactive(control):
+			best = r
+	for child: Node in node.get_children():
+		best = _widest_interactive_host(child, budget, best)
+	return best
+
+
+func _holds_interactive(node: Node) -> bool:
+	if _is_interactive(node as Control) and (node as Control).is_visible_in_tree():
+		return true
+	for child: Node in node.get_children():
+		if _holds_interactive(child):
+			return true
+	return false
+
+
+## Widest visible Control under `node`.
+func _widest(node: Node, best: Rect2) -> Rect2:
+	var control := node as Control
+	if control != null and control.is_visible_in_tree():
+		var r := control.get_global_rect()
+		if r.size.x > best.size.x:
+			best = r
+	for child: Node in node.get_children():
+		best = _widest(child, best)
+	return best
+
+
+func _describe_rect(rect: Rect2) -> String:
+	return "x %.0f..%.0f" % [rect.position.x, rect.end.x]
 
 
 func _walk(node: Node, rect: Rect2, offenders: Array[Dictionary]) -> void:
@@ -178,6 +265,8 @@ func _scrollable_ancestor(control: Control) -> bool:
 ## Things a player has to be able to reach. Labels and panels are decoration:
 ## a title that runs off the edge is ugly, an unreachable button is broken.
 func _is_interactive(control: Control) -> bool:
+	if control == null:
+		return false
 	return control is BaseButton or control is Slider or control is LineEdit \
 		or control is TextEdit or control is ItemList
 

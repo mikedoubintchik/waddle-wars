@@ -82,7 +82,16 @@ static func for_viewport(viewport: Viewport) -> LayoutProfile:
 ## pixels; browser CSS env() values are promoted to device pixels first.
 ## A small touch-only floor protects rounded corners on platforms that report
 ## an empty safe area. Desktop/headless geometry remains bit-for-bit unchanged.
+## Test hook, in the style of GameConfig.force_touch: forces the insets a
+## notched phone reports. A desktop window has none, so without this a harness
+## measures a screen 48 units wider than any real handset — which is exactly
+## the margin the main menu's status chip was overflowing into.
+static var forced_insets: Vector4 = Vector4(-1.0, -1.0, -1.0, -1.0)
+
+
 static func safe_insets_for_viewport(viewport: Viewport) -> Vector4:
+	if forced_insets.x >= 0.0:
+		return forced_insets
 	if viewport == null or GameConfig.is_headless():
 		return Vector4.ZERO
 	var view_size := viewport.get_visible_rect().size

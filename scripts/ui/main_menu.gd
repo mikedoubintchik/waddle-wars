@@ -65,6 +65,14 @@ func _ready() -> void:
 	# landscape uses a right rail. Both are separate compositions, not a stretch.
 	_safe_scroll = ScrollContainer.new()
 	_safe_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# Inset to the safe area. The backdrop behind this stays full bleed — art
+	# under the notch is the point — but everything a thumb has to reach lives
+	# in here, and anchoring it to the raw viewport put the landscape rail 26
+	# units past the safe edge, under the home indicator.
+	_safe_scroll.offset_left = _profile.safe_insets.x
+	_safe_scroll.offset_top = _profile.safe_insets.y
+	_safe_scroll.offset_right = -_profile.safe_insets.z
+	_safe_scroll.offset_bottom = -_profile.safe_insets.w
 	_safe_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	if _is_narrow_portrait():
 		# Mobile hub scrolls by touch/focus; desktop-style scrollbar chrome cuts
@@ -87,7 +95,20 @@ func _ready() -> void:
 	composition.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	composition.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	composition.add_theme_constant_override("separation", _gap(18))
-	_safe_scroll.add_child(composition)
+	# The safe area is applied HERE, around the content, rather than only on the
+	# scroll that holds it: offsets on a ScrollContainer do not constrain a
+	# child that sizes itself from the viewport, and the landscape rail's hero
+	# buttons were still reaching the physical screen edge — 26 units past the
+	# safe edge, under the home indicator on a phone held sideways.
+	var safe_margin := MarginContainer.new()
+	safe_margin.add_theme_constant_override("margin_left", roundi(_profile.safe_insets.x))
+	safe_margin.add_theme_constant_override("margin_top", roundi(_profile.safe_insets.y))
+	safe_margin.add_theme_constant_override("margin_right", roundi(_profile.safe_insets.z))
+	safe_margin.add_theme_constant_override("margin_bottom", roundi(_profile.safe_insets.w))
+	safe_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	safe_margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_safe_scroll.add_child(safe_margin)
+	safe_margin.add_child(composition)
 
 	var art_space := Control.new()
 	art_space.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -96,9 +117,12 @@ func _ready() -> void:
 	if _profile.is_portrait():
 		art_space.custom_minimum_size.y = _portrait_art_height()
 	else:
-		art_space.custom_minimum_size.x = maxf(
-			_profile.safe_rect.size.x - _column_width - _gap(36),
-			_profile.safe_rect.size.x * 0.40)
+		# The art panel expands into whatever is left; giving it a large MINIMUM
+		# too meant art-min plus rail-min could exceed the safe width, and the
+		# row then overflowed to the right with the rail's buttons landing past
+		# the screen edge. The rail is the part a thumb needs, so it keeps its
+		# width and the art takes the remainder.
+		art_space.custom_minimum_size.x = 0.0
 	composition.add_child(art_space)
 
 	var dock := _make_hub_dock()
@@ -471,6 +495,12 @@ func _add_button(parent: Control, text: String, icon_svg: String,
 	# widened to the viewport-relative column so the stack fills a phone screen.
 	var button := UITheme.make_menu_button(text, icon_svg, authored, 38 if primary else 30)
 	button.custom_minimum_size = Vector2(_column_width, _row_size(authored).y)
+	# A Button's text sets a minimum width the container cannot go under, and
+	# at touch sizes these labels asked for 890 units inside a 680-unit rail —
+	# so the rail grew and pushed its own buttons past the screen edge. Clipping
+	# lets the row take the width it is given; the label ellipsizes instead of
+	# dictating the layout.
+	button.clip_text = true
 	button.add_theme_font_size_override("font_size", _f(38 if primary else 30))
 	# Icon then label on one left rail: with centered text the glyph floated off
 	# on its own and every row read slightly different.
@@ -585,6 +615,12 @@ func _build_status_chip(column: VBoxContainer) -> Control:
 	chip_style.content_margin_bottom = _u(8.0)
 	chip_style.shadow_size = 6
 	chip.add_theme_stylebox_override("panel", chip_style)
+	# Whatever the contents ask for, the chip cannot be wider than the column.
+	# Without this the row's minimums win and the panel grows past the screen.
+	if _is_narrow_portrait():
+		chip.custom_minimum_size.x = 0.0
+		chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		chip.clip_contents = true
 	var host: Control = chip
 	if stacked:
 		var holder := CenterContainer.new()
@@ -606,8 +642,12 @@ func _build_status_chip(column: VBoxContainer) -> Control:
 		chip.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 		chip.grow_vertical = Control.GROW_DIRECTION_END
 		chip.offset_left = 0.0
-		chip.offset_right = -16.0
-		chip.offset_top = 16.0
+		# Inset by the safe area, not just a fixed 16. A phone held sideways
+		# puts the notch and the home indicator on the short edges, so a chip
+		# pinned to the raw viewport corner sits under them: measured at 26
+		# units past the safe edge in landscape.
+		chip.offset_right = -(16.0 + _profile.safe_insets.z)
+		chip.offset_top = 16.0 + _profile.safe_insets.y
 		chip.offset_bottom = 0.0
 		add_child(chip)
 	var row := HBoxContainer.new()
@@ -661,10 +701,22 @@ func _build_status_chip(column: VBoxContainer) -> Control:
 		# Second guard on the same overflow: however the chip is laid out, one
 		# very long account name must not be allowed to set its width.
 		_auth_chip_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		_auth_chip_label.custom_minimum_size.x = _u(AUTH_NAME_MAX_WIDTH)
+		# A minimum width is a floor the container cannot go under, so on a
+		# phone this label plus the button set the chip's width and the chip
+		# then overflowed the column: measured on an iPhone, the chip wanted 856
+		# units inside a 752-unit safe area, which is why Sign In sat off the
+		# right edge of the screen. On a narrow portrait the name gets no floor
+		# at all and simply takes what is left.
+		if _is_narrow_portrait():
+			_auth_chip_label.custom_minimum_size.x = 0.0
+			_auth_chip_label.clip_text = true
+			_auth_chip_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		else:
+			_auth_chip_label.custom_minimum_size.x = _u(AUTH_NAME_MAX_WIDTH)
 		row.add_child(_auth_chip_label)
 		_auth_chip_button = UITheme.make_button(
-			"Sign In", _row_size(Vector2(150, 44)), _f(20))
+			"Sign In",
+			_row_size(Vector2(110 if _is_narrow_portrait() else 150, 44)), _f(20))
 		UITheme.hook_sounds(_auth_chip_button)
 		_auth_chip_button.pressed.connect(func() -> void:
 			if LeaderboardClient.signed_in:
