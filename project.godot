@@ -164,6 +164,14 @@ pause={
 [rendering]
 
 renderer/rendering_method="mobile"
+; Android and iOS render through the same compatibility path as the browser
+; build. Every shader in this project is written to gl_compatibility's limits
+; -- no screen or depth reads, no SSAO, no instance uniforms, contact shadows
+; painted by hand because there is no ambient occlusion to lean on -- and the
+; MSAA policy, the quality governor and the shader warm-up all branch on that
+; renderer by name. Letting a phone pick Forward Mobile instead means the one
+; build nobody can profile is also the only one running a different pipeline.
+renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality=3
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality.mobile=2

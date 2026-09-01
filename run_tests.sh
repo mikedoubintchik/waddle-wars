@@ -195,6 +195,11 @@ run_host_case "art_tool_tests" python3 -m unittest tests/test_art_tools.py
 # string in export_presets.cfg that no Godot test reads. A syntax error there
 # ships a black page with a silent console.
 run_host_case "web_shell" python3 tools/check_web_shell.py
+# ...and this runs it: the pixel budget that decides how many pixels a phone
+# renders every frame, the canvas sizing that iOS Safari's zoom feedback loop
+# used to defeat, and the graphics-loss screen, all exercised against real
+# device profiles in a DOM stub.
+run_host_case "web_shell_behaviour" node tools/test_web_shell_behaviour.mjs
 run_case "unit_tests" res://tests/unit_tests.tscn
 run_case "menu_load_test" res://tests/menu_load_test.tscn
 run_case "frontend_presentation_test" res://tests/frontend_presentation_test.tscn

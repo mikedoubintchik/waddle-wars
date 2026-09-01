@@ -1018,3 +1018,53 @@ Evidence: 122 unit checks (7 new `gp_cup_*`), 10 menu-load checks, 65
 frontend-presentation checks, 136 utility-frontend checks, 124 runner-platform
 checks, texture_format, tutorial_sim, endless_sim, race_sim glacier, and the
 mobile UI audit passing at all three device sizes.
+
+### Android does work — as a native build
+
+The web build could not be judged on this host's emulator, so the Android
+question was answered the other way: `godot --export-debug "Android"` against
+the preset that was already in the file. The templates were installed, the
+SDK, JDK, build-tools and debug keystore were all already configured in the
+editor settings, and the export signed and verified on the first run. The
+APK installs and launches on the emulator and **renders correctly** — the
+title screen comes up with its art intact, the sky and ice read the way they
+do on desktop, the portrait layout fits, and there is no sign of the magenta
+texture corruption that iOS Safari found.
+
+Getting there turned up a real defect. The first APK started in **Vulkan
+Forward Mobile**, because `renderer/rendering_method` is `mobile` and nothing
+overrode it for phones. Every shader in this project is written to
+gl_compatibility's limits — no screen or depth reads, no SSAO, no instance
+uniforms, contact shadows painted by hand because there is no ambient
+occlusion to lean on — and `SettingsManager.msaa_3d_mode()`, the quality
+governor and the shader warm-up all branch on that renderer *by name*. So the
+one build nobody can profile was also the only one running a different
+pipeline, with the renderer-specific branches taking the wrong side. On the
+emulator it failed outright (`Couldn't present to Vulkan queue`, repeating
+every frame, black screen). `renderer/rendering_method.mobile` is now
+`gl_compatibility`, and the log confirms it: `renderer: gl_compatibility`,
+`OpenGL ES 3.0`, no errors. Desktop is untouched — that override only applies
+to Android and iOS.
+
+Build one with:
+
+    godot --headless --path . --export-debug "Android" build/waddle-wars.apk
+
+The emulator itself remains a poor host: its system_server wedges under load
+(input dispatch stops, and a "Process system isn't responding" dialog sticks
+on screen), which is why the pass beyond the title screen is not captured
+here. That is the emulator, not the build — the app underneath it is drawing
+its frames the whole time.
+
+### The web shell is now tested, not just parsed
+
+`tools/test_web_shell_behaviour.mjs` runs the shipped shell scripts against
+nine real device profiles in a DOM stub — 36 checks. It covers the pixel
+budget (every phone profile lands at or under 1.25 Mp per frame, never
+upscales, never falls below dpr 1.0; a 430x932 phone at dpr 3 comes down from
+4.02 Mp to 1.25), the canvas sizing (the layout viewport wins over a zoomed
+visualViewport — the iOS Safari feedback loop that put a 472 px canvas in a
+402 px phone), and the graphics-loss screen (registered in the capture phase,
+prevents default, stops propagation so Godot's blocking alert never fires,
+and the Reload button reloads). Mutation-checked: raising the budget to
+9.25 Mp fails 6 of them.
