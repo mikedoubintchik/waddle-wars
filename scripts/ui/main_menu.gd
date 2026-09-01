@@ -113,7 +113,12 @@ func _ready() -> void:
 	var art_space := Control.new()
 	art_space.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	art_space.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	art_space.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# On a narrow phone the art must NOT take the slack. Expanding, it absorbed
+	# every spare unit and pushed the dock down with it — the navigation then
+	# ran off the bottom of the screen while the sky above it grew. The art
+	# keeps its floor and the rows get the rest.
+	art_space.size_flags_vertical = Control.SIZE_SHRINK_BEGIN \
+		if _is_narrow_portrait() else Control.SIZE_EXPAND_FILL
 	if _profile.is_portrait():
 		art_space.custom_minimum_size.y = _portrait_art_height()
 	else:
@@ -128,9 +133,12 @@ func _ready() -> void:
 	var dock := _make_hub_dock()
 	dock.custom_minimum_size.x = _column_width
 	if _is_narrow_portrait():
-		# Fixed physical composition target for phone portrait. Content may grow
-		# taller and scroll, but it never collapses into a tiny lower strip.
-		dock.custom_minimum_size.y = _profile.safe_rect.size.y * 0.60
+		# The dock sizes to its own content here rather than claiming a fixed
+		# 60% of the screen. With the art panel's 35% on top of it, 60% put the
+		# hub over 95% of the height before margins and separations, so the last
+		# row of buttons was sliced off the bottom of a real phone — reachable
+		# only by scrolling a menu that should simply fit.
+		dock.custom_minimum_size.y = 0.0
 	elif not _profile.is_portrait():
 		dock.custom_minimum_size.y = maxf(
 			_profile.safe_rect.size.y - _gap(32), _u(680.0))
@@ -139,7 +147,7 @@ func _ready() -> void:
 
 	var vbox := VBoxContainer.new()
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", _gap(9))
+	vbox.add_theme_constant_override("separation", _gap(5 if _is_narrow_portrait() else 9))
 	dock.add_child(vbox)
 
 	var eyebrow := UITheme.sub_label("ANTARCTIC EXPEDITION BASE", _f(15))
@@ -239,9 +247,15 @@ func _hub_width() -> float:
 
 func _portrait_art_height() -> float:
 	if _is_narrow_portrait():
-		# Container chrome/separation adds ~5% of a 540x960 frame before the
-		# dock face begins; 35% logical renders as a 40% physical art stage.
-		return _profile.safe_rect.size.y * 0.35
+		# The art stage takes what is left after the dock, with a floor rather
+		# than a fixed share. At 35% plus a 60% dock the hub needed more than
+		# the screen had and the bottom row of buttons fell off a real phone;
+		# the dock now sizes to its content and the art fills the remainder.
+		# A floor, not a share: the art panel expands into whatever the dock
+		# leaves, so on a tall phone it still fills most of the top. At 24% the
+		# dock's own content pushed the last row 107 units past the bottom of a
+		# 390x844 screen; the floor has to leave room for the navigation itself.
+		return _profile.safe_rect.size.y * 0.08
 	match _profile.view_class:
 		_:
 			return _profile.safe_rect.size.y * 0.40
@@ -490,7 +504,13 @@ func _divider() -> Control:
 ## the stack reads as one calm tier beneath it.
 func _add_button(parent: Control, text: String, icon_svg: String,
 		on_pressed: Callable, primary: bool) -> void:
-	var authored := Vector2(COLUMN_BASE, 92.0 if primary else 70.0)
+	# Rows are a little shorter on a narrow phone. The hub has seven of them
+	# plus a chip and a title block, and at the authored heights the stack came
+	# out taller than the screen — the last row was sliced against the browser
+	# toolbar. A few units per row is invisible; a missing row is not.
+	var narrow := _is_narrow_portrait()
+	var authored := Vector2(COLUMN_BASE,
+		(84.0 if narrow else 92.0) if primary else (62.0 if narrow else 70.0))
 	# make_menu_button already applies the touch enlargement; the width is then
 	# widened to the viewport-relative column so the stack fills a phone screen.
 	var button := UITheme.make_menu_button(text, icon_svg, authored, 38 if primary else 30)

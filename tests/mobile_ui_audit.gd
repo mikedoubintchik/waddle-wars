@@ -28,7 +28,12 @@ const MIN_TOUCH_PX: float = 44.0
 const EDGE_TOLERANCE: float = 1.5
 
 const SCENES: Array[Dictionary] = [
-	{"name": "main_menu", "path": "res://scenes/menus/main_menu.tscn"},
+	# must_fit: in PORTRAIT the hub is the first screen a player sees and its
+	# rows are the whole navigation of the game, so a scrollable ancestor does
+	# not excuse the last row being sliced off the bottom. A phone held
+	# sideways genuinely has too little height for the same composition, and
+	# there scrolling is the honest answer.
+	{"name": "main_menu", "path": "res://scenes/menus/main_menu.tscn", "must_fit": true},
 	{"name": "mode_select", "path": "res://scenes/menus/mode_select.tscn"},
 	{"name": "settings", "path": "res://scenes/menus/settings.tscn"},
 	{"name": "customize", "path": "res://scenes/menus/customize.tscn"},
@@ -78,6 +83,11 @@ func _ready() -> void:
 	LeaderboardClient.force_available = true
 	SettingsManager.apply_all()
 	_sizes = _devices.duplicate()
+	# Pass one is the no-inset case, and it has to be FORCED to zero: a desktop
+	# window reports its title bar as a top safe-area inset (139 units), which
+	# is a constraint no phone has and made the pass fail for a reason that
+	# does not exist on the target.
+	LayoutProfile.forced_insets = Vector4.ZERO
 	# Two passes. A desktop window reports no safe-area insets, so the first
 	# pass measures a screen no notched phone has; the second forces the insets
 	# a real handset gives up to the notch and the home indicator. The main
@@ -93,7 +103,8 @@ func _ready() -> void:
 func _run(final: bool = false) -> void:
 	for size: Vector2i in _sizes:
 		for entry: Dictionary in SCENES:
-			await _audit(String(entry["name"]), String(entry["path"]), size)
+			await _audit(String(entry["name"]), String(entry["path"]), size,
+				bool(entry.get("must_fit", false)))
 	if not final:
 		return
 	print("")
@@ -109,7 +120,8 @@ func _run(final: bool = false) -> void:
 	get_tree().quit(1)
 
 
-func _audit(scene_name: String, path: String, size: Vector2i) -> void:
+func _audit(scene_name: String, path: String, size: Vector2i,
+		must_fit: bool = false) -> void:
 	if not ResourceLoader.exists(path):
 		_failures.append("%s: scene missing at %s" % [scene_name, path])
 		return
@@ -145,7 +157,22 @@ func _audit(scene_name: String, path: String, size: Vector2i) -> void:
 		_failures.append("%s @ %dx%d: controls span x %.0f..%.0f, outside the safe area %.0f..%.0f (widest: %s)"
 			% [scene_name, size.x, size.y, touchable.position.x, touchable.end.x,
 				safe.position.x, safe.end.x, _widest_name])
+	# The same question on the other axis, which the first version of this test
+	# did not ask — and a phone caught it immediately: the main menu fitted
+	# across but ran off the BOTTOM, slicing the last row of buttons against the
+	# browser toolbar. Vertical overflow is only acceptable when something can
+	# actually scroll to it.
+	if touchable.size.y > 0.0 and (touchable.position.y < safe.position.y - EDGE_TOLERANCE
+			or touchable.end.y > safe.end.y + EDGE_TOLERANCE) \
+			and ((must_fit and size.y > size.x) or not _has_vertical_scroll(instance)):
+		_failures.append("%s @ %dx%d: controls span y %.0f..%.0f, outside the safe area %.0f..%.0f and nothing scrolls"
+			% [scene_name, size.x, size.y, touchable.position.y, touchable.end.y,
+				safe.position.y, safe.end.y])
 
+	if scene_name == "main_menu":
+		print("[mobile-ui] main_menu bounds y %.0f..%.0f  safe y %.0f..%.0f  canvas %s"
+			% [touchable.position.y, touchable.end.y, safe.position.y, safe.end.y,
+				rect.size])
 	var label := "%s @ device %dx%d (canvas %dx%d)" % [
 		scene_name, size.x, size.y, rect.size.x, rect.size.y]
 	for offender: Dictionary in offenders:
@@ -160,6 +187,23 @@ func _audit(scene_name: String, path: String, size: Vector2i) -> void:
 		print("[mobile-ui] ok    %s" % label)
 	instance.queue_free()
 	await get_tree().process_frame
+
+
+## True when the screen has a ScrollContainer that can actually scroll
+## vertically — content taller than its own view, on an enabled axis.
+func _has_vertical_scroll(node: Node) -> bool:
+	var scroll := node as ScrollContainer
+	if scroll != null and scroll.is_visible_in_tree() \
+			and scroll.vertical_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED:
+		for child: Node in scroll.get_children():
+			var control := child as Control
+			if control != null and control.is_visible_in_tree() \
+					and control.get_combined_minimum_size().y > scroll.size.y + EDGE_TOLERANCE:
+				return true
+	for child: Node in node.get_children():
+		if _has_vertical_scroll(child):
+			return true
+	return false
 
 
 ## Bounding box of every visible interactive control under `node`.
