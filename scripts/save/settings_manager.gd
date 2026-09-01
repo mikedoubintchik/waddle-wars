@@ -50,6 +50,25 @@ var _governor_good_windows: int = 0
 var _governor_warmup: int = GOVERNOR_WARMUP_SAMPLES
 
 
+## Read-only shared copy of default_settings(), built once. get_setting() is
+## called every frame by several systems and every miss used to rebuild the
+## whole nested dictionary, which is exactly the per-frame allocation the spec
+## forbids on mobile. default_settings() still hands out a fresh mutable copy
+## for callers that edit it.
+static var _defaults_frozen: Dictionary = {}
+
+
+static func frozen_defaults() -> Dictionary:
+	if _defaults_frozen.is_empty():
+		var built: Dictionary = default_settings()
+		for section: Variant in built.keys():
+			var sect: Dictionary = built[section]
+			sect.make_read_only()
+		built.make_read_only()
+		_defaults_frozen = built
+	return _defaults_frozen
+
+
 static func default_settings() -> Dictionary:
 	return {
 		"display": {
@@ -116,7 +135,7 @@ func get_setting(section: String, key: String) -> Variant:
 	var sect: Dictionary = settings.get(section, {})
 	if sect.has(key):
 		return sect[key]
-	return default_settings().get(section, {}).get(key)
+	return frozen_defaults().get(section, {}).get(key)
 
 
 func set_setting(section: String, key: String, value: Variant) -> void:
@@ -133,7 +152,7 @@ func set_setting(section: String, key: String, value: Variant) -> void:
 func apply_all() -> void:
 	_booting = true
 	for section: String in ["display", "audio", "gameplay", "accessibility"]:
-		var defaults: Dictionary = default_settings()[section]
+		var defaults: Dictionary = frozen_defaults()[section]
 		for key: Variant in defaults.keys():
 			_apply_one(section, key, get_setting(section, key))
 	_booting = false

@@ -17,6 +17,13 @@ func _ready() -> void:
 			course = _instantiate_course_script("res://scripts/courses/course_tutorial.gd")
 		_:
 			var info := CoursesDB.get_item(course_id)
+			if info.is_empty():
+				# An id with no database entry used to fall through to glacier
+				# geometry while times and records were still filed under the
+				# unknown id — a wrong record is worse than no race. Refuse.
+				push_error("Race: unknown course id '%s'; returning to the menu" % course_id)
+				SceneRouter.go_to(Game.SCENE_MAIN_MENU)
+				return
 			course = _instantiate_course_script(String(info.get("script", "res://scripts/courses/course_glacier.gd")))
 	course.add_to_group(&"course")
 	add_child(course)
@@ -29,12 +36,20 @@ func _ready() -> void:
 	var powerups := PowerupSystem.new()
 	add_child(powerups)
 
-	if Game.mode == Game.Mode.ENDLESS and course.has_method("run_endless"):
-		course.call("run_endless", self, powerups)
-		ShaderWarmup.warm(self)
-		return
-	if Game.mode == Game.Mode.TUTORIAL and course.has_method("run_tutorial"):
-		course.call("run_tutorial", self, powerups)
+	# Endless and Tutorial are whole flows, not variations on a race: they own
+	# their own managers, their own finish call and their own results panels.
+	# A course that cannot run them used to fall through to a standard race,
+	# which then finished through finish_race while the results screen drew
+	# endless panels off Game.mode and read a result nobody had written.
+	# Refuse the run instead of showing the player a blank scoreboard.
+	if Game.mode == Game.Mode.ENDLESS or Game.mode == Game.Mode.TUTORIAL:
+		var entry := "run_endless" if Game.mode == Game.Mode.ENDLESS else "run_tutorial"
+		if not course.has_method(entry):
+			push_error("Race: course '%s' cannot run %s; returning to the menu"
+				% [course_id, entry])
+			SceneRouter.go_to(Game.SCENE_MAIN_MENU)
+			return
+		course.call(entry, self, powerups)
 		ShaderWarmup.warm(self)
 		return
 

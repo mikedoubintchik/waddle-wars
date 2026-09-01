@@ -374,8 +374,13 @@ func _test_shader_warmup_contract() -> void:
 	_check("runner_warmup_trace_waits_for_following_frame",
 		ShaderWarmup.drain_perf_trace_events().is_empty())
 	ShaderWarmup.perf_trace_enabled = false
-	# Engine frame cannot advance inside this synchronous contract test. Reset
-	# only throttle seam to represent next process frame.
+	# Engine frames cannot advance inside this synchronous contract test, so
+	# both seams that a real rendered frame moves have to be moved by hand:
+	# the renderer confirming the previous probe drew (_on_frame_post_draw,
+	# which is what clears _awaiting_draw) and the per-frame submit throttle.
+	# Resetting only the throttle left _awaiting_draw set, so the next submit
+	# was refused and this pair of checks could never pass.
+	warmup._on_frame_post_draw()
 	warmup._last_submit_frame = -1
 	var second_submitted := warmup._submit_next_item(false)
 	_check("runner_warmup_prior_probe_retained_through_next_draw",

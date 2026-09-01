@@ -939,3 +939,82 @@ so its distance is a fairness signal: it now dies between 400 m and 1,200 m,
 hitting 10-19 ramps a run. `tests/runner_shot.tscn` saves a strip of a real
 run for visual review (qa_shots/runner/final_*.png). 107 unit tests and the
 glacier race sim still pass, so the racing game is untouched.
+
+## Android verification and the last open QA items
+
+### Android: what the emulator can and cannot prove
+
+The web build boots correctly in Android Chrome. On a Pixel-class AVD
+(Android 15, 412x771 CSS at dpr 1.98) the engine starts, the boot overlay
+hands over, the canvas is sized to the pixel budget at 817x1529, and the
+renderer reports `ANGLE (Google (Apple), Android Emulator OpenGL ES
+Translator (Apple M2), OpenGL ES 3.0)`. Godot draws: instrumenting the live
+context counted 76 instanced draws and 4 clears in three seconds, the
+framebuffer was complete, and reading the default framebuffer back mid-frame
+returned real content — sky blues and snow greys, not black.
+
+The screen was black anyway, and the cause is the emulator, not the build. A
+control test settles it: a bare 200x200 canvas cleared to red composites
+black on that AVD while a 2D canvas filled green composites correctly, in the
+same page, in the same frame. Nothing of ours is involved in a red `clear()`.
+
+Three graphics configurations were tried, and each fails in its own way:
+
+| Emulator GPU | Chrome flags | Result |
+| --- | --- | --- |
+| `-gpu host` (default) | none | 2D composites; every WebGL canvas composites black |
+| `-gpu swiftshader_indirect` | none | Page composites, then the WebGL context is lost outright |
+| `-gpu host` | `--disable-gpu-compositing` | Page stops presenting entirely; even a 2D probe stops updating |
+
+So the honest status is: **Android web boot, layout, sizing and rendering are
+verified; on-screen presentation is not, and cannot be on this host's
+emulator.** It needs a physical Android device, and that is the one piece of
+this pass no amount of local work can substitute for.
+
+Two things came out of the exercise regardless. Godot answers a lost WebGL
+context with a blocking `alert()` — on a phone that is a system dialog over a
+black screen, which is exactly what the swiftshader run produced. The web
+shell now catches `webglcontextlost` on window in the capture phase, ahead of
+the canvas Godot listens on, and shows a themed "Graphics paused" screen with
+a Reload button instead; `webglcontextrestored` reloads on its own. Every
+phone browser can take a context away under memory pressure, so this matters
+well beyond the emulator.
+
+The second is `tools/check_web_shell.py`, wired into run_tests.sh. The whole
+pre-engine layer of the browser build — audio unlock, pixel budget, canvas
+sizing, PWA metadata, and now the graphics-loss screen — lives in one escaped
+string inside export_presets.cfg that no Godot test reads. One unbalanced
+brace there ships a page that loads, runs no JavaScript, and shows a black
+rectangle with a silent console. The check parses each `<script>` block with
+`node --check` and asserts the seven behaviours are still present.
+
+### QA_FINDINGS is clear
+
+All four remaining OPEN items are fixed with evidence:
+
+- **#5** `race.gd` refuses a course id with no `CoursesDB` entry instead of
+  quietly building Glacier while filing records under the unknown id.
+- **#8** the same guard covers Endless and Tutorial: a course that cannot run
+  those flows sends the player back to the menu rather than finishing through
+  `finish_race` while the results screen draws endless panels off `Game.mode`.
+- **#13** `SettingsManager.frozen_defaults()` builds the defaults once and
+  marks them read-only. `get_setting` runs every frame from several systems
+  and every miss used to rebuild the whole nested dictionary — the per-frame
+  allocation the spec forbids on mobile. `default_settings()` still hands out
+  a fresh mutable copy for callers that edit it.
+- **#17** the Grand Prix cup is settled by `Game.award_grand_prix_round()` /
+  `Game._settle_cup()` in the race flow. It used to be awarded from inside the
+  results screen's panel construction, which made the record depend on which
+  panels a layout happened to build and put a mutation on the path a rotation
+  re-enters. `results.gd` now only draws the ceremony and plays the fanfare
+  once.
+
+A pre-existing pair of failures in `runner_platform_tests` is also fixed —
+the test simulated "next rendered frame" by resetting the submit throttle but
+not `_awaiting_draw`, which a real `frame_post_draw` is what clears, so the
+next submit was always refused and the two checks could never pass.
+
+Evidence: 122 unit checks (7 new `gp_cup_*`), 10 menu-load checks, 65
+frontend-presentation checks, 136 utility-frontend checks, 124 runner-platform
+checks, texture_format, tutorial_sim, endless_sim, race_sim glacier, and the
+mobile UI audit passing at all three device sizes.

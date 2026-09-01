@@ -190,6 +190,11 @@ run_host_case() {
 
 run_host_case "art_manifest_validation" python3 tools/art/validate_art.py
 run_host_case "art_tool_tests" python3 -m unittest tests/test_art_tools.py
+# The browser build's entire pre-engine layer -- audio unlock, pixel budget,
+# canvas sizing, PWA metadata, graphics-loss recovery -- lives in one escaped
+# string in export_presets.cfg that no Godot test reads. A syntax error there
+# ships a black page with a silent console.
+run_host_case "web_shell" python3 tools/check_web_shell.py
 run_case "unit_tests" res://tests/unit_tests.tscn
 run_case "menu_load_test" res://tests/menu_load_test.tscn
 run_case "frontend_presentation_test" res://tests/frontend_presentation_test.tscn

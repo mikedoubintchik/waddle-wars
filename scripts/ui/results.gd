@@ -74,7 +74,9 @@ var _center: CenterContainer = null
 ## _build_column() runs again when the device rotates, and a cup result or a
 ## leaderboard post has to happen exactly once per visit however many times the
 ## column gets laid out.
-var _gp_committed: bool = false
+## The cup fanfare is a one-shot presentation cue: a rotation rebuilds this
+## screen, and replaying the sting on every rebuild is not a celebration.
+var _victory_played: bool = false
 var _score_posted: bool = false
 ## Live online-status line and its latest text, so a rebuilt column can show
 ## the outcome (and receive a late response) instead of posting the run again.
@@ -900,25 +902,17 @@ func _build_gp_standings(parent: Control) -> void:
 		line.add_child(_cell("—" if behind <= 0 else "-%d" % behind, COL_GAP, 20,
 			Color(color, 0.6), false))
 		line.add_child(_cell("%d pts" % points, COL_TIME, 24, color, true))
-	# `or _gp_committed`: committing the cup sets Game.gp_round past the final
-	# round, so on a rebuild is_final_gp_round() is already false -- without
-	# this the ceremony, the podium and the winner line would silently vanish
-	# from the rotated screen.
-	if Game.is_final_gp_round() or _gp_committed:
-		var standings_sorted := standings
-		if not standings_sorted.is_empty():
-			var winner := String(standings_sorted[0]["name"])
+	# The cup itself is settled by the race flow (Game._settle_cup), so this
+	# only draws it. `gp_cup_complete` survives the rebuild a rotation causes,
+	# which is what keeps the ceremony from vanishing off a rotated screen.
+	if Game.gp_cup_complete:
+		if not standings.is_empty():
+			var winner := String(standings[0]["name"])
 			var ceremony := _hero(parent, "Cup Ceremony", "%s wins the cup!" % winner, 42,
 				UITheme.COLOR_GOLD)
-			_build_podium(ceremony, standings_sorted)
-			var player_place := 1
-			for i: int in standings_sorted.size():
-				if String(standings_sorted[i].get("key", "")) == "player":
-					player_place = i + 1
-			if not _gp_committed:
-				_gp_committed = true
-				Game.gp_round = CoursesDB.GRAND_PRIX_ORDER.size()  # mark complete
-				Progression.submit_gp_result(Game.difficulty_id, player_place, int(standings_sorted[player_place - 1]["points"]) if player_place <= standings_sorted.size() else 0)
+			_build_podium(ceremony, standings)
+			if not _victory_played:
+				_victory_played = true
 				AudioManager.play_sfx("sfx_victory")
 
 

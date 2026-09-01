@@ -45,11 +45,74 @@ func _ready() -> void:
 	await _test_pause_settings_round_trip()
 	await _test_setup_entry_step()
 	_test_daily_challenge()
+	_test_grand_prix_cup()
 	_test_tilt_steering()
 	await _test_menu_scenes()
 	await _test_touch_controls()
 	print("[unit] DONE: %d passed, %d failed, %d skipped" % [_passes, _failures, _skips])
 	get_tree().quit(1 if _failures > 0 else 0)
+
+
+## --- Grand Prix ------------------------------------------------------------
+
+## The cup used to be awarded from inside the results screen's panel building,
+## so the record depended on which panels a layout happened to build and a
+## rotation re-entered the mutation. It is settled by the race flow now; these
+## checks hold that line.
+func _test_grand_prix_cup() -> void:
+	var saved_mode := Game.mode
+	var saved_course := Game.course_id
+	var rounds := CoursesDB.GRAND_PRIX_ORDER.size()
+
+	Game.mode = Game.Mode.GRAND_PRIX
+	Game.gp_round = 0
+	Game.gp_points = {}
+	Game.gp_times = {}
+	Game.gp_cup_complete = false
+	Game.gp_cup_place = 1
+
+	var podium := func(player_position: int) -> Array[Dictionary]:
+		var rows: Array[Dictionary] = []
+		rows.append({"key": "player", "name": "You", "is_player": true,
+			"position": player_position, "time": 100.0, "fish": 0, "dnf": false})
+		var rivals: PackedStringArray = ["gus", "marina", "nova"]
+		var place := 1
+		for rival: String in rivals:
+			if place == player_position:
+				place += 1
+			rows.append({"key": rival, "name": rival, "is_player": false,
+				"position": place, "time": 101.0 + place, "fish": 0, "dnf": false})
+			place += 1
+		return rows
+
+	# Every round but the last leaves the cup open.
+	for round_index: int in rounds - 1:
+		Game.award_grand_prix_round(podium.call(1))
+		_check("gp_cup_open_after_round_%d" % round_index, not Game.gp_cup_complete,
+			"cup settled early at round %d" % round_index)
+		Game.gp_round += 1
+
+	Game.award_grand_prix_round(podium.call(1))
+	_check("gp_cup_settles_on_final_round", Game.gp_cup_complete)
+	_check("gp_cup_place_recorded", Game.gp_cup_place == 1,
+		"place was %d" % Game.gp_cup_place)
+	_check("gp_round_marked_complete", Game.gp_round == rounds,
+		"gp_round was %d" % Game.gp_round)
+	var points_after := int(Game.gp_points.get("player", 0))
+	# A second finish (a rebuild, a re-entered results screen) must not re-award.
+	Game.award_grand_prix_round(podium.call(1))
+	_check("gp_cup_settle_is_idempotent",
+		Game.gp_cup_complete and Game.gp_round == rounds,
+		"gp_round drifted to %d" % Game.gp_round)
+	_check("gp_cup_points_final", int(Game.gp_points.get("player", 0)) > points_after,
+		"points must still accrue per finish, not reset")
+
+	Game.mode = saved_mode
+	Game.course_id = saved_course
+	Game.gp_round = 0
+	Game.gp_points = {}
+	Game.gp_times = {}
+	Game.gp_cup_complete = false
 
 
 ## --- Reporting helpers -----------------------------------------------------
