@@ -1141,3 +1141,32 @@ one making progress, leaves finished racers alone, leaves AI alone, waits
 through the countdown, and does nothing without a course. Race sims on
 glacier, aurora and iceberg plus the endless sim confirm the watchdog does not
 fire during ordinary racing.
+
+### Android: verified end to end
+
+The native Android build was driven through the whole player path on the
+emulator, and it works:
+
+| Screen | Result |
+| --- | --- |
+| Title | Full-fidelity art, portrait layout correct, no texture corruption |
+| Main menu | Whole hub fits: chip, both hero cards, four tiles, Settings/Credits |
+| Mode select | Scrolls, rail pinned, Main Menu button reachable |
+| Course select | All five posters render clean — these are the NPOT textures that broke iOS Safari |
+| Difficulty | Three cards, compact, all on screen without scrolling |
+| Race | Runs, HUD correct, touch buttons placed, course gauge readable |
+| Stuck rescue | Confirmed live: pinned at 44% for 45 s, then rescued and back to 59% |
+
+The renderer reports `gl_compatibility` / `OpenGL ES 3.0` throughout, which is
+the path every shader in this project is written for.
+
+**One unresolved observation.** In-race on the emulator, a large olive-grey
+slab with stair-stepped edges lies across the ice near the player — the ice's
+own hex pattern shows through it, so it is a shadow, not geometry, and the
+steps are shadow-map texels. It did not reproduce in local `gl_compatibility`
+captures of the same course (opening and downhill zones), so it is either
+specific to that spot or an artefact of the emulator's GL translation, which
+has already been shown to mishandle WebGL compositing entirely on this host.
+Not chased further without a real device to confirm it against; the screenshot
+is in the session scratchpad. Worth a look on hardware before it is called
+either a bug or a non-issue.
