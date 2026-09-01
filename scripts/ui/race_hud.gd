@@ -242,6 +242,10 @@ func setup(p_manager: RaceManager, p_player: Racer) -> void:
 		_audio_cue("Shove landed!"))
 	player.respawned.connect(func(_racer: Racer) -> void:
 		_audio_cue("Back on track"))
+	# A rescue that just teleports you reads as a glitch. Say what happened,
+	# so the player knows the game noticed rather than misfired.
+	player.unstick_pending.connect(func(_racer: Racer) -> void:
+		show_message("Stuck — back to the last checkpoint"))
 	player.shield_changed.connect(func(_racer: Racer, active: bool) -> void:
 		if _shield_pill != null:
 			_shield_pill.visible = active

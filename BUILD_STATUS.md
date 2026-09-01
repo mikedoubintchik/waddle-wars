@@ -1102,3 +1102,42 @@ five device sizes across three touch scales and checks every bottom-rail
 widget against every button rect, the safe area and the canvas — 390 checks,
 all passing. It found the touch-scale-2 case on its own, which the fix as
 first written did not handle.
+
+### The player could get stuck with no way out
+
+Playing the Android build found this: wedged below the track lip at 44% of
+Glacier Gauntlet, and still there ninety seconds later. Jumping and steering
+did nothing.
+
+The cause is that stuck-detection only ever existed for the AI.
+`AIController` has had two watchdogs since the beginning — a position one on a
+3-second cycle and a course-progress one on a 12-second cycle, both ending in
+`respawn_at_checkpoint()`. The player had neither. `Racer._check_kill_plane()`
+rescues anyone who falls below the course, but most geometry a racer can wedge
+into sits well *above* the kill plane, and there the only way out was the
+pause menu.
+
+`Racer._check_stuck()` now covers the player, on the same two-tier logic the
+AI uses and deliberately conservative about when it fires:
+
+- It needs the racer to be both making no course progress (under 3 m) and
+  moving at under 1.5 m/s for the whole window. Either one alone rearms it.
+- Pinned against geometry (`is_on_wall()`) gets a 4-second fuse; nothing the
+  player does will free them and every second is race time lost. Merely going
+  nowhere gets 12 seconds, so pausing to look around, lining up a jump or
+  reading the track is never interrupted.
+- Stunned, recovering, airborne and finished racers hold position by design
+  and reset the window instead.
+- A racer whose controller is not taking input — the starting grid during the
+  countdown — is being held on purpose and is exempt.
+- AI racers are left to their own watchdogs, which also re-pick a route
+  afterwards.
+
+The HUD says "Stuck — back to the last checkpoint" when it fires, because a
+rescue that silently teleports you reads as a glitch rather than as help.
+
+Seven unit checks cover it: fires when pinned, ignores a moving racer, ignores
+one making progress, leaves finished racers alone, leaves AI alone, waits
+through the countdown, and does nothing without a course. Race sims on
+glacier, aurora and iceberg plus the endless sim confirm the watchdog does not
+fire during ordinary racing.

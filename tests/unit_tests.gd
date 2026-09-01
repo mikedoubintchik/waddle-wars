@@ -46,11 +46,114 @@ func _ready() -> void:
 	await _test_setup_entry_step()
 	_test_daily_challenge()
 	_test_grand_prix_cup()
+	await _test_unstick_watchdog()
 	_test_tilt_steering()
 	await _test_menu_scenes()
 	await _test_touch_controls()
 	print("[unit] DONE: %d passed, %d failed, %d skipped" % [_passes, _failures, _skips])
 	get_tree().quit(1 if _failures > 0 else 0)
+
+
+## --- Unstick watchdog -------------------------------------------------------
+
+## The AI has had a stuck-detector since the beginning; the player never did,
+## so a player wedged against geometry above the kill plane had no way out but
+## the pause menu. These checks hold the rescue to being conservative: it must
+## fire on a genuinely pinned racer and must not fire on one that is moving or
+## making progress.
+func _test_unstick_watchdog() -> void:
+	var racer := Racer.new()
+	add_child(racer)
+	racer.setup("stuck_player", "Wedged", true, {}, RacerController.new(), null)
+	await get_tree().physics_frame
+
+	# No course means no rescue: there is nowhere to send the racer.
+	for _i: int in 200:
+		racer._check_stuck(0.05)
+	_check("unstick_needs_a_course", racer._unstick_timer == 0.0,
+		"timer ran to %f without a course" % racer._unstick_timer)
+
+	# racer.course is typed CourseBase, so the stand-in has to be one. It is
+	# never added to the tree -- the watchdog only needs the reference to be
+	# non-null, and building a real course here would cost the whole scene.
+	var course := CourseBase.new()
+	racer.course = course
+	racer.current_speed = 0.0
+	racer.progress = 100.0
+	racer._unstick_progress_mark = -1.0
+	# A lambda captures by VALUE in GDScript, so an int counter incremented
+	# inside one never reaches the caller. A Dictionary is captured by
+	# reference and does.
+	var seen := {"rescues": 0}
+	racer.unstick_pending.connect(func(_r: Racer) -> void:
+		seen["rescues"] = int(seen["rescues"]) + 1)
+
+	# Not on a wall in a bare test scene, so the patient window applies.
+	var window := int(Racer.UNSTICK_WINDOW_IDLE / 0.05) + 2
+	for _i: int in window:
+		racer._check_stuck(0.05)
+	_check("unstick_fires_when_pinned", int(seen["rescues"]) == 1, "fired %d times" % int(seen["rescues"]))
+
+	# Moving is not stuck, however little ground is covered.
+	seen["rescues"] = 0
+	racer.state = Racer.State.WADDLING
+	racer.current_speed = Racer.UNSTICK_SPEED + 2.0
+	racer._unstick_progress_mark = -1.0
+	for _i: int in window * 2:
+		racer._check_stuck(0.05)
+	_check("unstick_ignores_a_moving_racer", int(seen["rescues"]) == 0, "fired %d times" % int(seen["rescues"]))
+
+	# Neither is crawling forward: progress alone rearms the window.
+	seen["rescues"] = 0
+	racer.state = Racer.State.WADDLING
+	racer.current_speed = 0.0
+	racer.progress = 100.0
+	racer._unstick_progress_mark = -1.0
+	for i: int in window * 2:
+		racer.progress += Racer.UNSTICK_PROGRESS
+		racer._check_stuck(0.05)
+	_check("unstick_ignores_a_racer_making_progress", int(seen["rescues"]) == 0,
+		"fired %d times" % int(seen["rescues"]))
+
+	# A finished racer holds position on purpose.
+	seen["rescues"] = 0
+	racer.current_speed = 0.0
+	racer.state = Racer.State.FINISHED
+	racer._unstick_progress_mark = -1.0
+	for _i: int in window * 2:
+		racer._check_stuck(0.05)
+	_check("unstick_leaves_a_finished_racer_alone", int(seen["rescues"]) == 0,
+		"fired %d times" % int(seen["rescues"]))
+
+	# AI racers keep their own watchdog, which also re-picks a route.
+	seen["rescues"] = 0
+	racer.state = Racer.State.WADDLING
+	racer.is_player = false
+	racer._unstick_progress_mark = -1.0
+	for _i: int in window * 2:
+		racer._check_stuck(0.05)
+	_check("unstick_leaves_ai_to_its_own_watchdog", int(seen["rescues"]) == 0,
+		"fired %d times" % int(seen["rescues"]))
+
+	# A racer held by the countdown is standing still on purpose.
+	seen["rescues"] = 0
+	racer.is_player = true
+	racer.state = Racer.State.WADDLING
+	racer.current_speed = 0.0
+	racer._unstick_progress_mark = -1.0
+	var held := PlayerController.new()
+	held.input_enabled = false
+	racer.controller = held
+	for _i: int in window * 2:
+		racer._check_stuck(0.05)
+	_check("unstick_waits_for_the_countdown", int(seen["rescues"]) == 0,
+		"fired %d times" % int(seen["rescues"]))
+	racer.controller = RacerController.new()
+
+	racer.course = null
+	course.free()
+	racer.queue_free()
+	await get_tree().process_frame
 
 
 ## --- Grand Prix ------------------------------------------------------------

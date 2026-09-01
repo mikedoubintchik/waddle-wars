@@ -27,6 +27,9 @@ signal shove_landed(attacker: Racer, victim: Racer)
 ## camera and the controller can react when the hit is taken rather than dealt.
 signal shoved(racer: Racer, attacker: Racer)
 signal respawned(racer: Racer)
+## Fired just before an unstick respawn, so the HUD can say what happened
+## rather than teleporting the player with no explanation.
+signal unstick_pending(racer: Racer)
 signal stunned_changed(racer: Racer, is_stunned: bool)
 ## Fired whenever the ice shield starts, is broken, or runs out. `active` is
 ## the new state; the HUD reads shield_remaining() for the countdown.
@@ -122,6 +125,27 @@ var speed_scale: float = 1.0  # difficulty / rubberband, set by RaceManager
 var boost_mult: float = 1.0
 
 var progress: float = 0.0  # distance along course guide path
+## Unstick watchdog. The AI has had one of these since the beginning
+## (AIController._check_stuck / _check_progress_watchdog); the player never
+## did, so a player who wedged against geometry ABOVE the kill plane -- which
+## is where most of the geometry is -- had no way out but the pause menu. Seen
+## on a real device: wedged below the track lip at 44% and still there ninety
+## seconds later. This does for the player what the AI already does for
+## itself, and only when the racer is genuinely pinned: near-stationary, no
+## meaningful course progress, and not in a state that legitimately holds
+## position.
+## Pinned against geometry: rescue quickly, because nothing the player does
+## will free them and every second of it is a second of the race lost.
+const UNSTICK_WINDOW_PINNED: float = 4.0
+## Not visibly pinned, just going nowhere -- a bowl, a seam, or a player who
+## has genuinely stopped. Long enough that pausing to look around, lining up a
+## jump or reading the track is never interrupted. Matches the patience of the
+## AI's own progress watchdog.
+const UNSTICK_WINDOW_IDLE: float = 12.0
+const UNSTICK_PROGRESS: float = 3.0   ## Metres along the course that count as progress.
+const UNSTICK_SPEED: float = 1.5      ## Above this the racer is moving, not stuck.
+var _unstick_timer: float = 0.0
+var _unstick_progress_mark: float = -1.0
 var total_progress: float = 0.0  # checkpoints * big + progress
 var race_position: int = 1
 var last_checkpoint_index: int = -1
@@ -328,6 +352,7 @@ func _physics_process(delta: float) -> void:
 		return
 	controller.tick(delta)
 	_update_timers(delta)
+	_check_stuck(delta)
 	_update_guide()
 	_detect_surface()
 	_update_platform_carry(delta)
@@ -1504,6 +1529,53 @@ func respawn_at_checkpoint() -> void:
 	_set_state(State.RECOVERING)
 	respawned.emit(self)
 	AudioManager.play_sfx_3d("sfx_respawn", global_position, 1.0, -6.0)
+
+
+## Rescues a racer that has stopped making progress and stopped moving.
+##
+## Deliberately conservative: it needs BOTH a stalled course position and a
+## near-zero speed for the whole window, so a slow climb, a careful line or a
+## player reading the track is never interrupted. Stunned and recovering
+## racers hold position by design and reset the window instead; AI racers keep
+## their own watchdogs, which also know how to re-pick a branch afterwards.
+func _check_stuck(delta: float) -> void:
+	if not is_player or state == State.FINISHED or course == null:
+		_unstick_timer = 0.0
+		return
+	# A racer whose controller is not taking input is being held on purpose --
+	# the starting grid during the countdown, a cutscene -- and standing still
+	# there is correct, not stuck.
+	var human := controller as PlayerController
+	if human != null and not human.input_enabled:
+		_unstick_timer = 0.0
+		_unstick_progress_mark = progress
+		return
+	if is_stunned_or_recovering() or state == State.AIRBORNE:
+		_unstick_timer = 0.0
+		_unstick_progress_mark = progress
+		return
+	if _unstick_progress_mark < 0.0:
+		_unstick_progress_mark = progress
+	if progress - _unstick_progress_mark >= UNSTICK_PROGRESS \
+			or absf(current_speed) > UNSTICK_SPEED:
+		_unstick_timer = 0.0
+		_unstick_progress_mark = progress
+		return
+	_unstick_timer += delta
+	# is_on_wall() is the difference between "wedged" and "waiting": a racer
+	# leaning on geometry with nowhere to go earns the short fuse, and one
+	# simply standing on open ice gets the long one.
+	var window := UNSTICK_WINDOW_PINNED if is_on_wall() else UNSTICK_WINDOW_IDLE
+	if _unstick_timer < window:
+		return
+	_unstick_timer = 0.0
+	# Re-mark on the next frame, not from here: the respawn moves the racer
+	# BACK to its checkpoint, so keeping the stuck position as the mark would
+	# demand the player re-earn that ground before the watchdog rearmed, and a
+	# second wedge on the way would fire again immediately.
+	_unstick_progress_mark = -1.0
+	unstick_pending.emit(self)
+	respawn_at_checkpoint()
 
 
 func _check_kill_plane() -> void:
