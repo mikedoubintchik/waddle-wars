@@ -228,6 +228,11 @@ run_case "texture_format" --script tests/texture_format_test.gd
 run_case "orientation_recovery" res://tests/orientation_recovery_test.tscn
 
 run_case "mobile_ui_audit" res://tests/mobile_ui_audit.tscn
+# The HUD and the touch buttons share the bottom strip of a phone screen, and
+# nothing checked that they share it without colliding: the course gauge's
+# right end -- the end carrying the percentage -- was drawn under SHOVE.
+# Needs a window for the same reason the audit does.
+run_case "race_hud_touch_layout" res://tests/race_hud_touch_layout.tscn
 run_case "runner_sim" res://tests/runner_sim.tscn -- seconds=60
 run_case "runner_churn" res://tests/runner_churn.tscn -- runs=8
 run_case "race_sim glacier" res://tests/race_sim.tscn -- course=glacier

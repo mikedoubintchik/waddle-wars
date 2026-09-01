@@ -177,6 +177,35 @@ static func button_rects_for_profile(profile: LayoutProfile,
 	}
 
 
+## Left edge of the bottom-right action cluster (SHOVE / ITEM / BACK), in the
+## same logical space the HUD lays out in. The HUD's bottom rail runs across
+## the screen and these buttons sit on top of it, so the rail has to know
+## where they begin -- on a portrait phone the course gauge's right end ran
+## straight under SHOVE and the percentage was unreadable. Shared rather than
+## re-derived so the two can never drift apart.
+static func action_cluster_rect(profile: LayoutProfile,
+		requested_scale: float = 1.0) -> Rect2:
+	var rects := button_rects_for_profile(profile, requested_scale)
+	if rects.is_empty():
+		return Rect2()
+	var bounds := Rect2()
+	var started := false
+	for id: String in ["shove", "item", "back"]:
+		var rect := rects.get(id, Rect2()) as Rect2
+		if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+			continue
+		bounds = rect if not started else bounds.merge(rect)
+		started = true
+	return bounds if started else Rect2()
+
+
+## The cluster's footprint for the live viewport and the player's touch scale.
+static func action_cluster_rect_for_viewport(viewport: Viewport) -> Rect2:
+	var scale := clampf(
+		float(SettingsManager.get_setting("gameplay", "touch_scale")), 0.5, 2.0)
+	return action_cluster_rect(LayoutProfile.for_viewport(viewport), scale)
+
+
 func button_rects() -> Dictionary:
 	var result: Dictionary = {}
 	for button: Dictionary in _buttons:

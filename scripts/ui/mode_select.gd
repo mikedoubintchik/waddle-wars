@@ -90,6 +90,9 @@ const DIFFICULTY_PITCH: Dictionary = {
 
 ## Corner language, shared with results.gd: cards are soft, rows are tighter.
 const RADIUS_CARD: int = 18
+## Floor for a phone card that has sized itself to its content, so a short
+## card still reads as a card and stays a comfortable thumb target.
+const CARD_MIN_HEIGHT: float = 120.0
 const RADIUS_ROW: int = 10
 
 ## Promoted-action face, matching the main menu's Play hero and results' Race
@@ -426,6 +429,56 @@ func _stat_tile(parent: Control, value: String, caption: String, tint: Color,
 ## Card shell: one radius, one border language, one padding rhythm — and it is
 ## a real focusable Button, because every card on this screen is a choice.
 ## Returns the inert full-rect content host for the caller to fill.
+## Sizes a grid of cards to what they actually hold.
+##
+## A card's contents sit in a MarginContainer anchored to the button's full
+## rect, which means they never reach the button's own minimum size: the
+## height is whatever constant was authored, and the button clips. Both ends
+## of that hurt on a phone. The Endless card wanted 394 units and was given
+## 346, so its description was quietly cut off; the difficulty cards wanted
+## 359 and were given 473, leaving a quarter of every card empty between the
+## pitch and the pip meters.
+##
+## In a multi-column grid the cards share a row, so they take one shared
+## height -- the tallest card's content, never less than the authored value.
+## In the single-column phone layout nothing sits beside them, so each card
+## takes its own height and the empty band disappears.
+##
+## Runs as a coroutine: label minimum sizes are only final once the grid has
+## handed out its column width, which takes a layout pass.
+func _fit_cards(grid: GridContainer, columns: int, authored: float) -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not is_instance_valid(grid):
+		return
+	var cards: Array[Button] = []
+	var wanted: Array[float] = []
+	for child: Node in grid.get_children():
+		var button := child as Button
+		if button == null:
+			continue
+		var content := 0.0
+		for inner: Node in button.get_children():
+			var host := inner as Control
+			if host != null:
+				content = maxf(content, host.get_combined_minimum_size().y)
+		if content <= 0.0:
+			continue
+		cards.append(button)
+		wanted.append(content)
+	if cards.is_empty():
+		return
+	if columns > 1:
+		var tallest := authored
+		for height: float in wanted:
+			tallest = maxf(tallest, height)
+		for button: Button in cards:
+			button.custom_minimum_size.y = tallest
+		return
+	for i: int in cards.size():
+		cards[i].custom_minimum_size.y = maxf(wanted[i], CARD_MIN_HEIGHT)
+
+
 func _make_card(parent: Control, min_size: Vector2, action: Callable,
 		primary: bool = false, pad: float = 18.0) -> MarginContainer:
 	var button := Button.new()
@@ -711,6 +764,7 @@ func _show_mode_step() -> void:
 		"best score" if endless_best > 0 else "", false,
 		func() -> void:
 			Game.start_endless())
+	_fit_cards(grid, grid.columns, tile.y)
 
 	_build_back_row("Main Menu", func() -> void:
 		SceneRouter.go_to(Game.SCENE_MAIN_MENU))
@@ -829,6 +883,7 @@ func _show_course_step() -> void:
 			_course_row(grid, Vector2(width, _u(190.0)), course_id, pick)
 		else:
 			_course_tile(grid, Vector2(width, _u(330.0)), course_id, pick)
+	_fit_cards(grid, columns, _u(190.0) if portrait else _u(330.0))
 
 	_build_back_row("Back", _show_mode_step)
 	_focus_first()
@@ -1001,6 +1056,7 @@ func _show_difficulty_step() -> void:
 		# rather than the first card in reading order.
 		_difficulty_card(grid, Vector2(width, _u(268.0)), id, i + 1,
 			id == "competitive", pick)
+	_fit_cards(grid, columns, _u(268.0))
 
 	_build_back_row("Back",
 		_show_mode_step if _chosen_mode == Game.Mode.GRAND_PRIX else _show_course_step)

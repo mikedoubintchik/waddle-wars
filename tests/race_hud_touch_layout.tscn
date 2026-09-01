@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tests/race_hud_touch_layout.gd" id="1"]
+
+[node name="RaceHudTouchLayout" type="Node"]
+script = ExtResource("1")

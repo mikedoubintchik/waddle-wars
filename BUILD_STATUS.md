@@ -1068,3 +1068,37 @@ visualViewport — the iOS Safari feedback loop that put a 472 px canvas in a
 prevents default, stops propagation so Godot's blocking alert never fires,
 and the Reload button reloads). Mutation-checked: raising the budget to
 9.25 Mp fails 6 of them.
+
+### Phone layout: cards that fit, and a HUD that shares the screen
+
+Running the Android build turned up two layout defects that no test could see,
+because nothing measured card contents or where the HUD lands relative to the
+touch buttons.
+
+**Cards were sized by hand, and the hand was wrong.** A card's contents sit in
+a MarginContainer anchored to the button's full rect, so they never reach the
+button's own minimum size: the height is whatever constant was authored, and
+the button clips. `tests/card_probe.tscn` measures both. On a 390x844 phone
+the Endless Expedition card wanted 394 units and was given 346 — its
+description was quietly sliced off — while every difficulty card wanted 359
+and was given 473, leaving a quarter of each card empty between the pitch and
+the pip meters, which is exactly what the Android screenshots showed.
+`_fit_cards()` now sizes them: in a multi-column grid the row shares the
+tallest card's height, and in the single-column phone layout each card takes
+its own. Re-measured after the change, all three steps report zero slack and
+zero overflow.
+
+**The HUD and the touch buttons were fighting over the bottom of the screen.**
+The course gauge ran from 32% to 68% of the width; SHOVE starts at about 62%
+on a portrait phone, so the end of the rail — the end carrying the percentage
+— was drawn underneath a button. The rail now stops short of the cluster, and
+where there is no room to stop short (at touch scale 2 the buttons own the
+right 70% of the canvas) it lifts above the buttons instead of shrinking into
+a stub. It re-measures on rotation and when the player moves the touch-scale
+slider, both of which move the cluster.
+
+`tests/race_hud_touch_layout.tscn` is the guard: it builds the real HUD at
+five device sizes across three touch scales and checks every bottom-rail
+widget against every button rect, the safe area and the canvas — 390 checks,
+all passing. It found the touch-scale-2 case on its own, which the fix as
+first written did not handle.
