@@ -811,7 +811,12 @@ func _mode_card(parent: Control, tile: Vector2, title: String, icon_svg: String,
 	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text_box.add_child(name_label)
-	_body_text(text_box, blurb, 17, 2).add_theme_color_override("font_color",
+	# Three lines in the single-column phone layout. The card is full width
+	# there and the blurbs are written long -- "the cup goes to th…" is not a
+	# sentence -- and the card sizes to its content now, so the extra line
+	# costs nothing but the height it uses.
+	_body_text(text_box, blurb, 17, 3 if _is_portrait() else 2) \
+		.add_theme_color_override("font_color",
 		Color(0.84, 0.92, 0.99) if primary else UITheme.COLOR_TEXT_DIM)
 	_caption(text_box, meta, 13,
 		Color(0.78, 0.90, 1.0, 0.85) if primary else Color(tint, 0.85))
@@ -1020,7 +1025,9 @@ func _course_row(parent: Control, tile: Vector2, id: String, action: Callable) -
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(column)
 	_course_title(column, info, 25)
-	var blurb := _body_text(column, String(info.get("desc", "")), 16, 2)
+	# The portrait row is the full width of the screen; two lines cut every
+	# course description short.
+	var blurb := _body_text(column, String(info.get("desc", "")), 16, 3)
 	blurb.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_course_records(column, id, info, tint, true)
 
