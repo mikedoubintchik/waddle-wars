@@ -235,8 +235,65 @@ func _measure(scene_name: String, instance: Node, size: Vector2i,
 			continue
 		_failures.append("%s: %s at %s is outside the canvas and no ancestor can scroll to it"
 			% [label, _describe(control), control.get_global_rect()])
+	# Content sliced off inside a clipping control. This is the defect class
+	# the mode-select cards had: a card whose contents are anchored to its
+	# full rect never raise its minimum size, so an authored height that is
+	# too small silently cuts the last line of text off, and nothing looks
+	# broken enough to notice in a screenshot. A ScrollContainer clips by
+	# design and is excluded along with everything under it.
+	var clipped: Array[Dictionary] = []
+	_find_clipped(instance, clipped)
+	for entry: Dictionary in clipped:
+		var offender: Control = entry["control"]
+		# An auto-named Button says nothing; the text inside it says which
+		# card is losing its last line.
+		var caption := _first_text(offender)
+		_failures.append("%s: %s%s clips its contents (%.0f tall, needs %.0f)"
+			% [label, _describe(offender),
+				" (\"%s\")" % caption if caption != "" else "",
+				float(entry["have"]), float(entry["want"])])
+
 	if offenders.is_empty():
 		print("[mobile-ui] ok    %s" % label)
+
+
+## Controls that clip content taller than they are.
+##
+## A ScrollContainer clips by design -- that is what scrolling is -- so it is
+## skipped, but only it. Everything inside one is fair game: a card that cuts
+## off its own last line of text is just as broken whether or not the page it
+## sits on scrolls, and an earlier version of this check that carried the
+## exemption down the tree found nothing at all, because every menu here lives
+## inside a scroll.
+func _find_clipped(node: Node, found: Array[Dictionary], _unused: bool = false) -> void:
+	var control := node as Control
+	if control != null and control.clip_contents and control.is_visible_in_tree() \
+			and not (node is ScrollContainer) and control.size.y > 0.0:
+		var want := 0.0
+		for child: Node in control.get_children():
+			var inner := child as Control
+			if inner != null and inner.is_visible_in_tree():
+				want = maxf(want, inner.get_combined_minimum_size().y)
+		if want > control.size.y + EDGE_TOLERANCE:
+			found.append({"control": control, "have": control.size.y, "want": want})
+	for child: Node in node.get_children():
+		_find_clipped(child, found)
+
+
+## First non-empty label text under a node, for naming a control that Godot
+## only knows as "@Button@103".
+func _first_text(node: Node) -> String:
+	var label := node as Label
+	if label != null and label.text.strip_edges() != "":
+		return label.text.substr(0, 28)
+	var button := node as Button
+	if button != null and button.text.strip_edges() != "":
+		return button.text.substr(0, 28)
+	for child: Node in node.get_children():
+		var found := _first_text(child)
+		if found != "":
+			return found
+	return ""
 
 
 ## True when the screen has a ScrollContainer that can actually scroll
