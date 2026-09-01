@@ -44,6 +44,16 @@ const SCENES: Array[Dictionary] = [
 	# Back defect as the rest, so it belongs in the audit.
 	{"name": "controls", "path": "res://scenes/menus/controls.tscn"},
 	{"name": "results", "path": "res://scenes/menus/results.tscn"},
+	# The first screen anyone sees. It was not audited, which is exactly the
+	# kind of gap the main-menu overflow came out of.
+	{"name": "title", "path": "res://scenes/ui/title.tscn", "must_fit": true},
+]
+
+## Screens built in code rather than authored as scenes. The pause menu is the
+## only way off a race on a phone -- there is no Esc key -- so a Quit button
+## under the home indicator strands the player in a race they cannot leave.
+const CODE_SCREENS: Array[Dictionary] = [
+	{"name": "pause_menu", "class": "PauseMenu", "must_fit": true},
 ]
 
 ## PHYSICAL device sizes in CSS pixels. These are converted to the logical
@@ -105,6 +115,9 @@ func _run(final: bool = false) -> void:
 		for entry: Dictionary in SCENES:
 			await _audit(String(entry["name"]), String(entry["path"]), size,
 				bool(entry.get("must_fit", false)))
+		for entry: Dictionary in CODE_SCREENS:
+			await _audit_code_screen(String(entry["name"]), size,
+				bool(entry.get("must_fit", false)))
 	if not final:
 		return
 	print("")
@@ -118,6 +131,38 @@ func _run(final: bool = false) -> void:
 		print("[mobile-ui] FAIL  %s" % failure)
 	print("[mobile-ui] %d unreachable-content failures" % _failures.size())
 	get_tree().quit(1)
+
+
+## Same measurement as _audit, for a screen that has no .tscn to load. The
+## pause menu is built entirely in code and opened by a key or a button, so it
+## has to be constructed and opened by hand here.
+func _audit_code_screen(screen_name: String, size: Vector2i,
+		must_fit: bool = false) -> void:
+	DisplayServer.window_set_size(size)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var instance: Node = null
+	match screen_name:
+		"pause_menu":
+			var menu := PauseMenu.new()
+			get_tree().root.add_child(menu)
+			await get_tree().process_frame
+			# quiet: no click sound for a measurement.
+			menu.call("_open", null, 0.0, false, true)
+			instance = menu
+		_:
+			_failures.append("%s: no builder for a code screen by that name" % screen_name)
+			return
+	for _i: int in 3:
+		await get_tree().process_frame
+	_measure(screen_name, instance, size, must_fit)
+	# The pause menu pauses the tree; leaving it paused would freeze the rest
+	# of the audit, which advances on process frames.
+	if instance.has_method("_close"):
+		instance.call("_close")
+	get_tree().paused = false
+	instance.queue_free()
+	await get_tree().process_frame
 
 
 func _audit(scene_name: String, path: String, size: Vector2i,
@@ -136,7 +181,14 @@ func _audit(scene_name: String, path: String, size: Vector2i,
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await get_tree().process_frame
+	_measure(scene_name, instance, size, must_fit)
+	instance.queue_free()
+	await get_tree().process_frame
 
+
+## Everything the audit actually asserts, for one built screen at one size.
+func _measure(scene_name: String, instance: Node, size: Vector2i,
+		must_fit: bool) -> void:
 	var rect := get_tree().root.get_visible_rect()
 	var offenders: Array[Dictionary] = []
 	_walk(instance, rect, offenders)
@@ -185,8 +237,6 @@ func _audit(scene_name: String, path: String, size: Vector2i,
 			% [label, _describe(control), control.get_global_rect()])
 	if offenders.is_empty():
 		print("[mobile-ui] ok    %s" % label)
-	instance.queue_free()
-	await get_tree().process_frame
 
 
 ## True when the screen has a ScrollContainer that can actually scroll
@@ -211,13 +261,23 @@ func _interactive_bounds(node: Node, best: Rect2) -> Rect2:
 	var control := node as Control
 	if control != null and control.is_visible_in_tree() and _is_interactive(control):
 		var r := control.get_global_rect()
-		if r.size.x > 0.0 and r.size.y > 0.0:
+		if r.size.x > 0.0 and r.size.y > 0.0 and not _is_full_canvas_catcher(r):
 			if best.size.x == 0.0 or r.end.x > best.end.x or r.position.x < best.position.x:
 				_widest_name = _describe(control)
 			best = r if best.size.x == 0.0 else best.merge(r)
 	for child: Node in node.get_children():
 		best = _interactive_bounds(child, best)
 	return best
+
+
+## A control deliberately covering the whole canvas to catch a tap anywhere --
+## the title screen's "Tap anywhere" button is one. It cannot be off-screen or
+## out of reach by construction, and including it in the interactive bounds
+## makes every screen that has one look like it overflows on both axes.
+func _is_full_canvas_catcher(rect: Rect2) -> bool:
+	var canvas := get_tree().root.get_visible_rect()
+	return rect.size.x >= canvas.size.x - EDGE_TOLERANCE \
+		and rect.size.y >= canvas.size.y - EDGE_TOLERANCE
 
 
 ## The widest visible container that overflows `budget` AND contains something
