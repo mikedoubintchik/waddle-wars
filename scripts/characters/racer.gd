@@ -143,7 +143,6 @@ const UNSTICK_WINDOW_PINNED: float = 4.0
 ## AI's own progress watchdog.
 const UNSTICK_WINDOW_IDLE: float = 12.0
 const UNSTICK_PROGRESS: float = 3.0   ## Metres along the course that count as progress.
-const UNSTICK_SPEED: float = 1.5      ## Above this the racer is moving, not stuck.
 var _unstick_timer: float = 0.0
 var _unstick_progress_mark: float = -1.0
 var total_progress: float = 0.0  # checkpoints * big + progress
@@ -1533,11 +1532,13 @@ func respawn_at_checkpoint() -> void:
 
 ## Rescues a racer that has stopped making progress and stopped moving.
 ##
-## Deliberately conservative: it needs BOTH a stalled course position and a
-## near-zero speed for the whole window, so a slow climb, a careful line or a
-## player reading the track is never interrupted. Stunned and recovering
-## racers hold position by design and reset the window instead; AI racers keep
-## their own watchdogs, which also know how to re-pick a branch afterwards.
+## Judged on course progress alone, over a window long enough that a slow
+## climb, a careful line or a player reading the track is never interrupted.
+## Speed is deliberately not part of it: the case this exists for is a racer
+## running INTO a wall, waddling at full tilt and covering no ground, and a
+## speed test would rearm the watchdog on exactly those racers. Stunned and
+## recovering racers hold position by design and reset the window instead; AI
+## racers keep their own watchdogs, which also re-pick a branch afterwards.
 func _check_stuck(delta: float) -> void:
 	if not is_player or state == State.FINISHED or course == null:
 		_unstick_timer = 0.0
@@ -1556,8 +1557,12 @@ func _check_stuck(delta: float) -> void:
 		return
 	if _unstick_progress_mark < 0.0:
 		_unstick_progress_mark = progress
-	if progress - _unstick_progress_mark >= UNSTICK_PROGRESS \
-			or absf(current_speed) > UNSTICK_SPEED:
+	# Course progress is the only honest measure of being stuck, and speed is
+	# actively misleading: the case this was written for is a racer running
+	# INTO a wall, waddling at full tilt and covering no ground at all. A
+	# speed test rearmed the watchdog on exactly the racers that needed it,
+	# which is why the AI's own progress watchdog never looked at speed.
+	if progress - _unstick_progress_mark >= UNSTICK_PROGRESS:
 		_unstick_timer = 0.0
 		_unstick_progress_mark = progress
 		return

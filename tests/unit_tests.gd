@@ -94,19 +94,23 @@ func _test_unstick_watchdog() -> void:
 		racer._check_stuck(0.05)
 	_check("unstick_fires_when_pinned", int(seen["rescues"]) == 1, "fired %d times" % int(seen["rescues"]))
 
-	# Moving is not stuck, however little ground is covered.
+	# The case this exists for: a racer waddling at full tilt straight into a
+	# wall. It is moving fast and going nowhere, and it must still be rescued.
+	# A speed test used to rearm the watchdog here, so this is the check that
+	# would have caught the first version of the fix.
 	seen["rescues"] = 0
 	racer.state = Racer.State.WADDLING
-	racer.current_speed = Racer.UNSTICK_SPEED + 2.0
+	racer.current_speed = 9.0
+	racer.progress = 100.0
 	racer._unstick_progress_mark = -1.0
-	for _i: int in window * 2:
+	for _i: int in window:
 		racer._check_stuck(0.05)
-	_check("unstick_ignores_a_moving_racer", int(seen["rescues"]) == 0, "fired %d times" % int(seen["rescues"]))
+	_check("unstick_rescues_a_racer_running_into_a_wall",
+		int(seen["rescues"]) == 1, "fired %d times" % int(seen["rescues"]))
 
 	# Neither is crawling forward: progress alone rearms the window.
 	seen["rescues"] = 0
 	racer.state = Racer.State.WADDLING
-	racer.current_speed = 0.0
 	racer.progress = 100.0
 	racer._unstick_progress_mark = -1.0
 	for i: int in window * 2:
