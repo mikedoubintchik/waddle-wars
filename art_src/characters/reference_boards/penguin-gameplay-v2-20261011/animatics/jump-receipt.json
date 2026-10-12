@@ -1,0 +1,251 @@
+{
+  "schema": 1,
+  "action": "jump",
+  "description": "Eight generated still poses played as a stepped reference animatic; not a game capture or finished animation.",
+  "source_file": "jump-rear-sequence.png",
+  "source_sha256": "e0e1fde4977ef9eea73269909401f86af4f0ae51034277d01d67d29c08a31333",
+  "source_dimensions": [
+    1774,
+    887
+  ],
+  "grid": [
+    4,
+    2
+  ],
+  "frame_dimensions": [
+    443,
+    443
+  ],
+  "extraction": "Original pixels; nearest rounded grid boundaries; at most one right/bottom pixel trimmed per cell; no resize or retouch.",
+  "source_pose_count": 8,
+  "timing_seconds": [
+    0.2,
+    0.12,
+    0.12,
+    0.18,
+    0.18,
+    0.12,
+    0.16,
+    0.5
+  ],
+  "sequence_seconds": 1.58,
+  "loop_transition": "Final-pose hold, then deliberate hard cut to first pose; no generated recovery or interpolation",
+  "frames": [
+    {
+      "frame": 1,
+      "file": "jump-frame-01.png",
+      "sheet_bounds_xyxy": [
+        0,
+        0,
+        444,
+        444
+      ],
+      "trim_right_bottom_px": [
+        1,
+        1
+      ],
+      "duration_seconds": 0.2,
+      "sha256": "6c8cd59f37ae6f79b6c86b1618cd020f393358f24338e76f4c73a21a781c924d",
+      "source_crop_pixel_signature": "1545a8ed1de143ccc7504c86416201c7e8efe19336f962f428d1c6832f6be70a",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 2,
+      "file": "jump-frame-02.png",
+      "sheet_bounds_xyxy": [
+        444,
+        0,
+        887,
+        444
+      ],
+      "trim_right_bottom_px": [
+        0,
+        1
+      ],
+      "duration_seconds": 0.12,
+      "sha256": "b8093e863677b87cc49c3d4af55db0d3097c2ccd00cd827a6a40211ee4e2a029",
+      "source_crop_pixel_signature": "275b60e4c09b99bcb23b9c512a85676fb2cc9db1139de5731287530e735cd1c2",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 3,
+      "file": "jump-frame-03.png",
+      "sheet_bounds_xyxy": [
+        887,
+        0,
+        1330,
+        444
+      ],
+      "trim_right_bottom_px": [
+        0,
+        1
+      ],
+      "duration_seconds": 0.12,
+      "sha256": "86d477881e257e57aca61f027c291259e5f6163e74ada2ba95818bb9e900e594",
+      "source_crop_pixel_signature": "3b964d752f7dd8083387469ed6fbfa75561289eb8e90ca816589e18f9431d399",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 4,
+      "file": "jump-frame-04.png",
+      "sheet_bounds_xyxy": [
+        1330,
+        0,
+        1774,
+        444
+      ],
+      "trim_right_bottom_px": [
+        1,
+        1
+      ],
+      "duration_seconds": 0.18,
+      "sha256": "33516ef9bbe0be49edc40f344d55738cb2970ebcab318376a76545edee038841",
+      "source_crop_pixel_signature": "e39d0a4212de65fe9a34680a23da9ede49103344ae12580998d6f7adc2cbe574",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 5,
+      "file": "jump-frame-05.png",
+      "sheet_bounds_xyxy": [
+        0,
+        444,
+        444,
+        887
+      ],
+      "trim_right_bottom_px": [
+        1,
+        0
+      ],
+      "duration_seconds": 0.18,
+      "sha256": "9986d6e9679890bdcf2e319733c747044e3d5105a4c95fc2a47bdf7f085210a8",
+      "source_crop_pixel_signature": "00cc087ec7269c5d84a9873c8894d49bdd897edc47ab9afef61b4a379772b646",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 6,
+      "file": "jump-frame-06.png",
+      "sheet_bounds_xyxy": [
+        444,
+        444,
+        887,
+        887
+      ],
+      "trim_right_bottom_px": [
+        0,
+        0
+      ],
+      "duration_seconds": 0.12,
+      "sha256": "678146b8714988b651c5e56a730afe2a30c4cc85b79c6a04e8c6148a6d96874e",
+      "source_crop_pixel_signature": "856e456b5e7987d62ed4567e239572414ebf21fa68ad91180b7ecfcea92ce277",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 7,
+      "file": "jump-frame-07.png",
+      "sheet_bounds_xyxy": [
+        887,
+        444,
+        1330,
+        887
+      ],
+      "trim_right_bottom_px": [
+        0,
+        0
+      ],
+      "duration_seconds": 0.16,
+      "sha256": "c6ef4a22d3e834447dcc22663ddf53180a959bad61092bed8a953e4724936226",
+      "source_crop_pixel_signature": "ac81d03d836457d79bfbc746bf8e86b83e4f5b05229c828f24bc7313ce41dad3",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 8,
+      "file": "jump-frame-08.png",
+      "sheet_bounds_xyxy": [
+        1330,
+        444,
+        1774,
+        887
+      ],
+      "trim_right_bottom_px": [
+        1,
+        0
+      ],
+      "duration_seconds": 0.5,
+      "sha256": "570f2308eca3c81c62d6726a6862a11461e12cb3e245a104e3a9bd4fdb68d707",
+      "source_crop_pixel_signature": "52596feda7ba8e3a7ed6c20554e21c3dde14782d96c60cdbc7501247e3c1267a",
+      "lossless_pixel_match": true
+    }
+  ],
+  "verification": {
+    "lossless_source_crops": 8,
+    "gif_frames": 8,
+    "timings_verified": true
+  },
+  "gif": {
+    "file": "jump.gif",
+    "sha256": "6ca3fdcba11668544bd79e6fbe00ff51a8958b0e52e0953a4c549187cb7eca5c",
+    "canvas_width_height_delay_centiseconds": [
+      [
+        443,
+        443,
+        20
+      ],
+      [
+        443,
+        443,
+        12
+      ],
+      [
+        443,
+        443,
+        12
+      ],
+      [
+        443,
+        443,
+        18
+      ],
+      [
+        443,
+        443,
+        18
+      ],
+      [
+        443,
+        443,
+        12
+      ],
+      [
+        443,
+        443,
+        16
+      ],
+      [
+        443,
+        443,
+        50
+      ]
+    ],
+    "encoding": "GIF palette encoding; infinite loop"
+  },
+  "mp4": {
+    "file": "jump.mp4",
+    "sha256": "89c90782d73a1a5a8da4629abc544c694140351e65bc04b458d674972d3e8308",
+    "probe": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "width": 444,
+          "height": 444,
+          "nb_frames": "158"
+        }
+      ],
+      "format": {
+        "duration": "1.580000"
+      }
+    },
+    "encoding": "H.264 yuv420p at 100 frames/sec for exact centisecond holds; duplicate stills only; at most one right/bottom padding pixel for even dimensions; no interpolation"
+  }
+}

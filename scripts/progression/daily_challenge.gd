@@ -154,7 +154,7 @@ static func record_completion(time_seconds: float) -> Dictionary:
 	var fish := 0
 	if first_today:
 		fish = BASE_REWARD + mini((current_streak - 1) * STREAK_BONUS, STREAK_BONUS_CAP)
-		Progression.add_fish(fish)
+		Progression.add_fish(fish, "daily:%d" % day)
 	SaveManager.save_now()
 	return {
 		"first_today": first_today,

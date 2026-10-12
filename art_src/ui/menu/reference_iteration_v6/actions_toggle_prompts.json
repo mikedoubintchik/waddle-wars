@@ -1,0 +1,37 @@
+[
+  {
+    "key": "settings_controls_mobile_toggle_corrected_v6",
+    "refs": [
+      "/Users/ninja/Fun/waddle-wars/art_src/ui/menu/reference_iteration_v6/settings_controls_mobile_v6.png"
+    ],
+    "prompt": "Use case: precise-object-edit. This is a finished Waddle Wars mobile Settings Controls reference mockup. Change ONLY three gray OFF switches: SLIDE: TOGGLE MODE, TILT STEERING, and INVERT TILT. Move each white circular thumb to the LEFT end of its gray pill, which means off. Keep the gray pill geometry. Keep both red enabled TUTORIAL HINTS and VIBRATION switches with thumbs RIGHT. Preserve EVERYTHING else exactly: all text, icons, eight rows, scrollbar, autosave note, reset button, background, lighting, margins, canvas portrait dimensions. Do not add or remove anything."
+  },
+  {
+    "key": "runner_jump_mobile_v6",
+    "refs": [
+      "/Users/ninja/Fun/waddle-wars/qa_shots/menu-reference-review-20261007-iteration5/references/runner_hud_portrait_v5.png"
+    ],
+    "prompt": "Use case: ui-mockup. Create one full-frame portrait 9:16 Waddle Wars in-game JUMP state reference, using input image as strict design reference. Preserve exact HUD layout, snow capped ivory panel language, navy rounded text, bright blue ocean ice runway and rear-view penguin design, readable fish, correct perspective. Only change central gameplay moment: penguin visibly airborne jumping over one knee-high blue ice block on center lane, with feet tucked and flippers spread, small soft snow takeoff puff and grounded elliptical shadow clearly below. Keep penguin small enough to see course; no super-sized hero portrait, no explanatory text or labels. Three heart icons, blue fish13, x1, magnet12s/shield8s, score361 distance60m, Challenges and bottom Avalanche gap34m stay composed like input. No giant fog veil; world remains clear. Reference illustration for implementers, not a photo of a monitor. Entire HUD uncropped."
+  },
+  {
+    "key": "runner_slide_desktop_v6",
+    "refs": [
+      "/Users/ninja/Fun/waddle-wars/qa_shots/menu-reference-review-20261007-iteration5/references/runner_hud_desktop_v5.png"
+    ],
+    "prompt": "Use case: ui-mockup. Create one full-frame landscape16:9 Waddle Wars in-game SLIDE state reference using input image as strict design reference. Preserve exact HUD layout, snow capped ivory panel language, navy rounded text, bright blue ocean ice runway and rear-view penguin design, readable blue fish, course perspective. Change central gameplay moment: penguin lies flat on its belly gliding under a low crossbar gantry across center lane, short controlled ice shavings trailing from belly, flippers swept back, orange feet visible. Camera still rear chase viewpoint. Keep penguin same approximate screen size and centered; no super-sized character. Gantry clear and readable without covering HUD. No explanatory captions. All HUD positions unchanged: Challenges upper left, distance60m/score361 top center, three hearts/blue fish13/x1 below, pause upper right with magnet/shield/x2 countdowns, Avalanche gap34m bottom center. No fog veil. Entire HUD uncropped."
+  },
+  {
+    "key": "runner_jump_desktop_v6",
+    "refs": [
+      "/Users/ninja/Fun/waddle-wars/qa_shots/menu-reference-review-20261007-iteration5/references/runner_hud_desktop_v5.png"
+    ],
+    "prompt": "Use case: ui-mockup. Create one full-frame landscape16:9 Waddle Wars in-game JUMP state reference using input image as strict design reference. Preserve exact HUD layout, snow capped ivory panels, navy rounded text, bright blue ocean ice runway, course perspective and rear-view penguin design. Change central gameplay moment: penguin visibly airborne jumping over a knee-high blue ice block in center lane, orange feet tucked and flippers spread, small soft snow takeoff puff and grounded elliptical shadow below. Keep small penguin central at original approximate screen size; no giant hero. No captions. HUD unchanged: Challenges upper left, distance60m/score361 top center, three hearts/blue fish13/x1 below, pause upper right with magnet12s/shield8s/x2 15s badges, Avalanche gap34m bottom center. No fog veil; clear course. Entire HUD uncropped."
+  },
+  {
+    "key": "runner_slide_mobile_v6",
+    "refs": [
+      "/Users/ninja/Fun/waddle-wars/qa_shots/menu-reference-review-20261007-iteration5/references/runner_hud_portrait_v5.png"
+    ],
+    "prompt": "Use case: ui-mockup. Create one full-frame portrait9:16 Waddle Wars in-game SLIDE state reference using input as strict design reference. Preserve exact HUD positions and margins, snow capped ivory panels, navy rounded text, bright blue ocean ice runway, readable blue fish and rear chase perspective. Change central gameplay moment only: penguin lies flat on belly gliding toward and under a low blue crossbar gantry with black/yellow hazard stripe, short controlled ice shavings behind belly, flippers swept back and orange feet visible. Gantry on runway below HUD. Keep penguin near lower center and approximately original screen size. No explanatory labels. All HUD remains composed like input: Challenges, distance60m/score361, three hearts, fish13, x1, pause, magnet12s/shield8s, bottom Avalanche gap34m. No fog veil. Entire frame and HUD uncropped."
+  }
+]

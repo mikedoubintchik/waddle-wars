@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "type": "non_consumable_cosmetic_bundles",
+  "products": [
+    {
+      "id": "cozy_expedition",
+      "name": "Cozy Expedition",
+      "description": "Cozy Beanie, Red Scarf and Snowflake Trail. Dress for the long waddle.",
+      "cosmetics": ["hat_beanie", "scarf_red", "trail_snowflake"],
+      "currency": "usd",
+      "price_minor": 299,
+      "apple_product_id": "com.blubberandbyte.waddlewars.cozy_expedition",
+      "google_product_id": "com.blubberandbyte.waddlewars.cozy_expedition"
+    },
+    {
+      "id": "research_crew",
+      "name": "Research Crew",
+      "description": "Research Headset, Bow Tie and Ski Goggles. Expedition-ready style.",
+      "cosmetics": ["hat_headset", "scarf_bowtie", "goggles_ski"],
+      "currency": "usd",
+      "price_minor": 399,
+      "apple_product_id": "com.blubberandbyte.waddlewars.research_crew",
+      "google_product_id": "com.blubberandbyte.waddlewars.research_crew"
+    },
+    {
+      "id": "aurora_celebration",
+      "name": "Aurora Celebration",
+      "description": "Emperor's Crown, Rainbow Scarf and Aurora Trail. Celebrate in southern-light colors.",
+      "cosmetics": ["hat_crown", "scarf_rainbow", "trail_aurora"],
+      "currency": "usd",
+      "price_minor": 499,
+      "apple_product_id": "com.blubberandbyte.waddlewars.aurora_celebration",
+      "google_product_id": "com.blubberandbyte.waddlewars.aurora_celebration"
+    }
+  ],
+  "disclosure": "Cosmetics only. Fish unlocks cost the sum of each unowned item's fish price; owned items are excluded. Unlocking does not equip items. Store purchases are one-time, with no subscriptions, random rewards or gameplay bonuses. Previously earned items receive no fish refund."
+}

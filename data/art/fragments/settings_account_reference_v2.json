@@ -1,0 +1,92 @@
+{
+  "concepts": [],
+  "generated_assets": [
+    {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_settings_account_reference_atlas_v2",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/settings_account_reference_atlas_v2.png",
+      "prompt_path": "art_src/ui/menu/settings_account_reference_v2.prompt.md",
+      "sha256": "baced9f0b3d5cec90129981544634923587a9379eb0551cd9c64e264687f769a",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        941,
+        1672
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_settings_cabin_blank_v2",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/settings_cabin_blank_v2.png",
+      "prompt_path": "art_src/ui/menu/settings_cabin_blank_v2.prompt.md",
+      "sha256": "ed9373aee8aa7e6a8191f1957bad576fbe799af8b36edf0272fdcede6841a53b",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1672,
+        941
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_account_background_landscape_v2",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/account_background_landscape_v2.png",
+      "prompt_path": "art_src/ui/menu/account_background_landscape_v2.prompt.md",
+      "sha256": "8f34b3efa52aa7f2c4ba64e33c71a9d087c1a0fe95ccd87f8918a05adf299ac2",
+      "status": "production_source"
+    }
+  ],
+  "runtime_assets": [
+    {
+      "groups": [
+        "frontend",
+        "menu",
+        "settings_account_reference"
+      ],
+      "id": "settings_account_reference_atlas_v2",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/settings_account_reference_atlas_v2.webp",
+      "production_ready": false,
+      "sha256": "41a5b5610d87f34fbdf975bdd2516b1c83ee7f7ded71a196a14322f272bbbbb6",
+      "source_export_id": "imagegen_settings_account_reference_atlas_v2"
+    },
+    {
+      "groups": [
+        "frontend",
+        "menu",
+        "settings_account_reference"
+      ],
+      "id": "settings_cabin_blank_v2",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/settings_cabin_blank_v2.webp",
+      "production_ready": false,
+      "sha256": "c8f4eddb205b19dfb7f9fa539847b70f381dccc41c919aaeb2c64d3b1efe3b7f",
+      "source_export_id": "imagegen_settings_cabin_blank_v2"
+    },
+    {
+      "groups": [
+        "frontend",
+        "menu",
+        "settings_account_reference"
+      ],
+      "id": "account_background_landscape_v2",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/account_background_landscape_v2.webp",
+      "production_ready": false,
+      "sha256": "80d1203fdc7df1ce78fd4020398e0fcba945ae2e9d15737508f9d859870a30f3",
+      "source_export_id": "imagegen_account_background_landscape_v2"
+    }
+  ],
+  "source_exports": []
+}

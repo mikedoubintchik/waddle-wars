@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3]
+[ext_resource type="Script" path="res://tests/runner_life_pressure_test.gd" id="1"]
+[node name="RunnerLifePressureTest" type="Node"]
+script = ExtResource("1")

@@ -1,0 +1,190 @@
+{
+  "schema_version": 1,
+  "scope": "Source geometry and material data only; game appearance pending",
+  "passed": true,
+  "glb_sha256": "c895c19f310f71d8667cc871b1947d9a5d635653c99ee5acca4035fcb063c62c",
+  "source_sha256": "ba68b1f4f5e77f4712b4c80d16dfd7b4588b6624b0ac504b7a7e47e7ab5f97f2",
+  "builder_sha256": "fe93978e494a7762ee1d742388c780a6daeeec576f7acd66d79bf585f745d3e9",
+  "verifier_sha256": "7515ef06b861046ee91a0e14e2d47d9f745c4faecb8b85f642c8536716719a56",
+  "geometry_reference": {
+    "path": "art_src/characters/penguin_rear_surface_v1/candidate.glb",
+    "glb_sha256": "b21ca5327a7798b31b1b5b7aa098a4452c623db2c95044244aa490fb72fc7484"
+  },
+  "geometry_identity": {
+    "method": "Scoped exact oriented POSITION+NORMAL triangles; body/feet protected, tail/flippers allowed",
+    "sha256": "c2162e0dc25222da3a7d23b0a4b49c65c1635c5cf1c82b8f92d378e2ebfa0936",
+    "source_sha256": "10b230ec9f0dfd6ea563af6186b3ea450bf9d0b2ebf2b4f66da019e0d305de9e",
+    "passed": true
+  },
+  "scoped_geometry_identity": {
+    "protected": [
+      "continuous_body_head",
+      "foot_L",
+      "foot_R"
+    ],
+    "allowed": [
+      "flipper_L",
+      "flipper_R",
+      "short_tail_fan"
+    ],
+    "baseline": {
+      "flipper_L": {
+        "unique_positions": 482,
+        "triangles": 960,
+        "position_normal_sha256": "ba502acc69b7bafe566981dd47ff6f3e748da70bb30ad401bb9ad820cfc2a5b7",
+        "uv_triangles_sha256": "40a92a6fe27cc07181479ea03154c18f2ac89e80b144e7558183cbbbe7534af3"
+      },
+      "foot_L": {
+        "unique_positions": 1922,
+        "triangles": 3840,
+        "position_normal_sha256": "2db979e8e240fb30e9e88ee5af586d68c14e9b303519edf8f496e3369130f2c3",
+        "uv_triangles_sha256": "9bb75e6b67774cd235cacb9c8cd0c37c8e860b0dc89c748445b8e1f87558ff19"
+      },
+      "short_tail_fan": {
+        "unique_positions": 306,
+        "triangles": 608,
+        "position_normal_sha256": "824fab0a86896097ce6e656904f7a110349a0d6fc7a1cca3e3ab26a1a38e7491",
+        "uv_triangles_sha256": "203fb0d8fc38487705037835fb6a9008edb1e05f92eed9021c477c398cd0c134"
+      },
+      "continuous_body_head": {
+        "unique_positions": 2258,
+        "triangles": 4512,
+        "position_normal_sha256": "e5e13c43a0f35c0f83773966ee9b6e2f210472d193557fe0317e2b5f9fb29ef7",
+        "uv_triangles_sha256": "22f9bf4eef044c7587ef47f90be99bb37843044f555b4ce675d3c0b2d43b4d38"
+      },
+      "foot_R": {
+        "unique_positions": 1922,
+        "triangles": 3840,
+        "position_normal_sha256": "ed8fa93fa6a08ad559905d01fae3376de5ecf4af9b723d921078e84b3aba5c35",
+        "uv_triangles_sha256": "0cffd782bd1da254faeaef02953b6a0506c231e742da269f5c7075ba5ea1fd1c"
+      },
+      "flipper_R": {
+        "unique_positions": 482,
+        "triangles": 960,
+        "position_normal_sha256": "27e7fba6c5bcf4bfb7081123773b729dc95fe9c4b518c016efb4728347596f4b",
+        "uv_triangles_sha256": "3459fc4795fd6ef2d744579ebeb2106c21d4a673121aa239c77d43f3b7887a7c"
+      }
+    },
+    "candidate": {
+      "flipper_L": {
+        "unique_positions": 482,
+        "triangles": 960,
+        "position_normal_sha256": "a2b3e4f58c46668b02177215eed59a6901398e483c812749b2b72c9c78db95f4",
+        "uv_triangles_sha256": "40a92a6fe27cc07181479ea03154c18f2ac89e80b144e7558183cbbbe7534af3"
+      },
+      "foot_L": {
+        "unique_positions": 1922,
+        "triangles": 3840,
+        "position_normal_sha256": "2db979e8e240fb30e9e88ee5af586d68c14e9b303519edf8f496e3369130f2c3",
+        "uv_triangles_sha256": "9bb75e6b67774cd235cacb9c8cd0c37c8e860b0dc89c748445b8e1f87558ff19"
+      },
+      "short_tail_fan": {
+        "unique_positions": 306,
+        "triangles": 608,
+        "position_normal_sha256": "bf8ec58c78a6e98d99d8e63dfe08004a4d5258ede0aed690d387ab1cadb2a119",
+        "uv_triangles_sha256": "203fb0d8fc38487705037835fb6a9008edb1e05f92eed9021c477c398cd0c134"
+      },
+      "continuous_body_head": {
+        "unique_positions": 2258,
+        "triangles": 4512,
+        "position_normal_sha256": "e5e13c43a0f35c0f83773966ee9b6e2f210472d193557fe0317e2b5f9fb29ef7",
+        "uv_triangles_sha256": "22f9bf4eef044c7587ef47f90be99bb37843044f555b4ce675d3c0b2d43b4d38"
+      },
+      "foot_R": {
+        "unique_positions": 1922,
+        "triangles": 3840,
+        "position_normal_sha256": "ed8fa93fa6a08ad559905d01fae3376de5ecf4af9b723d921078e84b3aba5c35",
+        "uv_triangles_sha256": "0cffd782bd1da254faeaef02953b6a0506c231e742da269f5c7075ba5ea1fd1c"
+      },
+      "flipper_R": {
+        "unique_positions": 482,
+        "triangles": 960,
+        "position_normal_sha256": "d09d3ccc57d066284b2ae153820e319e6d1163648cfa7495f56a35a783aead97",
+        "uv_triangles_sha256": "3459fc4795fd6ef2d744579ebeb2106c21d4a673121aa239c77d43f3b7887a7c"
+      }
+    },
+    "passed": true
+  },
+  "triangles": 14720,
+  "triangles_unchanged": true,
+  "unique_positions": 7372,
+  "exported_vertices_with_uv_splits": 8095,
+  "nonmanifold_welded_edges": 0,
+  "zero_area_uv_triangles": 0,
+  "minimum_uv_triangle_twice_area": 2.0559871245495742e-06,
+  "normal_unit_max_error": 1.1920928955078125e-07,
+  "tangent_unit_max_error": 7.426738739013672e-05,
+  "tangent_normal_max_dot_error": 0.0001189112663269043,
+  "tangent_numerical_tolerance": 0.001,
+  "color_owner": "sRGB baseColorTexture only; COLOR_0 absent; factor white",
+  "metallic_response_zero": true,
+  "surface_maps": {
+    "base_color": {
+      "sha256": "46253671996aba6272f65c3c4c0b1da24c4b1be696887bf1ad1b14bd041d1ee1",
+      "size": [
+        1024,
+        1024
+      ],
+      "mode": "RGB",
+      "embedded_png": true,
+      "channels_min": [
+        0,
+        0,
+        0
+      ],
+      "channels_max": [
+        242,
+        237,
+        222
+      ]
+    },
+    "normal": {
+      "sha256": "e7081b4e87a1174a0c249048baab0fedf9c05fdf9f68e91ed1cc358aca2e684a",
+      "size": [
+        1024,
+        1024
+      ],
+      "mode": "RGB",
+      "embedded_png": true,
+      "channels_min": [
+        29,
+        75,
+        203
+      ],
+      "channels_max": [
+        230,
+        160,
+        255
+      ]
+    },
+    "metallic_roughness": {
+      "sha256": "42225c3b59a23c37f8cc36321e6bcf5eda7557c4d48f412b7603926169752675",
+      "size": [
+        1024,
+        1024
+      ],
+      "mode": "RGB",
+      "embedded_png": true,
+      "channels_min": [
+        255,
+        194,
+        0
+      ],
+      "channels_max": [
+        255,
+        231,
+        0
+      ]
+    }
+  },
+  "uv_padding_pixels": 8,
+  "normal_map_unit_vector_max_quantization_error": 0.0053528400262596865,
+  "baseline_b21_and_v9_preserved": true,
+  "khronos_validator": {
+    "errors": 0,
+    "warnings": 0,
+    "infos": 0,
+    "hints": 0,
+    "log_sha256": "0e1c3eda340ebe07e2a62f7ad34487c0a4a5444a937353559ebe12ae7effc07a"
+  }
+}

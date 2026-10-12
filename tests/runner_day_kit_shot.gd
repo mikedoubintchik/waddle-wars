@@ -19,7 +19,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if not _day_kit_injected and _game != null and _game.build_finished:
 		_day_kit_injected = true
-		var art_set := load("res://data/art/runner_art_set_foundation.tres") as RunnerArtSet
+		var art_set := load("res://tests/fixtures/art/runner_day_review_art_set.tres") as RunnerArtSet
 		var catalog := ArtCatalog.new()
 		catalog.manifest_path = "res://tests/fixtures/art/runner_day_kit_catalog.json"
 		var load_error := catalog.reload_manifest()

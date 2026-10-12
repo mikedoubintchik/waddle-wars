@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "glb_sha256": "cfcca134d9cb532aaff3bc5e4d07fc30c1def284f860428a420ad425d539dc49",
+  "source_sha256": "ba27bb0b6c3018c7cbb3cb98f4e4c3b026a05ff87ee6802e2508fc0358166b75",
+  "passed": true,
+  "triangles": 9344,
+  "normals_verified": 4684,
+  "positions_verified": 4684,
+  "literal_linear_colors_verified": 4684,
+  "source_and_config_bound": true,
+  "body_head_flippers_tail_positions_normals_colors_bit_identical_v4": true,
+  "bmesh_color_index_error_m": 0,
+  "foot_sole_vertices_exactly_grounded": 194,
+  "ankle_caps_inside_body": [
+    {
+      "part": "foot_L",
+      "ankle_cap_body_ellipse_ratio": 0.412454807709996,
+      "sole_min_z_m": 0.0,
+      "ankle_cap_m": [
+        -0.15769655369058766,
+        0.10516288509510094,
+        0.235
+      ]
+    },
+    {
+      "part": "foot_R",
+      "ankle_cap_body_ellipse_ratio": 0.412454807709996,
+      "sole_min_z_m": 0.0,
+      "ankle_cap_m": [
+        0.15769655369058766,
+        0.10516288509510094,
+        0.235
+      ]
+    }
+  ],
+  "heel_upper_surface_at_v4_ankle_peak_xy_m": 0.06502573383311659,
+  "v4_height_at_same_xy_m": 0.245,
+  "note": "Surface probe proves the old steep rear rise was removed; actual screen-space foot silhouette still requires final visual review.",
+  "rendered_frames": 0,
+  "visual_approval": "pending"
+}

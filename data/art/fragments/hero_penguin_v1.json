@@ -61,7 +61,7 @@
       "license_id": "project_original",
       "path": "res://assets/art/characters/hero_penguin_v1.glb",
       "production_ready": false,
-      "sha256": "9221ee88e606b6e1fb98c193a95817e72788fdafc77fb14a4d2a91fdee646fb1",
+      "sha256": "cc1528969bb9603b437f6074ba8c8e806e74b2fe8f01b5289753c41c4678c915",
       "source_export_id": "hero_penguin_v1"
     },
     {
@@ -75,7 +75,7 @@
       "license_id": "project_original",
       "path": "res://assets/art/characters/hero_penguin_v1_lod1.glb",
       "production_ready": false,
-      "sha256": "d376441241fa3cd04370cb46267fad17bbbca54a9baae800860e67c843b23cc2",
+      "sha256": "11e63ebfa804c9401d59921f1a46d5fc5a2f39c719ce93c179bf09f4a38ff8bf",
       "source_export_id": "hero_penguin_v1_lod1"
     },
     {
@@ -167,10 +167,10 @@
       "license_id": "project_original",
       "output": "assets/art/characters/hero_penguin_v1.glb",
       "source": "art_src/characters/hero_penguin_v1.blend",
-      "source_sha256": "d61ba531a170ed5d942d4f42b0670d319c3ba7d2b57fa650442de61b961ea5d7"
+      "source_sha256": "bb5181110ab725e255f3701669486c87207a4887768df5ef7cbde9786c34cdeb"
     },
     {
-      "asset_class": "character",
+      "asset_class": "character_lod",
       "collection": "hero_penguin_v1_lod1",
       "expected": {
         "bounds_meters_max": [
@@ -224,7 +224,7 @@
       "license_id": "project_original",
       "output": "assets/art/characters/hero_penguin_v1_lod1.glb",
       "source": "art_src/characters/hero_penguin_v1.blend",
-      "source_sha256": "d61ba531a170ed5d942d4f42b0670d319c3ba7d2b57fa650442de61b961ea5d7"
+      "source_sha256": "bb5181110ab725e255f3701669486c87207a4887768df5ef7cbde9786c34cdeb"
     }
   ],
   "generated_assets": [],
@@ -279,7 +279,7 @@
       "generated_on": "2026-08-18",
       "generator": "User-provided via Codex chat; original generator/model unknown",
       "id": "hero_penguin_user_reference_2026_08_18",
-      "license_id": "project_original",
+      "license_id": "reference_unverified",
       "path": "art_src/characters/hero_penguin_user_reference_2026-08-18.png",
       "prompt_path": "art_src/characters/hero_penguin_user_reference_2026-08-18.prompt.md",
       "sha256": "33f33f68f7e775342534619ebdf8d38f5c6c957a04d9e4fb8fd0d1d9c2ff93e2",

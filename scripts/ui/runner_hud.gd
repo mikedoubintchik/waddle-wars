@@ -5,10 +5,9 @@ extends CanvasLayer
 ## bottom avalanche gauge, the reward floaters, the centred callout, and the
 ## end-of-run panel.
 ##
-## Visual system is deliberately the racing HUD's, so a player moving between
-## the two modes reads one interface rather than two: the same shared card art
-## (UITheme.make_card_style), the same value-over-caption type pair, the same
-## GUTTER / GAP_S / GAP_M rhythm, and UITheme's palette throughout.
+## Live HUD follows the expedition menus: painted ivory snow cards, navy
+## Lilita One type, coral lives and authored ImageGen power-up sprites.
+## Numbers, progress and touch ownership remain native controls.
 ##
 ## FEEDBACK IS THE POINT. An endless runner is a slot machine you steer: the
 ## metres tick by on their own, so the only thing that makes a run feel EARNED
@@ -41,6 +40,46 @@ extends CanvasLayer
 
 signal restart_pressed
 signal menu_pressed
+signal pause_pressed
+signal results_cover_changed(covered: bool)
+
+
+## Raw touch ownership is local to this button. Owned drags/releases remain
+## consumed while paused; new touches must reach controls on the pause overlay. A
+## normal Button only receives mouse-emulated finger 0; RunnerTouch otherwise
+## sees every unhandled finger as a gameplay gesture.
+class PauseButton:
+	extends Button
+
+	var _touches: Dictionary = {}
+	var _emulated_press: bool = false
+
+	func _input(event: InputEvent) -> void:
+		if event is InputEventScreenTouch:
+			var touch := event as InputEventScreenTouch
+			if touch.pressed and not get_tree().paused and not disabled and is_visible_in_tree() \
+					and get_global_rect().has_point(touch.position):
+				_touches[touch.index] = true
+				get_viewport().set_input_as_handled()
+				pressed.emit()
+			elif not touch.pressed and _touches.has(touch.index):
+				_touches.erase(touch.index)
+				get_viewport().set_input_as_handled()
+		elif event is InputEventScreenDrag:
+			if _touches.has((event as InputEventScreenDrag).index):
+				get_viewport().set_input_as_handled()
+		elif event is InputEventMouseButton:
+			var mouse := event as InputEventMouseButton
+			if mouse.device == InputEvent.DEVICE_ID_EMULATION \
+					and mouse.button_index == MOUSE_BUTTON_LEFT:
+				if _emulated_press or (mouse.pressed and (not get_tree().paused or _touches.has(0)) \
+						and not disabled \
+						and is_visible_in_tree() and get_global_rect().has_point(mouse.position)):
+					_emulated_press = mouse.pressed
+					get_viewport().set_input_as_handled()
+		elif event is InputEventMouseMotion and _emulated_press \
+				and event.device == InputEvent.DEVICE_ID_EMULATION:
+			get_viewport().set_input_as_handled()
 
 ## --- Layout rhythm ----------------------------------------------------------
 const GUTTER: float = 24.0          ## Screen-edge margin (UITheme.SPACE_M).
@@ -59,10 +98,10 @@ const NARROW_WIDTH: float = 620.0
 ## column. Estimated rather than measured: _relayout runs before the containers
 ## have sorted (and on every resize), so reading the live size would sample a
 ## stale rect exactly when it matters. Both are deliberate over-estimates.
-const HEADLINE_ROW_WIDTH: float = 366.0
-const HEADLINE_ROW_HEIGHT: float = 152.0
-const HEADLINE_COLUMN_WIDTH: float = 214.0
-const HEADLINE_COLUMN_HEIGHT: float = 258.0
+const HEADLINE_ROW_WIDTH: float = 540.0
+const HEADLINE_ROW_HEIGHT: float = 260.0
+const HEADLINE_COLUMN_WIDTH: float = 320.0
+const HEADLINE_COLUMN_HEIGHT: float = 380.0
 ## Narrowest a challenge stack may be squeezed before it is dropped below the
 ## headline instead. Under this it ellipsises every goal into uselessness.
 const MISSION_MIN_WIDTH: float = 154.0
@@ -73,7 +112,7 @@ const MISSION_MIN_WIDTH: float = 154.0
 const WARN_GAP: float = 18.0
 const DANGER_GAP: float = 10.0
 ## Peak opacity of the screen-edge danger veil, reached as the gap hits zero.
-const VEIL_ALPHA: float = 0.74
+const VEIL_ALPHA: float = 0.22
 ## Heartbeat rate (Hz) at the edge of danger and at nought metres. Kept well
 ## under the 3 Hz photosensitivity line even at its fastest, and the depth is
 ## a modulation of an already-visible wash rather than an on/off flash — but
@@ -81,14 +120,19 @@ const VEIL_ALPHA: float = 0.74
 ## the aggressive part.
 const BEAT_SLOW: float = 1.25
 const BEAT_FAST: float = 2.60
-const GAUGE_WIDTH: float = 400.0
-const GAUGE_HEIGHT: float = 16.0
+const GAUGE_WIDTH: float = 720.0
+const GAUGE_HEIGHT: float = 42.0
+## Fixed metre scale, so the same absolute gap always has the same visual length.
+const GAUGE_DISPLAY_RANGE: float = 64.0
 
 ## Warning red, shared by the gauge fill, the metre readout and the veil.
 const COLOR_DANGER: Color = Color(1.0, 0.36, 0.30)
 ## Mission-complete / goal-met green. Distinct from both the ice accent (which
 ## means "neutral information") and the gold (which means "score").
-const COLOR_GOAL: Color = Color(0.51, 0.92, 0.60)
+const COLOR_GOAL: Color = Color("21894f")
+const INK: Color = ExpeditionMenuStyle.INK
+const INK_MUTED: Color = ExpeditionMenuStyle.INK_MUTED
+const ICE: Color = Color("168ed0")
 
 ## --- Floaters ---------------------------------------------------------------
 ## Pooled rising popups. Sixteen is comfortably more than a magnet sweep can
@@ -97,6 +141,7 @@ const COLOR_GOAL: Color = Color(0.51, 0.92, 0.60)
 const FLOAT_POOL: int = 16
 ## Fixed label width so the text can be centre-aligned without measuring it.
 const FLOAT_WIDTH: float = 460.0
+const FISH_FLOATER_SIZE := Vector2(96.0, 64.0)
 const FLOAT_RISE: float = 138.0
 ## Fraction of the viewport height the floaters spawn at: just above the
 ## penguin, so a reward lands where the player is already looking.
@@ -107,12 +152,12 @@ const MISSION_ROWS: int = 3
 ## Wide enough for the longest real goal line ("Dodge everything for 800 m")
 ## before the row ellipsises. _relayout clamps it back down when the viewport
 ## cannot spare the width.
-const MISSION_PANEL_WIDTH: float = 300.0
-const MISSION_BAR_HEIGHT: float = 7.0
+const MISSION_PANEL_WIDTH: float = 460.0
+const MISSION_BAR_HEIGHT: float = 16.0
 
 ## --- Power-up rings ---------------------------------------------------------
 ## Diameter of the draining ring, in logical units at hud_scale 1.
-const RING_SIZE: float = 54.0
+const RING_SIZE: float = 104.0
 
 ## Score count-up: how fast the displayed score chases the real one. The
 ## exponential term makes a pickup surge and settle; the flat term guarantees
@@ -206,15 +251,18 @@ var _top_divider: ColorRect = null
 var _distance_label: Label = null
 var _score_label: Label = null
 var _fish_label: Label = null
+var _fish_pill: PanelContainer = null
+var _fish_counter_icon: TextureRect = null
+var _indicator_applied_scale := -1.0
 var _lives_pill: PanelContainer = null
 var _life_pips: Array[Panel] = []
-var _pip_alive: StyleBoxFlat = null
-var _pip_spent: StyleBoxFlat = null
+var _pip_alive: StyleBoxTexture = null
+var _pip_spent: StyleBoxTexture = null
 var _multiplier_chip: PanelContainer = null
 var _multiplier_label: Label = null
-var _chip_quiet: StyleBoxFlat = null
-var _chip_hot: StyleBoxFlat = null
-var _gauge_holder: VBoxContainer = null
+var _chip_quiet: StyleBox = null
+var _chip_hot: StyleBox = null
+var _gauge_holder: PanelContainer = null
 var _gauge_bar: ProgressBar = null
 var _gauge_tag: Label = null
 var _gauge_value: Label = null
@@ -223,10 +271,21 @@ var _hit_flash: TextureRect = null
 var _speed_lines: ColorRect = null
 var _speed_material: ShaderMaterial = null
 var _message_label: Label = null
+var _objective_label: Label = null
 var _message_tween: Tween = null
 var _message_text: String = ""
 var _game_over: Control = null
 var _game_over_buttons: BoxContainer = null
+var _results_stage: Control = null
+var _results_title: TextureRect = null
+var _results_background: TextureRect = null
+var _results_hero: TextureRect = null
+var _results_art_space: Control = null
+var _results_card: PanelContainer = null
+var _results_summary: PanelContainer = null
+var _results_inset_margin: MarginContainer = null
+var _results_mission_labels: Array[Label] = []
+var _pause_button: PauseButton = null
 
 ## Challenge stack.
 var _mission_panel: PanelContainer = null
@@ -239,6 +298,8 @@ var _mission_ids: PackedStringArray = PackedStringArray()
 var _mission_target: PackedFloat32Array = PackedFloat32Array()
 var _mission_shown: PackedFloat32Array = PackedFloat32Array()
 var _mission_pct_shown: PackedInt32Array = PackedInt32Array()
+var _mission_amounts: PackedFloat32Array = PackedFloat32Array()
+var _mission_goals: PackedFloat32Array = PackedFloat32Array()
 var _mission_done: Array[bool] = []
 ## Missions finished during THIS run, listed on the end-of-run panel so a run
 ## reads as a set of goals met rather than as a distance.
@@ -258,6 +319,9 @@ var _powerup_on: Array[bool] = []
 ## writes floats into existing storage instead of allocating a state record.
 var _float_root: Control = null
 var _float_labels: Array[Label] = []
+var _float_badges: Array[Panel] = []
+var _float_fish_icons: Array[TextureRect] = []
+var _float_kinds: Array[StringName] = []
 var _float_age: PackedFloat32Array = PackedFloat32Array()
 var _float_life: PackedFloat32Array = PackedFloat32Array()
 var _float_x: PackedFloat32Array = PackedFloat32Array()
@@ -298,6 +362,7 @@ var _speed_gold: bool = false
 ## both set_stats and set_combo.
 var _combo_frame: int = -1
 var _view_size: Vector2 = Vector2(1920.0, 1080.0)
+var _hud_view_size: Vector2 = Vector2(1920.0, 1080.0)
 var _demo_time: float = 0.0
 var _demo_step: int = 0
 ## True only while the QA feed is making its calls, so the game's own (empty)
@@ -321,7 +386,8 @@ func setup() -> void:
 			if arg == "hud_demo=1":
 				demo_feed = true
 	_root = Control.new()
-	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_root.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_root.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_root)
 
@@ -334,6 +400,7 @@ func setup() -> void:
 	_build_gauge()
 	_build_missions()
 	_build_powerups()
+	_build_pause()
 	_build_floaters()
 	_build_banner()
 	_build_message()
@@ -345,61 +412,114 @@ func setup() -> void:
 	_play_entrance()
 
 
+func _build_pause() -> void:
+	_pause_button = PauseButton.new()
+	_pause_button.name = "PauseButton"
+	_pause_button.text = ""
+	_pause_button.accessibility_name = "Pause the run"
+	_pause_button.icon = RunnerHUDArt.hud_sprite("pause")
+	_pause_button.expand_icon = true
+	_pause_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_pause_button.add_theme_constant_override("icon_max_width", int(46.0 * _hud_scale))
+	_pause_button.tooltip_text = "Pause the run"
+	_pause_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	_pause_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	_pause_button.clip_text = true
+	_pause_button.add_theme_font_override("font", ExpeditionMenuStyle.display_font())
+	_pause_button.add_theme_font_size_override("font_size", int(20.0 * _hud_scale))
+	_pause_button.add_theme_color_override("font_color", INK)
+	var face := RunnerHUDArt.hud_panel("powerup", 20.0 * _hud_scale, 24.0 * _hud_scale, 14.0 * _hud_scale)
+	_pause_button.add_theme_stylebox_override("normal", face)
+	for state: String in ["hover", "pressed"]:
+		var active := RunnerHUDArt.hud_panel("powerup", 20.0 * _hud_scale,
+			24.0 * _hud_scale, 14.0 * _hud_scale,
+			Color("fff0dd") if state == "hover" else Color("c4dded"))
+		_pause_button.add_theme_stylebox_override(state, active)
+	var focus := StyleBoxFlat.new()
+	focus.draw_center = false
+	focus.border_color = Color("59baff")
+	focus.set_border_width_all(2)
+	focus.set_corner_radius_all(14)
+	_pause_button.add_theme_stylebox_override("focus", focus)
+	_pause_button.pressed.connect(func() -> void: pause_pressed.emit())
+	_root.add_child(_pause_button)
+	set_pause_available(false)
+
+
+func set_pause_available(available: bool) -> void:
+	if _pause_button == null:
+		return
+	_pause_button.disabled = not available
+	_pause_button.visible = available
+
+
+## Shares the headline/corner-stack budget with _relayout. The control never
+## covers the headline; power-up rings reserve the following row underneath.
+static func pause_rect_for_profile(profile: LayoutProfile, hud_scale: float = 1.0) -> Rect2:
+	var fit := _reference_fit(profile.viewport_size)
+	if fit < 0.999:
+		var design := LayoutProfile.for_view_size(profile.viewport_size / fit, profile.safe_insets / fit)
+		var authored := pause_rect_for_profile(design, hud_scale)
+		var actual_size := (authored.size * fit).max(Vector2(56.0, 56.0)).min(profile.safe_rect.size)
+		var actual_position := authored.position * fit
+		actual_position.x = clampf(authored.end.x * fit - actual_size.x,
+			profile.safe_rect.position.x, profile.safe_rect.end.x - actual_size.x)
+		actual_position.y = clampf(actual_position.y,
+			profile.safe_rect.position.y, profile.safe_rect.end.y - actual_size.y)
+		return Rect2(actual_position, actual_size)
+	var s := maxf(hud_scale, 0.1)
+	var width := profile.viewport_size.x
+	var safe := profile.safe_rect
+	var margin := maxf(36.0 * s, maxf(profile.safe_insets.x, profile.safe_insets.z))
+	var narrow := width < NARROW_WIDTH * s
+	var headline_w := (HEADLINE_COLUMN_WIDTH if narrow else HEADLINE_ROW_WIDTH) * s
+	var headline_h := (HEADLINE_COLUMN_HEIGHT if narrow else HEADLINE_ROW_HEIGHT) * s
+	var side_room := (width - headline_w) * 0.5 - margin - GAP_M * s
+	# Pause can use a narrower corner than the challenge card. Keep it beside
+	# tall large-text headlines when the short viewport cannot fit it below.
+	var stacked := side_room < 56.0
+	var top := maxf((76.0 if profile.is_portrait() else 56.0) * s, profile.safe_insets.y) \
+		+ (headline_h + GAP_M * s if stacked else 0.0)
+	var button_width := maxf(112.0 * s, 56.0)
+	if not stacked:
+		button_width = minf(button_width, side_room)
+	var button_size := Vector2(minf(button_width, safe.size.x),
+		minf(maxf(104.0 * s, 56.0), safe.size.y))
+	return Rect2(Vector2(
+		clampf(width - margin - button_size.x, safe.position.x, safe.end.x - button_size.x),
+		clampf(top, safe.position.y, safe.end.y - button_size.y)), button_size)
+
+
 ## Card face for a HUD panel. Uses the game's shared baked card texture, so a
 ## HUD card costs no bake and is the same material as every menu card; only the
 ## padding is tightened for the smaller surface.
-func _card_style(pad_h: float, pad_v: float) -> StyleBoxTexture:
-	var style := UITheme.make_card_style()
-	style.content_margin_left = pad_h
-	style.content_margin_right = pad_h
-	style.content_margin_top = pad_v
-	style.content_margin_bottom = pad_v
-	return style
+func _card_style(pad_h: float, pad_v: float) -> StyleBox:
+	return ExpeditionMenuStyle.material_card(pad_h, pad_v)
 
 
-## Rounded glass pill for the secondary row, matching the main menu's status
-## chip: quiet fill, thin tinted rim, pill radius.
-func _pill_style(accent: Color, fill: Color = Color(UITheme.COLOR_BG_DEEP, 0.80)) -> StyleBoxFlat:
-	var style := UITheme.make_panel_style(fill, Color(accent, 0.42))
-	style.set_corner_radius_all(UITheme.RADIUS_PILL)
-	style.content_margin_left = 12.0 * _hud_scale
-	style.content_margin_right = 12.0 * _hud_scale
-	style.content_margin_top = 4.0 * _hud_scale
-	style.content_margin_bottom = 4.0 * _hud_scale
-	style.shadow_size = 6
-	return style
+func _pill_style(_accent: Color, tint: Color = Color.WHITE, scale_override: float = -1.0) -> StyleBox:
+	var s := scale_override if scale_override > 0.0 else _hud_scale
+	return RunnerHUDArt.hud_panel("chip", 24.0 * s, 14.0 * s, 14.0 * s, tint)
 
 
-## Value type: big, emboldened, with a deep-navy outline so it survives being
-## drawn over bright snow. Everything read at a glance is set in this.
-##
-## Written here rather than taken from UITheme's ramp because the make_* helpers
-## apply the menu touch step, which would double-scale over the already-shrunk
-## touch canvas — the racing HUD keeps its own pair for exactly this reason.
-func _value_label(text: String, size: float, color: Color = UITheme.COLOR_TEXT) -> Label:
+func _indicator_scale() -> float:
+	# Large accessibility HUDs use the column layout. Fit the supporting chip
+	# row within that column without shrinking the user's primary score text.
+	return _hud_scale * (0.64 if _hud_design_rect().x < NARROW_WIDTH * _hud_scale else 1.0)
+
+
+func _value_label(text: String, size: float, color: Color = INK) -> Label:
 	var label := Label.new()
 	label.text = text
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.add_theme_font_override("font", UITheme.display_font())
+	label.add_theme_font_override("font", ExpeditionMenuStyle.display_font())
 	label.add_theme_font_size_override("font_size", maxi(int(size), 1))
 	label.add_theme_color_override("font_color", color)
-	label.add_theme_constant_override("outline_size", maxi(int(size * 0.16), 4))
-	label.add_theme_color_override("font_outline_color", UITheme.COLOR_BG_DEEP)
 	return label
 
 
-## Caption type: small, uppercase, tracked, dim. Names a value without ever
-## competing with it.
-func _caption_label(text: String, size: float, color: Color = UITheme.COLOR_TEXT_DIM) -> Label:
-	var label := Label.new()
-	label.text = text.to_upper()
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.add_theme_font_override("font", UITheme.caption_font())
-	label.add_theme_font_size_override("font_size", maxi(int(size), 1))
-	label.add_theme_color_override("font_color", color)
-	label.add_theme_constant_override("outline_size", 3)
-	label.add_theme_color_override("font_outline_color", Color(UITheme.COLOR_BG_DEEP, 0.9))
-	return label
+func _caption_label(text: String, size: float, color: Color = INK_MUTED) -> Label:
+	return _value_label(text.to_upper(), size, color)
 
 
 ## Headline block (top centre): one card holding distance and score, with the
@@ -419,7 +539,7 @@ func _build_headline() -> void:
 	var card := PanelContainer.new()
 	card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_theme_stylebox_override("panel", _card_style(18.0 * s, 7.0 * s))
+	card.add_theme_stylebox_override("panel", RunnerHUDArt.hud_panel("gauge", 28.0 * s, 32.0 * s, 20.0 * s))
 	_headline_column.add_child(card)
 
 	# A bare BoxContainer, not an HBoxContainer: the H/V subclasses have their
@@ -430,17 +550,19 @@ func _build_headline() -> void:
 	_top_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(_top_box)
 
-	_distance_label = _stat_pair(_top_box, "Distance", 42.0 * s, "0 m", 150.0 * s)
+	var view := _hud_design_rect()
+	var stat_width := (200.0 if view.x < NARROW_WIDTH * s else (208.0 if view.y > view.x else 230.0)) * s
+	_distance_label = _stat_pair(_top_box, "Distance", 66.0 * s, "0 m", stat_width)
 	_top_divider = ColorRect.new()
-	_top_divider.color = Color(UITheme.COLOR_ACCENT, 0.20)
+	_top_divider.color = Color(ICE, 0.20)
 	_top_divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_top_box.add_child(_top_divider)
-	_score_label = _stat_pair(_top_box, "Score", 42.0 * s, "0", 150.0 * s,
-		UITheme.COLOR_GOLD)
+	_score_label = _stat_pair(_top_box, "Score", 66.0 * s, "0", stat_width,
+		INK)
 
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(GAP_S * s * 1.6))
+	row.add_theme_constant_override("separation", int(16.0 * s))
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_headline_column.add_child(row)
 	_build_lives_pill(row)
@@ -451,7 +573,7 @@ func _build_headline() -> void:
 ## Value over caption, the atom the headline card is built from. The value gets
 ## a floor width so the card does not twitch as digits are gained.
 func _stat_pair(parent: Control, caption: String, value_size: float,
-		value_text: String, min_width: float, color: Color = UITheme.COLOR_TEXT) -> Label:
+		value_text: String, min_width: float, color: Color = INK) -> Label:
 	var stack := VBoxContainer.new()
 	stack.add_theme_constant_override("separation", 0)
 	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -460,7 +582,8 @@ func _stat_pair(parent: Control, caption: String, value_size: float,
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	value.custom_minimum_size = Vector2(min_width, 0.0)
 	stack.add_child(value)
-	var cap := _caption_label(caption, 13.0 * _hud_scale)
+	var cap := _caption_label(caption, 21.0 * _hud_scale)
+	cap.add_theme_font_override("font", UITheme.caption_font())
 	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stack.add_child(cap)
 	return value
@@ -470,36 +593,24 @@ func _stat_pair(parent: Control, caption: String, value_size: float,
 ## hit is still available. Reads as "how many more mistakes do I get" at a
 ## glance, which a bare number does not.
 func _build_lives_pill(parent: Control) -> void:
-	var s := _hud_scale
+	var s := _indicator_scale()
 	_lives_pill = PanelContainer.new()
 	_lives_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_lives_pill.add_theme_stylebox_override("panel", _pill_style(UITheme.COLOR_ACCENT))
+	_lives_pill.add_theme_stylebox_override("panel", _pill_style(ICE, Color.WHITE, s))
 	parent.add_child(_lives_pill)
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(maxf(5.0 * s, 3.0)))
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_lives_pill.add_child(row)
-	var tag := _caption_label("Lives", 12.0 * s)
-	tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(tag)
-
-	var pip := 14.0 * s
-	_pip_alive = StyleBoxFlat.new()
-	_pip_alive.bg_color = Color(0.96, 0.98, 1.0)
-	_pip_alive.set_corner_radius_all(int(pip * 0.34))
-	_pip_alive.set_border_width_all(1)
-	_pip_alive.border_color = Color(UITheme.COLOR_ACCENT, 0.95)
-	_pip_alive.anti_aliasing = true
-	_pip_spent = StyleBoxFlat.new()
-	_pip_spent.bg_color = Color(UITheme.COLOR_BG_DEEP, 0.75)
-	_pip_spent.set_corner_radius_all(int(pip * 0.34))
-	_pip_spent.set_border_width_all(1)
-	_pip_spent.border_color = Color(COLOR_DANGER, 0.55)
-	_pip_spent.anti_aliasing = true
+	var pip := Vector2(44.0, 38.0) * s
+	_pip_alive = StyleBoxTexture.new()
+	_pip_alive.texture = RunnerHUDArt.hud_sprite("heart")
+	_pip_spent = _pip_alive.duplicate() as StyleBoxTexture
+	_pip_spent.texture = RunnerHUDArt.hud_sprite("heart_spent")
 	for i: int in RunnerConfig.MAX_HITS:
 		var dot := Panel.new()
-		dot.custom_minimum_size = Vector2(pip, pip)
+		dot.custom_minimum_size = pip
 		dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		dot.add_theme_stylebox_override("panel", _pip_alive)
@@ -510,20 +621,22 @@ func _build_lives_pill(parent: Control) -> void:
 ## Fish counter. Same drawn glyph as the racing HUD and the menu currency chip,
 ## so a fish means one thing everywhere in the game.
 func _build_fish_pill(parent: Control) -> void:
-	var s := _hud_scale
+	var s := _indicator_scale()
 	var pill := PanelContainer.new()
+	_fish_pill = pill
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pill.add_theme_stylebox_override("panel", _pill_style(UITheme.COLOR_ACCENT))
+	pill.add_theme_stylebox_override("panel", _pill_style(ICE, Color.WHITE, s))
 	parent.add_child(pill)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(maxf(7.0 * s, 4.0)))
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pill.add_child(row)
-	var texture := UITheme.make_icon(RaceHUD.FISH_ICON_SVG, 2.0)
+	var texture := RunnerHUDArt.hud_sprite("fish")
 	if texture != null:
 		var icon := TextureRect.new()
+		_fish_counter_icon = icon
 		icon.texture = texture
-		icon.custom_minimum_size = Vector2(28.0 * s, 19.0 * s)
+		icon.custom_minimum_size = Vector2(52.0 * s, 40.0 * s)
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -532,10 +645,10 @@ func _build_fish_pill(parent: Control) -> void:
 	else:
 		# SVG module unavailable: an ASCII stand-in still reads, where a Unicode
 		# fish would be a .notdef box in the bundled font.
-		var glyph := _value_label("><>", 18.0 * s, UITheme.COLOR_ACCENT)
+		var glyph := _value_label("><>", 18.0 * s, ICE)
 		glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		row.add_child(glyph)
-	_fish_label = _value_label("0", 22.0 * s)
+	_fish_label = _value_label("0", 44.0 * s)
 	_fish_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(_fish_label)
 
@@ -543,16 +656,16 @@ func _build_fish_pill(parent: Control) -> void:
 ## Score multiplier. Stays quiet at x1 and turns gold the moment clean running
 ## has actually earned something, so the chip is its own reward signal.
 func _build_multiplier_chip(parent: Control) -> void:
-	var s := _hud_scale
-	_chip_quiet = _pill_style(UITheme.COLOR_ACCENT)
-	_chip_hot = _pill_style(UITheme.COLOR_GOLD, Color(0.24, 0.17, 0.04, 0.85))
+	var s := _indicator_scale()
+	_chip_quiet = _pill_style(ICE, Color.WHITE, s)
+	_chip_hot = _pill_style(UITheme.COLOR_GOLD, Color("ffdc91"), s)
 	_multiplier_chip = PanelContainer.new()
 	_multiplier_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_multiplier_chip.add_theme_stylebox_override("panel", _chip_quiet)
 	parent.add_child(_multiplier_chip)
-	_multiplier_label = _value_label("x1", 22.0 * s, UITheme.COLOR_TEXT_DIM)
+	_multiplier_label = _value_label("x1", 44.0 * s, INK_MUTED)
 	_multiplier_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_multiplier_label.custom_minimum_size = Vector2(34.0 * s, 0.0)
+	_multiplier_label.custom_minimum_size = Vector2(60.0 * s, 0.0)
 	_multiplier_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_multiplier_chip.add_child(_multiplier_label)
 
@@ -563,22 +676,34 @@ func _build_multiplier_chip(parent: Control) -> void:
 func _build_gauge() -> void:
 	var s := _hud_scale
 	var bar_h := GAUGE_HEIGHT * s
-	_gauge_holder = VBoxContainer.new()
+	_gauge_holder = PanelContainer.new()
+	# The sprite's snow crest and curved rim are decoration, not text space.
+	_gauge_holder.add_theme_stylebox_override("panel", RunnerHUDArt.hud_panel("gauge", 60.0 * s, 40.0 * s, 24.0 * s))
 	_gauge_holder.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_gauge_holder.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_gauge_holder.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_gauge_holder.offset_bottom = -GUTTER * s
-	_gauge_holder.add_theme_constant_override("separation", int(maxf(3.0 * s, 2.0)))
+
 	_gauge_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(_gauge_holder)
 
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", int(8.0 * s))
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_gauge_holder.add_child(column)
 	var caption := HBoxContainer.new()
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_gauge_holder.add_child(caption)
-	_gauge_tag = _caption_label("Avalanche", 13.0 * s)
+	column.add_child(caption)
+	_gauge_tag = _caption_label("Avalanche Gap", 24.0 * s, INK)
 	_gauge_tag.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_gauge_tag.clip_text = true
+	_gauge_tag.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	caption.add_child(_gauge_tag)
-	_gauge_value = _caption_label("0 m", 13.0 * s, UITheme.COLOR_TEXT)
+	_gauge_value = _caption_label("", 24.0 * s, INK)
+	# The countdown freezes the chaser at its real starting gap. Seed that
+	# distance here, before the first running tick feeds set_stats.
+	_shown_gap = maxi(int(RunnerConfig.CHASER_BASE_GAP), 0)
+	_gauge_value.text = "%d m BEHIND" % _shown_gap
 	_gauge_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	caption.add_child(_gauge_value)
 
@@ -588,13 +713,13 @@ func _build_gauge() -> void:
 	groove.custom_minimum_size = Vector2(0.0, bar_h)
 	groove.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var groove_style := StyleBoxFlat.new()
-	groove_style.bg_color = Color(UITheme.COLOR_BG_DEEP, 0.80)
-	groove_style.set_corner_radius_all(int(bar_h * 0.5))
-	groove_style.set_border_width_all(1)
-	groove_style.border_color = Color(UITheme.COLOR_ACCENT, 0.24)
+	groove_style.bg_color = Color("c5c8ca")
+	groove_style.border_color = Color("99a0a7")
+	groove_style.set_border_width_all(2)
+	groove_style.set_corner_radius_all(roundi(bar_h * 0.5))
 	groove_style.anti_aliasing = true
 	groove.add_theme_stylebox_override("panel", groove_style)
-	_gauge_holder.add_child(groove)
+	column.add_child(groove)
 
 	var inset := maxf(3.0 * s, 2.0)
 	_gauge_bar = ProgressBar.new()
@@ -604,15 +729,16 @@ func _build_gauge() -> void:
 	_gauge_bar.offset_right = -inset
 	_gauge_bar.offset_bottom = -inset
 	_gauge_bar.max_value = 1.0
-	_gauge_bar.value = 1.0
+	_gauge_bar.step = 0.0
+	_gauge_bar.value = RunnerConfig.CHASER_BASE_GAP / GAUGE_DISPLAY_RANGE
 	_gauge_bar.show_percentage = false
 	_gauge_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_gauge_bar.add_theme_stylebox_override("background", StyleBoxEmpty.new())
 	# One neutral fill, tinted through modulate. Re-baking a gradient stylebox as
 	# the danger ramps would be a texture upload per frame; a Color write is free.
-	_gauge_bar.add_theme_stylebox_override("fill",
-		UITheme.make_bar_fill(Color(0.86, 0.94, 1.0), Color(1.0, 1.0, 1.0)))
-	_gauge_bar.modulate = UITheme.COLOR_ACCENT
+	_gauge_bar.add_theme_stylebox_override("fill", RunnerHUDArt.hud_panel("ice_fill", 0.0, 0.0, 0.0))
+	_gauge_bar.modulate = Color.WHITE
+	_gauge_bar.step = 0.0
 	groove.add_child(_gauge_bar)
 
 
@@ -683,6 +809,28 @@ func _build_speed_lines() -> void:
 	_root.add_child(_speed_lines)
 
 
+## Submit the real Canvas shader before gameplay. The 3D warmup passes cannot
+## discover it while this ColorRect is hidden. Zero intensity discards every
+## fragment, but the visible, nontransparent rectangle still submits its real
+## shader/material. Preserve HUD state; this is called while countdown is held.
+func warm_render_resources() -> void:
+	if _headless or not is_inside_tree() or _speed_material == null \
+			or not is_instance_valid(_speed_lines):
+		return
+	var lines := _speed_lines
+	var material := _speed_material
+	var was_visible := lines.visible
+	var prior_intensity: Variant = material.get_shader_parameter("intensity")
+	material.set_shader_parameter("intensity", 0.0)
+	lines.visible = true
+	await RenderingServer.frame_post_draw
+	# A cancelled scene may detach the HUD or free its rectangle during the
+	# await. Restore any surviving resources without touching the gameplay cache.
+	material.set_shader_parameter("intensity", prior_intensity)
+	if is_instance_valid(lines):
+		lines.visible = was_visible
+
+
 ## --- Challenge stack --------------------------------------------------------
 
 ## The three live goals, top-left under the safe area. Every row is built once
@@ -694,7 +842,7 @@ func _build_missions() -> void:
 	_mission_panel = PanelContainer.new()
 	_mission_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_mission_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_mission_panel.add_theme_stylebox_override("panel", _card_style(13.0 * s, 11.0 * s))
+	_mission_panel.add_theme_stylebox_override("panel", RunnerHUDArt.hud_panel("card", 28.0 * s, 42.0 * s, 22.0 * s))
 	_mission_panel.visible = false
 	_root.add_child(_mission_panel)
 
@@ -703,32 +851,57 @@ func _build_missions() -> void:
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_mission_panel.add_child(column)
 
-	var head := _caption_label("Challenges", 12.0 * s, Color(UITheme.COLOR_ACCENT, 0.85))
+	var head := _caption_label("Challenges", 36.0 * s, INK)
 	column.add_child(head)
 
 	# One baked fill for all three bars; the per-row colour is a modulate write.
-	var fill := UITheme.make_bar_fill(Color(0.62, 0.86, 1.0), Color(0.92, 0.99, 1.0))
+	var fill := UITheme.make_bar_fill(Color("099c2c"), Color("64ed56"))
 	var check := UITheme.make_icon(CHECK_SVG, 0.6)
 	for i: int in MISSION_ROWS:
 		var row := VBoxContainer.new()
 		row.add_theme_constant_override("separation", int(maxf(2.0 * s, 1.0)))
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.visible = false
-		column.add_child(row)
+		var row_face := PanelContainer.new()
+		var inset := StyleBoxFlat.new()
+		inset.bg_color = Color("eeeae2")
+		inset.border_color = Color(1.0, 1.0, 1.0, 0.88)
+		inset.border_width_top = 2
+		inset.set_corner_radius_all(int(18.0 * s))
+		inset.content_margin_top = 9.0 * s
+		inset.content_margin_left = 12.0 * s
+		inset.content_margin_right = 12.0 * s
+		inset.content_margin_bottom = 9.0 * s
+		row_face.add_theme_stylebox_override("panel", inset)
+		column.add_child(row_face)
+		row_face.add_child(row)
 
-		var head_row := HBoxContainer.new()
+		var head_row := BoxContainer.new()
 		head_row.add_theme_constant_override("separation", int(maxf(6.0 * s, 3.0)))
 		head_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(head_row)
+		head_row.resized.connect(_fit_mission_row.bind(i))
 
-		var text := _caption_label("", 13.0 * s, UITheme.COLOR_TEXT)
+		var text := _caption_label("", 26.0 * s, INK)
 		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		text.clip_text = true
-		text.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		text.clip_text = false
+		# WORD_SMART can split even the non-breaking distance/unit token when a
+		# growing counter narrows its sibling. Keep whole words; the measured
+		# layout below moves that counter onto its own line before it can squeeze.
+		text.autowrap_mode = TextServer.AUTOWRAP_WORD
+		text.max_lines_visible = -1
+		# Wrapped labels have no useful minimum height while their HBox is
+		# negotiating width. Reserve a readable first line, then grow for the full title.
+		text.custom_minimum_size.y = 32.0 * s
+		text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		text.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 		head_row.add_child(text)
 
-		var pct := _caption_label("0%", 12.0 * s, Color(UITheme.COLOR_TEXT_DIM, 0.95))
+		var pct := _caption_label("0 / 0", 24.0 * s, INK)
+		pct.size_flags_vertical = Control.SIZE_SHRINK_END
 		pct.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		# Leave the painted card's rounded inner edge clear at large counters.
+		pct.add_theme_constant_override("outline_size", 0)
 		head_row.add_child(pct)
 
 		var mark: Control = null
@@ -758,7 +931,31 @@ func _build_missions() -> void:
 		_mission_target.append(0.0)
 		_mission_shown.append(0.0)
 		_mission_pct_shown.append(-1)
+		_mission_amounts.append(0.0)
+		_mission_goals.append(0.0)
 		_mission_done.append(false)
+
+
+## Large real totals must not squeeze an indivisible distance/unit into the
+## counter. Keep the normal reference row, moving its count below only when
+## the longest intact title word cannot fit beside that exact count.
+func _fit_mission_row(index: int) -> void:
+	if index >= _mission_labels.size(): return
+	var title := _mission_labels[index]
+	var metric := _mission_pcts[index]
+	var head := title.get_parent() as BoxContainer
+	if head.size.x <= 0.0: return
+	var font := title.get_theme_font("font")
+	var font_size := title.get_theme_font_size("font_size")
+	var title_width := font.get_string_size(title.text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+	# Query current text, not the Label's cached minimum before container sort.
+	# This matters at 999 -> 1,000 while the parent itself keeps the same width.
+	var side_width := metric.get_theme_font("font").get_string_size(metric.text,
+		HORIZONTAL_ALIGNMENT_LEFT, -1, metric.get_theme_font_size("font_size")).x if metric.visible else 0.0
+	if _mission_marks[index].visible: side_width += _mission_marks[index].get_combined_minimum_size().x
+	var stack := title_width + side_width + head.get_theme_constant("separation") + 8.0 > head.size.x
+	if head.vertical != stack: head.vertical = stack
+	metric.size_flags_horizontal = Control.SIZE_SHRINK_END if stack else Control.SIZE_FILL
 
 
 ## Recessed thin channel with a progress fill inside it, the same material as
@@ -769,10 +966,10 @@ func _thin_bar(height: float, fill: StyleBoxTexture) -> Panel:
 	groove.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	groove.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(UITheme.COLOR_BG_DEEP, 0.85)
+	style.bg_color = Color("bfc3c6")
 	style.set_corner_radius_all(maxi(int(height * 0.5), 2))
 	style.set_border_width_all(1)
-	style.border_color = Color(UITheme.COLOR_ACCENT, 0.22)
+	style.border_color = Color("a4a7aa")
 	style.anti_aliasing = true
 	groove.add_theme_stylebox_override("panel", style)
 
@@ -784,12 +981,13 @@ func _thin_bar(height: float, fill: StyleBoxTexture) -> Panel:
 	bar.offset_right = -inset
 	bar.offset_bottom = -inset
 	bar.max_value = 1.0
+	bar.step = 0.0
 	bar.value = 0.0
 	bar.show_percentage = false
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.add_theme_stylebox_override("background", StyleBoxEmpty.new())
 	bar.add_theme_stylebox_override("fill", fill)
-	bar.modulate = UITheme.COLOR_ACCENT
+	bar.modulate = COLOR_GOAL
 	groove.add_child(bar)
 	return groove
 
@@ -805,61 +1003,58 @@ func _build_powerups() -> void:
 	_powerup_box.vertical = true
 	_powerup_box.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_powerup_box.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_powerup_box.alignment = BoxContainer.ALIGNMENT_BEGIN
-	_powerup_box.add_theme_constant_override("separation", int(maxf(GAP_S * s, 4.0)))
+	_powerup_box.add_theme_constant_override("separation", int(14.0 * s))
 	_powerup_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(_powerup_box)
-
-	var ring_px := maxi(int(RING_SIZE * s), 20)
+	var ring_px := maxi(int(96.0 * s), 20)
 	for id: StringName in RunnerConfig.POWERUP_IDS:
-		var tint := _powerup_color(id)
 		var slot := PanelContainer.new()
+		slot.custom_minimum_size = Vector2(128.0 * s, 136.0 * s)
 		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		slot.size_flags_horizontal = Control.SIZE_SHRINK_END
-		slot.add_theme_stylebox_override("panel",
-			_pill_style(tint, Color(UITheme.COLOR_BG_DEEP, 0.86)))
+		slot.add_theme_stylebox_override("panel", RunnerHUDArt.hud_panel("powerup", 9.0 * s, 18.0 * s, 8.0 * s))
 		slot.visible = false
 		slot.modulate.a = 0.0
 		_powerup_box.add_child(slot)
-
-		var column := VBoxContainer.new()
-		column.add_theme_constant_override("separation", 0)
-		column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		slot.add_child(column)
-
+		var face := Control.new()
+		face.custom_minimum_size = Vector2(RING_SIZE, RING_SIZE) * s
+		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot.add_child(face)
 		var ring := TextureProgressBar.new()
+		ring.position = Vector2(4.0, 6.0) * s
 		ring.texture_under = _ring_tex(ring_px)
 		ring.texture_progress = _ring_tex(ring_px)
-		ring.tint_under = Color(tint.r, tint.g, tint.b, 0.20)
-		ring.tint_progress = tint
+		ring.tint_under = Color(0.68, 0.73, 0.73, 0.5)
+		ring.tint_progress = Color.WHITE
 		ring.fill_mode = TextureProgressBar.FILL_CLOCKWISE
-		ring.radial_initial_angle = 0.0
-		ring.radial_center_offset = Vector2.ZERO
+		ring.radial_initial_angle = 45.0
+		ring.radial_fill_degrees = 270.0
 		ring.max_value = 1.0
+		ring.step = 0.0
 		ring.value = 1.0
-		ring.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		column.add_child(ring)
-
-		var glyph := _powerup_icon(id)
-		if glyph != null:
-			var icon := TextureRect.new()
-			icon.texture = glyph
-			icon.set_anchors_preset(Control.PRESET_FULL_RECT)
-			var pad := float(ring_px) * 0.23
-			icon.offset_left = pad
-			icon.offset_top = pad
-			icon.offset_right = -pad
-			icon.offset_bottom = -pad
-			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			ring.add_child(icon)
-
-		var time_label := _caption_label("0s", 12.0 * s, tint)
+		face.add_child(ring)
+		var icon := TextureRect.new()
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.texture = _powerup_icon(id)
+		icon.position = Vector2(18.0, 4.0) * s
+		icon.size = Vector2(68.0, 76.0) * s
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		face.add_child(icon)
+		var timer_chip := PanelContainer.new()
+		timer_chip.position = Vector2(54.0, 72.0) * s
+		timer_chip.custom_minimum_size = Vector2(50.0, 32.0) * s
+		var timer_style := _pill_style(INK)
+		timer_style.content_margin_left = 6.0 * s
+		timer_style.content_margin_right = 6.0 * s
+		timer_style.content_margin_top = 1.0 * s
+		timer_style.content_margin_bottom = 1.0 * s
+		timer_chip.add_theme_stylebox_override("panel", timer_style)
+		timer_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		face.add_child(timer_chip)
+		var time_label := _caption_label("0s", 24.0 * s, INK)
 		time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		column.add_child(time_label)
-
+		timer_chip.add_child(time_label)
 		_powerup_slots.append(slot)
 		_powerup_rings.append(ring)
 		_powerup_times.append(time_label)
@@ -878,11 +1073,8 @@ func _powerup_color(id: StringName) -> Color:
 	return Color(0.95, 0.44, 0.65)
 
 
-func _powerup_icon(id: StringName) -> ImageTexture:
-	if id == RunnerConfig.POWERUP_DOUBLE:
-		return UITheme.make_icon(DOUBLE_SVG, 0.9)
-	var key := "shield" if id == RunnerConfig.POWERUP_SHIELD else "magnet"
-	return UITheme.make_icon(String(RaceHUD.ITEM_ICONS.get(key, "")), 0.9)
+func _powerup_icon(id: StringName) -> Texture2D:
+	return RunnerHUDArt.hud_sprite(String(id))
 
 
 ## White annulus, baked once per pixel size. Tinted per power-up through
@@ -894,12 +1086,14 @@ static func _ring_tex(px: int) -> ImageTexture:
 	var img := Image.create_empty(px, px, false, Image.FORMAT_RGBA8)
 	var centre := float(px) * 0.5 - 0.5
 	var outer := float(px) * 0.5 - 1.0
-	var inner := outer - maxf(float(px) * 0.15, 2.0)
+	var inner := outer - maxf(float(px) * 0.060, 2.0)
 	for y: int in px:
 		for x: int in px:
 			var d := Vector2(float(x) - centre, float(y) - centre).length()
 			var a := clampf(outer - d + 0.5, 0.0, 1.0) * clampf(d - inner + 0.5, 0.0, 1.0)
-			img.set_pixel(x, y, Color(1.0, 1.0, 1.0, a))
+			var color := Color("25ae54").lerp(Color("4faee6"), float(x) / maxf(float(px - 1), 1.0))
+			color.a = a
+			img.set_pixel(x, y, color)
 	var tex := ImageTexture.create_from_image(img)
 	_ring_textures[px] = tex
 	return tex
@@ -916,15 +1110,40 @@ func _build_floaters() -> void:
 	_root.add_child(_float_root)
 	var s := _hud_scale
 	var width := FLOAT_WIDTH * s
+	var fish_texture := RunnerHUDArt.sprite("fish")
 	for i: int in FLOAT_POOL:
-		var label := _value_label("", 30.0 * s, UITheme.COLOR_TEXT)
+		var label := _value_label("", 30.0 * s, INK)
+		label.add_theme_constant_override("outline_size", int(5.0 * s))
+		label.add_theme_color_override("font_outline_color", INK)
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		label.size = Vector2(width, 52.0 * s)
 		label.pivot_offset = label.size * 0.5
 		label.visible = false
 		_float_root.add_child(label)
+		var badge := Panel.new()
+		badge.show_behind_parent = true
+		badge.position = Vector2((width - 182.0 * s) * 0.5, 1.0 * s)
+		badge.size = Vector2(182.0 * s, 49.0 * s)
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		badge.add_theme_stylebox_override("panel", _pill_style(ICE))
+		badge.visible = false
+		label.add_child(badge)
+		_float_badges.append(badge)
+		var fish_icon := TextureRect.new()
+		# Disable native texture minima before assigning the painted sprite;
+		# otherwise its source dimensions override this small reward glyph.
+		fish_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fish_icon.texture = fish_texture
+		fish_icon.position = Vector2((width - FISH_FLOATER_SIZE.x * s) * 0.5, 0.0)
+		fish_icon.size = FISH_FLOATER_SIZE * s
+		fish_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		fish_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fish_icon.visible = false
+		label.add_child(fish_icon)
+		_float_fish_icons.append(fish_icon)
 		_float_labels.append(label)
+		_float_kinds.append(&"")
 		_float_age.append(0.0)
 		_float_life.append(0.0)
 		_float_x.append(0.0)
@@ -945,16 +1164,7 @@ func _build_banner() -> void:
 	_banner.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_banner.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var style := UITheme.make_panel_style(
-		Color(0.035, 0.105, 0.075, 0.95), Color(COLOR_GOAL, 0.90))
-	style.set_corner_radius_all(UITheme.RADIUS_PILL)
-	style.content_margin_left = 20.0 * s
-	style.content_margin_right = 20.0 * s
-	style.content_margin_top = 6.0 * s
-	style.content_margin_bottom = 6.0 * s
-	style.shadow_color = Color(COLOR_GOAL, 0.30)
-	style.shadow_size = 12
-	(_banner as PanelContainer).add_theme_stylebox_override("panel", style)
+	(_banner as PanelContainer).add_theme_stylebox_override("panel", _card_style(24.0 * s, 12.0 * s))
 	_banner.visible = false
 	_banner.modulate.a = 0.0
 	# Pivot tracks the pill's real width, which changes with every headline it
@@ -982,20 +1192,19 @@ func _build_banner() -> void:
 	column.add_theme_constant_override("separation", 0)
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(column)
-	column.add_child(_caption_label("Challenge Complete", 12.0 * s,
-		Color(0.66, 0.96, 0.76)))
-	_banner_title = _value_label("", 22.0 * s, Color(0.93, 1.0, 0.94))
+	column.add_child(_caption_label("Challenge Complete", 18.0 * s, COLOR_GOAL))
+	_banner_title = _value_label("", 26.0 * s, INK)
 	column.add_child(_banner_title)
 
 
 ## Centred callout ("Slide!", "x3"). Spans most of the width and wraps, so a
 ## long line is legible on a portrait phone instead of running off both edges.
 func _build_message() -> void:
-	_message_label = _value_label("", 54.0 * _hud_scale, UITheme.COLOR_GOLD)
+	_message_label = _value_label("", 72.0 * _hud_scale, ExpeditionMenuStyle.CORAL)
 	_message_label.anchor_left = 0.05
 	_message_label.anchor_right = 0.95
-	_message_label.anchor_top = 0.30
-	_message_label.anchor_bottom = 0.30
+	_message_label.anchor_top = 0.38
+	_message_label.anchor_bottom = 0.38
 	_message_label.offset_left = 0.0
 	_message_label.offset_right = 0.0
 	_message_label.offset_top = 0.0
@@ -1003,8 +1212,30 @@ func _build_message() -> void:
 	_message_label.grow_vertical = Control.GROW_DIRECTION_BOTH
 	_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_message_label.add_theme_constant_override("outline_size", int(10.0 * _hud_scale))
+	_message_label.add_theme_constant_override("outline_size", int(7.0 * _hud_scale))
+	_message_label.add_theme_color_override("font_outline_color", ExpeditionMenuStyle.IVORY)
+	_message_label.add_theme_color_override("font_shadow_color", INK)
+	_message_label.add_theme_constant_override("shadow_offset_y", int(5.0 * _hud_scale))
 	_root.add_child(_message_label)
+
+	# A quiet objective under the countdown makes the chase explicit before
+	# the player moves. Built once, then shares the callout's existing fade.
+	_objective_label = _value_label("Stay ahead of the avalanche", 24.0 * _hud_scale)
+	_objective_label.add_theme_constant_override("outline_size", int(6.0 * _hud_scale))
+	_objective_label.add_theme_color_override("font_outline_color", ExpeditionMenuStyle.IVORY)
+	_objective_label.name = "RunnerObjective"
+	_objective_label.anchor_left = 0.0
+	_objective_label.anchor_right = 1.0
+	_objective_label.anchor_top = 0.38
+	_objective_label.anchor_bottom = 0.38
+	_objective_label.offset_top = 72.0 * _hud_scale
+	_objective_label.offset_bottom = 72.0 * _hud_scale
+	# Wrapping grows downward, so a narrow portrait line never covers the count.
+	_objective_label.grow_vertical = Control.GROW_DIRECTION_END
+	_objective_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_objective_label.hide()
+	_root.add_child(_objective_label)
 
 
 ## Staggered arrival for the whole overlay, so a run opens with the interface
@@ -1030,15 +1261,24 @@ func _play_entrance() -> void:
 ## enough to run on every resize — no node is rebuilt.
 func _relayout() -> void:
 	_view_size = _view_rect()
-	var width := _view_size.x
+	var fit := _reference_fit(_view_size)
+	_hud_view_size = _view_size / fit
+	_root.size = _hud_view_size
+	_root.scale = Vector2.ONE * fit
+	var width := _hud_view_size.x
 	var s := _hud_scale
-	_layout = UITheme.layout_profile(_root) if _root != null \
+	var actual_profile := UITheme.layout_profile(_root) if _root != null \
 		else LayoutProfile.for_view_size(_view_size)
+	_layout = LayoutProfile.for_view_size(_hud_view_size, actual_profile.safe_insets / fit)
 	var safe_x := maxf(_layout.safe_insets.x, _layout.safe_insets.z)
 	var safe_top := _layout.safe_insets.y
 	var safe_bottom := _layout.safe_insets.w
-	var narrow := width < NARROW_WIDTH \
-		or _layout.view_class == LayoutProfile.ViewClass.PORTRAIT_NARROW
+	var narrow := width < NARROW_WIDTH * s
+	if _distance_label != null:
+		var stat_width := (200.0 if narrow else (208.0 if _layout.is_portrait() else 230.0)) * s
+		_distance_label.custom_minimum_size.x = stat_width
+		_score_label.custom_minimum_size.x = stat_width
+	_resize_indicators()
 	if _top_box != null:
 		_top_box.vertical = narrow
 		if narrow:
@@ -1052,7 +1292,7 @@ func _relayout() -> void:
 
 	# Safe-area inset as well as the gutter: on a notched phone in landscape
 	# the rounded corner eats further into the row than the margin allows for.
-	var margin := maxf(GUTTER * s + safe_x, _layout.hud_edge_margin * s + safe_x)
+	var margin := maxf(36.0 * s, safe_x)
 	var usable := maxf(width - margin * 2.0, 120.0)
 	if _gauge_holder != null:
 		_gauge_holder.custom_minimum_size.x = clampf(GAUGE_WIDTH * s, 120.0, usable)
@@ -1065,34 +1305,183 @@ func _relayout() -> void:
 	var ring_width := RING_SIZE * s + 34.0 * s
 	var headline_w := (HEADLINE_COLUMN_WIDTH if narrow else HEADLINE_ROW_WIDTH) * s
 	var headline_h := (HEADLINE_COLUMN_HEIGHT if narrow else HEADLINE_ROW_HEIGHT) * s
-	var top_margin := GUTTER * s + safe_top
-	if _headline_column != null:
-		_headline_column.offset_top = top_margin
+	var top_margin := maxf((76.0 if _layout.is_portrait() else 56.0) * s, safe_top)
 	var side_room := (width - headline_w) * 0.5 - margin - GAP_M * s
 	var stacked := side_room < maxf(ring_width, MISSION_MIN_WIDTH * s)
+	if _headline_column != null:
+		var centre := 0.605 if _layout.is_portrait() and not narrow and not stacked else 0.5
+		_headline_column.anchor_left = centre
+		_headline_column.anchor_right = centre
+		_headline_column.offset_top = top_margin
 	var corner_top := top_margin + (headline_h + GAP_M * s if stacked else 0.0)
-	var mission_room := (usable - ring_width - GAP_M * s) if stacked else side_room
+	var actual_pause := pause_rect_for_profile(actual_profile, s)
+	var pause_rect := Rect2(actual_pause.position / fit, actual_pause.size / fit)
+	if _headline_column != null and _layout.is_portrait() and not narrow and not stacked:
+		var clear_center := minf(0.605, (pause_rect.position.x - GAP_M * s - headline_w * 0.5) / width)
+		_headline_column.anchor_left = clear_center
+		_headline_column.anchor_right = clear_center
+	var mission_room := (usable - maxf(ring_width, pause_rect.size.x) - GAP_M * s) \
+		if stacked else side_room
+	if _layout.is_portrait() and not narrow and not stacked:
+		mission_room = width * 0.325 - margin
+	if _pause_button != null:
+		_pause_button.position = pause_rect.position
+		_pause_button.custom_minimum_size = pause_rect.size
+		_pause_button.size = pause_rect.size
 	if _powerup_box != null:
+		_powerup_box.vertical = _layout.is_portrait() or width < 1200.0 * s
 		_powerup_box.offset_right = -margin
-		_powerup_box.offset_top = corner_top
+		_powerup_box.offset_top = pause_rect.end.y + GAP_M * s
 	if _mission_panel != null:
 		_mission_panel.offset_left = margin
-		_mission_panel.offset_top = corner_top
+		_mission_panel.offset_top = corner_top if stacked else maxf(44.0 * s, safe_top)
 		_mission_panel.custom_minimum_size.x = clampf(
 			MISSION_PANEL_WIDTH * s, 110.0, maxf(mission_room, 110.0))
+		# The reference phone rows keep the full title and real counter together.
+		# Desktop-sized counter text was taking half the phone row and leaving
+		# single units on another line. Limit this adjustment to challenge text.
+		for index: int in _mission_labels.size():
+			_mission_labels[index].add_theme_font_size_override("font_size", roundi((22.0 if _layout.is_portrait() else 26.0) * s))
+			_mission_pcts[index].add_theme_font_size_override("font_size", roundi((18.0 if _layout.is_portrait() else 24.0) * s))
+			_fit_mission_row(index)
 	if _banner != null:
-		# Immediately above the gauge, which owns the last ~52 units.
-		_banner.offset_bottom = -(GUTTER + 56.0) * s - safe_bottom
+		# Leave a visible gap above the thicker sculpted gauge and its snow cap.
+		_banner.offset_bottom = -(maxf((124.0 if _layout.is_portrait() else 42.0) * s, safe_bottom) + 140.0 * s)
 	if _gauge_holder != null:
-		_gauge_holder.offset_bottom = -GUTTER * s - safe_bottom
+		_gauge_holder.offset_bottom = -maxf((124.0 if _layout.is_portrait() else 42.0) * s, safe_bottom)
 	if _message_label != null:
-		var anchor := 0.42 if narrow else 0.30
+		var anchor := 0.42 if narrow else 0.38
 		_message_label.anchor_top = anchor
 		_message_label.anchor_bottom = anchor
+		if _objective_label != null:
+			_objective_label.anchor_top = anchor
+			_objective_label.anchor_bottom = anchor
+			_objective_label.offset_left = margin
+			_objective_label.offset_right = -margin
 	if _speed_material != null and _view_size.y > 0.0:
 		_speed_material.set_shader_parameter("aspect", _view_size.x / _view_size.y)
 	if _game_over_buttons != null:
-		_game_over_buttons.vertical = narrow
+		_game_over_buttons.vertical = true
+	_relayout_results()
+
+
+func _resize_indicators() -> void:
+	var s := _indicator_scale()
+	if is_equal_approx(s, _indicator_applied_scale) or _lives_pill == null or _fish_pill == null:
+		return
+	_indicator_applied_scale = s
+	_lives_pill.add_theme_stylebox_override("panel", _pill_style(ICE, Color.WHITE, s))
+	_fish_pill.add_theme_stylebox_override("panel", _pill_style(ICE, Color.WHITE, s))
+	_chip_quiet = _pill_style(ICE, Color.WHITE, s)
+	_chip_hot = _pill_style(UITheme.COLOR_GOLD, Color("ffdc91"), s)
+	_multiplier_chip.add_theme_stylebox_override("panel", _chip_hot if _shown_multiplier > 1 else _chip_quiet)
+	for pip: Panel in _life_pips:
+		pip.custom_minimum_size = Vector2(44.0, 38.0) * s
+	if _fish_counter_icon != null:
+		_fish_counter_icon.custom_minimum_size = Vector2(52.0, 40.0) * s
+	_fish_label.add_theme_font_size_override("font_size", maxi(roundi(44.0 * s), 1))
+	_multiplier_label.add_theme_font_size_override("font_size", maxi(roundi(44.0 * s), 1))
+	_multiplier_label.custom_minimum_size.x = 60.0 * s
+
+
+## Rotation changes composition in place: score, focus, and completed challenges
+## remain the same nodes, so resizing cannot restart a count-up or lose input.
+func _relayout_results() -> void:
+	if _game_over == null or _results_card == null:
+		return
+	var portrait := _view_size.y >= _view_size.x
+	var result_unit := (_view_size.x / 1080.0) if portrait else (_view_size.y / 1080.0)
+	_scale_result_layout(_results_card, result_unit)
+	(_results_inset_margin.get_parent() as VBoxContainer).alignment = BoxContainer.ALIGNMENT_BEGIN if portrait else BoxContainer.ALIGNMENT_END
+	_results_inset_margin.add_theme_constant_override("margin_bottom", roundi(_view_size.y * 0.04) if not portrait else 16)
+	if _results_background != null:
+		_results_background.texture = RunnerHUDArt.caught_background(portrait)
+	_results_stage.visible = not portrait
+	_results_art_space.visible = portrait
+	# Reserve the actual card height first. At the touch layout's 792x1408
+	# logical size, a fixed 43% hero spacer hid Base Camp below the first view.
+	var card_height := _results_card.get_combined_minimum_size().y
+	_results_art_space.custom_minimum_size.y = minf(_view_size.y * 0.50,
+		maxf(0.0, _view_size.y - card_height - 64.0)) if portrait else 0.0
+	_results_title.anchor_top = 0.05 if portrait else 0.02
+	_results_title.anchor_left = 0.08 if portrait else 0.035
+	_results_title.anchor_right = 0.92 if portrait else 0.47
+	_results_title.anchor_bottom = 0.28 if portrait else 0.40
+	_results_card.custom_minimum_size.x = _view_size.x * (0.90 if portrait else 0.42)
+	_results_inset_margin.add_theme_constant_override("margin_right", 16 if portrait else roundi(_view_size.x * 0.08))
+	if not _results_summary.has_meta("portrait") or _results_summary.get_meta("portrait", not portrait) != portrait \
+			or not is_equal_approx(float(_results_summary.get_meta("result_unit", 0.0)), result_unit):
+		_results_summary.set_meta("portrait", portrait)
+		_results_summary.set_meta("result_unit", result_unit)
+		_results_summary.add_theme_stylebox_override("panel", StyleBoxEmpty.new() if portrait else ExpeditionMenuStyle.material_card(16.0 * result_unit, 16.0 * result_unit))
+	for label: Label in _results_mission_labels:
+		# Separate full labels remain readable after rotation; no joined summary,
+		# ellipsis, or fixed line cap can hide a completed challenge.
+		var font_size := roundi(28.0 * result_unit)
+		if label.get_theme_font_size("font_size") != font_size:
+			label.add_theme_font_size_override("font_size", font_size)
+		label.custom_minimum_size.y = 34.0 * result_unit
+
+
+## Scale the authored results layout against its logical reference width, not
+## global UI touch scaling. Keep nodes/data/focus intact when rotating.
+func _scale_result_layout(node: Control, unit: float) -> void:
+	if node.name == "CompletedMissionText":
+		return # Its full-label metrics are orientation-specific immediately above.
+	if not node.has_meta("results_design_min"):
+		node.set_meta("results_design_min", node.custom_minimum_size)
+		var metrics := {}
+		for key: String in ["separation", "margin_left", "margin_right", "margin_top", "margin_bottom"]:
+			if node.has_theme_constant_override(key): metrics[key] = node.get_theme_constant(key)
+		node.set_meta("results_design_constants", metrics)
+		if node.has_theme_font_size_override("font_size"):
+			node.set_meta("results_design_font", node.get_theme_font_size("font_size"))
+		if node != _results_summary and node.has_theme_stylebox_override("panel"):
+			# Each result panel already owns its style. Resource.duplicate() loses
+			# the custom painted surface's non-exported texture/region properties.
+			var panel := node.get_theme_stylebox("panel")
+			node.set_meta("results_design_padding", Vector4(panel.content_margin_left, panel.content_margin_top,
+				panel.content_margin_right, panel.content_margin_bottom))
+		if node.name == "IllustratedAction":
+			node.set_meta("results_design_offsets", Vector2(node.offset_left, node.offset_right))
+	if node != _results_card:
+		var minimum: Vector2 = node.get_meta("results_design_min")
+		if not node.custom_minimum_size.is_equal_approx(minimum * unit): node.custom_minimum_size = minimum * unit
+	for key: String in node.get_meta("results_design_constants"):
+		var value := roundi(float(node.get_meta("results_design_constants")[key]) * unit)
+		if node.get_theme_constant(key) != value: node.add_theme_constant_override(key, value)
+	if node.has_meta("results_design_font"):
+		var font_size := maxi(1, roundi(float(node.get_meta("results_design_font")) * unit))
+		if node.get_theme_font_size("font_size") != font_size: node.add_theme_font_size_override("font_size", font_size)
+	if node.has_meta("results_design_padding"):
+		var padding: Vector4 = node.get_meta("results_design_padding")
+		var panel := node.get_theme_stylebox("panel")
+		for side: int in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
+			var value := padding[[SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM].find(side)]
+			# Snow corners keep a fixed logical radius, while phone text scales
+			# down. Reserve the painted ivory interior for portrait captions.
+			if side == SIDE_TOP and _view_size.y >= _view_size.x:
+				if node.name == "ResultsScorePanel": value = 36.0
+				elif String(node.name).begins_with("ResultsStatPanel"): value = 28.0
+			if value >= 0.0 and not is_equal_approx(panel.get_content_margin(side), value * unit):
+				panel.set_content_margin(side, value * unit)
+	if node.has_meta("results_design_offsets"):
+		var offsets: Vector2 = node.get_meta("results_design_offsets")
+		node.offset_left = offsets.x * unit
+		node.offset_right = offsets.y * unit
+	for child: Node in node.get_children():
+		if child is Control: _scale_result_layout(child, unit)
+
+
+static func _reference_fit(size: Vector2) -> float:
+	# Touch menus use a smaller logical canvas. Keep the authored in-run
+	# composition stable without changing SettingsManager or result layouts.
+	return minf(size.x / 1080.0, 1.0) if size.y > size.x else 1.0
+
+
+func _hud_design_rect() -> Vector2:
+	var actual := _view_rect()
+	return actual / maxf(_reference_fit(actual), 0.001)
 
 
 func _view_rect() -> Vector2:
@@ -1166,25 +1555,25 @@ func set_stats(distance_m: float, fish: int, score: int, multiplier: int,
 			if hits_left >= 0 and hits_left < _life_pips.size():
 				_punch(_life_pips[hits_left], 1.9)
 
-	_gauge_bar.value = clampf(chaser_gap / RunnerConfig.CHASER_BASE_GAP, 0.0, 1.0)
+	_gauge_bar.value = clampf(chaser_gap / GAUGE_DISPLAY_RANGE, 0.0, 1.0)
 	_danger_gap = chaser_gap
 	# Curved rather than linear, and deliberately back-loaded: the wash stays a
 	# hint through the half of the window the player can still run out of, and
-	# only takes the screen over in the last few metres, where it has to be
-	# unmissable. A straight ramp spends most of its range crying wolf.
+	# keeps the course readable even in the last few metres. The gap meter and
+	# label carry the urgent warning; the edge wash remains a supporting cue.
 	_veil_base = pow(clampf((DANGER_GAP - chaser_gap) / DANGER_GAP, 0.0, 1.0), 1.25) \
 		* VEIL_ALPHA
 	var gap_m := maxi(int(chaser_gap), 0)
 	if gap_m != _shown_gap:
 		_shown_gap = gap_m
-		_gauge_value.text = "%d m" % gap_m
+		_gauge_value.text = "%d m BEHIND" % gap_m
 		# Colour is re-derived on the metre tick rather than every frame: a
 		# theme override is a dictionary write, the gauge value is not.
 		var heat := clampf((WARN_GAP - chaser_gap) / maxf(WARN_GAP - DANGER_GAP, 0.001), 0.0, 1.0)
-		var tint := UITheme.COLOR_ACCENT.lerp(COLOR_DANGER, heat)
-		_gauge_bar.modulate = tint
+		var tint := ICE.lerp(COLOR_DANGER, heat)
+		_gauge_bar.modulate = Color.WHITE.lerp(Color(1.0, 0.54, 0.48), heat)
 		_gauge_value.add_theme_color_override("font_color",
-			tint if heat > 0.0 else UITheme.COLOR_TEXT)
+			tint if heat > 0.0 else INK)
 
 	var danger := chaser_gap < DANGER_GAP
 	if danger != _in_danger:
@@ -1199,8 +1588,8 @@ func _set_danger(danger: bool) -> void:
 	if _gauge_tag == null:
 		return
 	_gauge_tag.add_theme_color_override("font_color",
-		COLOR_DANGER if danger else UITheme.COLOR_TEXT_DIM)
-	_gauge_tag.text = "AVALANCHE!" if danger else "AVALANCHE"
+		COLOR_DANGER if danger else INK_MUTED)
+	_gauge_tag.text = "AVALANCHE CLOSE!" if danger else "AVALANCHE GAP"
 	_beat_phase = 0.0
 	if danger:
 		_punch(_gauge_holder, 1.06)
@@ -1324,6 +1713,23 @@ func _tick_floaters(delta: float) -> void:
 		live += 1
 		var label := _float_labels[i]
 		var t := age / life
+		if _float_kinds[i] == &"fish":
+			# Fish goes into fish counter; score already counts up separately.
+			# No unexplained "+25 fish" badge covering the decision lanes.
+			var target := _float_x[i]
+			var target_y := _float_y[i]
+			if _fish_label != null and is_instance_valid(_fish_label):
+				var counter_center := _fish_label.get_global_rect().get_center() \
+					- _float_root.global_position
+				target = counter_center.x - label.size.x * 0.5
+				target_y = counter_center.y - label.size.y * 0.5
+			var travel := t * t * (3.0 - 2.0 * t)
+			label.position = Vector2(lerpf(_float_x[i], target, travel),
+				lerpf(_float_y[i], target_y, travel) - sin(t * PI) * 46.0 * _hud_scale)
+			var fish_scale := lerpf(1.0, 0.62, travel)
+			label.scale = Vector2.ONE * fish_scale
+			label.modulate.a = clampf((1.0 - t) * 3.0, 0.0, 1.0)
+			continue
 		# Rise: fast out of the gate, coasting at the top, the way a coin arc
 		# behaves. Cubic ease-out, no library call.
 		var inv := 1.0 - t
@@ -1367,17 +1773,17 @@ func _tick_missions(delta: float) -> void:
 		var pct := int(round(shown * 100.0))
 		if pct != _mission_pct_shown[i] and not _mission_done[i]:
 			_mission_pct_shown[i] = pct
-			_mission_pcts[i].text = "%d%%" % pct
+			_mission_pcts[i].text = "%s / %s" % [group_digits(int(_mission_amounts[i])), group_digits(int(_mission_goals[i]))]
 
 
 ## Ring drain plus the about-to-expire warning. The remaining time is counted
-## down locally between set_powerups calls so the ring is smooth even if the
-## caller only reports at a coarser rate.
+## from the player's authoritative remaining seconds. Presentation never
+## spends extra time or keeps counting while gameplay is paused.
 func _tick_powerups(delta: float) -> void:
 	for i: int in _powerup_rings.size():
 		if not _powerup_on[i]:
 			continue
-		var left := maxf(_powerup_left[i] - delta, 0.0)
+		var left := maxf(_powerup_left[i] - (delta if demo_feed else 0.0), 0.0)
 		_powerup_left[i] = left
 		_powerup_rings[i].value = clampf(left / RunnerConfig.POWERUP_TIME, 0.0, 1.0)
 		var secs := int(ceil(left))
@@ -1430,18 +1836,19 @@ func _tick_danger(delta: float) -> void:
 ## chooses colour, size and dwell — the player learns "gold means score, ice
 ## means fish" without ever reading the words.
 func add_floater(text: String, kind: StringName) -> void:
-	if _root == null or _headless or text.is_empty():
+	if _root == null or _headless or (text.is_empty() and kind != &"fish"):
 		return
 	var s := _hud_scale
-	var color := UITheme.COLOR_TEXT
+	var color := ExpeditionMenuStyle.IVORY
 	var size := 30.0
 	var life := 0.95
 	var rise := FLOAT_RISE
 	var lift := 0.0
 	match kind:
 		&"fish":
-			color = UITheme.COLOR_ACCENT
-			size = 31.0
+			color = ICE
+			size = 24.0
+			life = 0.58
 		&"score":
 			color = UITheme.COLOR_GOLD
 			size = 36.0
@@ -1467,7 +1874,10 @@ func add_floater(text: String, kind: StringName) -> void:
 
 	var slot := _claim_floater()
 	var label := _float_labels[slot]
-	label.text = font_safe(text)
+	label.text = "" if kind == &"fish" else font_safe(text)
+	_float_kinds[slot] = kind
+	_float_badges[slot].visible = false
+	_float_fish_icons[slot].visible = kind == &"fish"
 	label.add_theme_font_size_override("font_size", maxi(int(size * s), 1))
 	label.add_theme_color_override("font_color", color)
 	label.add_theme_constant_override("outline_size", maxi(int(size * s * 0.18), 4))
@@ -1480,10 +1890,14 @@ func add_floater(text: String, kind: StringName) -> void:
 	_float_lane = (_float_lane + 1) % 6
 	var side := 1.0 if _float_lane % 2 == 0 else -1.0
 	var tier := float(_float_lane) / 5.0
-	_float_x[slot] = (_view_size.x - FLOAT_WIDTH * s) * 0.5 \
+	_float_x[slot] = (_hud_view_size.x - FLOAT_WIDTH * s) * 0.5 \
 		+ side * (34.0 + tier * 76.0) * s
-	_float_y[slot] = _view_size.y * FLOAT_ORIGIN_Y \
+	_float_y[slot] = _hud_view_size.y * FLOAT_ORIGIN_Y \
 		- (lift + float(_float_lane) * 19.0) * s
+	if kind == &"fish":
+		_float_x[slot] = (_hud_view_size.x - FLOAT_WIDTH * s) * 0.5 \
+			+ side * (10.0 + tier * 28.0) * s
+		_float_y[slot] = _hud_view_size.y * 0.76 - tier * 22.0 * s
 	_float_drift[slot] = side * (30.0 + tier * 40.0) * s
 	_float_rise[slot] = rise * s
 	_float_life[slot] = life
@@ -1521,7 +1935,12 @@ func set_powerups(active: Dictionary) -> void:
 			# over the locally interpolated one whenever it is ahead.
 			if left > _powerup_left[i] + 0.05:
 				_pop_powerup(i)
-			_powerup_left[i] = left
+		_powerup_left[i] = maxf(left, 0.0)
+		_powerup_rings[i].value = clampf(left / RunnerConfig.POWERUP_TIME, 0.0, 1.0)
+		var seconds := int(ceil(maxf(left, 0.0)))
+		if seconds != _powerup_shown[i]:
+			_powerup_shown[i] = seconds
+			_powerup_times[i].text = "%ds" % seconds
 		if on == _powerup_on[i]:
 			continue
 		_powerup_on[i] = on
@@ -1588,6 +2007,41 @@ func _kill_meta_tween(control: Control, key: String) -> void:
 
 ## --- Challenges -------------------------------------------------------------
 
+## A glanceable title uses the mission's typed fields; the complete description
+## remains available to accessibility, hover, and the full Missions page.
+static func compact_mission_title(entry: Dictionary) -> String:
+	var target := group_digits(maxi(int(entry.get("target", 0)), 0))
+	var kind := int(entry.get("kind", -1))
+	match kind:
+		RunnerMissions.Kind.DISTANCE_RUN, RunnerMissions.Kind.DISTANCE_TOTAL:
+			return "RUN %s m" % target
+		RunnerMissions.Kind.CLEAN_RUN:
+			return "DODGE %s m" % target
+		RunnerMissions.Kind.MULTIPLIER_RUN:
+			return "RUN %s m AT x%d+" % [target, int(entry.get("mult", 2))]
+		RunnerMissions.Kind.FISH_TOTAL, RunnerMissions.Kind.FISH_RUN:
+			return "COLLECT %s FISH" % target
+		RunnerMissions.Kind.JUMP_TOTAL, RunnerMissions.Kind.JUMP_RUN:
+			return "JUMP %s TIMES" % target
+		RunnerMissions.Kind.SLIDE_TOTAL, RunnerMissions.Kind.SLIDE_RUN:
+			return "SLIDE %s TIMES" % target
+		RunnerMissions.Kind.LANE_TOTAL, RunnerMissions.Kind.LANE_RUN:
+			return "%s LANE CHANGES" % target
+		RunnerMissions.Kind.NEAR_MISS_TOTAL, RunnerMissions.Kind.NEAR_MISS_RUN:
+			return "%s NEAR MISSES" % target
+		RunnerMissions.Kind.POWERUP_TOTAL, RunnerMissions.Kind.POWERUP_RUN:
+			return "USE %s POWER-UPS" % target
+		RunnerMissions.Kind.POWERUP_SPECIFIC:
+			var power_names := {"magnet": "MAGNETS", "shield": "SHIELDS", "double": "DOUBLE POINTS"}
+			var param := String(entry.get("param", ""))
+			if power_names.has(param):
+				return "%s %s" % [target, power_names[param]]
+		RunnerMissions.Kind.RAMP_TOTAL, RunnerMissions.Kind.RAMP_RUN:
+			return "TAKE %s RAMPS" % target
+	# Unknown future or synthetic rows retain their complete supplied wording.
+	var full := font_safe(String(entry.get("text", ""))).to_upper().replace(" M ", " m ")
+	return full.trim_suffix(" M") + " m" if full.ends_with(" M") else full
+
 ## `rows` is up to MISSION_ROWS dictionaries of
 ## {"id": String, "text": String, "progress": float 0..1, "done": bool}.
 ## Rows are matched by id: an unchanged goal only moves its bar, a replaced one
@@ -1608,29 +2062,45 @@ func set_missions(rows: Array) -> void:
 		var done := bool(entry.get("done", false))
 		any = true
 		var row := _mission_rows[i]
-		var fresh := id != _mission_ids[i]
+		var fresh := id != _mission_ids[i] or text != _mission_labels[i].tooltip_text
 		if fresh:
 			_mission_ids[i] = id
-			_mission_labels[i].text = font_safe(text).to_upper()
+			# Keep a distance and its unit on the same line at every HUD scale.
+			_mission_labels[i].text = compact_mission_title(entry).replace(" m", "\u00a0m")
+			_mission_labels[i].tooltip_text = text
+			_mission_labels[i].accessibility_name = text
+			# Containers grow for the complete typed title; never hide a third line.
+			_mission_labels[i].max_lines_visible = -1
 			_mission_shown[i] = 0.0
 			_mission_pct_shown[i] = -1
 			_mission_done[i] = false
 			_mission_bars[i].value = 0.0
-			_mission_bars[i].modulate = UITheme.COLOR_ACCENT
-			_mission_labels[i].add_theme_color_override("font_color", UITheme.COLOR_TEXT)
+			_mission_bars[i].modulate = Color.WHITE
+			_mission_labels[i].add_theme_color_override("font_color", INK)
 			_mission_pcts[i].add_theme_color_override("font_color",
-				Color(UITheme.COLOR_TEXT_DIM, 0.95))
+				Color(INK_MUTED, 0.95))
 			_mission_marks[i].visible = false
 			_mission_pcts[i].visible = true
 			if not row.visible:
 				row.visible = true
 			_reveal_mission(i)
+		var amount := float(entry.get("current", progress * 100.0))
+		var goal := float(entry.get("target", 100.0))
+		var count_changed := fresh or int(amount) != int(_mission_amounts[i]) \
+			or int(goal) != int(_mission_goals[i])
+		_mission_amounts[i] = amount
+		_mission_goals[i] = goal
+		if count_changed:
+			_mission_pcts[i].text = "%s / %s" % [group_digits(int(amount)), group_digits(int(goal))]
 		_mission_target[i] = progress
-		if done != _mission_done[i]:
+		var done_changed := done != _mission_done[i]
+		if done_changed:
 			_mission_done[i] = done
 			_set_mission_done(i, done)
 			if done:
 				_note_completed(text)
+		if count_changed or done_changed:
+			_fit_mission_row(i)
 	if _mission_panel != null:
 		_mission_panel.visible = any
 
@@ -1639,9 +2109,10 @@ func set_missions(rows: Array) -> void:
 ## by a tick, and the row pops once so a goal met mid-run is noticed even in
 ## peripheral vision.
 func _set_mission_done(index: int, done: bool) -> void:
-	_mission_bars[index].modulate = COLOR_GOAL if done else UITheme.COLOR_ACCENT
+	# Fill already carries the reference green; keep its recessed track neutral.
+	_mission_bars[index].modulate = Color.WHITE
 	_mission_labels[index].add_theme_color_override("font_color",
-		COLOR_GOAL if done else UITheme.COLOR_TEXT)
+		COLOR_GOAL if done else INK)
 	_mission_marks[index].visible = done
 	_mission_pcts[index].visible = not done
 	if done:
@@ -1702,7 +2173,8 @@ func _note_completed(text: String) -> void:
 func show_mission_complete(text: String) -> void:
 	if _banner == null:
 		return
-	_note_completed(text)
+	# This channel also carries aggregate set rewards. Only set_missions or
+	# the authoritative run summary may register a completed challenge.
 	_banner_title.text = font_safe(text)
 	_banner.visible = true
 	if _headless:
@@ -1727,6 +2199,9 @@ func show_mission_complete(text: String) -> void:
 	_banner_tween.tween_property(_banner, "modulate:a", 1.0, 0.18)
 	_banner_tween.tween_property(_banner, "scale", Vector2.ONE, 0.48) \
 		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	# Entry properties share one step; the reading interval, exit and hide must
+	# follow it. Leaving parallel mode enabled hid the banner at 0.48 seconds.
+	_banner_tween.set_parallel(false)
 	_banner_tween.chain().tween_interval(1.7)
 	_banner_tween.tween_property(_banner, "modulate:a", 0.0, 0.34)
 	_banner_tween.parallel().tween_property(_banner, "scale",
@@ -1789,7 +2264,7 @@ func _apply_multiplier(multiplier: int, punch: bool) -> void:
 		_multiplier_label.text = "x%d" % multiplier
 		_multiplier_chip.add_theme_stylebox_override("panel", _chip_hot if hot else _chip_quiet)
 		_multiplier_label.add_theme_color_override("font_color",
-			UITheme.COLOR_GOLD if hot else UITheme.COLOR_TEXT_DIM)
+			INK if hot else INK_MUTED)
 	# Streaks pick up the multiplier's colour, so a hot run literally changes
 	# the colour of the screen edge.
 	var gold := multiplier >= 3
@@ -1831,8 +2306,11 @@ func show_message(text: String) -> void:
 	_message_tween = null
 	_message_text = clean
 	_message_label.text = clean
-	_message_label.modulate = Color(UITheme.COLOR_GOLD, 1.0)
+	_message_label.modulate = Color.WHITE
 	_message_label.scale = Vector2.ONE
+	var countdown := clean == "3" or clean == "2" or clean == "1" or clean == "GO!"
+	_objective_label.visible = countdown
+	_objective_label.modulate.a = 1.0
 	if _headless:
 		return
 	_message_tween = create_tween()
@@ -1843,10 +2321,14 @@ func show_message(text: String) -> void:
 			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_message_tween.tween_interval(0.75)
 	_message_tween.tween_property(_message_label, "modulate:a", 0.0, 0.35)
+	if countdown:
+		_message_tween.parallel().tween_property(_objective_label, "modulate:a", 0.0, 0.35)
 	_message_tween.tween_callback(func() -> void:
 		_message_label.text = ""
 		_message_text = ""
-		_message_label.modulate.a = 1.0)
+		_message_label.modulate.a = 1.0
+		_objective_label.hide()
+		_objective_label.modulate.a = 1.0)
 
 
 ## --- End of run -------------------------------------------------------------
@@ -1856,6 +2338,7 @@ func show_message(text: String) -> void:
 ## and `is_new_best` (bool). An optional `missions` array of strings overrides
 ## the challenge list the HUD tracked during the run.
 func show_game_over(summary: Dictionary) -> void:
+	set_pause_available(false)
 	# Captured before hide_game_over, which clears the run-scoped list.
 	var completed := _completed_missions.duplicate()
 	if summary.has("missions"):
@@ -1868,6 +2351,10 @@ func show_game_over(summary: Dictionary) -> void:
 	var score := int(summary.get("score", 0))
 	var best := int(summary.get("best", 0))
 	var record := bool(summary.get("is_new_best", false))
+	# Extra completed rows consume the same finite viewport. Keep the normal
+	# one-row reference generous; compact only dense summaries to retain both actions.
+	var compact_summary := completed.size() > 1
+	var full_board_summary := completed.size() >= MISSION_ROWS
 	var tint := UITheme.COLOR_GOLD if record else Color(0.95, 0.97, 1.0)
 
 	# The run is over: stop the in-run animation from fighting the panel.
@@ -1882,11 +2369,14 @@ func show_game_over(summary: Dictionary) -> void:
 	_game_over.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(_game_over)
 
-	var dim := ColorRect.new()
-	dim.color = Color(UITheme.COLOR_BG_DEEP, 0.80)
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_game_over.add_child(dim)
+	_results_background = TextureRect.new()
+	_results_background.name = "CaughtInSnowBackground"
+	_results_background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_results_background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_results_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_results_background.texture = RunnerHUDArt.caught_background(_view_size.y >= _view_size.x)
+	_results_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_game_over.add_child(_results_background)
 	if record:
 		_game_over.add_child(_celebration_glow())
 
@@ -1897,77 +2387,196 @@ func show_game_over(summary: Dictionary) -> void:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.follow_focus = true
 	_game_over.add_child(scroll)
-	var center := CenterContainer.new()
+	var center := HBoxContainer.new()
 	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.add_child(center)
+	_results_stage = Control.new()
+	_results_stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_results_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Always parent the stage, even when hidden in portrait, so it is freed with
+	# the results screen. An unparented portrait stage leaked on every run.
+	center.add_child(_results_stage)
+	_results_title = TextureRect.new()
+	_results_title.texture = ExpeditionMenuStyle._material_texture(
+		"res://assets/art/ui/menu/runner_complete_wordmark_v2.webp")
+	_results_title.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_results_title.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_results_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_results_title.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_results_title.anchor_top = 0.02
+	_game_over.add_child(_results_title)
+	var card_holder := VBoxContainer.new()
+	card_holder.alignment = BoxContainer.ALIGNMENT_CENTER
+	card_holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.add_child(card_holder)
+	_results_art_space = Control.new()
+	card_holder.add_child(_results_art_space)
+	var inset := MarginContainer.new()
+	_results_inset_margin = inset
+	for side: String in ["left", "right", "top", "bottom"]:
+		inset.add_theme_constant_override("margin_%s" % side, UITheme.scaled_int(16))
+	card_holder.add_child(inset)
 
-	var card := UITheme.make_card(center)
-	card.custom_minimum_size.x = UITheme.content_width(560.0, _root)
+	var card := UITheme.make_card(inset)
+	_results_card = card
+	card.minimum_size_changed.connect(_relayout_results, CONNECT_DEFERRED)
+	card.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", UITheme.spacing(UITheme.SPACE_S))
+	column.add_theme_constant_override("separation", 10)
 	card.add_child(column)
+	_results_summary = PanelContainer.new()
+	column.add_child(_results_summary)
+	var summary_column := VBoxContainer.new()
+	summary_column.add_theme_constant_override("separation", 10)
+	_results_summary.add_child(summary_column)
 
-	var eyebrow := UITheme.make_eyebrow("Waddle Run")
-	column.add_child(eyebrow)
-	var headline := UITheme.heading("New Best!" if record else "Run Over",
-		UITheme.scaled_heading(54))
-	headline.add_theme_color_override("font_color", tint)
-	headline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(headline)
+	var score_face := PanelContainer.new()
+	score_face.name = "ResultsScorePanel"
+	score_face.add_theme_stylebox_override("panel", RunnerHUDArt.hud_panel("card", 32.0, 14.0, 16.0))
+	score_face.custom_minimum_size.y = 220.0 if full_board_summary else 244.0
+	summary_column.add_child(score_face)
+	var score_stack := VBoxContainer.new()
+	score_face.add_child(score_stack)
+	var score_caption := ExpeditionMenuStyle.label("SCORE", 40 if full_board_summary else 48)
+	score_caption.name = "ResultsScoreCaption"
+	score_caption.add_theme_font_override("font", ExpeditionMenuStyle.display_font())
+	score_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	score_stack.add_child(score_caption)
+	var score_value := ExpeditionMenuStyle.label(group_digits(score), 100 if full_board_summary else (110 if compact_summary else 120))
+	score_value.add_theme_font_override("font", ExpeditionMenuStyle.display_font())
+	score_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var score_inset := PanelContainer.new()
+	score_inset.add_theme_stylebox_override("panel", _results_inset())
+	score_stack.add_child(score_inset)
+	score_inset.add_child(score_value)
 	if record:
-		_add_badge(column, "New Personal Best")
+		_add_badge(score_stack, "New Personal Best")
 
-	column.add_child(UITheme.make_divider())
-	var score_value := _add_stat_grid(column, distance, fish, score, tint)
+	_add_stat_grid(summary_column, distance, fish, maxi(best, score), tint)
 	# The comparison line and the goals met land AFTER the count-up, so the
 	# result reads as a sequence: here is the number, here is what it beat,
 	# here is what you finished on the way.
-	var footer := _add_footer(column, score, best, record)
-	var goals := _add_mission_list(column, completed)
-	column.add_child(UITheme.make_spacer(UITheme.SPACE_S))
+	var footer: Control = null
+	var goals := _add_mission_list(summary_column, completed, summary.get("mission_rows", []))
+	column.add_child(UITheme.make_spacer(4))
 
 	# Two choices, but not equal ones: Run Again is the whole point of a runner,
 	# so it leads the row and wears the promoted face.
 	_game_over_buttons = BoxContainer.new()
 	_game_over_buttons.alignment = BoxContainer.ALIGNMENT_CENTER
-	_game_over_buttons.add_theme_constant_override("separation", UITheme.spacing(UITheme.SPACE_S))
+	_game_over_buttons.add_theme_constant_override("separation", 10)
 	column.add_child(_game_over_buttons)
-	var button_size := UITheme.scaled_size(Vector2(240.0, 60.0))
-	var again := UITheme.make_primary_button("Run Again", button_size, UITheme.scaled_font(28))
+	var again_height := 144.0 if compact_summary else 160.0
+	var menu_height := 100.0 if compact_summary else 110.0
+	var again := ExpeditionMenuStyle.button("RUN AGAIN", true,
+		44, again_height)
+	# A native focus halo must not add a second rectangular border over art.
+	var focus_line := StyleBoxEmpty.new()
+	again.add_theme_stylebox_override("focus", focus_line)
+	ExpeditionMenuStyle.illustrated_action(again, "RUN AGAIN", ExpeditionMenuStyle._material_texture(
+		"res://assets/art/ui/menu/run_action_icon_v5.webp"), 72 if compact_summary else 76, again_height)
 	again.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	UITheme.hook_sounds(again)
 	again.pressed.connect(func() -> void: restart_pressed.emit())
 	_game_over_buttons.add_child(again)
-	var to_menu := UITheme.make_button("Main Menu",
-		UITheme.scaled_size(Vector2(200.0, 56.0)), UITheme.scaled_font(22))
-	to_menu.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	UITheme.hook_sounds(to_menu)
+	var to_menu := ExpeditionMenuStyle.button("BASE CAMP", false,
+		34, menu_height)
+	to_menu.add_theme_stylebox_override("focus", focus_line)
+	to_menu.icon = RunnerHUDArt.sprite("camp")
+	to_menu.expand_icon = true
+	to_menu.add_theme_constant_override("icon_max_width", UITheme.scaled_int(72))
+	to_menu.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	to_menu.custom_minimum_size.x = 460.0
+	ExpeditionMenuStyle.illustrated_action(to_menu, "BASE CAMP", RunnerHUDArt.sprite("camp"), 40 if compact_summary else 44, menu_height, false, ExpeditionMenuStyle.INK)
+	# The reference uses a small destination mark beside its caption; the
+	# generic action's near-full-height mascot makes this secondary CTA too loud.
+	var camp_picture := to_menu.get_node("IllustratedAction").get_child(0) as TextureRect
+	camp_picture.custom_minimum_size = Vector2(menu_height * 0.66, menu_height * 0.64)
 	to_menu.pressed.connect(func() -> void: menu_pressed.emit())
 	_game_over_buttons.add_child(to_menu)
+	_recolor_results(card)
 	_relayout()
 
 	if _headless:
+		_on_results_cover_ready(_game_over)
 		return
 	again.grab_focus()
 	AudioManager.play_sfx("sfx_victory" if record else "sfx_finish")
 	_play_panel_entrance(card, score_value, score, record, footer, goals)
 
 
+func _recolor_results(node: Node) -> void:
+	if node.name == "IllustratedAction":
+		return
+	if node is Label:
+		(node as Label).add_theme_color_override("font_color",
+			ExpeditionMenuStyle.INK)
+	for child in node.get_children():
+		_recolor_results(child)
+
+
+func _results_inset() -> StyleBoxFlat:
+	var face := StyleBoxFlat.new()
+	face.bg_color = Color("eee8da")
+	face.border_color = Color("d8d2c5")
+	face.set_border_width_all(2)
+	face.set_corner_radius_all(18)
+	face.set_content_margin_all(4)
+	face.shadow_color = Color(0.23, 0.20, 0.14, 0.10)
+	face.shadow_offset = Vector2(0, -2)
+	face.shadow_size = 4
+	return face
+
+
 ## Distance / Fish / Score, plus the standing best. On a record the best cell
 ## becomes the score the player just beat; otherwise it shows the gap still to
 ## close, which is the reason to press Run Again.
-func _add_stat_grid(parent: Control, distance: float, fish: int, score: int,
-		tint: Color) -> Label:
+func _add_stat_grid(parent: Control, distance: float, fish: int, best: int,
+		_tint: Color) -> Label:
 	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", UITheme.spacing(UITheme.SPACE_M))
+	row.name = "ResultsStats"
+	row.add_theme_constant_override("separation", 10)
 	parent.add_child(row)
-	row.add_child(UITheme.make_stat("%dm" % int(distance), "Distance"))
-	row.add_child(UITheme.make_stat(str(fish), "Fish"))
-	var score_stat := UITheme.make_stat(group_digits(score), "Score", tint)
-	row.add_child(score_stat)
-	return score_stat.get_child(0) as Label
+	for entry: Array in [["BEST", group_digits(best), "trophy"],
+		["DISTANCE", "%d m" % int(distance), "pin"], ["FISH", str(fish), "fish"]]:
+		var tile := PanelContainer.new()
+		tile.name = "ResultsStatPanel" + String(entry[0]).capitalize()
+		tile.add_theme_stylebox_override("panel", RunnerHUDArt.hud_panel("card", 14.0, 12.0, 12.0))
+		tile.custom_minimum_size.y = 112.0
+		tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(tile)
+		var line := HBoxContainer.new()
+		line.add_theme_constant_override("separation", 8)
+		tile.add_child(line)
+		var icon := TextureRect.new()
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.texture = RunnerHUDArt.sprite(String(entry[2]))
+		icon.custom_minimum_size = Vector2(54.0, 64.0)
+		if entry[2] == "fish":
+			var fish_region := AtlasTexture.new()
+			fish_region.atlas = ExpeditionMenuStyle._material_texture("res://assets/art/ui/menu/home_fish_symbol_clean_v2.png")
+			fish_region.region = Rect2(26, 18, 178, 108)
+			fish_region.filter_clip = true
+			icon.texture = fish_region
+			icon.custom_minimum_size = Vector2(62.0, 64.0)
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		line.add_child(icon)
+		var stack := VBoxContainer.new()
+		stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		line.add_child(stack)
+		for value: String in [String(entry[0]), String(entry[1])]:
+			var label := ExpeditionMenuStyle.label(value, 24 if value == entry[0] else 40)
+			label.add_theme_font_override("font", ExpeditionMenuStyle.display_font())
+			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			if value == entry[0]:
+				label.name = "ResultsStatCaption"
+				stack.add_child(label)
+			else:
+				var inset := PanelContainer.new()
+				inset.add_theme_stylebox_override("panel", _results_inset())
+				stack.add_child(inset)
+				inset.add_child(label)
+	return null
 
 
 ## The line that lands after the count-up: what the run beat, or what it still
@@ -1991,38 +2600,102 @@ func _add_footer(parent: Control, score: int, best: int, record: bool) -> Contro
 ## Challenges finished during the run. A runner's session is a set of goals,
 ## not a distance, and listing them is what makes a short run still feel like
 ## it produced something.
-func _add_mission_list(parent: Control, completed: PackedStringArray) -> Control:
-	if completed.is_empty():
-		return null
-	var holder := VBoxContainer.new()
-	holder.add_theme_constant_override("separation", UITheme.spacing(4))
-	parent.add_child(holder)
-	holder.add_child(UITheme.make_divider())
-	var title := UITheme.make_caption("Challenges Cleared", UITheme.FS_CAPTION,
-		Color(COLOR_GOAL, 0.9))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	holder.add_child(title)
-	var check := UITheme.make_icon(CHECK_SVG, 0.45)
-	# Four is all a phone panel can hold without scrolling past the buttons.
-	for i: int in mini(completed.size(), 4):
+func _add_mission_list(parent: Control, completed: PackedStringArray,
+		mission_rows: Array = []) -> Control:
+	var stack := VBoxContainer.new()
+	stack.name = "ResultsCompletedMissions"
+	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stack.add_theme_constant_override("separation", 14)
+	parent.add_child(stack)
+	var summaries: Array[Dictionary] = []
+	for mission: String in completed:
+		summaries.append({"text": mission, "progress": 1.0, "done": true})
+	# With no completed goal, keep the real closest challenge visible. It uses
+	# its actual progress, rather than an invented completion or generic banner.
+	if summaries.is_empty():
+		var closest: Dictionary = {}
+		for candidate: Variant in mission_rows:
+			if candidate is Dictionary and not bool(candidate.get("done", false)) and (closest.is_empty()
+					or float(candidate.get("progress", 0.0)) > float(closest.get("progress", 0.0))):
+				closest = candidate
+		if not closest.is_empty():
+			summaries.append(closest.duplicate())
+	if summaries.is_empty():
+		var empty := PanelContainer.new()
+		empty.add_theme_stylebox_override("panel", RunnerHUDArt.hud_panel("gauge", 28.0, 24.0, 20.0))
+		empty.custom_minimum_size.y = 116.0
+		stack.add_child(empty)
+		var prior_board_complete := not mission_rows.is_empty() and mission_rows.all(
+			func(entry: Variant) -> bool: return entry is Dictionary and bool(entry.get("done", false)))
+		var message := ExpeditionMenuStyle.label("New goals on your next run" if prior_board_complete
+			else "Complete challenges to earn rewards.", 28)
+		message.name = "ResultsGoalsStatus"
+		message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		empty.add_child(message)
+		return stack
+	var check_texture := UITheme.make_icon(CHECK_SVG.replace("#8bea99", "#ffffff"), 1.0)
+	var fill := UITheme.make_bar_fill(Color("179a30"), Color("68e857"))
+	for entry: Dictionary in summaries:
+		var mission := String(entry.get("text", ""))
+		var done := bool(entry.get("done", false))
+		var tile := PanelContainer.new()
+		tile.name = "CompletedMissionRow"
+		tile.add_theme_stylebox_override("panel", RunnerHUDArt.hud_panel("gauge", 40.0, 30.0, 20.0))
+		tile.custom_minimum_size.y = 108.0
+		stack.add_child(tile)
 		var row := HBoxContainer.new()
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", UITheme.scaled_int(8))
-		holder.add_child(row)
-		if check != null:
-			var icon := TextureRect.new()
-			icon.texture = check
-			icon.custom_minimum_size = Vector2(UITheme.scaled(16.0), UITheme.scaled(16.0))
-			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			row.add_child(icon)
-		row.add_child(UITheme.make_caption(completed[i], UITheme.FS_CAPTION,
-			Color(0.88, 0.96, 0.90)))
-	if completed.size() > 4:
-		holder.add_child(UITheme.make_caption(
-			"+%d more" % (completed.size() - 4), UITheme.FS_CAPTION))
-	return holder
+		row.add_theme_constant_override("separation", 12)
+		tile.add_child(row)
+		var icon := TextureRect.new()
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		var asset := "mission_fish_icon_exact_v1" if mission.to_lower().contains("fish") else "mission_flag_icon_exact_v1"
+		icon.texture = load("res://assets/art/ui/menu/%s.webp" % asset)
+		icon.custom_minimum_size = Vector2(48.0, 48.0)
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(icon)
+		var content := VBoxContainer.new()
+		content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		content.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		content.add_theme_constant_override("separation", 6)
+		row.add_child(content)
+		var label := ExpeditionMenuStyle.label(font_safe(mission), 28)
+		label.name = "CompletedMissionText"
+		label.add_theme_font_override("font", ExpeditionMenuStyle.display_font())
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD
+		label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		content.add_child(label)
+		_results_mission_labels.append(label)
+		var groove := _thin_bar(20.0, fill if done else UITheme.make_bar_fill(Color("3184c2"), Color("70c7ed")))
+		var progress := groove.get_child(0) as ProgressBar
+		progress.value = clampf(float(entry.get("progress", 0.0)), 0.0, 1.0)
+		progress.modulate = Color.WHITE
+		content.add_child(groove)
+		if not done:
+			var amount := ExpeditionMenuStyle.label("%s / %s" % [
+				group_digits(int(entry.get("current", 0))), group_digits(int(entry.get("target", 0)))], 22)
+			amount.name = "ResultMissionProgress"
+			amount.autowrap_mode = TextServer.AUTOWRAP_OFF
+			amount.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+			amount.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			row.add_child(amount)
+			continue
+		var badge := PanelContainer.new()
+		badge.name = "CompletionCheck"
+		badge.custom_minimum_size = Vector2(44.0, 44.0)
+		badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var style := ExpeditionMenuStyle.surface(Color("38ae40"), 22, true)
+		style.border_color = Color("78d55c")
+		style.set_content_margin_all(6)
+		badge.add_theme_stylebox_override("panel", style)
+		row.add_child(badge)
+		var check := TextureRect.new()
+		check.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		check.texture = check_texture
+		check.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		badge.add_child(check)
+	return stack
 
 
 ## Gold pill for the record callout, matching the results screen's badge.
@@ -2030,16 +2703,17 @@ func _add_badge(parent: Control, text: String) -> void:
 	var holder := CenterContainer.new()
 	parent.add_child(holder)
 	var badge := PanelContainer.new()
-	var style := UITheme.make_panel_style(
-		Color(UITheme.COLOR_GOLD, 0.16), Color(UITheme.COLOR_GOLD, 0.75))
+	var style := UITheme.make_panel_style(Color("dfc990"), Color("aa935e"))
 	style.set_corner_radius_all(UITheme.RADIUS_PILL)
-	style.content_margin_left = UITheme.scaled(22.0)
-	style.content_margin_right = UITheme.scaled(22.0)
-	style.content_margin_top = UITheme.scaled(6.0)
-	style.content_margin_bottom = UITheme.scaled(6.0)
+	style.content_margin_left = 22.0
+	style.content_margin_right = 22.0
+	style.content_margin_top = 6.0
+	style.content_margin_bottom = 6.0
 	badge.add_theme_stylebox_override("panel", style)
 	holder.add_child(badge)
-	badge.add_child(UITheme.make_caption(text, UITheme.FS_EYEBROW, UITheme.COLOR_GOLD))
+	var caption := ExpeditionMenuStyle.label(text.to_upper(), 23, Color("435774"))
+	caption.autowrap_mode = TextServer.AUTOWRAP_OFF
+	badge.add_child(caption)
 	# Looping ambient flourish, so it goes through the reduced-motion gate the
 	# way every other continuous animation in the game does.
 	if _headless or _reduced:
@@ -2054,7 +2728,7 @@ func _add_badge(parent: Control, text: String) -> void:
 ## Warm gold wash behind the record panel, so a new best changes the colour of
 ## the whole screen rather than adding one more line of text to it.
 func _celebration_glow() -> TextureRect:
-	var core := Color(0.96, 0.78, 0.28, 0.26)
+	var core := Color(0.96, 0.78, 0.28, 0.08)
 	var grad := Gradient.new()
 	grad.colors = PackedColorArray([core, Color(core.r, core.g, core.b, 0.0)])
 	grad.offsets = PackedFloat32Array([0.0, 1.0])
@@ -2081,6 +2755,7 @@ func _play_panel_entrance(card: Control, score_value: Label, score: int,
 	_game_over.modulate.a = 0.0
 	var fade := _game_over.create_tween()
 	fade.tween_property(_game_over, "modulate:a", 1.0, 0.22)
+	fade.finished.connect(_on_results_cover_ready.bind(_game_over))
 	if _reduced:
 		return
 	# Pivot tracks the card's real size: containers have not sorted yet on the
@@ -2134,8 +2809,31 @@ func _set_counted_score(value: float, label: Label) -> void:
 		label.text = group_digits(int(value))
 
 
+func _on_results_cover_ready(overlay: Control) -> void:
+	# A quick Retry can replace/free a fading result. Its old callback must not
+	# hide the new run, nor may missing/transparent art suppress live geometry.
+	if not is_instance_valid(overlay) or overlay != _game_over \
+			or overlay.is_queued_for_deletion() or not overlay.is_visible_in_tree() \
+			or overlay.modulate.a < 1.0 or _results_background == null \
+			or _results_background.texture == null:
+		return
+	results_cover_changed.emit(true)
+
+
 func hide_game_over() -> void:
+	# Restore the scene before the old opaque page is removed.
+	if is_instance_valid(_game_over):
+		results_cover_changed.emit(false)
 	_game_over_buttons = null
+	_results_stage = null
+	_results_title = null
+	_results_background = null
+	_results_hero = null
+	_results_art_space = null
+	_results_card = null
+	_results_summary = null
+	_results_inset_margin = null
+	_results_mission_labels.clear()
 	if _game_over != null and is_instance_valid(_game_over):
 		_game_over.queue_free()
 	_game_over = null

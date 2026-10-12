@@ -12,6 +12,8 @@ creates source geometry, skin, species seams, sockets, and named actions only.
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import math
 import random
 import sys
@@ -92,6 +94,10 @@ def parse_args() -> argparse.Namespace:
     values = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--update-run-only", action="store_true",
+                        help="replace only run action in an existing canonical source")
+    parser.add_argument("--animation-source", help="existing .blend for animation-only update; defaults to output")
+    parser.add_argument("--motion-report", help="write evaluated run contact and bone metrics JSON")
     return parser.parse_args(values)
 
 
@@ -1179,6 +1185,184 @@ def key_action(armature: bpy.types.Object, name: str, length: int,
     armature.animation_data.action = None
 
 
+def action_curves(action: bpy.types.Action):
+    for layer in action.layers:
+        for strip in layer.strips:
+            for bag in strip.channelbags:
+                yield from bag.fcurves
+
+
+def source_structure_digest() -> str:
+    """Geometry/skin/species/rest-rig guard for animation-only source updates."""
+    digest = hashlib.sha256()
+    for obj in sorted(bpy.data.objects, key=lambda item: item.name):
+        if obj.type == "MESH":
+            digest.update(obj.name.encode())
+            for vertex in obj.data.vertices:
+                digest.update(repr((tuple(vertex.co), tuple((g.group, g.weight) for g in vertex.groups))).encode())
+            for polygon in obj.data.polygons:
+                digest.update(repr((tuple(polygon.vertices), polygon.material_index)).encode())
+            for layer in obj.data.uv_layers:
+                for value in layer.data:
+                    digest.update(repr(tuple(value.uv)).encode())
+            for attribute in obj.data.color_attributes:
+                for value in attribute.data:
+                    digest.update(repr(tuple(value.color)).encode())
+            if obj.data.shape_keys:
+                for key in obj.data.shape_keys.key_blocks:
+                    digest.update(key.name.encode())
+                    for value in key.data:
+                        digest.update(repr(tuple(value.co)).encode())
+        elif obj.type == "ARMATURE":
+            for bone in obj.data.bones:
+                digest.update(repr((bone.name, bone.parent.name if bone.parent else None,
+                                   tuple(tuple(row) for row in bone.matrix_local), bone.use_deform)).encode())
+    return digest.hexdigest()
+
+
+def action_digest(action: bpy.types.Action) -> str:
+    values = [(curve.data_path, curve.array_index,
+               [(tuple(key.co), tuple(key.handle_left), tuple(key.handle_right), key.interpolation)
+                for key in curve.keyframe_points]) for curve in action_curves(action)]
+    return hashlib.sha256(repr(values).encode()).hexdigest()
+
+
+def foot_vertex_indices(mesh_obj: bpy.types.Object, side: str) -> list[int]:
+    groups = {mesh_obj.vertex_groups[name].index for name in (f"foot.{side}", f"toe.{side}")}
+    return [vertex.index for vertex in mesh_obj.data.vertices
+            if sum(group.weight for group in vertex.groups if group.group in groups) > 0.98]
+
+
+def evaluated_vertices(mesh_obj: bpy.types.Object, indices: list[int]) -> list[Vector]:
+    bpy.context.view_layer.update()
+    evaluated = mesh_obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+    return [evaluated.matrix_world @ evaluated.data.vertices[index].co for index in indices]
+
+
+def create_run_action(armature: bpy.types.Object, mesh_obj: bpy.types.Object) -> dict:
+    """Coherent whole-body waddle; feet follow the pelvis without ankle motion.
+
+    Root remains identity. Pelvis local offsets are presentation deformation;
+    gameplay still supplies all character translation and speed authority. The
+    lowest evaluated sole sets one vertical offset for the entire character,
+    never an independent stride, lift, or compensation for either foot.
+    """
+    if armature.animation_data:
+        armature.animation_data.action = None
+    existing = bpy.data.actions.get("run")
+    if existing:
+        bpy.data.actions.remove(existing)
+    reset_pose(armature)
+    bpy.context.view_layer.update()
+    foot_indices = {side: foot_vertex_indices(mesh_obj, side) for side in ("L", "R")}
+    if any(not indices for indices in foot_indices.values()):
+        raise RuntimeError("run contact validation needs authored foot/toe skin groups")
+    action = bpy.data.actions.new(name="run")
+    action.use_fake_user = True
+    armature.animation_data_create()
+    armature.animation_data.action = action
+    combined_foot_indices = foot_indices["L"] + foot_indices["R"]
+    sole_height = 0.012
+    for frame in range(1, 25):
+        bpy.context.scene.frame_set(frame)
+        reset_pose(armature)
+        phase = (frame - 1) / 23.0
+        angle = math.tau * phase
+        c, s = math.cos(angle), math.sin(angle)
+        rotations = {
+            "pelvis": (-2.0 - 0.7 * math.cos(angle * 2.0), 1.5 * s, -11.0 * c),
+            "spine_lower": (-3.0, -0.4 * s, 2.0 * c),
+            "spine_upper": (-4.0, -0.4 * math.sin(angle - 0.2), 1.5 * math.cos(angle - 0.25)),
+            "neck": (0.8, 0.35 * math.sin(angle - 0.3), 0.65 * math.cos(angle - 0.35)),
+            "head": (2.0 + 0.4 * math.cos(angle * 2.0 - 0.4),
+                     1.5 * math.sin(angle - 0.55), 2.0 * math.cos(angle - 0.6)),
+            "wing.L": (9.0 * s, -2.0 * math.sin(angle + 0.2), -9.0 - 3.0 * c),
+            "wing.R": (-9.0 * s, 2.0 * math.sin(angle + 0.2), 9.0 - 3.0 * c),
+            "tail": (1.5 * math.cos(angle * 2.0), 0.0, 1.5 * math.cos(angle - 0.25)),
+        }
+        for name, rotation in rotations.items():
+            armature.pose.bones[name].rotation_euler = tuple(math.radians(value) for value in rotation)
+        bpy.context.view_layer.update()
+        pelvis = armature.pose.bones["pelvis"]
+        pelvis_matrix = pelvis.matrix.copy()
+        pelvis_matrix.translation += Vector((-0.022 * c, 0.0, 0.0))
+        pelvis.matrix = pelvis_matrix
+        bpy.context.view_layer.update()
+        # Feet and toes retain identity local transforms from reset_pose. The
+        # body rock alone raises the unweighted side. Evaluate actual skinned
+        # soles and move only the pelvis to keep the supporting side on snow.
+        for _step in range(2):
+            minimum = min(point.z for point in evaluated_vertices(mesh_obj, combined_foot_indices))
+            desired = pelvis.matrix.copy()
+            desired.translation.z += sole_height - minimum
+            pelvis.matrix = desired
+            bpy.context.view_layer.update()
+        for bone in armature.pose.bones:
+            bone.keyframe_insert(data_path="rotation_euler", frame=frame, group=bone.name)
+            bone.keyframe_insert(data_path="location", frame=frame, group=bone.name)
+        # Full sampling uses linear curves to prevent Bezier undershoot through
+        # the floor between contact samples. Other clips retain their curves.
+    for curve in action_curves(action):
+        for key in curve.keyframe_points:
+            key.interpolation = "LINEAR"
+    action.frame_start = 1
+    action.frame_end = 24
+    report = validate_run_motion(armature, mesh_obj, foot_indices, sole_height)
+    armature.animation_data.action = None
+    reset_pose(armature)
+    bpy.context.view_layer.update()
+    return report
+
+
+def validate_run_motion(armature: bpy.types.Object, mesh_obj: bpy.types.Object,
+                        foot_indices: dict[str, list[int]], sole_height: float) -> dict:
+    samples = []
+    for sample in range(93):
+        frame = 1.0 + sample / 4.0
+        bpy.context.scene.frame_set(int(frame), subframe=frame % 1.0)
+        bpy.context.view_layer.update()
+        root = armature.pose.bones["root"].matrix_basis
+        if any(abs(root[row][column] - (1.0 if row == column else 0.0)) > 1e-5
+               for row in range(4) for column in range(4)):
+            raise RuntimeError("run action applies root motion")
+        record = {"frame": frame}
+        for name in ("pelvis", "spine_upper", "head"):
+            bone = armature.pose.bones[name]
+            deformation = bone.matrix @ bone.bone.matrix_local.inverted()
+            up = deformation.to_3x3() @ Vector((0.0, 0.0, 1.0))
+            record[name] = {
+                "roll_degrees": math.degrees(math.atan2(-up.x, up.z)),
+                "pitch_degrees": math.degrees(math.atan2(up.y, up.z)),
+            }
+        for side in ("L", "R"):
+            for name in (f"foot.{side}", f"toe.{side}"):
+                basis = armature.pose.bones[name].matrix_basis
+                if any(abs(basis[row][column] - (1.0 if row == column else 0.0)) > 1e-5
+                       for row in range(4) for column in range(4)):
+                    raise RuntimeError(f"run independently animates {name} at frame {frame}")
+            points = evaluated_vertices(mesh_obj, foot_indices[side])
+            minimum = min(point.z for point in points)
+            record[f"sole_{side}"] = minimum
+            if minimum < 0.003:
+                raise RuntimeError(f"run foot {side} penetrates ground at frame {frame}: {minimum}")
+        samples.append(record)
+    extrema = {}
+    for name in ("pelvis", "spine_upper", "head"):
+        extrema[name] = {axis: [min(sample[name][axis] for sample in samples),
+                                max(sample[name][axis] for sample in samples)]
+                         for axis in ("roll_degrees", "pitch_degrees")}
+    report = {"clip": "run", "frame_range": [1, 24], "source_fps": 30,
+              "evaluated_samples": len(samples), "sole_target_m": sole_height,
+              "minimum_sole_m": min(sample[f"sole_{side}"] for sample in samples for side in ("L", "R")),
+              "maximum_support_sole_m": max(min(sample["sole_L"], sample["sole_R"]) for sample in samples),
+              "maximum_sole_by_side_m": {side: max(sample[f"sole_{side}"] for sample in samples)
+                                          for side in ("L", "R")},
+              "independent_foot_motion": False,
+              "root_motion": False, "extrema": extrema, "samples": samples}
+    print("[hero-run] " + json.dumps({key: value for key, value in report.items() if key != "samples"}, sort_keys=True))
+    return report
+
+
 def create_actions(armature: bpy.types.Object) -> None:
     p = pose_values
     definitions: dict[str, tuple[int, dict[int, dict[str, tuple[float, float, float]]]]] = {
@@ -1187,16 +1371,6 @@ def create_actions(armature: bpy.types.Object) -> None:
                                 60: p(spine_lower=(0, 0, -1), head=(0, 0, 0))}),
         "fidget": (45, {1: p(head=(0, 0, 0)), 12: p(head=(-8, 16, 5), **{"wing.L": (5, -6, -14)}),
                         27: p(head=(3, -12, -4), **{"foot.R": (-12, 0, 8)}), 45: p(head=(0, 0, 0))}),
-        "run": (24, {1: p(pelvis=(10, -10, -26), spine_lower=(-14, 4, 8), spine_upper=(-24, 8, 18), head=(13, 12, 18),
-                             **{"wing.L": (38, -20, -82), "wing.R": (-28, 18, 58), "foot.L": (-48, 0, 16), "foot.R": (34, 0, -12)}),
-                     7: p(pelvis=(-9, 0, 0), spine_lower=(-9, 0, 0), spine_upper=(-22, 0, 0), head=(12, 0, 0),
-                          **{"wing.L": (-10, 0, -22), "wing.R": (10, 0, 22), "foot.L": (18, 0, 0), "foot.R": (18, 0, 0)}),
-                     13: p(pelvis=(10, 10, 26), spine_lower=(-14, -4, -8), spine_upper=(-24, -8, -18), head=(13, -12, -18),
-                           **{"wing.L": (-28, -18, -58), "wing.R": (38, 20, 82), "foot.L": (34, 0, 12), "foot.R": (-48, 0, -16)}),
-                     19: p(pelvis=(-9, 0, 0), spine_lower=(-9, 0, 0), spine_upper=(-22, 0, 0), head=(12, 0, 0),
-                           **{"wing.L": (10, 0, -22), "wing.R": (-10, 0, 22), "foot.L": (18, 0, 0), "foot.R": (18, 0, 0)}),
-                     24: p(pelvis=(10, -10, -26), spine_lower=(-14, 4, 8), spine_upper=(-24, 8, 18), head=(13, 12, 18),
-                           **{"wing.L": (38, -20, -82), "wing.R": (-28, 18, 58), "foot.L": (-48, 0, 16), "foot.R": (34, 0, -12)})}),
         "lean_left": (18, {1: p(pelvis=(0, 0, 0)), 9: p(pelvis=(0, -4, 24), spine_upper=(0, 5, 12), head=(0, -9, -18),
                                                               **{"wing.L": (0, 0, -42), "wing.R": (0, 0, 14)}),
                             18: p(pelvis=(0, -4, 24), spine_upper=(0, 5, 12), head=(0, -9, -18),
@@ -1294,7 +1468,9 @@ def create_actions(armature: bpy.types.Object) -> None:
             if "wing_L" in values:
                 values["wing.L"] = values.pop("wing_L")
         key_action(armature, action_name, length, frames)
-    missing = sorted(set(REQUIRED_ACTIONS) - set(definitions))
+    mesh_obj = next(child for child in armature.children if child.type == "MESH")
+    create_run_action(armature, mesh_obj)
+    missing = sorted(set(REQUIRED_ACTIONS) - set(definitions) - {"run"})
     if missing:
         raise RuntimeError(f"missing action definitions: {', '.join(missing)}")
     reset_pose(armature)
@@ -1333,6 +1509,34 @@ def main() -> None:
     args = parse_args()
     output = Path(args.output).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
+    if args.update_run_only:
+        source = Path(args.animation_source or args.output).resolve()
+        if not source.is_file():
+            raise RuntimeError(f"animation-only source missing: {source}")
+        bpy.ops.wm.open_mainfile(filepath=str(source))
+        armature = next(obj for obj in bpy.data.objects if obj.type == "ARMATURE")
+        mesh_obj = bpy.data.objects["HeroPenguinMesh"]
+        before_structure = source_structure_digest()
+        before_actions = {action.name: action_digest(action) for action in bpy.data.actions if action.name != "run"}
+        report = create_run_action(armature, mesh_obj)
+        if source_structure_digest() != before_structure:
+            raise RuntimeError("animation-only update changed geometry, skin, species, or rest rig")
+        after_actions = {action.name: action_digest(action) for action in bpy.data.actions if action.name != "run"}
+        if before_actions != after_actions:
+            raise RuntimeError("animation-only update changed another clip")
+        report["structure_sha256"] = before_structure
+        report["other_clips_preserved"] = sorted(before_actions)
+        if args.motion_report:
+            report_path = Path(args.motion_report).resolve()
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        # Caller retains an explicit source checkpoint; do not replace the
+        # artist's existing .blend1 while updating animation.
+        bpy.context.preferences.filepaths.save_version = 0
+        bpy.context.scene.frame_set(1)
+        bpy.ops.wm.save_as_mainfile(filepath=str(output), check_existing=False, compress=True)
+        print(f"[hero-run] preserved geometry/rest rig/species and {len(before_actions)} other clips; saved {output}")
+        return
     collection = reset_scene()
     armature = create_armature(collection)
     mesh_obj, builder = create_mesh(collection, armature)

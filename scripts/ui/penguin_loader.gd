@@ -8,23 +8,35 @@ extends Control
 ## introduces no 3D shader programs.
 
 const TEXTURE_PATH: String = \
-		"res://assets/art/ui/loader_penguin_expedition_v1.png"
+		"res://assets/art/ui/menu/loader_courier_v3.webp"
+const TRACK_TEXTURE_PATH: String = \
+		"res://assets/art/ui/menu/loader_track_v3.webp"
+const CARD_TEXTURE_PATH := "res://assets/art/ui/menu/loader_card_v3.webp"
+const LOGO_TEXTURE_PATH := "res://assets/art/ui/menu/loader_logo_v3.webp"
+const PaintedSurface := preload("res://scripts/ui/painted_menu_surface.gd")
 const CYCLE: float = 0.58
 const UPDATE_STEP: float = 1.0 / 30.0
+const PROGRESS_PER_SECOND: float = 1.65
 
 static var _loader_texture: Texture2D = null
 static var _glow_texture: Texture2D = null
+static var _track_texture: Texture2D = null
+static var _fill_texture: Texture2D = null
 
 var penguin_size: float = 200.0
 
 var _character_holder: Control = null
 var _shadow: TextureRect = null
-var _route_dots: Array[Panel] = []
+var _bar_track: Panel = null
+var _bar_fill: Panel = null
+var _track_art: TextureRect = null
+var _character_origin: Vector2 = Vector2.ZERO
 var _start_ms: int = 0
 var _time: float = 0.0
 var _accumulator: float = 0.0
 var _reduced_motion: bool = false
-var _progress: float = -1.0
+var _progress: float = 0.0
+var _shown_progress: float = 0.0
 
 
 func _init(p_size: float = 200.0) -> void:
@@ -43,10 +55,23 @@ func _ready() -> void:
 	_update_pivots.call_deferred()
 
 
-## Optional determinate seam for SceneRouter. Negative returns to indeterminate.
+## Route milestones only move forward. Unknown phases hold their last position.
 func set_progress(value: float) -> void:
-	_progress = clampf(value, 0.0, 1.0) if value >= 0.0 else -1.0
+	if value < 0.0:
+		return
+	_progress = maxf(_progress, clampf(value, 0.0, 1.0))
+	if _progress >= 1.0 or not is_inside_tree() \
+			or GameConfig.is_headless() or _reduced_motion:
+		_shown_progress = _progress
+		_update_route()
+	_update_processing()
+
+
+func reset_progress() -> void:
+	_progress = 0.0
+	_shown_progress = 0.0
 	_update_route()
+	_update_processing()
 
 
 func get_progress() -> float:
@@ -56,6 +81,7 @@ func get_progress() -> float:
 func set_reduced_motion(reduced: bool) -> void:
 	_reduced_motion = reduced
 	if reduced:
+		_shown_progress = _progress
 		_apply_static_pose()
 	_update_processing()
 
@@ -64,7 +90,7 @@ func reset_animation() -> void:
 	_start_ms = Time.get_ticks_msec()
 	_time = 0.0
 	_accumulator = 0.0
-	if _reduced_motion:
+	if _static_courier():
 		_apply_static_pose()
 
 
@@ -76,43 +102,73 @@ func is_motion_active() -> bool:
 static func loader_texture() -> Texture2D:
 	if _loader_texture == null and ResourceLoader.exists(TEXTURE_PATH):
 		_loader_texture = ResourceLoader.load(TEXTURE_PATH) as Texture2D
+	# BootWarmup calls this seam before any rich transition can be presented.
+	track_texture()
+	progress_fill_texture()
 	return _loader_texture
 
 
-func _build() -> void:
-	var glow := TextureRect.new()
-	glow.name = "ExpeditionGlow"
-	glow.texture = _radial_glow()
-	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	glow.stretch_mode = TextureRect.STRETCH_SCALE
-	glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	glow.offset_left = penguin_size * 0.08
-	glow.offset_top = penguin_size * 0.05
-	glow.offset_right = -penguin_size * 0.08
-	glow.offset_bottom = -penguin_size * 0.10
-	glow.modulate = Color(0.38, 0.78, 1.0, 0.32)
-	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(glow)
+static func track_texture() -> Texture2D:
+	if _track_texture == null and ResourceLoader.exists(TRACK_TEXTURE_PATH):
+		var atlas := AtlasTexture.new()
+		atlas.atlas = ResourceLoader.load(TRACK_TEXTURE_PATH) as Texture2D
+		atlas.region = Rect2(32.0, 142.0, 2014.0, 420.0)
+		atlas.filter_clip = true
+		_track_texture = atlas
+	return _track_texture
 
+
+static func card_style() -> StyleBoxTexture:
+	var card := StyleBoxTexture.new()
+	card.texture = ExpeditionMenuStyle._trimmed_material(CARD_TEXTURE_PATH,
+		Rect2(16.0, 28.0, 746.0, 442.0))
+	card.texture_margin_left = 40.0
+	card.texture_margin_right = 40.0
+	card.texture_margin_top = 35.0
+	card.texture_margin_bottom = 32.0
+	return card
+
+
+## A smooth progress tube, distinct from the snow-covered action buttons.
+## Cached SVG raster uses the ordinary Canvas renderer; no loading-time shader.
+static func progress_fill_texture() -> Texture2D:
+	if _fill_texture == null:
+		_fill_texture = UITheme.make_icon("""<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="128" viewBox="0 0 1024 128">
+<defs>
+<linearGradient id="coral" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#ffb49b"/><stop offset="0.18" stop-color="#ff8b6b"/>
+<stop offset="0.47" stop-color="#ff674b"/><stop offset="0.51" stop-color="#ff5134"/>
+<stop offset="0.82" stop-color="#fb4c2e"/><stop offset="1" stop-color="#d83b23"/>
+</linearGradient>
+<linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#fff5df" stop-opacity="0.86"/><stop offset="1" stop-color="#fff5df" stop-opacity="0"/>
+</linearGradient>
+</defs>
+<rect x="2" y="2" width="1020" height="124" rx="62" fill="url(#coral)" stroke="#d74429" stroke-width="4"/>
+<rect x="20" y="11" width="984" height="38" rx="19" fill="url(#shine)"/>
+<path d="M 52 8 H 972" fill="none" stroke="#fff5dc" stroke-width="3" stroke-linecap="round" opacity="0.72"/>
+</svg>""")
+	return _fill_texture
+
+
+static func progress_fill_style() -> StyleBox:
+	var style := PaintedSurface.new()
+	style.texture = progress_fill_texture()
+	return style
+
+
+func _build() -> void:
 	_shadow = TextureRect.new()
 	_shadow.name = "ContactShadow"
 	_shadow.texture = _radial_glow()
 	_shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_shadow.stretch_mode = TextureRect.STRETCH_SCALE
-	_shadow.anchor_left = 0.27
-	_shadow.anchor_top = 0.75
-	_shadow.anchor_right = 0.73
-	_shadow.anchor_bottom = 0.86
-	_shadow.modulate = Color(0.005, 0.015, 0.035, 0.62)
+	_shadow.modulate = Color(0.13, 0.25, 0.34, 0.24)
 	_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_shadow)
 
 	_character_holder = Control.new()
 	_character_holder.name = "ExpeditionCourier"
-	_character_holder.anchor_left = 0.12
-	_character_holder.anchor_top = 0.01
-	_character_holder.anchor_right = 0.88
-	_character_holder.anchor_bottom = 0.83
 	_character_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_character_holder)
 
@@ -125,41 +181,41 @@ func _build() -> void:
 	penguin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_character_holder.add_child(penguin)
 
-	var route := Control.new()
-	route.name = "ExpeditionRoute"
-	route.anchor_left = 0.18
-	route.anchor_top = 0.90
-	route.anchor_right = 0.82
-	route.anchor_bottom = 0.94
-	route.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(route)
+	_track_art = TextureRect.new()
+	_track_art.name = "SculptedIceTrack"
+	_track_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_track_art.texture = track_texture()
+	_track_art.stretch_mode = TextureRect.STRETCH_SCALE
+	_track_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_track_art)
 
-	for i: int in 3:
-		var dot := Panel.new()
-		dot.name = "Waypoint%d" % (i + 1)
-		dot.anchor_left = float(i) * 0.5
-		dot.anchor_right = float(i) * 0.5
-		dot.anchor_top = 0.5
-		dot.anchor_bottom = 0.5
-		var side := maxf(penguin_size * 0.035, 5.0)
-		dot.offset_left = -side * 0.5
-		dot.offset_top = -side * 0.5
-		dot.offset_right = side * 0.5
-		dot.offset_bottom = side * 0.5
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color(0.86, 0.95, 1.0, 0.94)
-		style.border_color = Color(0.18, 0.44, 0.68, 0.95)
-		style.set_border_width_all(maxi(1, roundi(side * 0.16)))
-		style.set_corner_radius_all(roundi(side))
-		dot.add_theme_stylebox_override("panel", style)
-		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		route.add_child(dot)
-		_route_dots.append(dot)
+	_bar_track = Panel.new()
+	_bar_track.name = "LoadingBar"
+	_bar_track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_bar_track.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	add_child(_bar_track)
+	_bar_fill = Panel.new()
+	_bar_fill.name = "LoadingActivity"
+	_bar_fill.anchor_top = 0.0
+	_bar_fill.anchor_bottom = 1.0
+	_bar_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fill_style := progress_fill_style()
+	_bar_fill.add_theme_stylebox_override("panel", fill_style)
+	_bar_track.add_child(_bar_fill)
 
 	_update_route()
 
 
 func _process(delta: float) -> void:
+	if _shown_progress < _progress:
+		# Cap a resumed frame's step: synchronous web decoding cannot animate,
+		# but its next frame must not jump an entire milestone either.
+		_shown_progress = minf(_progress,
+			_shown_progress + minf(delta, 1.0 / 30.0) * PROGRESS_PER_SECOND)
+		_update_route()
+	if _static_courier():
+		_update_processing()
+		return
 	_accumulator += delta
 	if _accumulator < UPDATE_STEP:
 		return
@@ -168,38 +224,32 @@ func _process(delta: float) -> void:
 	var phase := _time / CYCLE * TAU
 	var lift := pow(absf(sin(phase)), 0.78)
 	var hop := penguin_size * 0.034 * lift
-	_character_holder.position = Vector2(
+	_character_holder.position = _character_origin + Vector2(
 		sin(phase * 0.5) * penguin_size * 0.012, -hop)
 	_character_holder.rotation = sin(phase * 0.5) * 0.030
 	_character_holder.scale = Vector2(1.0 + lift * 0.012, 1.0 - lift * 0.010)
 
 	_shadow.scale = Vector2(1.0 - lift * 0.13, 1.0 - lift * 0.05)
-	_shadow.modulate.a = 0.62 - lift * 0.20
+	_shadow.modulate.a = 0.24 - lift * 0.07
 	_update_route()
 
 
 func _update_route() -> void:
-	if _route_dots.is_empty():
+	if _bar_fill == null:
 		return
-	var amount := _progress
-	if amount < 0.0:
-		amount = 0.18 if _reduced_motion else 0.12 + 0.88 * \
-			(0.5 + 0.5 * sin(_time * 1.65 - PI * 0.5))
-	for i: int in _route_dots.size():
-		var threshold := float(i) * 0.5
-		var reached := amount + 0.03 >= threshold
-		_route_dots[i].modulate = Color.WHITE if reached \
-			else Color(0.48, 0.60, 0.74, 0.58)
+	_bar_fill.anchor_left = 0.0
+	_bar_fill.anchor_right = _shown_progress
+	_bar_fill.visible = _shown_progress > 0.0
 
 
 func _apply_static_pose() -> void:
 	if _character_holder != null:
-		_character_holder.position = Vector2.ZERO
+		_character_holder.position = _character_origin
 		_character_holder.rotation = 0.0
 		_character_holder.scale = Vector2.ONE
 	if _shadow != null:
 		_shadow.scale = Vector2.ONE
-		_shadow.modulate.a = 0.55
+		_shadow.modulate.a = 0.24
 	_update_route()
 
 
@@ -211,11 +261,31 @@ func _on_visibility_changed() -> void:
 
 func _update_processing() -> void:
 	set_process(is_inside_tree() and is_visible_in_tree() \
-		and not _reduced_motion and not GameConfig.is_headless())
+		and not GameConfig.is_headless() and not _reduced_motion \
+		and (not _static_courier() or _shown_progress < _progress))
+
+
+func _static_courier() -> bool:
+	return _reduced_motion or (OS.has_feature("web") and UITheme.is_touch())
 
 
 func _update_pivots() -> void:
 	if _character_holder != null:
+		var canvas := Vector2(maxf(size.x, 1.0), maxf(size.y, 1.0))
+		var rail_width := canvas.x * 0.96
+		var rail_height := minf(canvas.y * 0.36, rail_width * 0.18)
+		_track_art.position = Vector2((canvas.x - rail_width) * 0.5, canvas.y - rail_height)
+		_track_art.size = Vector2(rail_width, rail_height)
+		# Fill remains a real forward-only Control inside the authored recess.
+		_bar_track.position = _track_art.position + Vector2(rail_width * 0.045, rail_height * 0.37)
+		_bar_track.size = Vector2(rail_width * 0.897, rail_height * 0.417)
+		var courier_height := canvas.y - rail_height * 0.68
+		var courier_width := minf(canvas.x * 0.72, courier_height * 1.5)
+		_character_holder.size = Vector2(courier_width, courier_height)
+		_character_origin = Vector2((canvas.x - courier_width) * 0.5, 0.0)
+		_character_holder.position = _character_origin
+		_shadow.position = Vector2(canvas.x * 0.32, courier_height * 0.90)
+		_shadow.size = Vector2(canvas.x * 0.38, rail_height * 0.26)
 		_character_holder.pivot_offset = _character_holder.size * Vector2(0.5, 0.82)
 	if _shadow != null:
 		_shadow.pivot_offset = _shadow.size * 0.5

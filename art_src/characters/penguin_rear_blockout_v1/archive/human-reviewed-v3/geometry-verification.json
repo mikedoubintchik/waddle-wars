@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "glb_sha256": "1b06c511a0c346edeebf36ae7fb096c74d4c522376cb45bb39cada119b3b1414",
+  "source_sha256": "212d298fe01013bd6e9ea4e5c9dde43d9235519aabd86d82ad19a54a371d31a5",
+  "passed": true,
+  "triangles": 7904,
+  "normals_verified": 3964,
+  "positions_verified": 3964,
+  "literal_linear_colors_verified": 3964,
+  "source_and_config_bound": true,
+  "head_torso_flipper_positions_and_normals_match_v2": true,
+  "bmesh_color_index_error_m": 0,
+  "rear_hemisphere_cream_vertices": 50,
+  "rear_hemisphere_gold_vertices": 22,
+  "rendered_frames": 0,
+  "visual_approval": "pending"
+}

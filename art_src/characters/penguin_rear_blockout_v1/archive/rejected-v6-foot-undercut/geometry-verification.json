@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "passed": true,
+  "scope": "Source geometry and fixed-camera software silhouette; final actual-game visual/human approval still pending",
+  "shape_revision": "v6 final source-fit9: measured rear silhouette; fuller lower neck and pear underside; asymmetric flipper reach; common rounded foot loft with planted soles, posed upper ankle lean and 4cm right hip settle",
+  "glb_sha256": "a9c89964adaa403c940571f1d3a4951002f3ca0c514fdb9e3636554b6aaad377",
+  "source_sha256": "bbbde3d83321c8876a6db29d5bb25442d2c402ae08ac650d4747058d6ffdc2af",
+  "config_sha256": "6d435811b105d91be93129f8a04684604d5ae177bc08f4f318acd05bf3434a11",
+  "builder_sha256": "988a4bb2f98b2a3ded5ec681a30b6ba9b52b78303cdd4b0b16eb89b88a78fed0",
+  "triangles": 9344,
+  "positions_verified": 4684,
+  "normals_verified": 4684,
+  "literal_linear_colors_verified": 4684,
+  "source_and_config_bound": true,
+  "bmesh_color_index_error_m": 0.0,
+  "foot_sole_vertices_exactly_grounded": {
+    "foot_L": 33,
+    "foot_R": 33
+  },
+  "ankle_caps_inside_final_posed_body": [
+    {
+      "part": "foot_L",
+      "ankle_cap_body_ellipse_ratio": 0.7687331972688993,
+      "sole_min_z_m": 0.0,
+      "ankle_cap_m": [
+        -0.28500000000000003,
+        -0.107,
+        0.285
+      ]
+    },
+    {
+      "part": "foot_R",
+      "ankle_cap_body_ellipse_ratio": 0.3082516831260793,
+      "sole_min_z_m": 0.0,
+      "ankle_cap_m": [
+        0.1987436323395641,
+        0.13220512192768435,
+        0.285
+      ]
+    }
+  ],
+  "one_plain_matte_surface_no_maps_rig_or_animation": true,
+  "identity_root": true,
+  "shared_canonical_foot_loft": true,
+  "static_pose": {
+    "body_forward_pitch_degrees": 11,
+    "right_hip_settle_m": 0.04,
+    "pose_scope": "Static reference stance; shared anatomical foot loft, upper ankle lean and right lower-rump settle. No rig or animation.",
+    "author_hip_pivot_yz_m": [
+      0.045,
+      0.28
+    ],
+    "leaned_parts": [
+      "continuous_body_head",
+      "flipper_L",
+      "flipper_R",
+      "short_tail_fan"
+    ],
+    "feet_rotated_with_body": false,
+    "crown_forward_direction": "author +Y; exported Godot -Z",
+    "static_reference_foot_poses": {
+      "L": {
+        "forward_offset_m": 0,
+        "height_scale": 1,
+        "width_scale": 1,
+        "yaw_offset_degrees": -18,
+        "center_x_offset_m": 0.035,
+        "upper_lean_y_m": -0.18,
+        "upper_lean_x_m": 0,
+        "upper_bulge_y_m": -0.08,
+        "upper_lean_full_z_m": 0.225,
+        "upper_lean_start_z_m": 0.055
+      },
+      "R": {
+        "forward_offset_m": 0,
+        "height_scale": 1,
+        "width_scale": 1,
+        "yaw_offset_degrees": 0,
+        "center_x_offset_m": 0.04,
+        "upper_lean_y_m": 0.04,
+        "upper_lean_x_m": -0.1,
+        "upper_bulge_y_m": 0.1,
+        "upper_lean_full_z_m": 0.18,
+        "upper_lean_start_z_m": 0.09
+      }
+    },
+    "static_reference_flipper_poses": {
+      "L": {
+        "length_scale": 1.08
+      },
+      "R": {
+        "length_scale": 0.975
+      }
+    },
+    "attachment_checks": [
+      {
+        "part": "foot_L",
+        "ankle_cap_body_ellipse_ratio": 0.7687331972688993,
+        "sole_min_z_m": 0.0,
+        "ankle_cap_m": [
+          -0.28500000000000003,
+          -0.107,
+          0.285
+        ]
+      },
+      {
+        "part": "foot_R",
+        "ankle_cap_body_ellipse_ratio": 0.3082516831260793,
+        "sole_min_z_m": 0.0,
+        "ankle_cap_m": [
+          0.1987436323395641,
+          0.13220512192768435,
+          0.285
+        ]
+      }
+    ]
+  },
+  "software_fit_directory": "qa_shots/penguin-silhouette-overlay-20261011/projection/source-fit-final",
+  "software_fit": {
+    "full": {
+      "intersection_over_union": 0.9499054231017066,
+      "symmetric_boundary_mean_px": 1.9191353315995099,
+      "symmetric_boundary_p95_px": 4.242640687119285,
+      "symmetric_boundary_max_px": 11.40175425099138
+    },
+    "feet": {
+      "intersection_over_union": 0.8193174893357709,
+      "symmetric_boundary_mean_px": 1.7836184291355512,
+      "symmetric_boundary_p95_px": 4.47213595499958,
+      "symmetric_boundary_max_px": 8.54400374531753
+    },
+    "per_foot": {
+      "left": {
+        "reference": {
+          "area": 1786,
+          "bbox": [
+            155,
+            320,
+            207,
+            366
+          ]
+        },
+        "candidate": {
+          "area": 1753,
+          "bbox": [
+            156,
+            319,
+            208,
+            365
+          ]
+        },
+        "metrics": {
+          "intersection_over_union": 0.8384415584415584,
+          "symmetric_boundary_mean_px": 1.7589967708813317,
+          "symmetric_boundary_p95_px": 3.7238858928247742,
+          "symmetric_boundary_max_px": 4.47213595499958
+        }
+      },
+      "right": {
+        "reference": {
+          "area": 1229,
+          "bbox": [
+            246,
+            338,
+            303,
+            366
+          ]
+        },
+        "candidate": {
+          "area": 1203,
+          "bbox": [
+            247,
+            334,
+            303,
+            366
+          ]
+        },
+        "metrics": {
+          "intersection_over_union": 0.7921886514369934,
+          "symmetric_boundary_mean_px": 1.8118903913751345,
+          "symmetric_boundary_p95_px": 6.28828640183097,
+          "symmetric_boundary_max_px": 8.54400374531753
+        }
+      }
+    }
+  },
+  "seating_note": "GLB soles remain Y0; preview adapter seats candidate at opaque visual deck Y0.022, independently from collider. Fixed seated camera used for projection.",
+  "khronos_validator": {
+    "errors": 0,
+    "warnings": 0,
+    "infos": 0,
+    "hints": 0
+  },
+  "rendered_frames_by_builder": 0,
+  "visual_approval": "pending final actual-game review and human Gate1 decision"
+}

@@ -28,6 +28,10 @@ const RUNNER_DAY_SCENE_IDS: PackedStringArray = [
 	"runner_day_snowcat_v1",
 	"runner_day_tunnel_shell_v1",
 ]
+const RUNNER_DAY_RELEASE_SCENE_IDS: PackedStringArray = [
+	"runner_day_deck_kerb_b_v1", "runner_day_deck_kerb_c_v1", "runner_day_deck_kerb_v1",
+	"runner_day_iceberg_cluster_v1", "runner_day_research_lab_v1", "runner_day_signal_pylon_v1",
+]
 
 var _passes: int = 0
 var _failures: int = 0
@@ -39,6 +43,7 @@ func _ready() -> void:
 	_test_preview_overlay()
 	_test_normal_runner_preview_resolution()
 	await _test_catalog_lazy_preload()
+	_test_catalog_headless_preload()
 	_test_character_look()
 	_test_profiles()
 	_test_runner_set()
@@ -69,6 +74,10 @@ func _test_catalog() -> void:
 		"frontend_loader_penguin",
 		"frontend_title_landscape",
 		"frontend_title_portrait",
+		"frontend_wordmark_v2",
+		"frontend_wordmark_v3",
+		"frontend_wordmark_v4",
+		"wardrobe_category_icons_v3",
 	]), "ids=%s" % str(frontend_ids))
 	_check("catalog_frontend_paths_resolve",
 		catalog.asset_path("frontend_loader_penguin") ==
@@ -76,7 +85,9 @@ func _test_catalog() -> void:
 		and catalog.asset_path("frontend_title_landscape") ==
 			"res://assets/art/ui/title_expedition_landscape_v1.png"
 		and catalog.asset_path("frontend_title_portrait") ==
-			"res://assets/art/ui/title_expedition_portrait_v1.png")
+			"res://assets/art/ui/title_expedition_portrait_v1.png"
+		and catalog.asset_path("wardrobe_category_icons_v3") ==
+			"res://assets/art/ui/menu/wardrobe_category_icons_v3.png")
 	var budgets := catalog.budgets()
 	_check("catalog_character_budget", int(budgets.get("character_lod0_triangles_max", 0)) == 25_000)
 	_check("catalog_draw_budget", int(budgets.get("draw_calls_high_peak_max", 0)) == 300)
@@ -129,9 +140,9 @@ func _test_preview_overlay() -> void:
 	_check("preview_fragment_applies", error == OK,
 		"error=%d details=%s" % [error, str(catalog.manifest_errors())])
 	var preview_ids := catalog.preview_asset_ids()
-	# Each authored scene contributes one wrapper + one runtime mesh; the shared
-	# family contributes three textures, two shaders and two materials.
-	var expected_preview_count := RUNNER_DAY_SCENE_IDS.size() * 2 + 7
+	# Six scenes and the shared surface dependencies now belong to the release
+	# catalog. Nine remaining review scenes + shell shader/material stay private.
+	var expected_preview_count := (RUNNER_DAY_SCENE_IDS.size() - RUNNER_DAY_RELEASE_SCENE_IDS.size()) * 2 + 2
 	_check("preview_fragment_count", preview_ids.size() == expected_preview_count,
 		"ids=%d expected=%d" % [preview_ids.size(), expected_preview_count])
 	_check("preview_fragment_scenes_resolve",
@@ -189,10 +200,10 @@ func _test_normal_runner_preview_resolution() -> void:
 	game.add_child(track)
 	track.setup(20260818, 1.0, 1)
 	var status := track.authored_day_kit_status()
-	_check("normal_runner_resolves_preview_without_fixture",
-		bool(status.get("active", false))
-		and int(status.get("loaded", 0)) == RUNNER_DAY_SCENE_IDS.size()
-		and status.get("asset_ids", PackedStringArray()) == RUNNER_DAY_SCENE_IDS,
+	_check("normal_runner_uses_scoped_mapping_even_with_preview_catalog",
+		not bool(status.get("active", false))
+		and int(status.get("loaded", 0)) == RUNNER_DAY_RELEASE_SCENE_IDS.size()
+		and status.get("asset_ids", PackedStringArray()) == RUNNER_DAY_RELEASE_SCENE_IDS,
 		str(status))
 	game.free()
 
@@ -225,6 +236,60 @@ func _test_catalog_lazy_preload() -> void:
 		and int(final_status.get("failed", 0)) == 0, str(final_status))
 	_check("catalog_lazy_typed_resource", resource is CourseVisualProfile,
 		str(resource))
+
+
+func _test_catalog_headless_preload() -> void:
+	if not GameConfig.is_headless():
+		return
+	var catalog := ArtCatalog.new()
+	catalog.manifest_path = "res://tests/fixtures/art/catalog_headless_preload.json"
+	# The missing-path entry is intentional: this exercises the preload error
+	# API rather than rejecting the entire fixture during manifest indexing.
+	catalog.strict_paths = false
+	_check("catalog_headless_fixture_valid", catalog.reload_manifest() == OK,
+			str(catalog.manifest_errors()))
+	var ids := PackedStringArray(["headless_scene_fixture", "headless_material_fixture"])
+	var error := catalog.begin_preload(ids)
+	var immediate_status := catalog.preload_status()
+	var scene := catalog.loaded_resource(ids[0])
+	var material := catalog.loaded_resource(ids[1])
+	# Check before yielding or polling. The old threaded path always leaves a
+	# pending request, even when a cached dependency finishes on its worker.
+	_check("catalog_headless_resources_ready_without_polling",
+			error == OK and scene is PackedScene and material is ShaderMaterial,
+			str(immediate_status))
+	_check("catalog_headless_submits_no_pending_thread_jobs",
+			catalog._pending.is_empty() and int(immediate_status.get("pending", -1)) == 0)
+	_check("catalog_headless_immediate_progress_complete",
+			bool(immediate_status.get("complete", false))
+			and int(immediate_status.get("total", -1)) == 2
+			and int(immediate_status.get("loaded", -1)) == 2
+			and int(immediate_status.get("failed", -1)) == 0
+			and is_equal_approx(float(immediate_status.get("progress", -1.0)), 1.0),
+			str(immediate_status))
+	_check("catalog_headless_poll_is_idempotent", catalog.poll_preload() == immediate_status)
+	error = catalog.begin_preload(ids)
+	_check("catalog_headless_reuses_loaded_resources",
+			error == OK and catalog.loaded_resource(ids[0]) == scene
+			and catalog.loaded_resource(ids[1]) == material
+			and catalog.preload_status() == immediate_status)
+	error = catalog.begin_preload(PackedStringArray([
+			"headless_missing_fixture", "headless_unknown_fixture",
+	]))
+	var failed_status := catalog.poll_preload()
+	var failures: Dictionary = failed_status.get("failures", {})
+	_check("catalog_headless_missing_path_preserves_first_error",
+			error == ERR_FILE_NOT_FOUND, "error=%d" % error)
+	_check("catalog_headless_failure_details_preserved",
+			String(failures.get("headless_missing_fixture", "")).begins_with("resource not found:")
+			and failures.get("headless_unknown_fixture") == "unknown asset ID", str(failures))
+	_check("catalog_headless_failed_batch_finishes_without_jobs",
+			catalog._pending.is_empty() and bool(failed_status.get("complete", false))
+			and int(failed_status.get("total", -1)) == 4
+			and int(failed_status.get("loaded", -1)) == 2
+			and int(failed_status.get("failed", -1)) == 2
+			and is_equal_approx(float(failed_status.get("progress", -1.0)), 1.0),
+			str(failed_status))
 
 
 func _test_character_look() -> void:
@@ -314,23 +379,13 @@ func _test_runner_set() -> void:
 	_check("runner_set_reports_gaps", not art_set.readiness_gaps().is_empty())
 	var day_preload := art_set.collect_preload_ids("day")
 	var required_day_ids := PackedStringArray([
-		"runner_day_barrier_v1",
-		"runner_day_cargo_stack_v1",
 		"runner_day_deck_kerb_b_v1",
 		"runner_day_deck_kerb_c_v1",
 		"runner_day_deck_kerb_v1",
-		"runner_day_gantry_v1",
 		"runner_day_iceberg_cluster_v1",
-		"runner_day_icebreaker_landmark_v1",
-		"runner_day_radar_landmark_v1",
-		"runner_day_ramp_v1",
-		"runner_day_research_hub_landmark_v1",
 		"runner_day_research_lab_v1",
-		"runner_day_shell_material_v1",
 		"runner_day_signal_pylon_v1",
-		"runner_day_snowcat_v1",
 		"runner_day_surface_material_v1",
-		"runner_day_tunnel_shell_v1",
 	])
 	_check("runner_set_day_preload_complete", day_preload == required_day_ids,
 		str(day_preload))

@@ -1,6 +1,7 @@
 extends Control
 ## The penguin dressing room: a live 3D preview as the hero, the equipped
-## loadout beneath it, and a wardrobe of drawn swatch tiles on the right.
+## loadout beneath it, and a wardrobe of drawn swatch tiles. One page scrolls;
+## selecting a tile tries it on without changing the equipped save.
 ##
 ## Built in the shared menu language established by results.gd and main_menu.gd:
 ## eyebrow → headline → accent rule, radius-18 cards captioned with a small
@@ -44,6 +45,9 @@ const PRIMARY_FILL_HOVER: Color = Color(0.192, 0.478, 0.741)
 
 var _preview_pivot: Node3D
 var _penguin: PenguinVisual
+var _preview_name: Label
+var _preview_note: Label
+var _previewed_equipped: Dictionary = {}
 var _fish_label: Label
 var _tab_buttons: Dictionary = {}  # category -> Button
 var _item_grid: GridContainer
@@ -64,6 +68,8 @@ var _sway_time: float = 0.0
 ## Extra enlargement for tall/narrow (portrait) viewports — see _tall_boost().
 var _boost: float = 1.0
 var _profile: LayoutProfile = null
+var _page_margin: MarginContainer = null
+var _orientation_reflow_queued: bool = false
 ## Rasterize-once cache: switching category rebuilds every tile, and a phone
 ## re-rasterizing the same swatches on each tab press is pure jank.
 static var _icon_cache: Dictionary = {}
@@ -72,11 +78,52 @@ static var _icon_cache: Dictionary = {}
 func _ready() -> void:
 	UITheme.make_background(self)
 	UITheme.apply_ui_scale(self)
+	_build_page()
+	Progression.fish_changed.connect(_update_fish_label)
+	Progression.cosmetics_changed.connect(_on_cosmetics_changed)
+	get_viewport().size_changed.connect(_on_viewport_size_changed)
+	UITheme.attach_swipe_back(self, _go_back)
+
+
+## Rebuild only this menu's controls when a phone rotates. Its columns,
+## category count and safe insets are chosen at construction time; resizing an
+## existing portrait page otherwise leaves a giant stacked preview in landscape.
+## Preserve the selected try-on, but keep the save untouched.
+func _on_viewport_size_changed() -> void:
+	if _profile == null or not is_inside_tree() or _orientation_reflow_queued:
+		return
+	if LayoutProfile.for_viewport(get_viewport()).is_portrait() == _profile.is_portrait():
+		return
+	_orientation_reflow_queued = true
+	_reflow_orientation.call_deferred()
+
+
+func _reflow_orientation() -> void:
+	_orientation_reflow_queued = false
+	if not is_inside_tree() or _profile == null \
+			or LayoutProfile.for_viewport(get_viewport()).is_portrait() == _profile.is_portrait():
+		return
+	_build_page()
+
+
+func _build_page() -> void:
+	var restore_selection := _page_margin != null
+	var category := _current_category
+	var selected := _selected_id
+	if restore_selection:
+		var old_page := _page_margin
+		remove_child(old_page)
+		old_page.queue_free()
+		_page_margin = null
+		_preview_trail = null
+		_previewed_equipped.clear()
+		_tab_buttons.clear()
 	_profile = LayoutProfile.for_viewport(get_viewport())
 	_boost = _tall_boost()
 	var portrait := _profile.is_portrait()
 
 	var margin := MarginContainer.new()
+	_page_margin = margin
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var side := roundi(_u(32.0))
 	margin.add_theme_constant_override("margin_left",
@@ -90,37 +137,28 @@ func _ready() -> void:
 	add_child(margin)
 
 	var layout := VBoxContainer.new()
+	layout.name = "CustomizeContent"
+	layout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	layout.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
-	# A phone held sideways gives this page 800 units of height and the page
-	# needs 954: a header, a preview, the wardrobe grid and the Equip bar do
-	# not compress below their minimums, so the bar at the bottom — the only
-	# way to actually put an item on — was pushed past the edge with no way to
-	# reach it. Rather than shave every element until it happens to fit one
-	# device, the whole page scrolls when it does not fit. Tall screens keep
-	# the authored fixed layout, where scrolling would be wrong.
-	var page_scroll: ScrollContainer = null
-	if _profile != null \
-			and _profile.view_class == LayoutProfile.ViewClass.LANDSCAPE_COMPACT:
-		page_scroll = ScrollContainer.new()
-		page_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		page_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		margin.add_child(page_scroll)
-		layout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		page_scroll.add_child(layout)
-		TouchScroll.attach(page_scroll)
-	else:
-		margin.add_child(layout)
+	# Header, preview, categories, items and action belong to one scrollable
+	# page. A nested item-only scroll traps phone users between fixed strips
+	# and limits the penguin to whatever height is left over.
+	var page_scroll := ScrollContainer.new()
+	page_scroll.name = "CustomizePageScroll"
+	page_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	page_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	page_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	page_scroll.follow_focus = true
+	margin.add_child(page_scroll)
+	page_scroll.add_child(layout)
+	TouchScroll.attach(page_scroll)
 
 	_build_header(layout)
 
 	# Landscape: preview beside the wardrobe. Portrait: preview on top, because
 	# two columns inside a phone's width leave neither of them usable.
 	var columns: BoxContainer = VBoxContainer.new() if portrait else HBoxContainer.new()
-	# Expanding to fill is right on a page that fits, and wrong inside a scroll
-	# view, where "fill" means fill the viewport and the rest of the page is
-	# then unreachable.
-	columns.size_flags_vertical = Control.SIZE_SHRINK_BEGIN if page_scroll != null \
-		else Control.SIZE_EXPAND_FILL
+	columns.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	columns.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
 	layout.add_child(columns)
 	_build_preview(columns, portrait)
@@ -128,15 +166,13 @@ func _ready() -> void:
 	_build_detail_bar(layout)
 
 	_update_fish_label(Progression.get_fish())
-	Progression.fish_changed.connect(_update_fish_label)
-	Progression.cosmetics_changed.connect(_on_cosmetics_changed)
-
 	_refresh_preview()
 	_refresh_loadout()
-	_select_category("body")
-	UITheme.attach_swipe_back(self, _go_back)
-	var body_tab: Button = _tab_buttons["body"]
-	body_tab.grab_focus()
+	_select_category(category)
+	if restore_selection and selected != _selected_id \
+			and (selected.is_empty() or String(CosmeticsDB.get_item(selected).get("category", "")) == category):
+		_select_item(selected)
+	(_tab_buttons[category] as Button).grab_focus()
 
 
 ## --- Layout scaling ---------------------------------------------------------
@@ -331,33 +367,40 @@ func _build_fish_chip() -> Control:
 
 func _build_preview(parent: BoxContainer, portrait: bool) -> void:
 	var card := _make_card(parent, 14.0)
+	card.name = "PenguinPreview"
 	if portrait:
 		card.custom_minimum_size.y = _preview_height()
 	else:
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		# Touch: the wardrobe carries the enlarged item tiles, so the preview
-		# gives up part of its share of a phone's width.
-		card.size_flags_stretch_ratio = 0.34 if UITheme.is_touch() else 0.40
+		card.size_flags_stretch_ratio = 0.44 if UITheme.is_touch() else 0.46
 	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", _gap(10))
 	card.add_child(column)
-	_card_title(column, "Your Penguin")
+	_card_title(column, "Penguin Preview")
+	_preview_name = _caption(column, "", 25, UITheme.COLOR_TEXT)
+	_preview_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_preview_note = Label.new()
+	_preview_note.add_theme_font_size_override("font_size", _f(16))
+	_preview_note.add_theme_color_override("font_color", UITheme.COLOR_TEXT_DIM)
+	_preview_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_preview_note.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(_preview_note)
 
 	var container := SubViewportContainer.new()
 	container.stretch = true
 	container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	container.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	# Same reasoning as _preview_height(): a minimum that does not shrink with
-	# the screen is what forces a page taller than the phone it is on.
-	container.custom_minimum_size.y = minf(
-		_v(220.0), get_viewport_rect().size.y * 0.18)
+	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	container.custom_minimum_size.y = _preview_height() * 0.58 if portrait else _v(320.0)
 	column.add_child(container)
 
 	var viewport := SubViewport.new()
 	viewport.own_world_3d = true
-	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	# Full-page scrolling can move this enlarged 3D stage off-screen. Render
+	# while its texture is visible, not continuously behind the wardrobe.
+	viewport.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
 	viewport.msaa_3d = SettingsManager.msaa_3d_mode() as Viewport.MSAA
 	container.add_child(viewport)
 	UITheme.crisp_subviewport(viewport, self)
@@ -409,11 +452,11 @@ func _build_preview(parent: BoxContainer, portrait: bool) -> void:
 
 	var floe := MeshInstance3D.new()
 	var floe_mesh := CylinderMesh.new()
-	floe_mesh.top_radius = 0.9
-	floe_mesh.bottom_radius = 1.05
+	floe_mesh.top_radius = 0.55
+	floe_mesh.bottom_radius = 0.66
 	floe_mesh.height = 0.25
 	floe.mesh = floe_mesh
-	floe.material_override = VisualLibrary.snow_material(Color(0.9, 0.94, 1.0), 0.3)
+	floe.material_override = VisualLibrary.snow_material(Color(0.67, 0.82, 0.91), 0.3)
 	floe.position = Vector3(0, -0.125, 0)
 	viewport.add_child(floe)
 
@@ -423,11 +466,14 @@ func _build_preview(parent: BoxContainer, portrait: bool) -> void:
 	_preview_pivot.add_child(_penguin)
 
 	var camera := Camera3D.new()
+	# Dressing-room framing, not gameplay FOV: use the enlarged viewport for
+	# the model itself while leaving head accessories and the floe in frame.
+	camera.fov = 44.0
 	viewport.add_child(camera)
 	camera.current = true
 	# Camera on -Z looks at the penguin's face (model front is -Z); the pivot
 	# starts at rotation 0 so the preview opens front-facing.
-	camera.look_at_from_position(Vector3(0.0, 1.0, -2.3), Vector3(0.0, 0.55, 0.0), Vector3.UP)
+	camera.look_at_from_position(Vector3(0.0, 1.15, -2.05), Vector3(0.0, 0.64, 0.0), Vector3.UP)
 
 	# What the penguin is actually wearing, right under the thing wearing it —
 	# the old screen left this column half empty and never named the loadout.
@@ -436,49 +482,55 @@ func _build_preview(parent: BoxContainer, portrait: bool) -> void:
 	column.add_child(_loadout_box)
 
 
-## Height the preview card takes on a stacked (portrait) layout: enough to read
-## as the hero, never so much that the wardrobe is pushed off screen.
+## The page can scroll, so the stacked preview has room to show the actual
+## selected species/accessory instead of shrinking to protect a fixed footer.
 func _preview_height() -> float:
 	if GameConfig.is_headless() or not is_inside_tree():
-		return 420.0
-	# The floor has to scale with the canvas. A fixed 320 is a third of a
-	# compact landscape phone (800 tall) and, stacked with the wardrobe and the
-	# header, pushed the Equip button clean off the bottom — the page's only
-	# way to actually put an item on. Nothing here may claim more than a
-	# quarter of the screen as its MINIMUM; it can still grow to 30% when there
-	# is room.
-	var available := get_viewport_rect().size.y
-	# A phone held sideways has 800 units of height for a header, a preview, a
-	# wardrobe grid and the Equip bar. At 30% the preview alone took 240 of
-	# them and the Equip button — the page's whole purpose — ended up one row
-	# below the bottom edge. Short screens give the preview a fifth instead;
-	# there is nothing to read in it that a smaller penguin does not show.
-	var share := 0.30
-	if _profile != null \
-			and _profile.view_class == LayoutProfile.ViewClass.LANDSCAPE_COMPACT:
-		share = 0.20
-	return clampf(available * share, minf(320.0, available * 0.20), 1100.0)
+		return 580.0
+	return clampf(get_viewport_rect().size.y * 0.42, 480.0, 1400.0)
+
+
+## Try-on is presentation only. Keep the equipped loadout for every other
+## slot, and never call equip/unlock or alter catalog IDs while browsing.
+func _preview_equipped() -> Dictionary:
+	var equipped: Dictionary = {}
+	for category: String in CosmeticsDB.CATEGORIES:
+		equipped[category] = Progression.get_equipped(category)
+	var info := CosmeticsDB.get_item(_selected_id)
+	if String(info.get("category", "")) == _current_category \
+			or (_selected_id.is_empty() and _current_category != "body"):
+		equipped[_current_category] = _selected_id
+	return equipped
 
 
 func _refresh_preview() -> void:
-	var body_info := CosmeticsDB.get_item(Progression.get_equipped("body"))
-	var config := {
-		"body_color": body_info.get("body_color", Color(0.13, 0.16, 0.22)),
-		"belly_color": body_info.get("belly_color", Color(0.95, 0.94, 0.9)),
-		"hat": Progression.get_equipped("hat"),
-		"scarf": Progression.get_equipped("scarf"),
-		"goggles": Progression.get_equipped("goggles"),
-	}
-	if body_info.has("crest_color"):
-		config["crest_color"] = body_info["crest_color"]
-	_penguin.setup_look(CharacterLook.from_legacy_config(
-			config, CharacterLook.RenderRole.HERO))
+	if _penguin == null:
+		return
+	var equipped := _preview_equipped()
+	var body_info := CosmeticsDB.get_item(String(equipped["body"]))
+	var item_name := String(CosmeticsDB.get_item(_selected_id).get("name", ""))
+	if item_name.is_empty():
+		item_name = "No %s" % String(CosmeticsDB.CATEGORY_NAMES[_current_category])
+	_preview_name.text = String(body_info.get("name", "Emperor")) \
+		if _current_category == "body" else "%s · %s" % [body_info.get("name", "Emperor"), item_name]
+	var is_equipped := Progression.get_equipped(_current_category) == _selected_id
+	_preview_note.text = "Equipped look · loadout below" if is_equipped else \
+		"Try-on only · %s" % ("not equipped" if _selected_id.is_empty() \
+			or Progression.is_cosmetic_unlocked(_selected_id) else "locked item")
+	# Focus/hover may repeat for the same tile. Do not rebuild a rig or trail
+	# unless the previewed loadout actually changes.
+	if equipped == _previewed_equipped:
+		return
+	_previewed_equipped = equipped.duplicate()
+	# The existing converter forwards explicit catalog species, authored
+	# species blend shapes/palette, identity rim and every cosmetic socket.
+	_penguin.setup_look(CharacterLook.from_equipped(equipped, CharacterLook.RenderRole.HERO))
 	_penguin.set_pose(PenguinVisual.Pose.IDLE)
 	# Preview the equipped trail as gentle ambient particles around the floe.
 	if _preview_trail != null:
 		_preview_trail.queue_free()
 		_preview_trail = null
-	var trail_id := Progression.get_equipped("trail")
+	var trail_id := String(equipped["trail"])
 	if trail_id != "":
 		_preview_trail = TrailEffect.create(trail_id)
 		if _preview_trail != null:
@@ -536,7 +588,7 @@ func _build_wardrobe(parent: BoxContainer, portrait: bool) -> void:
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	if not portrait:
-		right.size_flags_stretch_ratio = 0.66 if UITheme.is_touch() else 0.60
+		right.size_flags_stretch_ratio = 0.56 if UITheme.is_touch() else 0.54
 	right.add_theme_constant_override("separation", _gap(10))
 	parent.add_child(right)
 
@@ -562,21 +614,13 @@ func _build_wardrobe(parent: BoxContainer, portrait: bool) -> void:
 		tabs.add_child(tab)
 		_tab_buttons[category] = tab
 
-	var scroll := ScrollContainer.new()
-	# Tiles are buttons, which swallow touch drags before the ScrollContainer
-	# can see them; this restores dragging the grid on a phone.
-	TouchScroll.attach(scroll)
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.follow_focus = true
-	right.add_child(scroll)
-
 	_item_grid = GridContainer.new()
+	_item_grid.name = "WardrobeItems"
 	_item_grid.columns = 2 if portrait else 3
 	_item_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_item_grid.add_theme_constant_override("h_separation", _gap(10))
 	_item_grid.add_theme_constant_override("v_separation", _gap(10))
-	scroll.add_child(_item_grid)
+	right.add_child(_item_grid)
 
 
 func _style_tab(tab: Button) -> void:
@@ -661,31 +705,52 @@ func _swatch_svg(id: String) -> String:
 	return NONE_SWATCH_SVG
 
 
-## Penguin bust in the species' real dorsal/belly/bill colours, so the body tab
-## reads as a row of penguins rather than a row of words.
+## Face-first species portrait. Prior side-profile beak made every 62 px tile
+## look like the same small triangle; these marks stay legible at phone size.
 func _body_swatch(info: Dictionary) -> String:
 	var dorsal := info.get("body_color", Color(0.13, 0.16, 0.22)) as Color
 	var belly := info.get("belly_color", Color(0.95, 0.94, 0.9)) as Color
 	var species := String(info.get("species", ""))
 	var sp: Dictionary = PenguinVisual.SPECIES.get(species, {})
 	var bill := sp.get("bill_color", Color(0.92, 0.62, 0.20)) as Color
-	var crest := ""
-	if info.has("crest_color") or sp.has("crest_color"):
-		var crest_color := info.get("crest_color", sp.get("crest_color", Color(0.98, 0.82, 0.2))) as Color
-		crest = "<path d=\"M17 17 Q25 5 37 10\" stroke=\"%s\" stroke-width=\"4.5\" fill=\"none\" stroke-linecap=\"round\"/>" % _hex(crest_color)
-	elif sp.has("patch"):
+	var proportions := sp.get("scale", Vector3.ONE) as Vector3
+	var markings := ""
+	if bool(sp.get("face_white", false)):
+		markings += "<ellipse cx=\"32\" cy=\"31\" rx=\"17\" ry=\"12\" fill=\"%s\"/>" % _hex(belly)
+	if bool(sp.get("chinstrap", false)):
+		markings += "<path d=\"M17 35 Q32 48 47 35\" stroke=\"%s\" stroke-width=\"3\" fill=\"none\"/>" % _hex(dorsal)
+	if bool(sp.get("headphone", false)):
+		markings += "<path d=\"M15 21 Q32 10 49 21\" stroke=\"%s\" stroke-width=\"6\" fill=\"none\" stroke-linecap=\"round\"/>" % _hex(belly)
+	if bool(sp.get("eye_ring", false)):
+		markings += "<circle cx=\"22\" cy=\"28\" r=\"6\" fill=\"%s\"/><circle cx=\"42\" cy=\"28\" r=\"6\" fill=\"%s\"/>" % [_hex(belly), _hex(belly)]
+	if sp.has("ear_patch"):
 		var patch := sp.get("patch", Color(0.98, 0.76, 0.22)) as Color
-		crest = "<ellipse cx=\"20.5\" cy=\"27\" rx=\"3.6\" ry=\"5\" fill=\"%s\"/>" % _hex(patch)
+		if String(sp["ear_patch"]) == "king":
+			markings += "<path d=\"M14 25 Q13 39 26 44 Q19 35 22 27 Z M50 25 Q51 39 38 44 Q45 35 42 27 Z\" fill=\"%s\"/>" % _hex(patch)
+		else:
+			markings += "<ellipse cx=\"17\" cy=\"33\" rx=\"5\" ry=\"8\" fill=\"%s\"/><ellipse cx=\"47\" cy=\"33\" rx=\"5\" ry=\"8\" fill=\"%s\"/>" % [_hex(patch), _hex(patch)]
+		markings += "<path d=\"M22 44 Q32 49 42 44\" stroke=\"%s\" stroke-width=\"5\" fill=\"none\"/>" % _hex(patch)
+	if sp.has("crest"):
+		var crest_color := info.get("crest_color", sp.get("crest_color", Color(0.98, 0.82, 0.2))) as Color
+		var crest_path := "M21 20 Q11 13 4 15 M23 17 Q14 7 9 6 M43 20 Q53 13 60 15 M41 17 Q50 7 55 6" \
+			if String(sp["crest"]) == "rockhopper" else "M25 16 Q7 9 11 30 M31 15 Q14 4 18 27 M39 16 Q57 9 53 30"
+		markings += "<path d=\"%s\" stroke=\"%s\" stroke-width=\"4.5\" fill=\"none\" stroke-linecap=\"round\"/>" % [crest_path, _hex(crest_color)]
 	return """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-<ellipse cx="32" cy="47" rx="20" ry="17" fill="%s"/>
-<ellipse cx="32" cy="50" rx="13" ry="14" fill="%s"/>
-<circle cx="32" cy="24" r="15" fill="%s"/>
-<ellipse cx="33" cy="31" rx="9.5" ry="7" fill="%s"/>
+<g transform="translate(32 33) scale(%s %s) translate(-32 -33)">
+<ellipse cx="32" cy="59" rx="21" ry="19" fill="%s"/>
+<ellipse cx="32" cy="61" rx="15" ry="18" fill="%s"/>
+<ellipse cx="32" cy="29" rx="21" ry="22" fill="%s"/>
 %s
-<path d="M27 26 L46 29.5 L27 33 Z" fill="%s"/>
-<circle cx="25.5" cy="21.5" r="2.7" fill="#0d131f"/>
-<circle cx="26.5" cy="20.6" r="1.0" fill="#ffffff"/>
-</svg>""" % [_hex(dorsal), _hex(belly), _hex(dorsal), _hex(belly), crest, _hex(bill)]
+<ellipse cx="23" cy="28" rx="5.8" ry="6.8" fill="#ffffff"/>
+<ellipse cx="41" cy="28" rx="5.8" ry="6.8" fill="#ffffff"/>
+<circle cx="24" cy="29" r="3.2" fill="#111923"/>
+<circle cx="40" cy="29" r="3.2" fill="#111923"/>
+<circle cx="25" cy="27.5" r="1.1" fill="#ffffff"/>
+<circle cx="41" cy="27.5" r="1.1" fill="#ffffff"/>
+<path d="M24 37 Q32 32 40 37 Q39 43 32 44 Q25 43 24 37 Z" fill="%s" stroke="#473626" stroke-width="1"/>
+</g>
+</svg>""" % [str(maxf(proportions.x, 0.82)), str(maxf(proportions.y, 0.82)),
+		_hex(dorsal), _hex(belly), _hex(dorsal), markings, _hex(bill)]
 
 
 func _hat_swatch(color: Color) -> String:
@@ -925,7 +990,7 @@ func _build_detail_bar(parent: Control) -> void:
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	stack.add_child(row)
 
-	_detail_swatch = _make_swatch_rect("", _u(52.0))
+	_detail_swatch = _make_swatch_rect("", _u(96.0))
 	_detail_swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(_detail_swatch)
 
@@ -997,6 +1062,7 @@ static func _primary_box(bg: Color, border: Color, shadow: int) -> StyleBoxFlat:
 ## relabels the promoted action to exactly what pressing it will do.
 func _select_item(id: String) -> void:
 	_selected_id = id
+	_refresh_preview()
 	if _detail_name == null:
 		return
 	var is_none := id == ""
@@ -1009,7 +1075,9 @@ func _select_item(id: String) -> void:
 	var unlocked := is_none or Progression.is_cosmetic_unlocked(id)
 	var cost := int(info.get("cost", 0))
 	var equipped := Progression.get_equipped(_current_category) == id
-	_detail_swatch.modulate = Color(1.0, 1.0, 1.0, 1.0 if unlocked else 0.45)
+	# Locked items still deserve a readable preview; price/action states carry
+	# the ownership distinction without hiding the selected item's appearance.
+	_detail_swatch.modulate = Color.WHITE
 	_detail_action.disabled = false
 	if equipped:
 		_detail_action.text = "Equipped"
@@ -1202,7 +1270,7 @@ func _update_fish_label(total: int) -> void:
 
 
 func _go_back() -> void:
-	SceneRouter.go_to(Game.SCENE_MAIN_MENU)
+	SceneRouter.go_back()
 
 
 func _unhandled_input(event: InputEvent) -> void:

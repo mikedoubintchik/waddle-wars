@@ -1,17 +1,17 @@
 extends Node
-## Counts the DISTINCT materials a mode puts on screen, and when each one first
-## appears.
+## Counts distinct material-resource signatures found in the live scene tree.
+## This is not a GPU-program census: skinning, instancing and renderer variants
+## are not fully represented. Correlate late resources with measured frame time.
 ##
 ## Why this exists: on the web build (gl_compatibility through ANGLE) the first
 ## frame a material is visible costs a shader program link, and a link is a
 ## multi-millisecond-to-multi-second stall on the single WASM thread. A stall
 ## like that is indistinguishable from a freeze — "the tab froze", "the game
-## stops randomly mid-way". Desktop never shows it because Metal links fast.
+## stops randomly mid-way". Native Compatibility can also stall during linking.
 ##
 ## So the thing to measure is not memory, it is: how many distinct materials
 ## does a session reveal, and how far into the run does it keep revealing new
-## ones? Every entry printed with a late timestamp is a stall a player will hit
-## mid-run, and belongs in ShaderWarmup's probe list instead.
+## ones? Late resources identify candidates to inspect, not proof of compilation.
 ##
 ##   godot --path . --resolution 960x540 res://tests/material_census.tscn -- seconds=70
 ##   godot --path . --resolution 960x540 res://tests/material_census.tscn -- loader_only=true
@@ -27,28 +27,41 @@ var _done: bool = false
 var _spikes: Array[Dictionary] = []
 var _stream_events: Array[Dictionary] = []
 var _warmup_events: Array[Dictionary] = []
+var _initial_visual_events: Array[Dictionary] = []
 var _loader_frame_ms: PackedFloat64Array = PackedFloat64Array()
 var _last_wall_usec: int = 0
 var _loader_complete: bool = false
 var _loader_only: bool = false
+var _seed: int = 20260907
+var _loading_gameplay_violations: int = 0
+var _max_loader_distance: float = 0.0
+var _min_loader_countdown: float = RunnerGame.COUNTDOWN_TIME
 
 
 func _ready() -> void:
+	DisplayServer.window_move_to_foreground()
 	for arg: String in OS.get_cmdline_user_args():
 		if arg.begins_with("seconds="):
 			_seconds = float(arg.trim_prefix("seconds="))
 		elif arg == "loader_only=true":
 			_loader_only = true
+		elif arg.begins_with("seed="):
+			_seed = int(arg.trim_prefix("seed="))
+		elif arg == "keep_visible=true":
+			DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, true)
 	RunnerPlayer.autopilot = true
 	RunnerTrack.perf_trace_enabled = true
 	ShaderWarmup.perf_trace_enabled = true
 	ShaderWarmup.clear_perf_trace()
+	InitialVisualWarmup.perf_trace_enabled = true
+	InitialVisualWarmup.clear_perf_trace()
 	Engine.time_scale = 1.0 if _loader_only else 2.0
 	# Start before scene instantiation so the first loader-covered synchronous
 	# build cost is included in the first wall-clock frame.
 	_last_wall_usec = Time.get_ticks_usec()
 	var scene: PackedScene = load(Game.SCENE_RUNNER)
 	_game = scene.instantiate()
+	(_game as RunnerGame).generation_seed = _seed
 	add_child(_game)
 	print("[census] %s" % ("loader-only warmup trace"
 			if _loader_only else "walking the runner for %.0fs of run time" % _seconds))
@@ -64,7 +77,18 @@ func _process(delta: float) -> void:
 	_elapsed += delta
 	_drain_stream_trace()
 	_drain_warmup_trace()
+	for event: Dictionary in InitialVisualWarmup.drain_perf_trace_events():
+		_initial_visual_events.append(event)
+		print("[census-initial-visual] %s" % event)
 	if not _loader_complete:
+		var runner := _game as RunnerGame
+		if runner != null:
+			var distance := runner.player.distance if runner.player != null else 0.0
+			_max_loader_distance = maxf(_max_loader_distance, distance)
+			_min_loader_countdown = minf(_min_loader_countdown, runner._countdown)
+			if runner.running or distance > 0.0 \
+					or runner._countdown < RunnerGame.COUNTDOWN_TIME:
+				_loading_gameplay_violations += 1
 		# Include transition frame after final warmup draw. ShaderWarmup removes
 		# itself during previous process callback; this interval contains that
 		# final item's raster/compile cost and must not disappear from loader max.
@@ -264,9 +288,8 @@ func _walk(node: Node) -> void:
 		_walk(child)
 
 
-## Keyed by the material's shader signature rather than its instance: two
-## StandardMaterial3Ds with the same feature flags share one program, and it is
-## programs that cost.
+## Partial resource signature, not a renderer program ID. This intentionally
+## groups instances but does not encode every shader flag or geometry variant.
 func _note(material: Material) -> void:
 	if material == null:
 		return
@@ -314,10 +337,10 @@ func _report() -> void:
 			worst_warmup.get("type", ""), worst_warmup.get("key", ""),
 			worst_warmup.get("name", ""), worst_warmup.get("ms", 0.0),
 		])
-	print("[census] %d distinct material programs over %.0fs" % [_seen.size(), _elapsed])
+	print("[census] %d resource signatures over %.0fs" % [_seen.size(), _elapsed])
 	var late := 0
 	for row: Dictionary in _timeline:
-		var marker := "  <-- MID-RUN STALL" if float(row["t"]) > 6.0 else ""
+		var marker := "  <-- LATE RESOURCE (inspect frame trace)" if float(row["t"]) > 6.0 else ""
 		if float(row["t"]) > 6.0:
 			late += 1
 		print("[census] %6.1fs  %s%s" % [row["t"], row["key"], marker])
@@ -345,9 +368,28 @@ func _report() -> void:
 					spike.get("orphan_count", -1), spike.get("recent_stream", {}),
 				])
 		print("[census] %d spikes over 100 ms, worst %.0f ms" % [_spikes.size(), worst])
-	print("[census] %d of %d first appeared after the opening 6s — each of those is a stall a player hits mid-run on web"
+	print("[census] %d of %d resource signatures first appeared after 6s; GPU program/variant coverage requires separate verification"
 		% [late, _seen.size()])
+	print("[census-loader-gameplay] violations=%d max_distance=%.3fm min_countdown=%.3fs"
+		% [_loading_gameplay_violations, _max_loader_distance, _min_loader_countdown])
 	RunnerTrack.perf_trace_enabled = false
 	ShaderWarmup.perf_trace_enabled = false
+	InitialVisualWarmup.perf_trace_enabled = false
 	Engine.time_scale = 1.0
-	get_tree().quit(0)
+	var exit_code := 1 if _loading_gameplay_violations > 0 or not _loader_complete else 0
+	if not _loader_complete:
+		var initial := _game.get_node_or_null("InitialVisualWarmup") as InitialVisualWarmup
+		print("[census-loader] FAIL incomplete; drawn_frames=%d window_mode=%d camera=%s"
+			% [Engine.get_frames_drawn(), DisplayServer.window_get_mode(),
+				get_viewport().get_camera_3d()])
+		if initial != null:
+			print("[census-loader] initial cursor=%d waiting=%s processing=%s inside_tree=%s"
+				% [initial._cursor, initial._awaiting_draw, initial.is_processing(),
+					initial.is_inside_tree()])
+	_game.queue_free()
+	_game = null
+	# Warmup anchors live beneath cameras and use deferred deletion. Let those
+	# frees reach the renderer before exit so probe resources do not look leaked.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	get_tree().quit(exit_code)

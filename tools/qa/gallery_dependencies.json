@@ -1,0 +1,219 @@
+{
+  "schema": 1,
+  "description": "Union all matching rules. Any unmatched runtime change requests every route; never infer no visual impact from an unknown path.",
+  "rules": [
+    {
+      "paths": [
+        "scripts/runner/*",
+        "scenes/runner/*",
+        "assets/art/runner/*",
+        "assets/shaders/runner*",
+        "scripts/characters/*",
+        "scripts/art/runner*",
+        "data/art/runner*"
+      ],
+      "routes": [
+        "group:run"
+      ],
+      "reason": "Runner world, camera, character or course presentation"
+    },
+    {
+      "paths": [
+        "scripts/characters/penguin_visual.gd",
+        "scripts/characters/penguin_apparel.gd",
+        "scripts/characters/wardrobe_penguin_visual.gd"
+      ],
+      "routes": [
+        "group:run",
+        "group:equipment",
+        "customize",
+        "customize_trails",
+        "customize_insufficient"
+      ],
+      "reason": "Shared clothing geometry or attachment facade affects in-run wearers and equipment selection/preview verification"
+    },
+    {
+      "paths": [
+        "scripts/ui/runner*",
+        "assets/art/ui/inrun*",
+        "assets/art/ui/runner*"
+      ],
+      "routes": [
+        "group:run"
+      ],
+      "reason": "Runner HUD and end-state presentation"
+    },
+    {
+      "paths": [
+        "scripts/commerce/*",
+        "scripts/ui/cosmetic_shop*",
+        "scenes/ui/cosmetic_shop*",
+        "data/commerce/*"
+      ],
+      "routes": [
+        "cosmetic_shop"
+      ],
+      "reason": "Shop catalogue, transactions and product presentation"
+    },
+    {
+      "paths": [
+        "scripts/ui/customize*",
+        "scripts/ui/wardrobe*",
+        "scripts/ui/outfit_preview*",
+        "assets/art/ui/wardrobe/*",
+        "data/wardrobe/*"
+      ],
+      "routes": [
+        "group:equipment",
+        "customize",
+        "customize_trails",
+        "customize_insufficient"
+      ],
+      "reason": "Wardrobe selection and completed outfit previews"
+    },
+    {
+      "paths": [
+        "scripts/ui/settings*",
+        "scenes/ui/settings*"
+      ],
+      "routes": [
+        "group:settings"
+      ],
+      "reason": "Settings controls and composition"
+    },
+    {
+      "paths": [
+        "scripts/ui/feedback*",
+        "scenes/ui/feedback*"
+      ],
+      "routes": [
+        "feedback"
+      ],
+      "reason": "Feedback form"
+    },
+    {
+      "paths": [
+        "scripts/ui/achievements*",
+        "scripts/progression/achievements_db*"
+      ],
+      "routes": [
+        "achievements",
+        "group:run"
+      ],
+      "reason": "Achievements, rewards and in-run notification state"
+    },
+    {
+      "paths": [
+        "scripts/ui/leaderboard*",
+        "scripts/network/leaderboard_client*"
+      ],
+      "routes": [
+        "leaderboard",
+        "results",
+        "results_completed"
+      ],
+      "reason": "Leaderboard and run-result online status"
+    },
+    {
+      "paths": [
+        "scripts/ui/controls*"
+      ],
+      "routes": [
+        "controls"
+      ],
+      "reason": "Input binding guide"
+    },
+    {
+      "paths": [
+        "scripts/ui/credits*"
+      ],
+      "routes": [
+        "credits"
+      ],
+      "reason": "Credits page"
+    },
+    {
+      "paths": [
+        "scripts/ui/mode_select*",
+        "scripts/ui/race_mode*",
+        "assets/art/ui/course_posters/*"
+      ],
+      "routes": [
+        "mode_select"
+      ],
+      "reason": "Race selection"
+    },
+    {
+      "paths": [
+        "scripts/ui/main_menu*"
+      ],
+      "routes": [
+        "main_menu",
+        "base_camp",
+        "missions",
+        "account",
+        "account_name",
+        "signin"
+      ],
+      "reason": "Shared Home and overlay implementation"
+    },
+    {
+      "paths": [
+        "scripts/ui/mission*"
+      ],
+      "routes": [
+        "missions",
+        "group:run"
+      ],
+      "reason": "Mission map or challenge state"
+    },
+    {
+      "paths": [
+        "scripts/ui/account*",
+        "scripts/network/account*"
+      ],
+      "routes": [
+        "account",
+        "account_name",
+        "signin",
+        "settings_online",
+        "cosmetic_shop"
+      ],
+      "reason": "Account state and authentication surfaces"
+    },
+    {
+      "paths": [
+        "scripts/ui/save_progress_prompt*"
+      ],
+      "routes": [
+        "signin"
+      ],
+      "reason": "Save-progress prompt"
+    },
+    {
+      "paths": [
+        "scripts/ui/penguin_loader*",
+        "web/loader-*"
+      ],
+      "routes": [
+        "loader"
+      ],
+      "reason": "Loader presentation"
+    },
+    {
+      "paths": [
+        "scripts/ui/expedition_menu_style*",
+        "scripts/ui/painted_menu_surface*",
+        "scripts/ui/layout_profile*",
+        "scripts/ui/scene_router*",
+        "scripts/save/*",
+        "project.godot",
+        "export_presets.cfg"
+      ],
+      "routes": [
+        "*"
+      ],
+      "reason": "Shared styling, layout, persisted state, routing or exported runtime configuration"
+    }
+  ]
+}

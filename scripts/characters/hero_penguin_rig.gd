@@ -73,6 +73,10 @@ var _configured_identity_color: Color = Color(0.18, 0.78, 0.92)
 var _lod0_meshes: Dictionary = {}
 var _using_racer_lod: bool = false
 var _racer_lod_triangle_count: int = 0
+var _blend_refresh_remaining: float = 0.0
+var _blend_refresh_position: float = 0.0
+var _blend_refresh_clip: StringName = &""
+var _refreshing_blend: bool = false
 static var _placeholder_surface_material: StandardMaterial3D
 static var _racer_lod_mesh_cache: Dictionary = {}
 
@@ -81,7 +85,10 @@ func _ready() -> void:
 	_ensure_runtime()
 	if not _configured:
 		configure("emperor", Color(0.18, 0.78, 0.92))
-	play_state(&"countdown_idle", true)
+	# Facades can select a pose/event before entering SceneTree (the podium
+	# does this). Do not replace that request with idle when _ready arrives.
+	if _animation_player != null and _animation_player.assigned_animation == &"":
+		play_state(_state_clip, _state_clip in LOOP_CLIPS)
 
 
 func configure(species_id: String, identity_color: Color) -> void:
@@ -197,12 +204,18 @@ func set_pose(pose_id: int) -> void:
 		play_state(clip, clip in LOOP_CLIPS)
 
 
-func drive_motion(speed_ratio: float, turn: float, _slope: float,
-		_vertical_speed: float, _grounded: bool) -> void:
+## Cadence-only bridge for legacy tick callers. This must not bank the facade
+## or select an animation; gameplay pose and semantic events remain authority.
+func set_cadence(speed_ratio: float) -> void:
 	_speed_ratio = clampf(speed_ratio, 0.0, 1.5)
-	if absf(turn) > 0.64 and _state_clip == &"run" and _one_shot_remaining <= 0.0:
-		play_state(&"lean_left" if turn < 0.0 else &"lean_right", false)
-		_one_shot_remaining = _clip_length(&"lean_left") * 0.65
+
+
+func drive_motion(speed_ratio: float, _turn: float, _slope: float,
+		_vertical_speed: float, _grounded: bool) -> void:
+	set_cadence(speed_ratio)
+	# PenguinVisual supplies continuous lane banking. Full-body lean clips
+	# contain planted feet, so taking over the run here stopped its gait for
+	# longer than the lane move. Keep those clips for explicit authored review.
 
 
 func trigger_event(event_id: StringName, context: Dictionary = {}) -> void:
@@ -285,6 +298,7 @@ func play_state(clip: StringName, loop: bool) -> void:
 		animation.loop_mode = Animation.LOOP_LINEAR if loop else Animation.LOOP_NONE
 	_animation_player.speed_scale = 1.0
 	_animation_player.play(clip, 0.10)
+	_arm_blend_refresh(clip, 0.10)
 
 
 func play_one_shot(clip: StringName) -> void:
@@ -296,7 +310,37 @@ func play_one_shot(clip: StringName) -> void:
 		animation.loop_mode = Animation.LOOP_NONE
 	_animation_player.speed_scale = 1.0
 	_animation_player.play(clip, 0.07)
+	_arm_blend_refresh(clip, 0.07)
 	_one_shot_remaining = maxf(0.05, _clip_length(clip))
+
+
+func _arm_blend_refresh(clip: StringName, duration: float) -> void:
+	_blend_refresh_clip = clip
+	_blend_refresh_position = _animation_player.current_animation_position
+	_blend_refresh_remaining = duration
+
+
+func _refresh_transition_weights() -> void:
+	if _refreshing_blend or _blend_refresh_remaining <= 0.0:
+		return
+	if _animation_player.assigned_animation != _blend_refresh_clip:
+		_blend_refresh_remaining = 0.0
+		return
+	var clip_position := _animation_player.current_animation_position
+	var elapsed := clip_position - _blend_refresh_position
+	if elapsed < 0.0:
+		elapsed += _clip_length(_blend_refresh_clip)
+	_blend_refresh_position = clip_position
+	_blend_refresh_remaining = maxf(0.0, _blend_refresh_remaining - elapsed)
+	# Godot 4.7.1 evaluates incoming blend weight before reducing outgoing
+	# weight, so one 1/30 step differs from two 1/60 steps during crossfades.
+	# mixer_applied runs after instance cleanup and post-processing. Re-sample
+	# the updated weights at exactly the same clip times, with recursion guarded.
+	# This does not advance animation/gameplay time or replace automatic playback.
+	# Only the short transition pays for the second bone-only evaluation.
+	_refreshing_blend = true
+	_animation_player.advance(0.0)
+	_refreshing_blend = false
 
 
 func _clip_length(clip: StringName) -> float:
@@ -311,6 +355,7 @@ func _ensure_runtime() -> void:
 		var players := find_children("*", "AnimationPlayer", true, false)
 		if not players.is_empty():
 			_animation_player = players[0] as AnimationPlayer
+			_animation_player.mixer_applied.connect(_refresh_transition_weights)
 	if _meshes.is_empty():
 		for child: Node in find_children("*", "MeshInstance3D", true, false):
 			_meshes.append(child as MeshInstance3D)

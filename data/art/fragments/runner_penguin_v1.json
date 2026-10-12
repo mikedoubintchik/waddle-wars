@@ -1,0 +1,35 @@
+{
+  "concepts": [],
+  "generated_assets": [],
+  "runtime_assets": [
+    {
+      "groups": [
+        "character",
+        "rear_runner",
+        "runner"
+      ],
+      "id": "runner_penguin_v1",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/characters/runner_penguin_v1.glb",
+      "production_ready": false,
+      "sha256": "206632fc655b49dc590caa621b01f2ce83ccd3108ff4a4c82787e0e8a016eef2",
+      "source_export_id": "runner_penguin_v1"
+    },
+    {
+      "groups": [
+        "character",
+        "rear_runner",
+        "runner"
+      ],
+      "id": "runner_penguin_v1_binding",
+      "kind": "metadata",
+      "license_id": "project_original",
+      "path": "res://assets/art/characters/runner_penguin_v1.json",
+      "production_ready": false,
+      "sha256": "e4bc51071f6725b2e89e7c6c9354cf090a76133c54e033375394a5ce8cd36dd1",
+      "source_export_id": "runner_penguin_v1"
+    }
+  ],
+  "source_exports": []
+}

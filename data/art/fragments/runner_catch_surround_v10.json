@@ -1,0 +1,62 @@
+{
+  "concepts": [],
+  "generated_assets": [
+    {
+      "id": "imagegen_avalanche_surround_desktop_v1",
+      "path": "art_src/ui/runner/inrun_v10/avalanche_surround_desktop_v1.png",
+      "prompt_path": "art_src/ui/runner/inrun_v10/avalanche_surround_desktop_v1.prompt.md",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "4d5c6135528723ab073f791babbaefcd15134a7035464bde3dc5049a97958edf",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "generated_on": "2026-10-08",
+      "license_id": "project_original",
+      "status": "production_source"
+    },
+    {
+      "id": "imagegen_avalanche_surround_portrait_v1",
+      "path": "art_src/ui/runner/inrun_v10/avalanche_surround_portrait_v1.png",
+      "prompt_path": "art_src/ui/runner/inrun_v10/avalanche_surround_portrait_v1.prompt.md",
+      "dimensions": [
+        941,
+        1672
+      ],
+      "sha256": "84ea9e7f5945a08f8d1813d8f73a52c26ae20a472acb77aaeaef7a1a6550f830",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "generated_on": "2026-10-08",
+      "license_id": "project_original",
+      "status": "production_source"
+    }
+  ],
+  "runtime_assets": [
+    {
+      "id": "avalanche_surround_desktop_v1",
+      "path": "res://assets/art/ui/runner/inrun_v10/avalanche_surround_desktop_v1.webp",
+      "kind": "texture",
+      "groups": [
+        "runner",
+        "runner_hud"
+      ],
+      "source_export_id": "imagegen_avalanche_surround_desktop_v1",
+      "sha256": "1babf1cd1b33a4a192fc3aeefc076f75681b884f438746a497bd374651e5c9e2",
+      "license_id": "project_original",
+      "production_ready": false
+    },
+    {
+      "id": "avalanche_surround_portrait_v1",
+      "path": "res://assets/art/ui/runner/inrun_v10/avalanche_surround_portrait_v1.webp",
+      "kind": "texture",
+      "groups": [
+        "runner",
+        "runner_hud"
+      ],
+      "source_export_id": "imagegen_avalanche_surround_portrait_v1",
+      "sha256": "d02b5116a9cc99ee2c7a7f9ce013b27913ea7622f307e6c2d7944f0b40e79581",
+      "license_id": "project_original",
+      "production_ready": false
+    }
+  ],
+  "source_exports": []
+}

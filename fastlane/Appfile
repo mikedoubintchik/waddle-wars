@@ -1,0 +1,14 @@
+require "json"
+
+release_config = JSON.parse(
+  File.read(File.expand_path("../tools/release/native_release.json", __dir__))
+).freeze
+
+app_identifier(release_config.fetch("bundle_id"))
+
+for_platform :android do
+  package_name(release_config.fetch("bundle_id"))
+end
+
+# Local lanes require no account credentials. Signing settings remain explicit
+# candidate arguments; no App Store Connect or Play service account is loaded.

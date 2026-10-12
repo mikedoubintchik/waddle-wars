@@ -1,0 +1,204 @@
+{
+  "concepts": [],
+  "generated_assets": [
+    {
+      "dimensions": [
+        1536,
+        1024
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_runner_hud_chrome_v2",
+      "license_id": "project_original",
+      "path": "art_src/ui/runner/runner_hud_chrome_v2.png",
+      "prompt_path": "art_src/ui/runner/runner_hud_chrome_v2.prompt.md",
+      "sha256": "cf6b7b2262c6d10957f346add078044bc2760ef10beed8507b5616e9f35b0e45",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1536,
+        1024
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_runner_end_icons_v3",
+      "license_id": "project_original",
+      "path": "art_src/ui/runner/runner_end_icons_v3.png",
+      "prompt_path": "art_src/ui/runner/runner_end_icons_v3.prompt.md",
+      "sha256": "29c299c1b6ec95b33d80edcf75bed3cb4b97132fc3c8bfa04b64bc5c148ecf51",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        941,
+        1672
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_runner_results_portrait_background_v3",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/runner_results_portrait_background_v3.png",
+      "prompt_path": "art_src/ui/menu/runner_results_portrait_background_v3.prompt.md",
+      "sha256": "4679e58299718fa5939d6d693ed58b1b4b39ef590ac716487f25af652e39a330",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        2172,
+        724
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_mission_wood_plaque_v2",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/mission_wood_plaque_v2.png",
+      "prompt_path": "art_src/ui/menu/mission_wood_plaque_v2.prompt.md",
+      "sha256": "b3752c0ba223dbc9cfff3beffd7bc46a5abfef866383a672f11ea3fd937d627a",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1671,
+        941
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_penguins_background_landscape_v2",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/penguins_background_landscape_v2.png",
+      "prompt_path": "art_src/ui/menu/penguins_background_landscape_v2.prompt.md",
+      "sha256": "64ee85aca25b3a18b7ee59a0bdda14af9659dde318e6447572c14743b8131341",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        941,
+        1672
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_runner_pause_background_v2",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/runner_pause_background_v2.png",
+      "prompt_path": "art_src/ui/menu/runner_pause_background_v2.prompt.md",
+      "sha256": "d8044e53af0da507dc1e31221e73137b04c87769545d4ac37133a9858a054e7f",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1672,
+        941
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_runner_pause_landscape_background_v2",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/runner_pause_landscape_background_v2.png",
+      "prompt_path": "art_src/ui/menu/runner_pause_landscape_background_v2.prompt.md",
+      "sha256": "b5ea2a08c9efa699fe274a5b2f6bd5090f7b295c4143da5267be21db7364a614",
+      "status": "production_source"
+    }
+  ],
+  "runtime_assets": [
+    {
+      "groups": [
+        "frontend",
+        "reference_reconstruction",
+        "runner"
+      ],
+      "id": "runner_hud_chrome_v2",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/runner/runner_hud_chrome_v2.webp",
+      "production_ready": false,
+      "sha256": "27eb96a3af8f09c86dbded371b0b7ee5f2c75bc186070f1d7c2970b8229243be",
+      "source_export_id": "imagegen_runner_hud_chrome_v2"
+    },
+    {
+      "groups": [
+        "frontend",
+        "reference_reconstruction",
+        "runner"
+      ],
+      "id": "runner_end_icons_v3",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/runner/runner_end_icons_v3.webp",
+      "production_ready": false,
+      "sha256": "209b717767a652fe4e21cc769f50354edbdf01eaf1b172d9c51231056fb5277b",
+      "source_export_id": "imagegen_runner_end_icons_v3"
+    },
+    {
+      "groups": [
+        "frontend",
+        "menu",
+        "reference_reconstruction"
+      ],
+      "id": "runner_results_portrait_background_v3",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/runner_results_portrait_background_v3.webp",
+      "production_ready": false,
+      "sha256": "b287ecf29af4dd7bedf573e3961ba8f28ae794ad8edfbd270f5f3728ffe82c40",
+      "source_export_id": "imagegen_runner_results_portrait_background_v3"
+    },
+    {
+      "groups": [
+        "frontend",
+        "menu",
+        "reference_reconstruction"
+      ],
+      "id": "mission_wood_plaque_v2",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/mission_wood_plaque_v2.webp",
+      "production_ready": false,
+      "sha256": "dcb06484c0376ba72fde484a4a35b1111ff70127dc84bd8415efc7db1c0dbaf6",
+      "source_export_id": "imagegen_mission_wood_plaque_v2"
+    },
+    {
+      "groups": [
+        "frontend",
+        "menu",
+        "reference_reconstruction"
+      ],
+      "id": "penguins_background_landscape_v2",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/penguins_background_landscape_v2.webp",
+      "production_ready": false,
+      "sha256": "926a9d0e2dd7ecc2bcac98ccbd9350742104179a95d2b157c9b0a60c9b197301",
+      "source_export_id": "imagegen_penguins_background_landscape_v2"
+    },
+    {
+      "groups": [
+        "frontend",
+        "menu",
+        "reference_reconstruction"
+      ],
+      "id": "runner_pause_background_v2",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/runner_pause_background_v2.webp",
+      "production_ready": false,
+      "sha256": "72654260e3cebcb2732c0ce6d1fac9dba482cbdad061faee75afb8699b94f1ef",
+      "source_export_id": "imagegen_runner_pause_background_v2"
+    },
+    {
+      "groups": [
+        "frontend",
+        "menu",
+        "reference_reconstruction"
+      ],
+      "id": "runner_pause_landscape_background_v2",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/runner_pause_landscape_background_v2.webp",
+      "production_ready": false,
+      "sha256": "fab463c2295b137ad9af2b78811108a2917f9c8969cd5a6c403afd2e39807e44",
+      "source_export_id": "imagegen_runner_pause_landscape_background_v2"
+    }
+  ],
+  "source_exports": []
+}

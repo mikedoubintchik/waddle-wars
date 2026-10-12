@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "candidate_sha256": "b21ca5327a7798b31b1b5b7aa098a4452c623db2c95044244aa490fb72fc7484",
+  "source_sha256": "7253e147302eb8476524d9694cb6f8eb0032cac7a37ca58bd730e7723fde98b2",
+  "builder_sha256": "8fb828a22695d19a98e93efef8b0c1a6a6b67e2c04d39dc80c16f8a661cc5442",
+  "verifier_sha256": "7ec96f9ce004f2a37aa50c3bb5f7cbba4905aed4f1ceb5d47b4b83cdc66fd06d",
+  "scope": "Authored texture/source proof only; actual game appearance pending",
+  "recipe": "v4 authored ImageGen irregular tapered feather clusters; broken courses; rump-coherent tail phase/pigment; source barbs low-passed",
+  "authored_source": {
+    "path": "art_src/characters/penguin_rear_surface_v1/material_sources/feather-source-v2.png",
+    "sha256": "c0bc96ee273edfcfaf6350fb4319cf15af9c5a175332bd961609ec5b02adb4cc",
+    "prompt_path": "art_src/characters/penguin_rear_surface_v1/material_sources/feather-source-v2-prompt.txt",
+    "prompt_sha256": "a54d643607448cc4abe3e0744b4745e4b50ce49c7e561a3ecf74605ab0136fa6",
+    "generator": "OpenAI built-in ImageGen",
+    "original_path": "/Users/ninja/.codex/generated_images/01a12d09-d5ea-7952-8a60-3670fc421c94/exec-630cf216-24e4-48cf-82e1-17068bd9e3d1.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "raw_luma_p5_p50_p95": [
+      0.1697443127632141,
+      0.23023530840873718,
+      0.3114713728427887
+    ],
+    "pigment_luma_p5_p50_p95": [
+      0.1915811337530613,
+      0.23315975069999695,
+      0.28465016931295395
+    ],
+    "relief_luma_p5_p50_p95": [
+      0.20480342954397202,
+      0.2326473891735077,
+      0.2719746306538582
+    ],
+    "orientation": "Source PNG tips point down. Blender pixel array is bottom-left; all chart/source v derivatives positive. Atlas PNG row flip is serialization only."
+  },
+  "mapping": {
+    "body_source_u_periods": "2.3 at rump to3.9 crown; source widths vary12\u201314 across; approximately18\u201324 visible midback faces",
+    "body_source_v": "1.75*v+.8*v^2+.17; derivative1.75..3.35 >0",
+    "flipper_source_span": [
+      0.78,
+      0.34
+    ],
+    "tail_mapping": "Original tail X/Z and edge perimeter projected into body UV; same authored feather phase and body pigment as rump; common source normalization; approximately2\u20133 tiers",
+    "tail_tiers": 3,
+    "normal_guide": "Two-pass7px source box low pass; inferred shallow face relief, not recovered physical height",
+    "pigment_filter": "Two-pass3px source box low pass; v2 filtered p5..p95 mapped to40% linear face spread, mean-normalized; extrema clamped .72..1.28",
+    "relief_strength": "Filtered v2 p5..p95 supplies72% of2mm body height span; no change to global material normalScale",
+    "foot_maps": "Original recipe unchanged; exact pixel comparison against7f required"
+  },
+  "art_limitations": "Generated source has stylized face shading. Compressed luminance supplies pigment design and low-passed inferred shallow relief; these are not recovered physical PBR measurements. Actual course lighting remains unchanged.",
+  "foot_maps": {
+    "foot_L": {
+      "base-color.png": {
+        "pixels_bit_identical": true,
+        "max_channel_difference": 0,
+        "pixel_sha256": "bd753d95fb94f3de13fdd61c8d098ec86c754e4ec2f5bae6dc12078251391b46"
+      },
+      "normal.png": {
+        "pixels_bit_identical": true,
+        "max_channel_difference": 0,
+        "pixel_sha256": "f9251c9fae7f854dfa2a24e3249886b5deb80ae7f0269a5294a7f3ee12c60166"
+      },
+      "metallic-roughness.png": {
+        "pixels_bit_identical": true,
+        "max_channel_difference": 0,
+        "pixel_sha256": "f058fc818eed10353782e50dbf327ff96ee885849757961d91f1dabda3723f2b"
+      }
+    },
+    "foot_R": {
+      "base-color.png": {
+        "pixels_bit_identical": true,
+        "max_channel_difference": 0,
+        "pixel_sha256": "cfabd2f525c3b3720d287dd31effc66298fd575c447d25c387b5197b34039d1c"
+      },
+      "normal.png": {
+        "pixels_bit_identical": true,
+        "max_channel_difference": 0,
+        "pixel_sha256": "f9251c9fae7f854dfa2a24e3249886b5deb80ae7f0269a5294a7f3ee12c60166"
+      },
+      "metallic-roughness.png": {
+        "pixels_bit_identical": true,
+        "max_channel_difference": 0,
+        "pixel_sha256": "f058fc818eed10353782e50dbf327ff96ee885849757961d91f1dabda3723f2b"
+      }
+    }
+  },
+  "body_normals": {
+    "source_tilt_percentiles_50_90_95_99": [
+      2.857456898249675,
+      6.843767524005479,
+      8.605695881980864,
+      12.505446598606397
+    ],
+    "estimated_scaled_tilt_percentiles_50_90_95_99": [
+      1.8582365184672351,
+      4.460691819205755,
+      5.618073999530864,
+      8.20360083448328
+    ]
+  },
+  "normal_scale": 0.6499999761581421,
+  "pigment_change": "Dark plumage warmer at previous luminance; tail pigment inherits rump; both feet remain exact",
+  "orientation": {
+    "body_d_source_v_d_chart_v_min": 1.75,
+    "flipper_d_source_v_d_chart_v": 0.34,
+    "tail_d_source_v_d_chart_v": "Positive; tail pre-pose Z increases toward root and uses body field",
+    "tip_direction": "Down toward feet/distal flipper tip/tail tip; verified in serialized PNG atlas",
+    "proof_path": "art_src/characters/penguin_rear_surface_v1/authored-mapping-proof.png",
+    "proof_sha256": "bf3dda1e8ca005ad17910a102e72cb6e26b4e7fa5a9e17b967d398890620f642"
+  },
+  "atlas_diagnostics": {
+    "path": "art_src/characters/penguin_rear_surface_v1/atlas-diagnostics.png",
+    "sha256": "c9989e22fabbcaff2556541351f53eb27ef96b88dd7bd55d220cf959549359a5"
+  },
+  "current_geometry_receipt_sha256": "7f237dbf6e8688ef48462a7aa87668c96d23af341db94b65c22244f445a412a7",
+  "khronos_log_sha256": "b3fac137d80f93d58ed10b190b01719e20547ca9d86886cca73446516f768d18",
+  "resolution_receipt_sha256": "7503437793261c990882d212015a09bae996c0dca684924461fae264a03accd9",
+  "map_files": {
+    "base-color.png": "18e05c52d147ec460f6318e83ec73cf070b10e3a90e82eb388a80677b363ed8a",
+    "normal.png": "129581c3b83b47efaceee14bb2cd9fc79d972e68c25995958ed6d217c056f3db",
+    "metallic-roughness.png": "87c623281e4a9dc2cde74dc2a9ab02a82678e4c1dd1927f80ad142250840486f"
+  },
+  "visual_approval": "Pending actual game comparison"
+}

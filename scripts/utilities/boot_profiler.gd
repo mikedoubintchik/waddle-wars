@@ -42,9 +42,28 @@ static func enabled() -> bool:
 		var probe: Variant = JavaScriptBridge.eval("location.search.includes('profile')", true)
 		if bool(probe):
 			_enabled = 1
+	elif OS.has_feature("android") and OS.is_debug_build() and bool(ProjectSettings.get_setting(
+			"application/qa/native_perf_trace", false)):
+		# Android's exported launcher alias discards command-line extras; a
+		# diagnostic APK opts in through its frozen project setting instead.
+		# Release exports cannot enable this branch.
+		_enabled = 1
 	elif OS.get_cmdline_user_args().has("profile"):
 		_enabled = 1
 	return _enabled == 1
+
+
+## Event-edge-only browser diagnostics. No bridge calls, serialization, or
+## history allocation in normal play. The local QA shell owns the bounded
+## timeline and timestamps receipt with the same clock as its RAF samples.
+## A state-ready event does not claim that a browser frame was presented.
+static func lifecycle_event(event_name: String, fields: Dictionary = {}) -> void:
+	if not OS.has_feature("web") or not enabled():
+		return
+	JavaScriptBridge.eval(
+		"if (typeof window.__wwRunnerLifecycleEvent === 'function') { "
+		+ "window.__wwRunnerLifecycleEvent(%s, %s); }" % [
+			JSON.stringify(event_name), JSON.stringify(fields)], true)
 
 
 static func begin(label: String) -> void:

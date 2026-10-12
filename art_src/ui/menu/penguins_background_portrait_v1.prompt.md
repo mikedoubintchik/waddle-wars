@@ -1,0 +1,5 @@
+Use case: precise-object-edit
+Asset type: production Waddle Wars Penguins customization background plate, portrait 9:16.
+Input images: Image 1 is the approved Penguins submenu mockup and edit target.
+Primary request: Remove all UI and the large penguin character from Image 1: top title/back/fish controls, full-body penguin, name and Equip buttons, category strip, item thumbnails and page dots. Reconstruct a beautiful empty round ice display platform in the center, natural snow and bright Antarctic wardrobe surroundings, hanging hats/scarves on right, red penguin pennant on left and warm sunrise mountains behind. The middle half must remain open and uncluttered so a separate live 3D penguin can stand on the platform; bottom third must be quiet enough for live Godot category tabs and scrolling items. Preserve the original premium 3D art style, color palette and camera perspective.
+Constraints: no penguins, no text, no icons, no buttons, no panels, no watermark. This is a clean empty environment plate, not a menu screenshot.

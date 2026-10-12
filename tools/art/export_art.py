@@ -24,7 +24,10 @@ EXPECTED_VERSION = "5.2.0"
 EXPECTED_GLTF_VALIDATOR_VERSION = "2.0.0-dev.3.10"
 VERSION_RE = re.compile(r"^Blender\s+(\d+\.\d+\.\d+)", re.MULTILINE)
 SHA_RE = re.compile(r"^[0-9a-f]{64}$")
-ASSET_CLASSES = {"character", "landmark", "obstacle", "repeated_prop"}
+ASSET_CLASSES = {
+    "character", "character_lod", "gameplay_interactive", "gameplay_interactive_lod",
+    "landmark", "obstacle", "repeated_prop",
+}
 
 
 def load_manifest() -> dict[str, Any]:

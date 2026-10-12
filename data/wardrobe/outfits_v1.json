@@ -1,0 +1,3846 @@
+{
+  "entries": {
+    "body_adelie__hat_beanie__goggles_aviator__none": {
+      "body": "body_adelie",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_beanie__goggles_aviator__none.webp",
+      "runtime_sha256": "e28167391ed2a283ac255a08bda303130877b84cbfe7289a85a5271c8951e01d",
+      "scarf": "none"
+    },
+    "body_adelie__hat_beanie__goggles_aviator__scarf_bowtie": {
+      "body": "body_adelie",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_beanie__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "af2eba736c2190358b1175ea850c119ef91823f77945f995d3a7a231b177e3b5",
+      "scarf": "scarf_bowtie"
+    },
+    "body_adelie__hat_beanie__goggles_aviator__scarf_rainbow": {
+      "body": "body_adelie",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_beanie__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "7ab41d6ccc60730b77636aa56078b7e26d30deb592e7c12146caaa180084fa59",
+      "scarf": "scarf_rainbow"
+    },
+    "body_adelie__hat_beanie__goggles_aviator__scarf_red": {
+      "body": "body_adelie",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_beanie__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "96dc865b597e9bee1858e826a5109181c6ff09e50e41bce3c48488f79864595d",
+      "scarf": "scarf_red"
+    },
+    "body_adelie__hat_beanie__goggles_ski__none": {
+      "body": "body_adelie",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_beanie__goggles_ski__none.webp",
+      "runtime_sha256": "7662d6c2380f044a8b436eb44219e68a0e655df4e1d29b97826ad43522038e48",
+      "scarf": "none"
+    },
+    "body_adelie__hat_beanie__goggles_ski__scarf_bowtie": {
+      "body": "body_adelie",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_beanie__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "73135d009e5a398796bb4521a06e14a8f06c7db5347c9d4a3f1687cd431a69ba",
+      "scarf": "scarf_bowtie"
+    },
+    "body_adelie__hat_beanie__goggles_ski__scarf_rainbow": {
+      "body": "body_adelie",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_beanie__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "2908b841d5950d873fd2a6c702df1313001c4b44edb8af60c8fdc7070aa16c0e",
+      "scarf": "scarf_rainbow"
+    },
+    "body_adelie__hat_beanie__goggles_ski__scarf_red": {
+      "body": "body_adelie",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_beanie__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "9c08f7b7e47725bff4901c64fecdf42e7314db0e7a7f38ee9fdbb3a102148f94",
+      "scarf": "scarf_red"
+    },
+    "body_adelie__hat_beanie__none__none": {
+      "body": "body_adelie",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_beanie__none__none.webp",
+      "runtime_sha256": "4966f5ae499d87ad4ab218d853b836940bcdfcf75478846126edfdcdb5d401fe",
+      "scarf": "none"
+    },
+    "body_adelie__hat_beanie__none__scarf_bowtie": {
+      "body": "body_adelie",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_beanie__none__scarf_bowtie.webp",
+      "runtime_sha256": "5025634cac0a1601437cd1ff69d48e75d41dd9e34eb577d9882bc3b4aac4c7ce",
+      "scarf": "scarf_bowtie"
+    },
+    "body_adelie__hat_beanie__none__scarf_rainbow": {
+      "body": "body_adelie",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_beanie__none__scarf_rainbow.webp",
+      "runtime_sha256": "62ee076b7f20ac8bd0aa28e29d7faa238cafa491abf9709246678b867519ace0",
+      "scarf": "scarf_rainbow"
+    },
+    "body_adelie__hat_beanie__none__scarf_red": {
+      "body": "body_adelie",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_beanie__none__scarf_red.webp",
+      "runtime_sha256": "c85e4c19199972ae5e7ffa7f66856ae9bef109c419eb3a8784051a999485251e",
+      "scarf": "scarf_red"
+    },
+    "body_adelie__hat_crown__goggles_aviator__none": {
+      "body": "body_adelie",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_crown__goggles_aviator__none.webp",
+      "runtime_sha256": "1d85bf46a4d8374f56eb7821bd2d8fe58ab56cbc93318d637c01c8f948037dbb",
+      "scarf": "none"
+    },
+    "body_adelie__hat_crown__goggles_aviator__scarf_bowtie": {
+      "body": "body_adelie",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_crown__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "f29839ed6cf5393c6c135a517ba739c6b6d0da831326b82ea4403a682980fd7f",
+      "scarf": "scarf_bowtie"
+    },
+    "body_adelie__hat_crown__goggles_aviator__scarf_rainbow": {
+      "body": "body_adelie",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_crown__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "2c1ecae69fcb370230c86199bd93185eb503809b309a52473837499105a6c53a",
+      "scarf": "scarf_rainbow"
+    },
+    "body_adelie__hat_crown__goggles_aviator__scarf_red": {
+      "body": "body_adelie",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_crown__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "9079471ae2ddb6b9633f7027bcd4dc95a3221faa2432d6d467d23594152bdf8a",
+      "scarf": "scarf_red"
+    },
+    "body_adelie__hat_crown__goggles_ski__none": {
+      "body": "body_adelie",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_crown__goggles_ski__none.webp",
+      "runtime_sha256": "74f977f7a3d9be9f6bd5fc911628d574b2d0ea1c7a3763cff9c14de6a1c5f605",
+      "scarf": "none"
+    },
+    "body_adelie__hat_crown__goggles_ski__scarf_bowtie": {
+      "body": "body_adelie",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_crown__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "1417f4cbdffe402af8536cd22ebfe7549c53fe8d3a6da1b0194149b2bd91e163",
+      "scarf": "scarf_bowtie"
+    },
+    "body_adelie__hat_crown__goggles_ski__scarf_rainbow": {
+      "body": "body_adelie",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_crown__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "1cc4cd1435189bdc2d9326e8bccc9fe2de0306f41d2f68a5f7233e088aa07c3e",
+      "scarf": "scarf_rainbow"
+    },
+    "body_adelie__hat_crown__goggles_ski__scarf_red": {
+      "body": "body_adelie",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_crown__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "fd3610bf73e1c57b11e30174f8d1d01e40f06333944306cde7006ad963c02f97",
+      "scarf": "scarf_red"
+    },
+    "body_adelie__hat_crown__none__none": {
+      "body": "body_adelie",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_crown__none__none.webp",
+      "runtime_sha256": "51f144000f7c3e80c61d094b3d21a425cf0447b6713b04aa90d943fd17af197f",
+      "scarf": "none"
+    },
+    "body_adelie__hat_crown__none__scarf_bowtie": {
+      "body": "body_adelie",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_crown__none__scarf_bowtie.webp",
+      "runtime_sha256": "651f01ebe7ac048d48f634bccdb7a13315f3012f50bd696f8662db6178c57c16",
+      "scarf": "scarf_bowtie"
+    },
+    "body_adelie__hat_crown__none__scarf_rainbow": {
+      "body": "body_adelie",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_crown__none__scarf_rainbow.webp",
+      "runtime_sha256": "57b9b98ec42b53ca165326526f04592276fd79a4836327616a865cb88d254fcb",
+      "scarf": "scarf_rainbow"
+    },
+    "body_adelie__hat_crown__none__scarf_red": {
+      "body": "body_adelie",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_crown__none__scarf_red.webp",
+      "runtime_sha256": "cacb1c600a16f31d6e31b13d80a3640a3ec9e238303a97faafacc5a7b5748253",
+      "scarf": "scarf_red"
+    },
+    "body_adelie__hat_earwarmers__goggles_aviator__none": {
+      "body": "body_adelie",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_earwarmers__goggles_aviator__none.webp",
+      "runtime_sha256": "c5bc13b178f0fd43928b39cddc3cc6c3ac43e258bb5bc82e9c7cc32eb4706ea9",
+      "scarf": "none"
+    },
+    "body_adelie__hat_earwarmers__goggles_aviator__scarf_bowtie": {
+      "body": "body_adelie",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_earwarmers__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "8035dfde60ff9f738352f6070431c3e94a4275eb0be34ffab35c436911b0320e",
+      "scarf": "scarf_bowtie"
+    },
+    "body_adelie__hat_earwarmers__goggles_aviator__scarf_rainbow": {
+      "body": "body_adelie",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_earwarmers__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "70e26e8fdd01f8af8aa1cd2950c9138082e70319971e7749667099a3dd3e8705",
+      "scarf": "scarf_rainbow"
+    },
+    "body_adelie__hat_earwarmers__goggles_aviator__scarf_red": {
+      "body": "body_adelie",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_earwarmers__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "bbfbbbb25b65409657fa49b8c3e446f3604440cb35a59b1859b51693e98414e0",
+      "scarf": "scarf_red"
+    },
+    "body_adelie__hat_earwarmers__goggles_ski__none": {
+      "body": "body_adelie",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_earwarmers__goggles_ski__none.webp",
+      "runtime_sha256": "04b241f2fe92b952a0e8e3e30416fa72307eca092f03294baa5ec617590a23f7",
+      "scarf": "none"
+    },
+    "body_adelie__hat_earwarmers__goggles_ski__scarf_bowtie": {
+      "body": "body_adelie",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_earwarmers__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "46b5016db9e9fbfcb8dc8faea934ed6e5e24defead7ce91e05c9af7f4af6b86b",
+      "scarf": "scarf_bowtie"
+    },
+    "body_adelie__hat_earwarmers__goggles_ski__scarf_rainbow": {
+      "body": "body_adelie",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_earwarmers__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "8411de0914d50618ef075851abf3815e0272dd0fbe50e3ae98f53dcfc7639f2d",
+      "scarf": "scarf_rainbow"
+    },
+    "body_adelie__hat_earwarmers__goggles_ski__scarf_red": {
+      "body": "body_adelie",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_earwarmers__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "ae8eb2fb3300cb6a83c9859649154fa534d31e6951f37319a6c960c7c5627838",
+      "scarf": "scarf_red"
+    },
+    "body_adelie__hat_earwarmers__none__none": {
+      "body": "body_adelie",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_earwarmers__none__none.webp",
+      "runtime_sha256": "8f06284929f0b55068e2b43bdc1d84570b4f3aa08e75e1d91c160b85005bd5fa",
+      "scarf": "none"
+    },
+    "body_adelie__hat_earwarmers__none__scarf_bowtie": {
+      "body": "body_adelie",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_earwarmers__none__scarf_bowtie.webp",
+      "runtime_sha256": "5695aafd77f830f8a7c9d48937c287d085f8ee3b4e6316aa295b52d70a49e5f2",
+      "scarf": "scarf_bowtie"
+    },
+    "body_adelie__hat_earwarmers__none__scarf_rainbow": {
+      "body": "body_adelie",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_earwarmers__none__scarf_rainbow.webp",
+      "runtime_sha256": "258630eac3e0e9f5eb82be9b67e1f5366b69ea813eb708134ba12ecf4b50a65b",
+      "scarf": "scarf_rainbow"
+    },
+    "body_adelie__hat_earwarmers__none__scarf_red": {
+      "body": "body_adelie",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_earwarmers__none__scarf_red.webp",
+      "runtime_sha256": "46f3ef22709d9e2f25ee1f286fdd7f1a59f215beeef753de4f2f680b0dcdfa66",
+      "scarf": "scarf_red"
+    },
+    "body_adelie__hat_headset__goggles_aviator__none": {
+      "body": "body_adelie",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_headset__goggles_aviator__none.webp",
+      "runtime_sha256": "078e3386aa610e7646addb972c2609438efb8582b50e330814d1f466f5552034",
+      "scarf": "none"
+    },
+    "body_adelie__hat_headset__goggles_aviator__scarf_bowtie": {
+      "body": "body_adelie",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_headset__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "bf68fca6482cca31e18f6f41e9e4c749dd9cd167d437c11c8495d7633bda52ff",
+      "scarf": "scarf_bowtie"
+    },
+    "body_adelie__hat_headset__goggles_aviator__scarf_rainbow": {
+      "body": "body_adelie",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_headset__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "a8b9ef299a61aeee6f5b2b15ac562cfa78ea8274a00279f222b2be7f92c46b05",
+      "scarf": "scarf_rainbow"
+    },
+    "body_adelie__hat_headset__goggles_aviator__scarf_red": {
+      "body": "body_adelie",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_headset__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "a503328c81ae1c07266fe3c1cbde3058b9bb43f956854610f86fa651c3f8834c",
+      "scarf": "scarf_red"
+    },
+    "body_adelie__hat_headset__goggles_ski__none": {
+      "body": "body_adelie",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_headset__goggles_ski__none.webp",
+      "runtime_sha256": "13cd6bce26df5bae7ae44de52e9af3983b677ca2371194ca2151551b3f12a8da",
+      "scarf": "none"
+    },
+    "body_adelie__hat_headset__goggles_ski__scarf_bowtie": {
+      "body": "body_adelie",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_headset__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "5fdad62dbd318deefa0f04397a713e175b16908b835acac63bda101a50d02e0e",
+      "scarf": "scarf_bowtie"
+    },
+    "body_adelie__hat_headset__goggles_ski__scarf_rainbow": {
+      "body": "body_adelie",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_headset__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "ff090b173223e76188c93991a7143a1457878387b69855c19811dabc8a115fbe",
+      "scarf": "scarf_rainbow"
+    },
+    "body_adelie__hat_headset__goggles_ski__scarf_red": {
+      "body": "body_adelie",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_headset__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "95e8394e61725a66093c8b25a6b5dd1cdb76c215551a675496420490e061ffd4",
+      "scarf": "scarf_red"
+    },
+    "body_adelie__hat_headset__none__none": {
+      "body": "body_adelie",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_headset__none__none.webp",
+      "runtime_sha256": "535e2c8aeeeda8e4da91a0295731451d2e76cc9255b2187dfb5463464aae39b9",
+      "scarf": "none"
+    },
+    "body_adelie__hat_headset__none__scarf_bowtie": {
+      "body": "body_adelie",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_headset__none__scarf_bowtie.webp",
+      "runtime_sha256": "820bb0624a9a8c505cfe72672427998c6ff42a6a2a67278103c1be3d320034ca",
+      "scarf": "scarf_bowtie"
+    },
+    "body_adelie__hat_headset__none__scarf_rainbow": {
+      "body": "body_adelie",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_headset__none__scarf_rainbow.webp",
+      "runtime_sha256": "fd177fe0a6a6254d285a441fb572baace87de94af78bf5a3cde41d3bd5c58f6b",
+      "scarf": "scarf_rainbow"
+    },
+    "body_adelie__hat_headset__none__scarf_red": {
+      "body": "body_adelie",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__hat_headset__none__scarf_red.webp",
+      "runtime_sha256": "5d4c6feea6342d637c1c4b620c4c5a84c467e83f716987e62272aac746ee148a",
+      "scarf": "scarf_red"
+    },
+    "body_adelie__none__goggles_aviator__none": {
+      "body": "body_adelie",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__none__goggles_aviator__none.webp",
+      "runtime_sha256": "67881360f9214464922d797e053303ed6145bc0f124d8e8fc22258ea924b7abd",
+      "scarf": "none"
+    },
+    "body_adelie__none__goggles_aviator__scarf_bowtie": {
+      "body": "body_adelie",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__none__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "991022d7dc8f22f4604d459e14dcb608e18eebbde9e867d589eac296430f107d",
+      "scarf": "scarf_bowtie"
+    },
+    "body_adelie__none__goggles_aviator__scarf_rainbow": {
+      "body": "body_adelie",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__none__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "3a54f4279e1559e293dd393f0a51605128045717da74c535166a3c03a0f7bd8c",
+      "scarf": "scarf_rainbow"
+    },
+    "body_adelie__none__goggles_aviator__scarf_red": {
+      "body": "body_adelie",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__none__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "c79ffec76de33ac5284778d1f475965a83a52f010387eb72fc838e82abfff586",
+      "scarf": "scarf_red"
+    },
+    "body_adelie__none__goggles_ski__none": {
+      "body": "body_adelie",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__none__goggles_ski__none.webp",
+      "runtime_sha256": "c64a909ef1ddf0ef8a3a3634481437e8c480f04a518ba22909863b6cb97e8071",
+      "scarf": "none"
+    },
+    "body_adelie__none__goggles_ski__scarf_bowtie": {
+      "body": "body_adelie",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__none__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "831ed3c677d95c95cfe7c2efb52245dac8dce282810165bfbb9fcbbb32294b8f",
+      "scarf": "scarf_bowtie"
+    },
+    "body_adelie__none__goggles_ski__scarf_rainbow": {
+      "body": "body_adelie",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__none__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "f2055ef83206ecd0e72ac9c282e2792e427aaf8c308fe251ccafb56c6291f3cf",
+      "scarf": "scarf_rainbow"
+    },
+    "body_adelie__none__goggles_ski__scarf_red": {
+      "body": "body_adelie",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__none__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "728857f51514cc0212332189a8be9f33434290e12f74b99b7648971434a17717",
+      "scarf": "scarf_red"
+    },
+    "body_adelie__none__none__none": {
+      "body": "body_adelie",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__none__none__none.webp",
+      "runtime_sha256": "790027b8c4eb1c31cdbabab4a28f90a77e4a33570dba1c6f69d33b08257873a7",
+      "scarf": "none"
+    },
+    "body_adelie__none__none__scarf_bowtie": {
+      "body": "body_adelie",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__none__none__scarf_bowtie.webp",
+      "runtime_sha256": "4ecdb24035dff8ed2e6c1b69f7d5eb17d45e1c92a69ab5d349db6f5e93ce6ba2",
+      "scarf": "scarf_bowtie"
+    },
+    "body_adelie__none__none__scarf_rainbow": {
+      "body": "body_adelie",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__none__none__scarf_rainbow.webp",
+      "runtime_sha256": "002ff0e75b598288f51177c0112942f13bad753e56711559f04adb141a201780",
+      "scarf": "scarf_rainbow"
+    },
+    "body_adelie__none__none__scarf_red": {
+      "body": "body_adelie",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_adelie__none__none__scarf_red.webp",
+      "runtime_sha256": "08a8b671d468b3f7e87c1fb01b53b9a6ce1a5bea762fdad290bffbc49c111c67",
+      "scarf": "scarf_red"
+    },
+    "body_chinstrap__hat_beanie__goggles_aviator__none": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_beanie__goggles_aviator__none.webp",
+      "runtime_sha256": "382e9c2c1aaeda718371490e6efc711766a32955da23438218bd412965f61ef8",
+      "scarf": "none"
+    },
+    "body_chinstrap__hat_beanie__goggles_aviator__scarf_bowtie": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_beanie__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "d04588b080ce29a5af53158184b7b0a65f04b2148ee82b8761c67ebb39e662b0",
+      "scarf": "scarf_bowtie"
+    },
+    "body_chinstrap__hat_beanie__goggles_aviator__scarf_rainbow": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_beanie__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "4361130c658e07b933afa40b2cf1ca989129476373dc8c381ef37467a6f8ae17",
+      "scarf": "scarf_rainbow"
+    },
+    "body_chinstrap__hat_beanie__goggles_aviator__scarf_red": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_beanie__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "b3657b2a17c3d59f3ddf3eede586f3285abeb1ae92a27e8a188dd747d4c6c262",
+      "scarf": "scarf_red"
+    },
+    "body_chinstrap__hat_beanie__goggles_ski__none": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_beanie__goggles_ski__none.webp",
+      "runtime_sha256": "6480b5992dda1ff28a937b1b438f83f08f2474996e1649693416ffecc618fea1",
+      "scarf": "none"
+    },
+    "body_chinstrap__hat_beanie__goggles_ski__scarf_bowtie": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_beanie__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "bcbdadd9c29e7e72ea09d8d2cfa66edff491f144c6b288ec5a52316669b187b6",
+      "scarf": "scarf_bowtie"
+    },
+    "body_chinstrap__hat_beanie__goggles_ski__scarf_rainbow": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_beanie__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "35021664522d5fea9cdc236735645ccc713235aa09b898c4009b9b4d9819b881",
+      "scarf": "scarf_rainbow"
+    },
+    "body_chinstrap__hat_beanie__goggles_ski__scarf_red": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_beanie__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "85fe1e240763dcf30e6413c29e3f0b2fb1989818b1cfd5159d98bef45c537565",
+      "scarf": "scarf_red"
+    },
+    "body_chinstrap__hat_beanie__none__none": {
+      "body": "body_chinstrap",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_beanie__none__none.webp",
+      "runtime_sha256": "56a81883952ca110466e45820c07f6863ae7d0f8b73680eca854913a68daa017",
+      "scarf": "none"
+    },
+    "body_chinstrap__hat_beanie__none__scarf_bowtie": {
+      "body": "body_chinstrap",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_beanie__none__scarf_bowtie.webp",
+      "runtime_sha256": "3267b555d7e67c1a957270a0ca404727fc7c0b8de446a1d0364407c216f73d46",
+      "scarf": "scarf_bowtie"
+    },
+    "body_chinstrap__hat_beanie__none__scarf_rainbow": {
+      "body": "body_chinstrap",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_beanie__none__scarf_rainbow.webp",
+      "runtime_sha256": "7ab4cbea855feb2919e87f2ef2baa4d3b00dd0a2283a66e2bdf878c2671e5979",
+      "scarf": "scarf_rainbow"
+    },
+    "body_chinstrap__hat_beanie__none__scarf_red": {
+      "body": "body_chinstrap",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_beanie__none__scarf_red.webp",
+      "runtime_sha256": "7fd906f29fff6a20884798294f0a69b4f3a2da98713b36221b5cf734bf6fd8ba",
+      "scarf": "scarf_red"
+    },
+    "body_chinstrap__hat_crown__goggles_aviator__none": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_crown__goggles_aviator__none.webp",
+      "runtime_sha256": "c887d64619afd5addabd53deb00a736183467cde956cf186fe97322d6b3ed8aa",
+      "scarf": "none"
+    },
+    "body_chinstrap__hat_crown__goggles_aviator__scarf_bowtie": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_crown__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "68ae14136262612a2251064a93d2181595fc5d0e689c3827414a83401026606f",
+      "scarf": "scarf_bowtie"
+    },
+    "body_chinstrap__hat_crown__goggles_aviator__scarf_rainbow": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_crown__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "bc3d2b8877c5af108336d3d0912f20a10e631de7b465dd45fea830bea11b8f37",
+      "scarf": "scarf_rainbow"
+    },
+    "body_chinstrap__hat_crown__goggles_aviator__scarf_red": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_crown__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "2936ae2ccd7f489fe65309838602397958b40394a132bc4a1c11fdc3a258293e",
+      "scarf": "scarf_red"
+    },
+    "body_chinstrap__hat_crown__goggles_ski__none": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_crown__goggles_ski__none.webp",
+      "runtime_sha256": "48a021bfb05c7275f04114c072d4bf1409bf8c55798e3aeea9a6c693a363ec9a",
+      "scarf": "none"
+    },
+    "body_chinstrap__hat_crown__goggles_ski__scarf_bowtie": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_crown__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "ef9db36e31f54c75e1d02adfd900eab5664f48a9e2dbcf3e655b29d90b9ec282",
+      "scarf": "scarf_bowtie"
+    },
+    "body_chinstrap__hat_crown__goggles_ski__scarf_rainbow": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_crown__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "5cb904617d980549b3afda17f92c5f2caeb67133ae3afd8bbed2258035b5a184",
+      "scarf": "scarf_rainbow"
+    },
+    "body_chinstrap__hat_crown__goggles_ski__scarf_red": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_crown__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "3c1df0d6f8b4d9bce4e7ff5f390bdb092a9dbbcd423b790f4e414aa88dfc98b3",
+      "scarf": "scarf_red"
+    },
+    "body_chinstrap__hat_crown__none__none": {
+      "body": "body_chinstrap",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_crown__none__none.webp",
+      "runtime_sha256": "07c7e085278ac14fb19210c904dadd2ad797de435390aa75d6286cc176150fba",
+      "scarf": "none"
+    },
+    "body_chinstrap__hat_crown__none__scarf_bowtie": {
+      "body": "body_chinstrap",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_crown__none__scarf_bowtie.webp",
+      "runtime_sha256": "53e900fbabb4ae8b06dd1d350500b6a56ee9da8609f252e7c3a53ba4757fe745",
+      "scarf": "scarf_bowtie"
+    },
+    "body_chinstrap__hat_crown__none__scarf_rainbow": {
+      "body": "body_chinstrap",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_crown__none__scarf_rainbow.webp",
+      "runtime_sha256": "05396791a9210fbe1621d9d1a206651d7bd1576453226d3e8d1646c012133a2f",
+      "scarf": "scarf_rainbow"
+    },
+    "body_chinstrap__hat_crown__none__scarf_red": {
+      "body": "body_chinstrap",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_crown__none__scarf_red.webp",
+      "runtime_sha256": "19b6d2b1e9507a2d8d8daab54fd8e22c9b488428395b79c54075f5c6fe4a5fc0",
+      "scarf": "scarf_red"
+    },
+    "body_chinstrap__hat_earwarmers__goggles_aviator__none": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_earwarmers__goggles_aviator__none.webp",
+      "runtime_sha256": "c55efbd32d6e52ea41632dd82d255a9db2e35d2b20fc1a5a07887a5ed7eff56f",
+      "scarf": "none"
+    },
+    "body_chinstrap__hat_earwarmers__goggles_aviator__scarf_bowtie": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_earwarmers__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "6eb931ec3203f7b7156b1e2b488b177ddba357ee57403988b0bd3dc41ddffd1c",
+      "scarf": "scarf_bowtie"
+    },
+    "body_chinstrap__hat_earwarmers__goggles_aviator__scarf_rainbow": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_earwarmers__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "cb9c775b27a413ac14c68a43f0be81c374f29d1d4fe6bc78be6cb8a2442305b1",
+      "scarf": "scarf_rainbow"
+    },
+    "body_chinstrap__hat_earwarmers__goggles_aviator__scarf_red": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_earwarmers__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "96bce67c286e12e89591881f4f990c83330a3bdedf507fe4d6ad5c9053c0fc3f",
+      "scarf": "scarf_red"
+    },
+    "body_chinstrap__hat_earwarmers__goggles_ski__none": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_earwarmers__goggles_ski__none.webp",
+      "runtime_sha256": "d17ea46dd6a01f34bc548ca47590886f4a2a73772a5296013fa9b3d6d3ab7d78",
+      "scarf": "none"
+    },
+    "body_chinstrap__hat_earwarmers__goggles_ski__scarf_bowtie": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_earwarmers__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "e4f55a6f8ebb5eeebceb4f4c9adca5a84abd92ec6d99661ce620638e77cf2276",
+      "scarf": "scarf_bowtie"
+    },
+    "body_chinstrap__hat_earwarmers__goggles_ski__scarf_rainbow": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_earwarmers__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "301e980e86ec39fb6651001c579c6541a4271859388a9d17c60a01434089e8b0",
+      "scarf": "scarf_rainbow"
+    },
+    "body_chinstrap__hat_earwarmers__goggles_ski__scarf_red": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_earwarmers__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "e48dd571bd8c3576cd56c0122657ff55728a1da0706ffd6d91f04214d86be102",
+      "scarf": "scarf_red"
+    },
+    "body_chinstrap__hat_earwarmers__none__none": {
+      "body": "body_chinstrap",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_earwarmers__none__none.webp",
+      "runtime_sha256": "da4a7949e5c0876b617611d7b882b3b53976ae7fe5c5f42ff9133b7bd74314bd",
+      "scarf": "none"
+    },
+    "body_chinstrap__hat_earwarmers__none__scarf_bowtie": {
+      "body": "body_chinstrap",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_earwarmers__none__scarf_bowtie.webp",
+      "runtime_sha256": "3d92aee3a62ca885e74096c746415a152518e5315a84ada9d2a31e2abf0fffeb",
+      "scarf": "scarf_bowtie"
+    },
+    "body_chinstrap__hat_earwarmers__none__scarf_rainbow": {
+      "body": "body_chinstrap",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_earwarmers__none__scarf_rainbow.webp",
+      "runtime_sha256": "365aa807b808b25f9d25446ed53677eb18630b4be6629e0d0c97e5f3eacc11d0",
+      "scarf": "scarf_rainbow"
+    },
+    "body_chinstrap__hat_earwarmers__none__scarf_red": {
+      "body": "body_chinstrap",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_earwarmers__none__scarf_red.webp",
+      "runtime_sha256": "c009801fd1a2c5235f6055d58f403e3bfe13aa27f79eef72bdaa6b20e483db2c",
+      "scarf": "scarf_red"
+    },
+    "body_chinstrap__hat_headset__goggles_aviator__none": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_headset__goggles_aviator__none.webp",
+      "runtime_sha256": "c7b7e1fa3e964bd2b7e7a883f48871e06f668e451f532a83d3ff60e3d4bdbe61",
+      "scarf": "none"
+    },
+    "body_chinstrap__hat_headset__goggles_aviator__scarf_bowtie": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_headset__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "1f1302c8eff70decce28ca5cabbeda719633df56d738376e8ab07b6d8bf65177",
+      "scarf": "scarf_bowtie"
+    },
+    "body_chinstrap__hat_headset__goggles_aviator__scarf_rainbow": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_headset__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "8e8e6b67283df1dc6b05e892e6a8d8597d51603e6ef6368d0553ab3c5d2efdb1",
+      "scarf": "scarf_rainbow"
+    },
+    "body_chinstrap__hat_headset__goggles_aviator__scarf_red": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_headset__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "50567515a2e84eac75043e0b0128b80e242914a15528a4c18d277efd74291380",
+      "scarf": "scarf_red"
+    },
+    "body_chinstrap__hat_headset__goggles_ski__none": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_headset__goggles_ski__none.webp",
+      "runtime_sha256": "cb8579fe7254c408b7ea58b41edf9417535c89da703ec2e0004e9f8477c63801",
+      "scarf": "none"
+    },
+    "body_chinstrap__hat_headset__goggles_ski__scarf_bowtie": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_headset__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "a15947910ade75a4f24e1dfd23821662acd7ae4914afeed6f312f60e68687a45",
+      "scarf": "scarf_bowtie"
+    },
+    "body_chinstrap__hat_headset__goggles_ski__scarf_rainbow": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_headset__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "00a4d53a8aa560bcad25d12091cdb59fd62c8b419cb21e52afa27e2510097393",
+      "scarf": "scarf_rainbow"
+    },
+    "body_chinstrap__hat_headset__goggles_ski__scarf_red": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_headset__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "c58a8cb68c094b565684c5a9eb304d00f78ccf6893facb4f766e5fc791d58546",
+      "scarf": "scarf_red"
+    },
+    "body_chinstrap__hat_headset__none__none": {
+      "body": "body_chinstrap",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_headset__none__none.webp",
+      "runtime_sha256": "5c02111545713857f89942e143d9d60877163226ef6350a637877f56d10899b7",
+      "scarf": "none"
+    },
+    "body_chinstrap__hat_headset__none__scarf_bowtie": {
+      "body": "body_chinstrap",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_headset__none__scarf_bowtie.webp",
+      "runtime_sha256": "6d2d26ec5a8313771759ced8f338bfb075349b0f140422b61f35600fada8d72e",
+      "scarf": "scarf_bowtie"
+    },
+    "body_chinstrap__hat_headset__none__scarf_rainbow": {
+      "body": "body_chinstrap",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_headset__none__scarf_rainbow.webp",
+      "runtime_sha256": "944f0c2dec62bf126a76bc53db439de05cbbba4c9026e913ba6587a85b983774",
+      "scarf": "scarf_rainbow"
+    },
+    "body_chinstrap__hat_headset__none__scarf_red": {
+      "body": "body_chinstrap",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__hat_headset__none__scarf_red.webp",
+      "runtime_sha256": "634d7378f1eef645bbc08dd48f48c47660e8cd4991eb759a33605cec762ff75e",
+      "scarf": "scarf_red"
+    },
+    "body_chinstrap__none__goggles_aviator__none": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__none__goggles_aviator__none.webp",
+      "runtime_sha256": "f188a276f7deb39fc8933c360b2d31c0acb5ca11877bd4ff68eda2025a4ab861",
+      "scarf": "none"
+    },
+    "body_chinstrap__none__goggles_aviator__scarf_bowtie": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__none__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "e4b92237b79b47fa21dcf5531593b78682efb04f2d8e5f9bbee594bd08e547e2",
+      "scarf": "scarf_bowtie"
+    },
+    "body_chinstrap__none__goggles_aviator__scarf_rainbow": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__none__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "488cdcea31097c6a66eb839b767be97c19c957a7c946bac0a82bf8ba57cd703d",
+      "scarf": "scarf_rainbow"
+    },
+    "body_chinstrap__none__goggles_aviator__scarf_red": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__none__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "0970388c9b250517e950bfc3569b951c89d2d5e4be1cf6ac6d38c75784e0dad1",
+      "scarf": "scarf_red"
+    },
+    "body_chinstrap__none__goggles_ski__none": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__none__goggles_ski__none.webp",
+      "runtime_sha256": "510efa4395f2daa5aa5acc0312ca984eb1be1d2f35a6856c0f090c44f1fc3186",
+      "scarf": "none"
+    },
+    "body_chinstrap__none__goggles_ski__scarf_bowtie": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__none__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "dba82485b6b6f86b56900263512575b66e7fa38ac5ccbf3cac0615f3877df7fb",
+      "scarf": "scarf_bowtie"
+    },
+    "body_chinstrap__none__goggles_ski__scarf_rainbow": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__none__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "512f38eee725859f28ca44c4a5e59766767bbbe2cac3deb11e85a5afa38fab8a",
+      "scarf": "scarf_rainbow"
+    },
+    "body_chinstrap__none__goggles_ski__scarf_red": {
+      "body": "body_chinstrap",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__none__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "6bb61fee056407ecc8d07cac223794c610caf8199cdd7c945d299bf9eefa68c6",
+      "scarf": "scarf_red"
+    },
+    "body_chinstrap__none__none__none": {
+      "body": "body_chinstrap",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__none__none__none.webp",
+      "runtime_sha256": "7e30d6c880c883d38ab13b2aa320c09b1ace3147822825ff040c317ee4cf7f01",
+      "scarf": "none"
+    },
+    "body_chinstrap__none__none__scarf_bowtie": {
+      "body": "body_chinstrap",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__none__none__scarf_bowtie.webp",
+      "runtime_sha256": "ed641252262541eb75efe26ec5f0edf3529db5876ac336ff25f5960569af9c9b",
+      "scarf": "scarf_bowtie"
+    },
+    "body_chinstrap__none__none__scarf_rainbow": {
+      "body": "body_chinstrap",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__none__none__scarf_rainbow.webp",
+      "runtime_sha256": "27a83078949e04df895106c1293b1eca9dd0100e7ae350213c8f79b09f327afe",
+      "scarf": "scarf_rainbow"
+    },
+    "body_chinstrap__none__none__scarf_red": {
+      "body": "body_chinstrap",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_chinstrap__none__none__scarf_red.webp",
+      "runtime_sha256": "038cea60549dc1d49ad59525e16a41d9d9c8415e9bd8df3715950bded1c70723",
+      "scarf": "scarf_red"
+    },
+    "body_classic__hat_beanie__goggles_aviator__none": {
+      "body": "body_classic",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_beanie__goggles_aviator__none.webp",
+      "runtime_sha256": "a462fcb8e1245a8e9b9b993082f2a597f4bbc36a6352f6d718ae55ef08b54890",
+      "scarf": "none"
+    },
+    "body_classic__hat_beanie__goggles_aviator__scarf_bowtie": {
+      "body": "body_classic",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_beanie__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "dff9b4fc41e330bd7a6c16cba7c4f6aac1131c1a876c9a3a171dd1e65d6b1d46",
+      "scarf": "scarf_bowtie"
+    },
+    "body_classic__hat_beanie__goggles_aviator__scarf_rainbow": {
+      "body": "body_classic",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_beanie__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "5380d0d59577f3552c3b6bd47bf3adbb0c85245001aadf100f1652b83ff7840c",
+      "scarf": "scarf_rainbow"
+    },
+    "body_classic__hat_beanie__goggles_aviator__scarf_red": {
+      "body": "body_classic",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_beanie__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "b0d09e8b39ebcba782eee77c6a7fc9f08c723424970f8c77bbe57eae65a9e06a",
+      "scarf": "scarf_red"
+    },
+    "body_classic__hat_beanie__goggles_ski__none": {
+      "body": "body_classic",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_beanie__goggles_ski__none.webp",
+      "runtime_sha256": "d5a167cb0542f697b2ccefdd6d25fc89602578bc105bde6ca3793c059dd4060d",
+      "scarf": "none"
+    },
+    "body_classic__hat_beanie__goggles_ski__scarf_bowtie": {
+      "body": "body_classic",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_beanie__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "98cc3802909f5f59dc402e0d8b3da11325ba97d230de8ad06202053821d5953f",
+      "scarf": "scarf_bowtie"
+    },
+    "body_classic__hat_beanie__goggles_ski__scarf_rainbow": {
+      "body": "body_classic",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_beanie__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "4ea13e470649a11e121ece1bb2bc696fd94418f2b5cc01353cafd1b0abc4bed5",
+      "scarf": "scarf_rainbow"
+    },
+    "body_classic__hat_beanie__goggles_ski__scarf_red": {
+      "body": "body_classic",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_beanie__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "d18e2b7ae7948aa4132d37833b6524081092005458e6f326da4f9d8bf6d25958",
+      "scarf": "scarf_red"
+    },
+    "body_classic__hat_beanie__none__none": {
+      "body": "body_classic",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_beanie__none__none.webp",
+      "runtime_sha256": "4401b8df5c47c36da2ce85145d40e53c9676a01919e9b8eded0f2881a7e874df",
+      "scarf": "none"
+    },
+    "body_classic__hat_beanie__none__scarf_bowtie": {
+      "body": "body_classic",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_beanie__none__scarf_bowtie.webp",
+      "runtime_sha256": "73be6e5e21d3aa27ab50783aba45a99296ee8b2a31c60848e5c9db651d29a049",
+      "scarf": "scarf_bowtie"
+    },
+    "body_classic__hat_beanie__none__scarf_rainbow": {
+      "body": "body_classic",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_beanie__none__scarf_rainbow.webp",
+      "runtime_sha256": "8345c14524652cdf192b7e5148a87757a5506dec5bad79488aa428d3cb57211a",
+      "scarf": "scarf_rainbow"
+    },
+    "body_classic__hat_beanie__none__scarf_red": {
+      "body": "body_classic",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_beanie__none__scarf_red.webp",
+      "runtime_sha256": "e503ff09b8e74a6bd29dc78480c76deb883a5df761bdd9dc44d3271b59451cf7",
+      "scarf": "scarf_red"
+    },
+    "body_classic__hat_crown__goggles_aviator__none": {
+      "body": "body_classic",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_crown__goggles_aviator__none.webp",
+      "runtime_sha256": "8c58ddddf72b8b197c2203e91b0d1701fcd81c8a986b7f60272292e72ed5c0ad",
+      "scarf": "none"
+    },
+    "body_classic__hat_crown__goggles_aviator__scarf_bowtie": {
+      "body": "body_classic",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_crown__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "dc1eb2121294444b61cebe02251d408da8116caea0ed0276e12710492c020288",
+      "scarf": "scarf_bowtie"
+    },
+    "body_classic__hat_crown__goggles_aviator__scarf_rainbow": {
+      "body": "body_classic",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_crown__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "ce1fcc63e7aa2af26af9d478da457d07ba4f17b289ab0df8d3e10f50111f5f31",
+      "scarf": "scarf_rainbow"
+    },
+    "body_classic__hat_crown__goggles_aviator__scarf_red": {
+      "body": "body_classic",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_crown__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "04684e2a16eccdc5edfd8ccda8c431af75213e77b6be3372fb5a9bcd60bb4d4c",
+      "scarf": "scarf_red"
+    },
+    "body_classic__hat_crown__goggles_ski__none": {
+      "body": "body_classic",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_crown__goggles_ski__none.webp",
+      "runtime_sha256": "d818235c32e7b2a35360148a7fab8eaf9c2c2f8e02638bce6e70f9723a9989d1",
+      "scarf": "none"
+    },
+    "body_classic__hat_crown__goggles_ski__scarf_bowtie": {
+      "body": "body_classic",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_crown__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "42f01dee5e10cda99a0e0da7c2515fe354045d0169f5310f0f7e2fcc9da938f4",
+      "scarf": "scarf_bowtie"
+    },
+    "body_classic__hat_crown__goggles_ski__scarf_rainbow": {
+      "body": "body_classic",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_crown__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "e8f165221ec7a84a9543ca08e7b59b0c56c98d39275eb5f08f6a7e28298a0670",
+      "scarf": "scarf_rainbow"
+    },
+    "body_classic__hat_crown__goggles_ski__scarf_red": {
+      "body": "body_classic",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_crown__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "5e633933f8095e54725676ee86fb1da877cdbfff9a6c43dc90abf3f4f2ed9116",
+      "scarf": "scarf_red"
+    },
+    "body_classic__hat_crown__none__none": {
+      "body": "body_classic",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_crown__none__none.webp",
+      "runtime_sha256": "9fc151d413d4c264d160e7eb49769eab8977bd51625cfaa3becd8a773c9746e9",
+      "scarf": "none"
+    },
+    "body_classic__hat_crown__none__scarf_bowtie": {
+      "body": "body_classic",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_crown__none__scarf_bowtie.webp",
+      "runtime_sha256": "ab2ec45b0a01b1f14aada98b025aa406df34a3cdbfbac206b92b5aaa7c73a0ea",
+      "scarf": "scarf_bowtie"
+    },
+    "body_classic__hat_crown__none__scarf_rainbow": {
+      "body": "body_classic",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_crown__none__scarf_rainbow.webp",
+      "runtime_sha256": "594f27b7253022f08857335683ff721c3dc3242d69589d36f996deeb84d87d91",
+      "scarf": "scarf_rainbow"
+    },
+    "body_classic__hat_crown__none__scarf_red": {
+      "body": "body_classic",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_crown__none__scarf_red.webp",
+      "runtime_sha256": "795dfe2752358be4f7e7aa501ed6e7596bd7203859f199582f01cbba16ff49ac",
+      "scarf": "scarf_red"
+    },
+    "body_classic__hat_earwarmers__goggles_aviator__none": {
+      "body": "body_classic",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_earwarmers__goggles_aviator__none.webp",
+      "runtime_sha256": "8cea41ab88ae7f46598f9a7f5af5fd1a2aeff154fa3d8b2ddf635544c4c6aacd",
+      "scarf": "none"
+    },
+    "body_classic__hat_earwarmers__goggles_aviator__scarf_bowtie": {
+      "body": "body_classic",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_earwarmers__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "0a663275ecb5ec17b0681cdf9a1b99e1b7310c76df91b2feae912dfa5b864d8f",
+      "scarf": "scarf_bowtie"
+    },
+    "body_classic__hat_earwarmers__goggles_aviator__scarf_rainbow": {
+      "body": "body_classic",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_earwarmers__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "bb88e5177f6e2a4f5935c1fbb1ca0165648cb8a84b050f791cf61f83371e19d6",
+      "scarf": "scarf_rainbow"
+    },
+    "body_classic__hat_earwarmers__goggles_aviator__scarf_red": {
+      "body": "body_classic",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_earwarmers__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "54af8ba045ee05eb633ece132230e1db47af5ae8a20c3df1cff095f2e2b7ba23",
+      "scarf": "scarf_red"
+    },
+    "body_classic__hat_earwarmers__goggles_ski__none": {
+      "body": "body_classic",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_earwarmers__goggles_ski__none.webp",
+      "runtime_sha256": "5fe303b4fa4899c97beb29a57485bcdceada71d8e5eec6c7068c3160504ec4ca",
+      "scarf": "none"
+    },
+    "body_classic__hat_earwarmers__goggles_ski__scarf_bowtie": {
+      "body": "body_classic",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_earwarmers__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "7db8d19aba1069563e3b3b5079158cf982792efe161782ca390f7f6c92e92fe5",
+      "scarf": "scarf_bowtie"
+    },
+    "body_classic__hat_earwarmers__goggles_ski__scarf_rainbow": {
+      "body": "body_classic",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_earwarmers__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "96711c2d00d2c4e0784c4ca2bac602727e88dcec08131761b7296b80d4602a61",
+      "scarf": "scarf_rainbow"
+    },
+    "body_classic__hat_earwarmers__goggles_ski__scarf_red": {
+      "body": "body_classic",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_earwarmers__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "f4f14890f3e8651b4c277c9c95962e2502c5e6ec424f7b4b7cebe2577dc183cd",
+      "scarf": "scarf_red"
+    },
+    "body_classic__hat_earwarmers__none__none": {
+      "body": "body_classic",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_earwarmers__none__none.webp",
+      "runtime_sha256": "505f8ef84c3245f0ac093f6ce90626ab8517d0471fbd5c938c3d1e80d90285c4",
+      "scarf": "none"
+    },
+    "body_classic__hat_earwarmers__none__scarf_bowtie": {
+      "body": "body_classic",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_earwarmers__none__scarf_bowtie.webp",
+      "runtime_sha256": "78d632536bca9f8834f633a62c0e26969df7531f15f8444ff99a9a3fc188d4b4",
+      "scarf": "scarf_bowtie"
+    },
+    "body_classic__hat_earwarmers__none__scarf_rainbow": {
+      "body": "body_classic",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_earwarmers__none__scarf_rainbow.webp",
+      "runtime_sha256": "a5efa6b64e13dcd1183fc97527be39d2b571ed5ee032742f72ea49a912ed7c70",
+      "scarf": "scarf_rainbow"
+    },
+    "body_classic__hat_earwarmers__none__scarf_red": {
+      "body": "body_classic",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_earwarmers__none__scarf_red.webp",
+      "runtime_sha256": "4649148bee5615c443ef8016fe7a276c7e213b6b5741e5db5ab19741d2120675",
+      "scarf": "scarf_red"
+    },
+    "body_classic__hat_headset__goggles_aviator__none": {
+      "body": "body_classic",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_headset__goggles_aviator__none.webp",
+      "runtime_sha256": "a5d1018da003eee05fe5c3a5da945f9d54e88e318eb3997d6ee8b9a003b33c0d",
+      "scarf": "none"
+    },
+    "body_classic__hat_headset__goggles_aviator__scarf_bowtie": {
+      "body": "body_classic",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_headset__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "dbbdee4dbdcbae102093fdbca52d933778f16e092607b0d70c27cdf18db0825b",
+      "scarf": "scarf_bowtie"
+    },
+    "body_classic__hat_headset__goggles_aviator__scarf_rainbow": {
+      "body": "body_classic",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_headset__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "e51343ceac7bfb700bbb412f0a95023779dd78fe53353e6c3e0a29dae93f2d94",
+      "scarf": "scarf_rainbow"
+    },
+    "body_classic__hat_headset__goggles_aviator__scarf_red": {
+      "body": "body_classic",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_headset__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "af83f86ec35c9f6f9809409b7b710139d2d5a7b320d0711d6efc2d460afbe127",
+      "scarf": "scarf_red"
+    },
+    "body_classic__hat_headset__goggles_ski__none": {
+      "body": "body_classic",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_headset__goggles_ski__none.webp",
+      "runtime_sha256": "c39ebb2af679d3ac818afbbf3fcc8d760e35ca2d0c922e0514f46ba0174a7563",
+      "scarf": "none"
+    },
+    "body_classic__hat_headset__goggles_ski__scarf_bowtie": {
+      "body": "body_classic",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_headset__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "89842be55c8dee27b61c5133f8c3a703a64537c12fda69c10afd250c25d4e281",
+      "scarf": "scarf_bowtie"
+    },
+    "body_classic__hat_headset__goggles_ski__scarf_rainbow": {
+      "body": "body_classic",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_headset__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "3fa821de08a1ac81e5e11e730ef3e673676ffbfea6170d133889532dd29475d2",
+      "scarf": "scarf_rainbow"
+    },
+    "body_classic__hat_headset__goggles_ski__scarf_red": {
+      "body": "body_classic",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_headset__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "e95c77882d52a8b7ec2895316ec16de877bcaa0e2710bfc97e1fb2a5eac27dfd",
+      "scarf": "scarf_red"
+    },
+    "body_classic__hat_headset__none__none": {
+      "body": "body_classic",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_headset__none__none.webp",
+      "runtime_sha256": "fc8be2056e3c67a8821ecf0c0f9be5d2b31a3c68922a04428ca9b8435e1c5d06",
+      "scarf": "none"
+    },
+    "body_classic__hat_headset__none__scarf_bowtie": {
+      "body": "body_classic",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_headset__none__scarf_bowtie.webp",
+      "runtime_sha256": "460788027a309852a7569f7bf1de417ecc97eb0115e35862c2cdacea509d19bf",
+      "scarf": "scarf_bowtie"
+    },
+    "body_classic__hat_headset__none__scarf_rainbow": {
+      "body": "body_classic",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_headset__none__scarf_rainbow.webp",
+      "runtime_sha256": "1e8b866312c1110116f521d5cf3929272d585fe467be34ad080ba6264cb736ea",
+      "scarf": "scarf_rainbow"
+    },
+    "body_classic__hat_headset__none__scarf_red": {
+      "body": "body_classic",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__hat_headset__none__scarf_red.webp",
+      "runtime_sha256": "436793c74228525ac6579c251012fc97f1a9aa5b45960063825f9713bf4df6ff",
+      "scarf": "scarf_red"
+    },
+    "body_classic__none__goggles_aviator__none": {
+      "body": "body_classic",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__none__goggles_aviator__none.webp",
+      "runtime_sha256": "47fc7b93e85c759a1d3ce0a6923381c8fa511d898e8bf76da922b920c77bbeb9",
+      "scarf": "none"
+    },
+    "body_classic__none__goggles_aviator__scarf_bowtie": {
+      "body": "body_classic",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__none__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "c4008af401a9ff12566732dbb8151ab939a276e7b88e8942d390b7788966baf1",
+      "scarf": "scarf_bowtie"
+    },
+    "body_classic__none__goggles_aviator__scarf_rainbow": {
+      "body": "body_classic",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__none__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "26fe3b32106b311ace3c8558abbf81e7b1795684e18f7b0c978f523f280047ec",
+      "scarf": "scarf_rainbow"
+    },
+    "body_classic__none__goggles_aviator__scarf_red": {
+      "body": "body_classic",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__none__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "f90eb1922004ad30e7ed4297f12ae501083c1977d4aab5eb91700f3f0bd8f49d",
+      "scarf": "scarf_red"
+    },
+    "body_classic__none__goggles_ski__none": {
+      "body": "body_classic",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__none__goggles_ski__none.webp",
+      "runtime_sha256": "ad9dbaf87c826a227fd621944a004c371536e355f376615e5c93e253983a617e",
+      "scarf": "none"
+    },
+    "body_classic__none__goggles_ski__scarf_bowtie": {
+      "body": "body_classic",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__none__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "f669e8dab5331f6a90a22d3d293d2b260bc50b2ba87b24e30a5120bdae4e713f",
+      "scarf": "scarf_bowtie"
+    },
+    "body_classic__none__goggles_ski__scarf_rainbow": {
+      "body": "body_classic",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__none__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "aa32df17f5a3335efafaf3ad948ce8e3d24b2e9124bc2449e284ec66f5c842b5",
+      "scarf": "scarf_rainbow"
+    },
+    "body_classic__none__goggles_ski__scarf_red": {
+      "body": "body_classic",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__none__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "c90920d75aadaf3821677e0ca7170554d12d4e653ae4f0a6b1914837fb77f8fb",
+      "scarf": "scarf_red"
+    },
+    "body_classic__none__none__none": {
+      "body": "body_classic",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__none__none__none.webp",
+      "runtime_sha256": "7bed03f18431c9d722d1a836dae40162f1326c6583f361ad6989dd8a71a0b691",
+      "scarf": "none"
+    },
+    "body_classic__none__none__scarf_bowtie": {
+      "body": "body_classic",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__none__none__scarf_bowtie.webp",
+      "runtime_sha256": "c7dfd615f28d88216d3dfc7c2171a3b56115e175dfc66ad974d5fec659b4a721",
+      "scarf": "scarf_bowtie"
+    },
+    "body_classic__none__none__scarf_rainbow": {
+      "body": "body_classic",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__none__none__scarf_rainbow.webp",
+      "runtime_sha256": "09355c756a50713f79bb0bf60b01e822125cef62558b18314692b5850b30e894",
+      "scarf": "scarf_rainbow"
+    },
+    "body_classic__none__none__scarf_red": {
+      "body": "body_classic",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_classic__none__none__scarf_red.webp",
+      "runtime_sha256": "fb2cff067d23db474c8f5da932a913b30ab08b6cdae05598807234b5c1609b73",
+      "scarf": "scarf_red"
+    },
+    "body_gentoo__hat_beanie__goggles_aviator__none": {
+      "body": "body_gentoo",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_beanie__goggles_aviator__none.webp",
+      "runtime_sha256": "e8848b082ca671febb2c679b2f4728306c3cb827669c6adcb27747aeb93639a7",
+      "scarf": "none"
+    },
+    "body_gentoo__hat_beanie__goggles_aviator__scarf_bowtie": {
+      "body": "body_gentoo",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_beanie__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "badcee4067219623730141b500fc942474692af8c1f1108a084cb72e5317fab8",
+      "scarf": "scarf_bowtie"
+    },
+    "body_gentoo__hat_beanie__goggles_aviator__scarf_rainbow": {
+      "body": "body_gentoo",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_beanie__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "4c718e72ca519e95890d18a514ee867e59dc7ad98e05734a06a7c4379176cefb",
+      "scarf": "scarf_rainbow"
+    },
+    "body_gentoo__hat_beanie__goggles_aviator__scarf_red": {
+      "body": "body_gentoo",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_beanie__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "39630aebfb7763c2a8515eed99a1833bffe7f80d64acc94aedc69a7eb99be4b8",
+      "scarf": "scarf_red"
+    },
+    "body_gentoo__hat_beanie__goggles_ski__none": {
+      "body": "body_gentoo",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_beanie__goggles_ski__none.webp",
+      "runtime_sha256": "214974889a85ae38d078d6140adbdc1735ebc5be8213cb47184345049720f8cc",
+      "scarf": "none"
+    },
+    "body_gentoo__hat_beanie__goggles_ski__scarf_bowtie": {
+      "body": "body_gentoo",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_beanie__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "0be6805e286c540eaff14d9c68760720aac38d57987bdd94250f791b32fbfc93",
+      "scarf": "scarf_bowtie"
+    },
+    "body_gentoo__hat_beanie__goggles_ski__scarf_rainbow": {
+      "body": "body_gentoo",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_beanie__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "262c59c15468db0d5aea6544af258aa14ef562f6199755beea7d37a624f29c42",
+      "scarf": "scarf_rainbow"
+    },
+    "body_gentoo__hat_beanie__goggles_ski__scarf_red": {
+      "body": "body_gentoo",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_beanie__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "6e422df2aa8ff80136c20a577c89c66b2572dfec0175690ac8b33c97b5f1c5a1",
+      "scarf": "scarf_red"
+    },
+    "body_gentoo__hat_beanie__none__none": {
+      "body": "body_gentoo",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_beanie__none__none.webp",
+      "runtime_sha256": "959cab95e3f25d875152aff30653c96b9ec3ed4d7926b5150f27743a2f564ecf",
+      "scarf": "none"
+    },
+    "body_gentoo__hat_beanie__none__scarf_bowtie": {
+      "body": "body_gentoo",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_beanie__none__scarf_bowtie.webp",
+      "runtime_sha256": "30f1d7d096bc75c6f2ef129f2c5e4d93eebd4b2960c8858a83bb4251a7fd51b7",
+      "scarf": "scarf_bowtie"
+    },
+    "body_gentoo__hat_beanie__none__scarf_rainbow": {
+      "body": "body_gentoo",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_beanie__none__scarf_rainbow.webp",
+      "runtime_sha256": "05e579cb3eb84bac6547188e9b868323e23cbed4f4ae4bd5a12b67490b9979d2",
+      "scarf": "scarf_rainbow"
+    },
+    "body_gentoo__hat_beanie__none__scarf_red": {
+      "body": "body_gentoo",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_beanie__none__scarf_red.webp",
+      "runtime_sha256": "6021643fb86bf418c4866b6bc4783520afc57f62122d0b50e810363f15212096",
+      "scarf": "scarf_red"
+    },
+    "body_gentoo__hat_crown__goggles_aviator__none": {
+      "body": "body_gentoo",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_crown__goggles_aviator__none.webp",
+      "runtime_sha256": "b3159a27dc278b2bde09b38b48403fe1d893cf53bda31d3e4d0a279e9d292b7b",
+      "scarf": "none"
+    },
+    "body_gentoo__hat_crown__goggles_aviator__scarf_bowtie": {
+      "body": "body_gentoo",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_crown__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "0333739c1b6106d354bcb535b10768239746346245b1da1815a5b179684ce626",
+      "scarf": "scarf_bowtie"
+    },
+    "body_gentoo__hat_crown__goggles_aviator__scarf_rainbow": {
+      "body": "body_gentoo",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_crown__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "e7c9d379a2f5337dfc2711605fdce75a63bfe7487fd279c64c141ad155dc3a4c",
+      "scarf": "scarf_rainbow"
+    },
+    "body_gentoo__hat_crown__goggles_aviator__scarf_red": {
+      "body": "body_gentoo",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_crown__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "21aeb9effa26cb94538c7c93dcdd0a25ca1f6ee7492badaa2df923b260f64d68",
+      "scarf": "scarf_red"
+    },
+    "body_gentoo__hat_crown__goggles_ski__none": {
+      "body": "body_gentoo",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_crown__goggles_ski__none.webp",
+      "runtime_sha256": "eeb38072d908e7428b6c20d9248e750b888041608338bacebc3977f0e7a443df",
+      "scarf": "none"
+    },
+    "body_gentoo__hat_crown__goggles_ski__scarf_bowtie": {
+      "body": "body_gentoo",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_crown__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "abe330d03e820836ffd841272ca0c5363e514a2affe10d0d78ce6eeed5435cd5",
+      "scarf": "scarf_bowtie"
+    },
+    "body_gentoo__hat_crown__goggles_ski__scarf_rainbow": {
+      "body": "body_gentoo",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_crown__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "3f9cc80b5f1266d8a953e390b2cf3dcb0d9b6f0b71dbc705ed0a02980e010236",
+      "scarf": "scarf_rainbow"
+    },
+    "body_gentoo__hat_crown__goggles_ski__scarf_red": {
+      "body": "body_gentoo",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_crown__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "46680e1c83d0c185ebdf9f5de153d22676a6b6b82760ad9ca3ae7153ed29acea",
+      "scarf": "scarf_red"
+    },
+    "body_gentoo__hat_crown__none__none": {
+      "body": "body_gentoo",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_crown__none__none.webp",
+      "runtime_sha256": "89fcf98624eb2d0b2fe93f43e87c7fa96d38e2660536eed0a4bad86183b30cad",
+      "scarf": "none"
+    },
+    "body_gentoo__hat_crown__none__scarf_bowtie": {
+      "body": "body_gentoo",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_crown__none__scarf_bowtie.webp",
+      "runtime_sha256": "17c87019d79bb687ee378f263088f156695960f5b7d55a945efd9bbf0ea0d55d",
+      "scarf": "scarf_bowtie"
+    },
+    "body_gentoo__hat_crown__none__scarf_rainbow": {
+      "body": "body_gentoo",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_crown__none__scarf_rainbow.webp",
+      "runtime_sha256": "4a3dfcf6d06d3e4804d2b2fad8a0bde1e665b56939e6821099c0e362efe4acc1",
+      "scarf": "scarf_rainbow"
+    },
+    "body_gentoo__hat_crown__none__scarf_red": {
+      "body": "body_gentoo",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_crown__none__scarf_red.webp",
+      "runtime_sha256": "3ecf17f25d484b6b78f42bab9a48278e0b1fad8dbfe0e046eb3ea119dbcb766c",
+      "scarf": "scarf_red"
+    },
+    "body_gentoo__hat_earwarmers__goggles_aviator__none": {
+      "body": "body_gentoo",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_earwarmers__goggles_aviator__none.webp",
+      "runtime_sha256": "6f70714b4ef1b370bd83e6d9a9ed9838229939eaa9186c6a2b6d004ee025d6a5",
+      "scarf": "none"
+    },
+    "body_gentoo__hat_earwarmers__goggles_aviator__scarf_bowtie": {
+      "body": "body_gentoo",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_earwarmers__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "d4547c902e9f8ad964ec541bbfb0d0eff89facb387bce87e53a1213a3aaa41ab",
+      "scarf": "scarf_bowtie"
+    },
+    "body_gentoo__hat_earwarmers__goggles_aviator__scarf_rainbow": {
+      "body": "body_gentoo",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_earwarmers__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "158fcfdb76ea0d7486b52d7824ddb938bdc7faf2f4cdaf2d020f73bc74592ef8",
+      "scarf": "scarf_rainbow"
+    },
+    "body_gentoo__hat_earwarmers__goggles_aviator__scarf_red": {
+      "body": "body_gentoo",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_earwarmers__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "44ec0e26c26ccef9e244aa07a1e2a90f7df7822c3bdb14ecef6ab280f460c5ce",
+      "scarf": "scarf_red"
+    },
+    "body_gentoo__hat_earwarmers__goggles_ski__none": {
+      "body": "body_gentoo",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_earwarmers__goggles_ski__none.webp",
+      "runtime_sha256": "bee34653d85135fc29fb4fd3ceafd7971715b603fdcdaa44a37960ceeb49b606",
+      "scarf": "none"
+    },
+    "body_gentoo__hat_earwarmers__goggles_ski__scarf_bowtie": {
+      "body": "body_gentoo",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_earwarmers__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "348f57c68fd8724406f7d2309208bf7c4e78575e47b1d75f2560ed0ea5360c50",
+      "scarf": "scarf_bowtie"
+    },
+    "body_gentoo__hat_earwarmers__goggles_ski__scarf_rainbow": {
+      "body": "body_gentoo",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_earwarmers__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "80d9f2a7966a47433e13147ec1b5435ffd16e6d88bb784b902a6494ac35cbebf",
+      "scarf": "scarf_rainbow"
+    },
+    "body_gentoo__hat_earwarmers__goggles_ski__scarf_red": {
+      "body": "body_gentoo",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_earwarmers__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "a51e77eff088131b9d7e06b8f4af12b0132962a78a62a51c6c34887469f67e75",
+      "scarf": "scarf_red"
+    },
+    "body_gentoo__hat_earwarmers__none__none": {
+      "body": "body_gentoo",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_earwarmers__none__none.webp",
+      "runtime_sha256": "a7b0000e1d0ca0d853280eaac985d3987ccc1f95994b875d913ad1703a95324c",
+      "scarf": "none"
+    },
+    "body_gentoo__hat_earwarmers__none__scarf_bowtie": {
+      "body": "body_gentoo",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_earwarmers__none__scarf_bowtie.webp",
+      "runtime_sha256": "b0115c7d685dca7adcc39c903530b6a98a9a865f42b936a181fde4c63a46b89e",
+      "scarf": "scarf_bowtie"
+    },
+    "body_gentoo__hat_earwarmers__none__scarf_rainbow": {
+      "body": "body_gentoo",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_earwarmers__none__scarf_rainbow.webp",
+      "runtime_sha256": "08f306796ded96f20693457291ef273cb0120eea685e4fc197dec8bf61dd03d4",
+      "scarf": "scarf_rainbow"
+    },
+    "body_gentoo__hat_earwarmers__none__scarf_red": {
+      "body": "body_gentoo",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_earwarmers__none__scarf_red.webp",
+      "runtime_sha256": "00cf989ebd5da64ae84db1024463da08e94688c7d4a9d20ffdb7e1dbd8b3d2a0",
+      "scarf": "scarf_red"
+    },
+    "body_gentoo__hat_headset__goggles_aviator__none": {
+      "body": "body_gentoo",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_headset__goggles_aviator__none.webp",
+      "runtime_sha256": "d43f1d97420e90e69a6b2e9c78db0ea1edb962222ca41b6b870fb2437e32d6de",
+      "scarf": "none"
+    },
+    "body_gentoo__hat_headset__goggles_aviator__scarf_bowtie": {
+      "body": "body_gentoo",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_headset__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "e230b80083b48e8bb92e85d06837d28a1cebe227da73273b3a16bf56ee666d14",
+      "scarf": "scarf_bowtie"
+    },
+    "body_gentoo__hat_headset__goggles_aviator__scarf_rainbow": {
+      "body": "body_gentoo",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_headset__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "5c181144051d12080bce5ab19fb8575285cf50dd08b39d6c6cc83d4e71883d79",
+      "scarf": "scarf_rainbow"
+    },
+    "body_gentoo__hat_headset__goggles_aviator__scarf_red": {
+      "body": "body_gentoo",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_headset__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "97bf6512fc18331f73e2835efe66339b181c2025d3c5c4f62709dc3cbe75d953",
+      "scarf": "scarf_red"
+    },
+    "body_gentoo__hat_headset__goggles_ski__none": {
+      "body": "body_gentoo",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_headset__goggles_ski__none.webp",
+      "runtime_sha256": "b67c8ea62ca7d58e0198c96c476b22a283349be4c2658639c5f5db9822b2855b",
+      "scarf": "none"
+    },
+    "body_gentoo__hat_headset__goggles_ski__scarf_bowtie": {
+      "body": "body_gentoo",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_headset__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "64c4d687e8d857436ed4502c7750f4853a1161c2e0eb81327ebb969121190a51",
+      "scarf": "scarf_bowtie"
+    },
+    "body_gentoo__hat_headset__goggles_ski__scarf_rainbow": {
+      "body": "body_gentoo",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_headset__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "467372e4048fad0702d61e9159e250b911688cf07c4b0b72a4c4344dfb1d7a5b",
+      "scarf": "scarf_rainbow"
+    },
+    "body_gentoo__hat_headset__goggles_ski__scarf_red": {
+      "body": "body_gentoo",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_headset__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "0a420a4cd880164a989023e8723eb6ee9e3e2a03e20ccef338bb78a7e29c6574",
+      "scarf": "scarf_red"
+    },
+    "body_gentoo__hat_headset__none__none": {
+      "body": "body_gentoo",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_headset__none__none.webp",
+      "runtime_sha256": "e8f93fefb50c21a9c6470e4c7c093752cb45cc9c480c08f12b17ad2a7393e386",
+      "scarf": "none"
+    },
+    "body_gentoo__hat_headset__none__scarf_bowtie": {
+      "body": "body_gentoo",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_headset__none__scarf_bowtie.webp",
+      "runtime_sha256": "d1c191c2c05479f85cec45a8ab0ada338960086f620d24d941f0a033b808f4e4",
+      "scarf": "scarf_bowtie"
+    },
+    "body_gentoo__hat_headset__none__scarf_rainbow": {
+      "body": "body_gentoo",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_headset__none__scarf_rainbow.webp",
+      "runtime_sha256": "2d90fe4d391fa8f22ba8456fdcaffe41867eb42afcac4768887e268cdeb36fab",
+      "scarf": "scarf_rainbow"
+    },
+    "body_gentoo__hat_headset__none__scarf_red": {
+      "body": "body_gentoo",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__hat_headset__none__scarf_red.webp",
+      "runtime_sha256": "23b5d7df153d49cdc839deceb03a1692286a47cf4f2456a0305f613382bc93da",
+      "scarf": "scarf_red"
+    },
+    "body_gentoo__none__goggles_aviator__none": {
+      "body": "body_gentoo",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__none__goggles_aviator__none.webp",
+      "runtime_sha256": "421adfb40c007df1b11f76f8573bb87f4b645be8ecdaf246e939c990f04d8a98",
+      "scarf": "none"
+    },
+    "body_gentoo__none__goggles_aviator__scarf_bowtie": {
+      "body": "body_gentoo",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__none__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "273c0ec6ca6ceb1d44bf3cd07fdf604b4b779f07ae938ebdf7e8d593951b3e79",
+      "scarf": "scarf_bowtie"
+    },
+    "body_gentoo__none__goggles_aviator__scarf_rainbow": {
+      "body": "body_gentoo",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__none__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "dc142ee39bad7ec4f06aed27326e5567e9b9d38c7dd332c9030d6414fe38752e",
+      "scarf": "scarf_rainbow"
+    },
+    "body_gentoo__none__goggles_aviator__scarf_red": {
+      "body": "body_gentoo",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__none__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "3f90a63dc4ab91e9c0e565bd2f9176bd9e1e4fe94f8e8dbb9d3bd25ce822b93e",
+      "scarf": "scarf_red"
+    },
+    "body_gentoo__none__goggles_ski__none": {
+      "body": "body_gentoo",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__none__goggles_ski__none.webp",
+      "runtime_sha256": "96aa572ce59051af543a2ae331dfe1fb4762ff02982cbb4cf565145d6977773d",
+      "scarf": "none"
+    },
+    "body_gentoo__none__goggles_ski__scarf_bowtie": {
+      "body": "body_gentoo",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__none__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "dca97889fc1658b946b1cc752de82c79674bd4526c017148ab39068fd8efbe01",
+      "scarf": "scarf_bowtie"
+    },
+    "body_gentoo__none__goggles_ski__scarf_rainbow": {
+      "body": "body_gentoo",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__none__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "ea275886ce653beb4e3cfbe1ce4c02fdb0a6c16afe8f9cf5530a4ff87c75be27",
+      "scarf": "scarf_rainbow"
+    },
+    "body_gentoo__none__goggles_ski__scarf_red": {
+      "body": "body_gentoo",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__none__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "b1b657f171516bc6c0f0bff1dcfc09760dfb75adc7a2d109f70a668b558cf3d0",
+      "scarf": "scarf_red"
+    },
+    "body_gentoo__none__none__none": {
+      "body": "body_gentoo",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__none__none__none.webp",
+      "runtime_sha256": "dfa3df623694c1b4f129ffdb322047c6d4fb05f4ecc8eae5e3fff319d71924d3",
+      "scarf": "none"
+    },
+    "body_gentoo__none__none__scarf_bowtie": {
+      "body": "body_gentoo",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__none__none__scarf_bowtie.webp",
+      "runtime_sha256": "b30a68f015907a077857135427c0d7a4d9a5bab87e658ec734ccf999ee23488f",
+      "scarf": "scarf_bowtie"
+    },
+    "body_gentoo__none__none__scarf_rainbow": {
+      "body": "body_gentoo",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__none__none__scarf_rainbow.webp",
+      "runtime_sha256": "0c860be64819fa24e9c6dea6bf1a1fd4daea993311404c6957db19969f9a7bab",
+      "scarf": "scarf_rainbow"
+    },
+    "body_gentoo__none__none__scarf_red": {
+      "body": "body_gentoo",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_gentoo__none__none__scarf_red.webp",
+      "runtime_sha256": "b816c1f28fbf9a5675b95e46e754bed1bc735789d31bfdc9fdbf3fbdf26f1c4c",
+      "scarf": "scarf_red"
+    },
+    "body_macaroni__hat_beanie__goggles_aviator__none": {
+      "body": "body_macaroni",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_beanie__goggles_aviator__none.webp",
+      "runtime_sha256": "286f28f8950061504e9d0ded7dc290ceeb9ff038d1230b647bd0cff40f8c822a",
+      "scarf": "none"
+    },
+    "body_macaroni__hat_beanie__goggles_aviator__scarf_bowtie": {
+      "body": "body_macaroni",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_beanie__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "cb8d53467abed95b5f39212e423992e8f985241e5bbd35d423330a26ae1e6a11",
+      "scarf": "scarf_bowtie"
+    },
+    "body_macaroni__hat_beanie__goggles_aviator__scarf_rainbow": {
+      "body": "body_macaroni",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_beanie__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "7d691467eb4e5fd149d0f930647ee1f2e0411b2e097d220c7c2b2058c56f7ffe",
+      "scarf": "scarf_rainbow"
+    },
+    "body_macaroni__hat_beanie__goggles_aviator__scarf_red": {
+      "body": "body_macaroni",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_beanie__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "f2828513c14816476d169f4e109869a4f6bc5b040f522e25f1037421f19e5df8",
+      "scarf": "scarf_red"
+    },
+    "body_macaroni__hat_beanie__goggles_ski__none": {
+      "body": "body_macaroni",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_beanie__goggles_ski__none.webp",
+      "runtime_sha256": "83438bcfc6b00f86f060cb8defd411971a83683998f0fe99797797c69bdc3a98",
+      "scarf": "none"
+    },
+    "body_macaroni__hat_beanie__goggles_ski__scarf_bowtie": {
+      "body": "body_macaroni",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_beanie__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "50ab2c5284ccefb8d1d0b6952363e7e56e8c2014831389eb3059eeb44da0eb91",
+      "scarf": "scarf_bowtie"
+    },
+    "body_macaroni__hat_beanie__goggles_ski__scarf_rainbow": {
+      "body": "body_macaroni",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_beanie__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "b8bac91b9422153766580dc999ad4c9738fb39cf2aa334bb7b4356938c798572",
+      "scarf": "scarf_rainbow"
+    },
+    "body_macaroni__hat_beanie__goggles_ski__scarf_red": {
+      "body": "body_macaroni",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_beanie__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "bf2023f381b8a7daeed7494b1ddb3740bdada4a67f4770e91ed4a96df278ff62",
+      "scarf": "scarf_red"
+    },
+    "body_macaroni__hat_beanie__none__none": {
+      "body": "body_macaroni",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_beanie__none__none.webp",
+      "runtime_sha256": "84cc46de06805f274f35541ae02bd408e4301ed922864bc6b31b11d6eda72386",
+      "scarf": "none"
+    },
+    "body_macaroni__hat_beanie__none__scarf_bowtie": {
+      "body": "body_macaroni",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_beanie__none__scarf_bowtie.webp",
+      "runtime_sha256": "2b2ebda3f07d1304e101b4d90d169fa57ea98dfc14459d5513535f4893bf0691",
+      "scarf": "scarf_bowtie"
+    },
+    "body_macaroni__hat_beanie__none__scarf_rainbow": {
+      "body": "body_macaroni",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_beanie__none__scarf_rainbow.webp",
+      "runtime_sha256": "ae57c7be529207ebea6d765caefb3627cb6b436854a7c850254ed8167c602dfb",
+      "scarf": "scarf_rainbow"
+    },
+    "body_macaroni__hat_beanie__none__scarf_red": {
+      "body": "body_macaroni",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_beanie__none__scarf_red.webp",
+      "runtime_sha256": "3c55bab13110bc376a68497a20d33bf5b78be4f8bcb6f367e22acb77323b892b",
+      "scarf": "scarf_red"
+    },
+    "body_macaroni__hat_crown__goggles_aviator__none": {
+      "body": "body_macaroni",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_crown__goggles_aviator__none.webp",
+      "runtime_sha256": "2e4d8fa89792472ee3ede819bc36e742ec6546d08b0e1d4fc03e62953b5483db",
+      "scarf": "none"
+    },
+    "body_macaroni__hat_crown__goggles_aviator__scarf_bowtie": {
+      "body": "body_macaroni",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_crown__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "c771b27e2469a012090f87a494d2b3d33b9e38f549d6261a52043319e4d34f02",
+      "scarf": "scarf_bowtie"
+    },
+    "body_macaroni__hat_crown__goggles_aviator__scarf_rainbow": {
+      "body": "body_macaroni",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_crown__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "beb48bf30cac28b50b62564e08c5c4397ed0807f60cfa1d84e0ca600e2f4f0f3",
+      "scarf": "scarf_rainbow"
+    },
+    "body_macaroni__hat_crown__goggles_aviator__scarf_red": {
+      "body": "body_macaroni",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_crown__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "eb4a7449644ee0770450ba57d12002bbe61e4972b4df36442ce812a00822c1ea",
+      "scarf": "scarf_red"
+    },
+    "body_macaroni__hat_crown__goggles_ski__none": {
+      "body": "body_macaroni",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_crown__goggles_ski__none.webp",
+      "runtime_sha256": "df99e3477f3850b28b37e88cef11ce8854379fecb9876b8655e5c1ad1ff79f6f",
+      "scarf": "none"
+    },
+    "body_macaroni__hat_crown__goggles_ski__scarf_bowtie": {
+      "body": "body_macaroni",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_crown__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "5db506f393280b85a53f4011a93ff7660c97f41b6e1101e5daa4a30432ec954a",
+      "scarf": "scarf_bowtie"
+    },
+    "body_macaroni__hat_crown__goggles_ski__scarf_rainbow": {
+      "body": "body_macaroni",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_crown__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "60f3c407a0fc80226af4f14ac288ea2d37a32485dcb60b398860fbf08cdbbfdf",
+      "scarf": "scarf_rainbow"
+    },
+    "body_macaroni__hat_crown__goggles_ski__scarf_red": {
+      "body": "body_macaroni",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_crown__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "6688fbdabb443b1afcb7ba93587d5a26bba51c63699437c87fa2a93ded950469",
+      "scarf": "scarf_red"
+    },
+    "body_macaroni__hat_crown__none__none": {
+      "body": "body_macaroni",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_crown__none__none.webp",
+      "runtime_sha256": "784ecf5fb96a65440747a80f5602284f8c80956d63216e346ed861210e7adc0b",
+      "scarf": "none"
+    },
+    "body_macaroni__hat_crown__none__scarf_bowtie": {
+      "body": "body_macaroni",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_crown__none__scarf_bowtie.webp",
+      "runtime_sha256": "6a17424eaf6aec0b8c5d87d5d78cfa77f7d88f18c257e05cb200258927e7d9c7",
+      "scarf": "scarf_bowtie"
+    },
+    "body_macaroni__hat_crown__none__scarf_rainbow": {
+      "body": "body_macaroni",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_crown__none__scarf_rainbow.webp",
+      "runtime_sha256": "f52d03fa95ba3dd976d3ae132c1fa3d1bcd38880c71b2520d9345d809e915aeb",
+      "scarf": "scarf_rainbow"
+    },
+    "body_macaroni__hat_crown__none__scarf_red": {
+      "body": "body_macaroni",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_crown__none__scarf_red.webp",
+      "runtime_sha256": "eddee4ec3a6f2ef6192d1071fc5cc880f389d5c1529023163d6ad807a945a78f",
+      "scarf": "scarf_red"
+    },
+    "body_macaroni__hat_earwarmers__goggles_aviator__none": {
+      "body": "body_macaroni",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_earwarmers__goggles_aviator__none.webp",
+      "runtime_sha256": "8f6a74ea37ae2d06e89cd66bf84e21b5295b37ad1bc77ff6e4674572aa74b46f",
+      "scarf": "none"
+    },
+    "body_macaroni__hat_earwarmers__goggles_aviator__scarf_bowtie": {
+      "body": "body_macaroni",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_earwarmers__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "4ac3f7e22391d580ae369d9c8783aeb5bca21490631626ad60504f186fb7b10e",
+      "scarf": "scarf_bowtie"
+    },
+    "body_macaroni__hat_earwarmers__goggles_aviator__scarf_rainbow": {
+      "body": "body_macaroni",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_earwarmers__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "13e6fcdb8af91809fdf7f94cedb10a5ea64efeebfc02e1f545d3da37bc377cc5",
+      "scarf": "scarf_rainbow"
+    },
+    "body_macaroni__hat_earwarmers__goggles_aviator__scarf_red": {
+      "body": "body_macaroni",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_earwarmers__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "d8b7d0074de2ee7b97984837bff851528dc58da2ac316ff099d8f485e263526d",
+      "scarf": "scarf_red"
+    },
+    "body_macaroni__hat_earwarmers__goggles_ski__none": {
+      "body": "body_macaroni",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_earwarmers__goggles_ski__none.webp",
+      "runtime_sha256": "bac122e86d2ba056cfb892d72d5536f148c4090f808dcb5c2b26dd34919d3300",
+      "scarf": "none"
+    },
+    "body_macaroni__hat_earwarmers__goggles_ski__scarf_bowtie": {
+      "body": "body_macaroni",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_earwarmers__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "bd4073d10c41b6b230321e9aa349717334affa2fa4dc5b26c8f06abc85d0ccf9",
+      "scarf": "scarf_bowtie"
+    },
+    "body_macaroni__hat_earwarmers__goggles_ski__scarf_rainbow": {
+      "body": "body_macaroni",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_earwarmers__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "56f3ec0f5d4c96b1d03fadb7ec8acdecfd5d703f21048fe5233c3371f6d5277f",
+      "scarf": "scarf_rainbow"
+    },
+    "body_macaroni__hat_earwarmers__goggles_ski__scarf_red": {
+      "body": "body_macaroni",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_earwarmers__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "384545e2fa35e8d3ca3c34d1c19b72ee92ab4ee4d60cfa4cd705585cd75c5f80",
+      "scarf": "scarf_red"
+    },
+    "body_macaroni__hat_earwarmers__none__none": {
+      "body": "body_macaroni",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_earwarmers__none__none.webp",
+      "runtime_sha256": "fcf96e344dac7b993984789382ce6c13b2be21019e22fac2ddd8ff17a041380d",
+      "scarf": "none"
+    },
+    "body_macaroni__hat_earwarmers__none__scarf_bowtie": {
+      "body": "body_macaroni",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_earwarmers__none__scarf_bowtie.webp",
+      "runtime_sha256": "92ee474669fd4d10c1f3d8a12f77fd18f3a1cb4c835b88d3e5e533d34c730e63",
+      "scarf": "scarf_bowtie"
+    },
+    "body_macaroni__hat_earwarmers__none__scarf_rainbow": {
+      "body": "body_macaroni",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_earwarmers__none__scarf_rainbow.webp",
+      "runtime_sha256": "1fa98a1d3ff533a5d12c508673aa82bc58e0ce00795a11bd0cba6df521e8d398",
+      "scarf": "scarf_rainbow"
+    },
+    "body_macaroni__hat_earwarmers__none__scarf_red": {
+      "body": "body_macaroni",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_earwarmers__none__scarf_red.webp",
+      "runtime_sha256": "f1f03e48ad144c3bef0c3080937e9833f55a3bd1cb7d1dc6a1c31f9dd1ab3a2c",
+      "scarf": "scarf_red"
+    },
+    "body_macaroni__hat_headset__goggles_aviator__none": {
+      "body": "body_macaroni",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_headset__goggles_aviator__none.webp",
+      "runtime_sha256": "a0777cbfc4b25f79598deb51b81951f18b4c2e0b8943a2191d48b83b8a67694f",
+      "scarf": "none"
+    },
+    "body_macaroni__hat_headset__goggles_aviator__scarf_bowtie": {
+      "body": "body_macaroni",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_headset__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "9bd785932fb9766568f98cfe349ee6490de79e2905119d0d9e961ea0c070519a",
+      "scarf": "scarf_bowtie"
+    },
+    "body_macaroni__hat_headset__goggles_aviator__scarf_rainbow": {
+      "body": "body_macaroni",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_headset__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "c2d6318083f8c3f12e8aeca2c1387a77df3259fdf271a7b4a804c5633d6e8412",
+      "scarf": "scarf_rainbow"
+    },
+    "body_macaroni__hat_headset__goggles_aviator__scarf_red": {
+      "body": "body_macaroni",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_headset__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "7821e8a494a4ea1fc8cb2f35224c648a59af9d442d185c9158ec40a9fc8dd84c",
+      "scarf": "scarf_red"
+    },
+    "body_macaroni__hat_headset__goggles_ski__none": {
+      "body": "body_macaroni",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_headset__goggles_ski__none.webp",
+      "runtime_sha256": "ba80eca9a30d71d3f71d341b8dbef19f0f76f5b517ee61456ebe927d8c0f0041",
+      "scarf": "none"
+    },
+    "body_macaroni__hat_headset__goggles_ski__scarf_bowtie": {
+      "body": "body_macaroni",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_headset__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "1b9b892ceb06dc87b6ceefbf2f48d2a54c746af527a2c21aba83680d924097aa",
+      "scarf": "scarf_bowtie"
+    },
+    "body_macaroni__hat_headset__goggles_ski__scarf_rainbow": {
+      "body": "body_macaroni",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_headset__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "1ba2c4e68e56d10a2c914688884093ce811b89a692d6149cfa8389e5bfec054b",
+      "scarf": "scarf_rainbow"
+    },
+    "body_macaroni__hat_headset__goggles_ski__scarf_red": {
+      "body": "body_macaroni",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_headset__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "5f7d73f474d7fc2978a8bc0ef9c31ebe9c05e69b32568c07ea043ee56a92cc10",
+      "scarf": "scarf_red"
+    },
+    "body_macaroni__hat_headset__none__none": {
+      "body": "body_macaroni",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_headset__none__none.webp",
+      "runtime_sha256": "a25c5e062434d6b4aa97a270ac72eed8b225a182cb164a593cc5933c573df7a0",
+      "scarf": "none"
+    },
+    "body_macaroni__hat_headset__none__scarf_bowtie": {
+      "body": "body_macaroni",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_headset__none__scarf_bowtie.webp",
+      "runtime_sha256": "ae9e3b28c85601ad53e8a88a0f1f8c8313bf200a4d8fe9e7ba4b9c325019196d",
+      "scarf": "scarf_bowtie"
+    },
+    "body_macaroni__hat_headset__none__scarf_rainbow": {
+      "body": "body_macaroni",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_headset__none__scarf_rainbow.webp",
+      "runtime_sha256": "b135b7fd06c3d4e6e7caf2837125db3de5e185fb642e856f32b1e08be808a31e",
+      "scarf": "scarf_rainbow"
+    },
+    "body_macaroni__hat_headset__none__scarf_red": {
+      "body": "body_macaroni",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__hat_headset__none__scarf_red.webp",
+      "runtime_sha256": "53adceae8a361d9949bb808579616259454887820c7563ad1ef0f2af35943591",
+      "scarf": "scarf_red"
+    },
+    "body_macaroni__none__goggles_aviator__none": {
+      "body": "body_macaroni",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__none__goggles_aviator__none.webp",
+      "runtime_sha256": "014d73e8cbf2ab5303275d1cf8cbdc33d50f856c3a64175b3a8eaae2df181360",
+      "scarf": "none"
+    },
+    "body_macaroni__none__goggles_aviator__scarf_bowtie": {
+      "body": "body_macaroni",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__none__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "5c84697935f614c023f570ca2ad24849ad38ebbc9e6bc5cda7af9268e1244edb",
+      "scarf": "scarf_bowtie"
+    },
+    "body_macaroni__none__goggles_aviator__scarf_rainbow": {
+      "body": "body_macaroni",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__none__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "a02c4605d66ad9c2df29c97336466a46b02bc75c9b20047c0fa6fd1137081075",
+      "scarf": "scarf_rainbow"
+    },
+    "body_macaroni__none__goggles_aviator__scarf_red": {
+      "body": "body_macaroni",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__none__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "d997a42811bb1c49e84408e877faf32d263c6f05699022935f4b9137a19b9635",
+      "scarf": "scarf_red"
+    },
+    "body_macaroni__none__goggles_ski__none": {
+      "body": "body_macaroni",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__none__goggles_ski__none.webp",
+      "runtime_sha256": "0d974880de2638165e6c30bd7c788dcc1b13cb927be4ca665da76a519624bf55",
+      "scarf": "none"
+    },
+    "body_macaroni__none__goggles_ski__scarf_bowtie": {
+      "body": "body_macaroni",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__none__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "1646b577e6b5a1d621a4bc11ff238def183faa1224abab8e029c4beaf2b9dc3f",
+      "scarf": "scarf_bowtie"
+    },
+    "body_macaroni__none__goggles_ski__scarf_rainbow": {
+      "body": "body_macaroni",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__none__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "ca2bb7d9f57ef8288e544ad2cb52bfddec21edd1e4cd980d8cd85f8afae37364",
+      "scarf": "scarf_rainbow"
+    },
+    "body_macaroni__none__goggles_ski__scarf_red": {
+      "body": "body_macaroni",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__none__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "93093a19660b74d770e35ef8fa87bd5ccdcd67018ca1cd0fceef7e6e8db92b6a",
+      "scarf": "scarf_red"
+    },
+    "body_macaroni__none__none__none": {
+      "body": "body_macaroni",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__none__none__none.webp",
+      "runtime_sha256": "34601c8330e6d355b2645251d9b06bc7ee15f513d071f63a7ef2e00b0b5d8544",
+      "scarf": "none"
+    },
+    "body_macaroni__none__none__scarf_bowtie": {
+      "body": "body_macaroni",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__none__none__scarf_bowtie.webp",
+      "runtime_sha256": "cb31fa2dfe49ab7087f24b899f9d28a2bd27d00d796a827f62d1c34c871735cb",
+      "scarf": "scarf_bowtie"
+    },
+    "body_macaroni__none__none__scarf_rainbow": {
+      "body": "body_macaroni",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__none__none__scarf_rainbow.webp",
+      "runtime_sha256": "480f99a15a07d3848b71a63bf77ecf60fae8684846013df7598ff652e920d0b5",
+      "scarf": "scarf_rainbow"
+    },
+    "body_macaroni__none__none__scarf_red": {
+      "body": "body_macaroni",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_macaroni__none__none__scarf_red.webp",
+      "runtime_sha256": "60888571c79dfd5c4395b20a461180226c2c0058d9325a03fce686184699bbb5",
+      "scarf": "scarf_red"
+    },
+    "body_midnight__hat_beanie__goggles_aviator__none": {
+      "body": "body_midnight",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_beanie__goggles_aviator__none.webp",
+      "runtime_sha256": "c4e9b3882305193fd26f4cc6e547e3142513cb315440c22447ab3d3b4435e857",
+      "scarf": "none"
+    },
+    "body_midnight__hat_beanie__goggles_aviator__scarf_bowtie": {
+      "body": "body_midnight",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_beanie__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "f7a2a02bb7cc7d3f28e5dd54bceeaca8ec0cf0f1f173717a569196938d61de63",
+      "scarf": "scarf_bowtie"
+    },
+    "body_midnight__hat_beanie__goggles_aviator__scarf_rainbow": {
+      "body": "body_midnight",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_beanie__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "138a46e36d543acedafb3aa244f8c67e69950ff2c63a0fda6134d989df540471",
+      "scarf": "scarf_rainbow"
+    },
+    "body_midnight__hat_beanie__goggles_aviator__scarf_red": {
+      "body": "body_midnight",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_beanie__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "41f11bd2a6558fc9576281ba80ca39bb4082b9230d7324d459aac4bd5ec2414f",
+      "scarf": "scarf_red"
+    },
+    "body_midnight__hat_beanie__goggles_ski__none": {
+      "body": "body_midnight",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_beanie__goggles_ski__none.webp",
+      "runtime_sha256": "e3ee9f8d6fa724e590acdfe9fdd21e91ae5617f85e641ba350ae23ab8373a5b5",
+      "scarf": "none"
+    },
+    "body_midnight__hat_beanie__goggles_ski__scarf_bowtie": {
+      "body": "body_midnight",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_beanie__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "f2551fb8c348b533e6c211abebbfd852c27eaf9c1ec0495a404ba53181f22748",
+      "scarf": "scarf_bowtie"
+    },
+    "body_midnight__hat_beanie__goggles_ski__scarf_rainbow": {
+      "body": "body_midnight",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_beanie__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "288ded7914402ecb8640e793c95d578328acbb3634b8d1bfdea9701aa1042036",
+      "scarf": "scarf_rainbow"
+    },
+    "body_midnight__hat_beanie__goggles_ski__scarf_red": {
+      "body": "body_midnight",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_beanie__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "6fe141ba30a001619326be3cbe8e9ec401461e908fb41bdc4a4cace8e2bb59af",
+      "scarf": "scarf_red"
+    },
+    "body_midnight__hat_beanie__none__none": {
+      "body": "body_midnight",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_beanie__none__none.webp",
+      "runtime_sha256": "21cd9d1be2bc1dbc9c77340afd95ac831265990b8959c6da2623646891661c99",
+      "scarf": "none"
+    },
+    "body_midnight__hat_beanie__none__scarf_bowtie": {
+      "body": "body_midnight",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_beanie__none__scarf_bowtie.webp",
+      "runtime_sha256": "d65af65291d7471538fe44d3f41ff6e74a6ae8c28926b6c1e5a3cdad14e0009b",
+      "scarf": "scarf_bowtie"
+    },
+    "body_midnight__hat_beanie__none__scarf_rainbow": {
+      "body": "body_midnight",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_beanie__none__scarf_rainbow.webp",
+      "runtime_sha256": "d89d6913152ede76db7e0c9d5d91e851c1aa12a39e18a45b89db28cfdd39e94b",
+      "scarf": "scarf_rainbow"
+    },
+    "body_midnight__hat_beanie__none__scarf_red": {
+      "body": "body_midnight",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_beanie__none__scarf_red.webp",
+      "runtime_sha256": "5c29a6eee1d521aca4eb0a057f20a365a55f2de1e4235973c053d29b0e471760",
+      "scarf": "scarf_red"
+    },
+    "body_midnight__hat_crown__goggles_aviator__none": {
+      "body": "body_midnight",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_crown__goggles_aviator__none.webp",
+      "runtime_sha256": "875bb9e3ca09b9397cc47ffb6bfae72d36c85751af87214a4407c54a4f33a26f",
+      "scarf": "none"
+    },
+    "body_midnight__hat_crown__goggles_aviator__scarf_bowtie": {
+      "body": "body_midnight",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_crown__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "93cea10aa34e7b4b1e7c6a81c2888316e68e294794edabcc714d73b3dc9d5cd4",
+      "scarf": "scarf_bowtie"
+    },
+    "body_midnight__hat_crown__goggles_aviator__scarf_rainbow": {
+      "body": "body_midnight",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_crown__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "89bbccd34f146ca73850b3c015efeceb9fda15223e46dc8175b5946a44b263e1",
+      "scarf": "scarf_rainbow"
+    },
+    "body_midnight__hat_crown__goggles_aviator__scarf_red": {
+      "body": "body_midnight",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_crown__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "f094a263f1dd17cf0fa9149cc8625c3147e9a0ffe1dece15bd48474b8b74272c",
+      "scarf": "scarf_red"
+    },
+    "body_midnight__hat_crown__goggles_ski__none": {
+      "body": "body_midnight",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_crown__goggles_ski__none.webp",
+      "runtime_sha256": "d16226f2c13d85d3cd02c3e06e977269632573764cb6122a1458030581672c8a",
+      "scarf": "none"
+    },
+    "body_midnight__hat_crown__goggles_ski__scarf_bowtie": {
+      "body": "body_midnight",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_crown__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "4875a019f2525a5ff93d555a3e35025278d5e31174ebf17893956180a1bea584",
+      "scarf": "scarf_bowtie"
+    },
+    "body_midnight__hat_crown__goggles_ski__scarf_rainbow": {
+      "body": "body_midnight",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_crown__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "280e059a672cf59d30eeadddd1d3893e114468e833479d1c44bf2e36daddd4da",
+      "scarf": "scarf_rainbow"
+    },
+    "body_midnight__hat_crown__goggles_ski__scarf_red": {
+      "body": "body_midnight",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_crown__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "adfe1811c95db6e2931cc28c65cb6d6d1949fc4bb61f83ba8eece296888d69ac",
+      "scarf": "scarf_red"
+    },
+    "body_midnight__hat_crown__none__none": {
+      "body": "body_midnight",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_crown__none__none.webp",
+      "runtime_sha256": "2d4425e92aec2b7ce413255aafaf6c5287dfb00f370ffc85cae2599d40cf180f",
+      "scarf": "none"
+    },
+    "body_midnight__hat_crown__none__scarf_bowtie": {
+      "body": "body_midnight",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_crown__none__scarf_bowtie.webp",
+      "runtime_sha256": "a060c78ec84ba740c078ce2a96464486e5006fe58e54c550f4aa2aa8d2f9f782",
+      "scarf": "scarf_bowtie"
+    },
+    "body_midnight__hat_crown__none__scarf_rainbow": {
+      "body": "body_midnight",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_crown__none__scarf_rainbow.webp",
+      "runtime_sha256": "994619688afc5c5d14a6b024d21e1198f62afc47e96d08e4e67d8817e25ce294",
+      "scarf": "scarf_rainbow"
+    },
+    "body_midnight__hat_crown__none__scarf_red": {
+      "body": "body_midnight",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_crown__none__scarf_red.webp",
+      "runtime_sha256": "22341c3dd412ca6f0541f5cf25e8ee3ab62e1d4effbcb4cb9b41c89b1e2ed364",
+      "scarf": "scarf_red"
+    },
+    "body_midnight__hat_earwarmers__goggles_aviator__none": {
+      "body": "body_midnight",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_earwarmers__goggles_aviator__none.webp",
+      "runtime_sha256": "1478b63ea17ca2428767ff4834cccdd1b8d677f1e63ab5e7c666333e5f4ee5d6",
+      "scarf": "none"
+    },
+    "body_midnight__hat_earwarmers__goggles_aviator__scarf_bowtie": {
+      "body": "body_midnight",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_earwarmers__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "f6469529e3e29f4bf24bc454383404594107e67557df9a46312dce5ee1aab7c3",
+      "scarf": "scarf_bowtie"
+    },
+    "body_midnight__hat_earwarmers__goggles_aviator__scarf_rainbow": {
+      "body": "body_midnight",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_earwarmers__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "ab637e263c27282e0815f9203d972b1217e1e13f57b90b7a18be47d13eaeda64",
+      "scarf": "scarf_rainbow"
+    },
+    "body_midnight__hat_earwarmers__goggles_aviator__scarf_red": {
+      "body": "body_midnight",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_earwarmers__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "43036221b5d89e9dd8cbba6cf450cd7b992d27ac55511a6b938922174ff3d62f",
+      "scarf": "scarf_red"
+    },
+    "body_midnight__hat_earwarmers__goggles_ski__none": {
+      "body": "body_midnight",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_earwarmers__goggles_ski__none.webp",
+      "runtime_sha256": "f4f3169d2645634cfdaa4f0d62b0aa3a668b050a2923e19e25595e3f9196f0cd",
+      "scarf": "none"
+    },
+    "body_midnight__hat_earwarmers__goggles_ski__scarf_bowtie": {
+      "body": "body_midnight",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_earwarmers__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "8bc70dc343abc047dfe03cbbcff9a5327fa20e6a15c9f8e95a55e45934016643",
+      "scarf": "scarf_bowtie"
+    },
+    "body_midnight__hat_earwarmers__goggles_ski__scarf_rainbow": {
+      "body": "body_midnight",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_earwarmers__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "49d0ab87b777f1856bccf770dd16accf671e7ede27ee160923e737bd30f2e89f",
+      "scarf": "scarf_rainbow"
+    },
+    "body_midnight__hat_earwarmers__goggles_ski__scarf_red": {
+      "body": "body_midnight",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_earwarmers__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "a080136d4aa78db3f3c9dac2aa06ca82eb5ad11372a1d00fb83539c2325282b6",
+      "scarf": "scarf_red"
+    },
+    "body_midnight__hat_earwarmers__none__none": {
+      "body": "body_midnight",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_earwarmers__none__none.webp",
+      "runtime_sha256": "7ac9a589e52fa429a1a2a2a224190c52712a65823baf278ef7888e63db8fd8d7",
+      "scarf": "none"
+    },
+    "body_midnight__hat_earwarmers__none__scarf_bowtie": {
+      "body": "body_midnight",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_earwarmers__none__scarf_bowtie.webp",
+      "runtime_sha256": "1ae856c77c9f8a16b7129973544dca69acd81677a46bb621b558087347228419",
+      "scarf": "scarf_bowtie"
+    },
+    "body_midnight__hat_earwarmers__none__scarf_rainbow": {
+      "body": "body_midnight",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_earwarmers__none__scarf_rainbow.webp",
+      "runtime_sha256": "2bc67c89c020009bea9d5f3381518f216e7e1bf57e1d898422ecfa666cf1bec4",
+      "scarf": "scarf_rainbow"
+    },
+    "body_midnight__hat_earwarmers__none__scarf_red": {
+      "body": "body_midnight",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_earwarmers__none__scarf_red.webp",
+      "runtime_sha256": "7efbf7e0026fcfe70ee29edc4ff2a50464c421f813ef972d3de0a4ff226d6ebe",
+      "scarf": "scarf_red"
+    },
+    "body_midnight__hat_headset__goggles_aviator__none": {
+      "body": "body_midnight",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_headset__goggles_aviator__none.webp",
+      "runtime_sha256": "f6a268ca08e28d6894751d908e7a7bd701d371c9b91df26b6ea8c2585bf1cf33",
+      "scarf": "none"
+    },
+    "body_midnight__hat_headset__goggles_aviator__scarf_bowtie": {
+      "body": "body_midnight",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_headset__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "63418d2d6477d2cb24679768e4bd143b4ae1b0eb3fb37ecc2d323f936b0fe896",
+      "scarf": "scarf_bowtie"
+    },
+    "body_midnight__hat_headset__goggles_aviator__scarf_rainbow": {
+      "body": "body_midnight",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_headset__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "077c3d107344527cc8eb6becea7ad449fcc28e71170286662f1cfe6dbb2bb601",
+      "scarf": "scarf_rainbow"
+    },
+    "body_midnight__hat_headset__goggles_aviator__scarf_red": {
+      "body": "body_midnight",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_headset__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "70deb867fd2b2b79dda8f0919656fe23a1acbcbc41fef396f5d02c11ed192af5",
+      "scarf": "scarf_red"
+    },
+    "body_midnight__hat_headset__goggles_ski__none": {
+      "body": "body_midnight",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_headset__goggles_ski__none.webp",
+      "runtime_sha256": "48a6b921aff08301cd2f28f95f263e3bfc1212dbbdd6c9eafb7894a216485936",
+      "scarf": "none"
+    },
+    "body_midnight__hat_headset__goggles_ski__scarf_bowtie": {
+      "body": "body_midnight",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_headset__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "e69e94ef4767e9d57e0ac0dcd084a2038b956f520d91f5c53e7c29169524bbea",
+      "scarf": "scarf_bowtie"
+    },
+    "body_midnight__hat_headset__goggles_ski__scarf_rainbow": {
+      "body": "body_midnight",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_headset__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "b41fa284ffd43ddacd96801a63f4fdb4b2217c0bcb315209a2db8ca2f462a70e",
+      "scarf": "scarf_rainbow"
+    },
+    "body_midnight__hat_headset__goggles_ski__scarf_red": {
+      "body": "body_midnight",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_headset__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "cee58e19f6bd2a8449c323136b263d681d465f956fb27b5c715bf1b14b0a8018",
+      "scarf": "scarf_red"
+    },
+    "body_midnight__hat_headset__none__none": {
+      "body": "body_midnight",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_headset__none__none.webp",
+      "runtime_sha256": "7e964c87a57ffb9c66c4b2e51277131d8c6938266fc3168bc22bc66b414f4165",
+      "scarf": "none"
+    },
+    "body_midnight__hat_headset__none__scarf_bowtie": {
+      "body": "body_midnight",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_headset__none__scarf_bowtie.webp",
+      "runtime_sha256": "f6eb389d955a9a0d885ba4a49838161b87e6cf54372f9836d34b5cfb00de45c8",
+      "scarf": "scarf_bowtie"
+    },
+    "body_midnight__hat_headset__none__scarf_rainbow": {
+      "body": "body_midnight",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_headset__none__scarf_rainbow.webp",
+      "runtime_sha256": "9aa851a58a37db1d15eb52d83ac941d76c4749951f2e450870576c0c99c46232",
+      "scarf": "scarf_rainbow"
+    },
+    "body_midnight__hat_headset__none__scarf_red": {
+      "body": "body_midnight",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__hat_headset__none__scarf_red.webp",
+      "runtime_sha256": "e3e95089ead01dd5484824b8aa14c8a77d301866546c773176066a48175bffe8",
+      "scarf": "scarf_red"
+    },
+    "body_midnight__none__goggles_aviator__none": {
+      "body": "body_midnight",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__none__goggles_aviator__none.webp",
+      "runtime_sha256": "0cc40c6c227434dbd3437fb8c155528e238c566fac085aff79efc3e486483013",
+      "scarf": "none"
+    },
+    "body_midnight__none__goggles_aviator__scarf_bowtie": {
+      "body": "body_midnight",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__none__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "fa1fa9f83afd1825044ecb1c1a0c89785e16cf0d031d9049d18455a1467b679a",
+      "scarf": "scarf_bowtie"
+    },
+    "body_midnight__none__goggles_aviator__scarf_rainbow": {
+      "body": "body_midnight",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__none__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "3ce9b36e11c1cb4b21834f77fc8b65ae67968e7bd4bdd86201083126b62c29fb",
+      "scarf": "scarf_rainbow"
+    },
+    "body_midnight__none__goggles_aviator__scarf_red": {
+      "body": "body_midnight",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__none__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "19147471ca5e834f218eb2c0916cf7c931e496678ad688d730ae8979423800d6",
+      "scarf": "scarf_red"
+    },
+    "body_midnight__none__goggles_ski__none": {
+      "body": "body_midnight",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__none__goggles_ski__none.webp",
+      "runtime_sha256": "abb2fc3c309269850abeba7d494938072489657b417417672ed1167462aa01b5",
+      "scarf": "none"
+    },
+    "body_midnight__none__goggles_ski__scarf_bowtie": {
+      "body": "body_midnight",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__none__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "c8b20550003d6326a8d9e801ff08362d6fd16e7c203a5f7088015b334c635a87",
+      "scarf": "scarf_bowtie"
+    },
+    "body_midnight__none__goggles_ski__scarf_rainbow": {
+      "body": "body_midnight",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__none__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "4e6398f403deff2ef1af47fd11c8cb4ae4e51faad7905564c9498338f723073b",
+      "scarf": "scarf_rainbow"
+    },
+    "body_midnight__none__goggles_ski__scarf_red": {
+      "body": "body_midnight",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__none__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "26f54ce91b7999643d1555be6e0c699690fb68711ca2ad687322c19184e3015f",
+      "scarf": "scarf_red"
+    },
+    "body_midnight__none__none__none": {
+      "body": "body_midnight",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__none__none__none.webp",
+      "runtime_sha256": "b4ca1faf3b42104ac1b8cd71f5f091184ac585b80f72f60cbc493c6015e66f45",
+      "scarf": "none"
+    },
+    "body_midnight__none__none__scarf_bowtie": {
+      "body": "body_midnight",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__none__none__scarf_bowtie.webp",
+      "runtime_sha256": "9eeb7e6fb6609c7d6a0b686347e5f655ade46931b7a829787a696a45794abddb",
+      "scarf": "scarf_bowtie"
+    },
+    "body_midnight__none__none__scarf_rainbow": {
+      "body": "body_midnight",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__none__none__scarf_rainbow.webp",
+      "runtime_sha256": "5c98182997e6aa66d34e64fa56f963cd434ccff085b1d4581ae02c102582ca95",
+      "scarf": "scarf_rainbow"
+    },
+    "body_midnight__none__none__scarf_red": {
+      "body": "body_midnight",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_midnight__none__none__scarf_red.webp",
+      "runtime_sha256": "c5ff89c8749fb3628f6dc394040637eaa3a775aa858e47890b01a4a3b21cc7ff",
+      "scarf": "scarf_red"
+    },
+    "body_rockhopper__hat_beanie__goggles_aviator__none": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_beanie__goggles_aviator__none.webp",
+      "runtime_sha256": "d780dafe24fc365e69b84b7197d079faec6f657900fe61565fc16a34231d0a1c",
+      "scarf": "none"
+    },
+    "body_rockhopper__hat_beanie__goggles_aviator__scarf_bowtie": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_beanie__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "b6452eb69cf38c7a14ad61e9a54045da2c6f81c06fe7a6e9edd0ac16f12607a3",
+      "scarf": "scarf_bowtie"
+    },
+    "body_rockhopper__hat_beanie__goggles_aviator__scarf_rainbow": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_beanie__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "8406e319d015268543d8e4bdfd9b25283ba52c620daaf8240759d345c98c8c01",
+      "scarf": "scarf_rainbow"
+    },
+    "body_rockhopper__hat_beanie__goggles_aviator__scarf_red": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_beanie__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "809998cd8091a227299b5adfd7844e67153ca468f61ac6191d7761539ea0dde2",
+      "scarf": "scarf_red"
+    },
+    "body_rockhopper__hat_beanie__goggles_ski__none": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_beanie__goggles_ski__none.webp",
+      "runtime_sha256": "a23de1a3e2cc22e6dff2be3dd55f0e59110c2e60d8f16df54e7a5c770be1fd97",
+      "scarf": "none"
+    },
+    "body_rockhopper__hat_beanie__goggles_ski__scarf_bowtie": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_beanie__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "7b48cea6866deb78b275aeeb08703daa1d12f5d4f86aa3291ed5abf570a5d688",
+      "scarf": "scarf_bowtie"
+    },
+    "body_rockhopper__hat_beanie__goggles_ski__scarf_rainbow": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_beanie__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "e5c8f9862e89936cc53055726234da267bf9af707bc9e82e1a91174954498be7",
+      "scarf": "scarf_rainbow"
+    },
+    "body_rockhopper__hat_beanie__goggles_ski__scarf_red": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_beanie__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "04b22a034b20a73d4d1f0cb42b9adac0d4362b739b71c13fedf1ee24985fbc15",
+      "scarf": "scarf_red"
+    },
+    "body_rockhopper__hat_beanie__none__none": {
+      "body": "body_rockhopper",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_beanie__none__none.webp",
+      "runtime_sha256": "8480520d0694bb95923dbac88a44a6c449bf406696e38f6860c818552d2d9110",
+      "scarf": "none"
+    },
+    "body_rockhopper__hat_beanie__none__scarf_bowtie": {
+      "body": "body_rockhopper",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_beanie__none__scarf_bowtie.webp",
+      "runtime_sha256": "335b36d95a82cf40db692b6e68259e68ded3ab5eb776d4a4544806dfa59c5ddc",
+      "scarf": "scarf_bowtie"
+    },
+    "body_rockhopper__hat_beanie__none__scarf_rainbow": {
+      "body": "body_rockhopper",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_beanie__none__scarf_rainbow.webp",
+      "runtime_sha256": "17c0daa119ed8d29db1ea44f8d773c21e648ebf13df919bf12326af84edef760",
+      "scarf": "scarf_rainbow"
+    },
+    "body_rockhopper__hat_beanie__none__scarf_red": {
+      "body": "body_rockhopper",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_beanie__none__scarf_red.webp",
+      "runtime_sha256": "32d379ccb5abf3832d795f2b5bae08b1ad607b31a1537ef43020250f93bf6e28",
+      "scarf": "scarf_red"
+    },
+    "body_rockhopper__hat_crown__goggles_aviator__none": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_crown__goggles_aviator__none.webp",
+      "runtime_sha256": "953b47e373a05fe4e91a6f4093722805e4fbfc4e2f4b2305c376e7e0f3fd6664",
+      "scarf": "none"
+    },
+    "body_rockhopper__hat_crown__goggles_aviator__scarf_bowtie": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_crown__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "1558f940ada28c0144b44d104b1e9b853c4316e76319cb2801f0b5633ccfe8db",
+      "scarf": "scarf_bowtie"
+    },
+    "body_rockhopper__hat_crown__goggles_aviator__scarf_rainbow": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_crown__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "6e933d4837aa875c4cadf21a493ba130bfc48fcbdd4969ce9f623e04df5705bf",
+      "scarf": "scarf_rainbow"
+    },
+    "body_rockhopper__hat_crown__goggles_aviator__scarf_red": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_crown__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "fb7c0b33b43df193da8518ffd4aef304e692000e901b45c4130f67442e3f98c9",
+      "scarf": "scarf_red"
+    },
+    "body_rockhopper__hat_crown__goggles_ski__none": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_crown__goggles_ski__none.webp",
+      "runtime_sha256": "4c8230cfd42fdcd11e3d4a067112be51412188362df265f6bb68237159aaf890",
+      "scarf": "none"
+    },
+    "body_rockhopper__hat_crown__goggles_ski__scarf_bowtie": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_crown__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "5bb0e9c44b6fc1519e6ccf2dbde8e57dfd8615f8a5e59b52635762f04a821bd7",
+      "scarf": "scarf_bowtie"
+    },
+    "body_rockhopper__hat_crown__goggles_ski__scarf_rainbow": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_crown__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "841c8e78bfab25f950c5db8661484334e68f93eead211e0058a07ad335f4db7c",
+      "scarf": "scarf_rainbow"
+    },
+    "body_rockhopper__hat_crown__goggles_ski__scarf_red": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_crown__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "63f3795697cc73e9961dae059e97331def904d56aee3f490d39d36a4673bd5dd",
+      "scarf": "scarf_red"
+    },
+    "body_rockhopper__hat_crown__none__none": {
+      "body": "body_rockhopper",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_crown__none__none.webp",
+      "runtime_sha256": "338b825443517a9b8eb5d76f0de48925cf1dc8528e3aa65711a74765ca8b3299",
+      "scarf": "none"
+    },
+    "body_rockhopper__hat_crown__none__scarf_bowtie": {
+      "body": "body_rockhopper",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_crown__none__scarf_bowtie.webp",
+      "runtime_sha256": "be25cb3526e0a49def808ba046b8f6902134ba3bcbc055ef62737b6c4391537d",
+      "scarf": "scarf_bowtie"
+    },
+    "body_rockhopper__hat_crown__none__scarf_rainbow": {
+      "body": "body_rockhopper",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_crown__none__scarf_rainbow.webp",
+      "runtime_sha256": "f080cb393efd5023fc73e7cd55d227a3354129eadf033a13ee65c741f5d4670f",
+      "scarf": "scarf_rainbow"
+    },
+    "body_rockhopper__hat_crown__none__scarf_red": {
+      "body": "body_rockhopper",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_crown__none__scarf_red.webp",
+      "runtime_sha256": "9bbb373444ff2663c2bf6cbf49210ffc33845717a0f423138c6dd8b9d20f82ba",
+      "scarf": "scarf_red"
+    },
+    "body_rockhopper__hat_earwarmers__goggles_aviator__none": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_earwarmers__goggles_aviator__none.webp",
+      "runtime_sha256": "66341040ef4bc796fdde4287e7d2d606dde4ad69926200c53e0dfc120160bef8",
+      "scarf": "none"
+    },
+    "body_rockhopper__hat_earwarmers__goggles_aviator__scarf_bowtie": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_earwarmers__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "5e529846a9a577df90c48d4d7388a8cd0195458e9228237d583dcd11a7f59bbd",
+      "scarf": "scarf_bowtie"
+    },
+    "body_rockhopper__hat_earwarmers__goggles_aviator__scarf_rainbow": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_earwarmers__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "ea3c9595e0f93fea20ab3db851827902f1266cdd5e9f15ddbe5eec374f6cdcc2",
+      "scarf": "scarf_rainbow"
+    },
+    "body_rockhopper__hat_earwarmers__goggles_aviator__scarf_red": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_earwarmers__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "a54c7f2ebbb359378fcd9fc3f6c751754dacdeb9b3f2993f89f0681941c910b1",
+      "scarf": "scarf_red"
+    },
+    "body_rockhopper__hat_earwarmers__goggles_ski__none": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_earwarmers__goggles_ski__none.webp",
+      "runtime_sha256": "9b9a508da1b4c71387daaec2e57ca5613deb1aef58b170ad5b69f1719f9c4cc5",
+      "scarf": "none"
+    },
+    "body_rockhopper__hat_earwarmers__goggles_ski__scarf_bowtie": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_earwarmers__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "d246c642fc03a1669c525fc654f5ae4be8ce2f51cba14aa0645bbfdcd420fc98",
+      "scarf": "scarf_bowtie"
+    },
+    "body_rockhopper__hat_earwarmers__goggles_ski__scarf_rainbow": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_earwarmers__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "d03cb82235411003d12d8fc20b0cf5cb44d9861bca033445663551ea88d5a069",
+      "scarf": "scarf_rainbow"
+    },
+    "body_rockhopper__hat_earwarmers__goggles_ski__scarf_red": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_earwarmers__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "56ac5664f2eb652223e657cae79954d59c98123e25bf0861787735db69efacde",
+      "scarf": "scarf_red"
+    },
+    "body_rockhopper__hat_earwarmers__none__none": {
+      "body": "body_rockhopper",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_earwarmers__none__none.webp",
+      "runtime_sha256": "b18abf40ebaa7ed1268e8c2a32f1e52fd07d0788a31c359cd369b27a9fb49eff",
+      "scarf": "none"
+    },
+    "body_rockhopper__hat_earwarmers__none__scarf_bowtie": {
+      "body": "body_rockhopper",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_earwarmers__none__scarf_bowtie.webp",
+      "runtime_sha256": "17ccb8837fb5347c03252d5313d09af04e2b99f5a3f97c9ae566a6ca8d64f38d",
+      "scarf": "scarf_bowtie"
+    },
+    "body_rockhopper__hat_earwarmers__none__scarf_rainbow": {
+      "body": "body_rockhopper",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_earwarmers__none__scarf_rainbow.webp",
+      "runtime_sha256": "c50766fe482ea1dcb98c1945c93af4bd92cc188443257b7a038d8ff919fd6dd0",
+      "scarf": "scarf_rainbow"
+    },
+    "body_rockhopper__hat_earwarmers__none__scarf_red": {
+      "body": "body_rockhopper",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_earwarmers__none__scarf_red.webp",
+      "runtime_sha256": "47e70d258d56877624b74cb5ddb1a9bf59292d7814ede5ded692e8034cee6b22",
+      "scarf": "scarf_red"
+    },
+    "body_rockhopper__hat_headset__goggles_aviator__none": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_headset__goggles_aviator__none.webp",
+      "runtime_sha256": "87df7426fb4da3f4627427869aed7bee45162ff416048dc33150761820ccef2e",
+      "scarf": "none"
+    },
+    "body_rockhopper__hat_headset__goggles_aviator__scarf_bowtie": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_headset__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "f439615cc790308d8d292ef480ab95b42b13b70ad170935236d6fff7879eb040",
+      "scarf": "scarf_bowtie"
+    },
+    "body_rockhopper__hat_headset__goggles_aviator__scarf_rainbow": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_headset__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "b596d23d16b3a179931c58d6698a2f4409d8132eb39f93dc5e34c2ffaf5d6ac2",
+      "scarf": "scarf_rainbow"
+    },
+    "body_rockhopper__hat_headset__goggles_aviator__scarf_red": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_headset__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "d332d1c86bb8710566127121f65fea938b1911c8ca3663f1bd99ce8ccc06a53f",
+      "scarf": "scarf_red"
+    },
+    "body_rockhopper__hat_headset__goggles_ski__none": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_headset__goggles_ski__none.webp",
+      "runtime_sha256": "a940089cd1c00a9b88a771bdb53b40fc5eedf076dc468c116c3bcc8084e1785c",
+      "scarf": "none"
+    },
+    "body_rockhopper__hat_headset__goggles_ski__scarf_bowtie": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_headset__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "91ae34f3c13526aa29b051233e078381541ea08bd60c5b6bef1549cbd6da5b85",
+      "scarf": "scarf_bowtie"
+    },
+    "body_rockhopper__hat_headset__goggles_ski__scarf_rainbow": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_headset__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "e591e02ae7a7eb9cf4b63aaeec46b630a819867c6f49f6708ddd3908aa4d8886",
+      "scarf": "scarf_rainbow"
+    },
+    "body_rockhopper__hat_headset__goggles_ski__scarf_red": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_headset__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "ddf5fa59c6f17d53b69a209f4e1e8fd13fc57931802d74d0a852acf52f63b166",
+      "scarf": "scarf_red"
+    },
+    "body_rockhopper__hat_headset__none__none": {
+      "body": "body_rockhopper",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_headset__none__none.webp",
+      "runtime_sha256": "def2393778514cf2644ac2ff14df6f8bbe57d55e8ea1810d39a66811c7f2bef6",
+      "scarf": "none"
+    },
+    "body_rockhopper__hat_headset__none__scarf_bowtie": {
+      "body": "body_rockhopper",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_headset__none__scarf_bowtie.webp",
+      "runtime_sha256": "20ddb7c432dbfbcca7c82e383f94776008d5d03adbdc05ed4928d99067e00d55",
+      "scarf": "scarf_bowtie"
+    },
+    "body_rockhopper__hat_headset__none__scarf_rainbow": {
+      "body": "body_rockhopper",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_headset__none__scarf_rainbow.webp",
+      "runtime_sha256": "a40ccd61ee08191c73a55948b3d70b058ba8baf6b99c7cee5abbd271864d5a34",
+      "scarf": "scarf_rainbow"
+    },
+    "body_rockhopper__hat_headset__none__scarf_red": {
+      "body": "body_rockhopper",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__hat_headset__none__scarf_red.webp",
+      "runtime_sha256": "c80bf3f38b4192ef9411eebae71260ef29389192a07ad6e0573875f7b237fdea",
+      "scarf": "scarf_red"
+    },
+    "body_rockhopper__none__goggles_aviator__none": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__none__goggles_aviator__none.webp",
+      "runtime_sha256": "d8c773764e8b96c94890ce106df44ce9b17f326350b94fc91c8b017d510c822f",
+      "scarf": "none"
+    },
+    "body_rockhopper__none__goggles_aviator__scarf_bowtie": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__none__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "8334bae7fb8c7eebaf753aa95a62d528109cc8cbd23c4337113462b9bf8062c3",
+      "scarf": "scarf_bowtie"
+    },
+    "body_rockhopper__none__goggles_aviator__scarf_rainbow": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__none__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "791c30b6d809876c5d0ec7f8b26c2e49abe51e4084c47b982a78c3df1486810f",
+      "scarf": "scarf_rainbow"
+    },
+    "body_rockhopper__none__goggles_aviator__scarf_red": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__none__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "1c1dc885f68fac2257b5995508a24723a9a1c29331abc952ee2e9e8f22e7c25e",
+      "scarf": "scarf_red"
+    },
+    "body_rockhopper__none__goggles_ski__none": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__none__goggles_ski__none.webp",
+      "runtime_sha256": "434e0b750d3c3f734e1fc0e9494a6fb6f3f2ee49890865184354e47b81c43478",
+      "scarf": "none"
+    },
+    "body_rockhopper__none__goggles_ski__scarf_bowtie": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__none__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "61b6e1c38a180de7f5ddedfdf33b2dad0926d6e2afb1dd4d3a5c288f04b69084",
+      "scarf": "scarf_bowtie"
+    },
+    "body_rockhopper__none__goggles_ski__scarf_rainbow": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__none__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "285f98b9ded071f1f99c25d0731a2982c35a90084aa4670983d1cde348dc13c2",
+      "scarf": "scarf_rainbow"
+    },
+    "body_rockhopper__none__goggles_ski__scarf_red": {
+      "body": "body_rockhopper",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__none__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "84b65f4d54065ef4e23197f8791524ef40e60583d77259ed43a9e40e286c7c37",
+      "scarf": "scarf_red"
+    },
+    "body_rockhopper__none__none__none": {
+      "body": "body_rockhopper",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__none__none__none.webp",
+      "runtime_sha256": "eb95bb73cd6564da05410fab598c8b0bbfc9918426b710c04455de4e1e610480",
+      "scarf": "none"
+    },
+    "body_rockhopper__none__none__scarf_bowtie": {
+      "body": "body_rockhopper",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__none__none__scarf_bowtie.webp",
+      "runtime_sha256": "e43c1186f389b82786f5b7bab40e43e2d7721efd636ad6add9de66199a572f97",
+      "scarf": "scarf_bowtie"
+    },
+    "body_rockhopper__none__none__scarf_rainbow": {
+      "body": "body_rockhopper",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__none__none__scarf_rainbow.webp",
+      "runtime_sha256": "65d387f04e284a17de5702692196051d40969697c6a55fcc423edb1ca1dc140e",
+      "scarf": "scarf_rainbow"
+    },
+    "body_rockhopper__none__none__scarf_red": {
+      "body": "body_rockhopper",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_rockhopper__none__none__scarf_red.webp",
+      "runtime_sha256": "d3f0103ee23f7535d0dc9565fa3cb1abe94c3cf1f86e294b80c2bfd094fdb16f",
+      "scarf": "scarf_red"
+    },
+    "body_snowy__hat_beanie__goggles_aviator__none": {
+      "body": "body_snowy",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_beanie__goggles_aviator__none.webp",
+      "runtime_sha256": "127854bd317ccc93e21f80cfb8999aec3bbaebd1e2baa2e900f9394062e0ddbd",
+      "scarf": "none"
+    },
+    "body_snowy__hat_beanie__goggles_aviator__scarf_bowtie": {
+      "body": "body_snowy",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_beanie__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "18dc4b85d9c25d1c8876051c721e02b1acf9ef6f0d3b50179636b2091891e916",
+      "scarf": "scarf_bowtie"
+    },
+    "body_snowy__hat_beanie__goggles_aviator__scarf_rainbow": {
+      "body": "body_snowy",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_beanie__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "e7b471b696b6a0485e62c82a9715c6afe3866287d7adb9f3099077d9c0995915",
+      "scarf": "scarf_rainbow"
+    },
+    "body_snowy__hat_beanie__goggles_aviator__scarf_red": {
+      "body": "body_snowy",
+      "goggles": "goggles_aviator",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_beanie__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "f7eae7648f7fffedba48cdabcdbb2aa57fe5d49f9c60643d04a42640a92b29ec",
+      "scarf": "scarf_red"
+    },
+    "body_snowy__hat_beanie__goggles_ski__none": {
+      "body": "body_snowy",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_beanie__goggles_ski__none.webp",
+      "runtime_sha256": "546a0b3f24df53d708ad3c736160fba9955a648bc4420dfd02c60691be1d191f",
+      "scarf": "none"
+    },
+    "body_snowy__hat_beanie__goggles_ski__scarf_bowtie": {
+      "body": "body_snowy",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_beanie__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "adef2eb30be11e1e01304baf2336f8f3a6348315b4eebc1a4f94c4dd02ac2186",
+      "scarf": "scarf_bowtie"
+    },
+    "body_snowy__hat_beanie__goggles_ski__scarf_rainbow": {
+      "body": "body_snowy",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_beanie__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "3636796a45b734a894ee3fc0c3fd8aa7326d99e9ca58ad7c357e6dbdfafd3b5f",
+      "scarf": "scarf_rainbow"
+    },
+    "body_snowy__hat_beanie__goggles_ski__scarf_red": {
+      "body": "body_snowy",
+      "goggles": "goggles_ski",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_beanie__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "c43a090a3f8dbcde2a1b05bed338f3b96dc88336b518832f46cbb7d6581da617",
+      "scarf": "scarf_red"
+    },
+    "body_snowy__hat_beanie__none__none": {
+      "body": "body_snowy",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_beanie__none__none.webp",
+      "runtime_sha256": "28abca08418cda10afeb11dfe56f55a043c5723d634f6295f4deb6840e517bc9",
+      "scarf": "none"
+    },
+    "body_snowy__hat_beanie__none__scarf_bowtie": {
+      "body": "body_snowy",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_beanie__none__scarf_bowtie.webp",
+      "runtime_sha256": "2f341ebad837fe9345a514517e8880815c83c692d8b0f63cdcd686114d502d5b",
+      "scarf": "scarf_bowtie"
+    },
+    "body_snowy__hat_beanie__none__scarf_rainbow": {
+      "body": "body_snowy",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_beanie__none__scarf_rainbow.webp",
+      "runtime_sha256": "311d15926f271ae75f23d4149c538a3ecc4c251bf7de942c285b29a1a877ddf4",
+      "scarf": "scarf_rainbow"
+    },
+    "body_snowy__hat_beanie__none__scarf_red": {
+      "body": "body_snowy",
+      "goggles": "none",
+      "hat": "hat_beanie",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_beanie__none__scarf_red.webp",
+      "runtime_sha256": "6c2bea6159c9e6022a0e1d2adac82fad1f78dce0ee15b6d76e5998e358480824",
+      "scarf": "scarf_red"
+    },
+    "body_snowy__hat_crown__goggles_aviator__none": {
+      "body": "body_snowy",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_crown__goggles_aviator__none.webp",
+      "runtime_sha256": "aca0a754b9e42d5b35ff684617313f534a55862d81840aec9489808ae9ed86b5",
+      "scarf": "none"
+    },
+    "body_snowy__hat_crown__goggles_aviator__scarf_bowtie": {
+      "body": "body_snowy",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_crown__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "62d402ad42e8cbc21c026fd694694a0fa9c352bcd629964a848b0d988dffa669",
+      "scarf": "scarf_bowtie"
+    },
+    "body_snowy__hat_crown__goggles_aviator__scarf_rainbow": {
+      "body": "body_snowy",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_crown__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "dd50bdc5809100060c5817f38455644997f9b02010412a36a3d52f7866f223ad",
+      "scarf": "scarf_rainbow"
+    },
+    "body_snowy__hat_crown__goggles_aviator__scarf_red": {
+      "body": "body_snowy",
+      "goggles": "goggles_aviator",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_crown__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "fac1994b67b574d44c0c7ad18cec3d550f4cceb39840faaad1a4799e5cf8c660",
+      "scarf": "scarf_red"
+    },
+    "body_snowy__hat_crown__goggles_ski__none": {
+      "body": "body_snowy",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_crown__goggles_ski__none.webp",
+      "runtime_sha256": "f8050f46be61bd5d837a176df17bde3adedfd415139b2338f74fcae408477564",
+      "scarf": "none"
+    },
+    "body_snowy__hat_crown__goggles_ski__scarf_bowtie": {
+      "body": "body_snowy",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_crown__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "f428288b4816772c69ac58158a2da8ee098716788e7b2e9eb48e8961ca2ed3b3",
+      "scarf": "scarf_bowtie"
+    },
+    "body_snowy__hat_crown__goggles_ski__scarf_rainbow": {
+      "body": "body_snowy",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_crown__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "2aeaf1b4cd59b41adcdbb6fcea0f7e24ed5bf2c8e54b0124d76931555d3b629a",
+      "scarf": "scarf_rainbow"
+    },
+    "body_snowy__hat_crown__goggles_ski__scarf_red": {
+      "body": "body_snowy",
+      "goggles": "goggles_ski",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_crown__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "2bfaf0fe88b920c4045fabf8303e29c76611b4f479a55ef32e065dc9d49fcc1b",
+      "scarf": "scarf_red"
+    },
+    "body_snowy__hat_crown__none__none": {
+      "body": "body_snowy",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_crown__none__none.webp",
+      "runtime_sha256": "56d2de163a0590449c845c56ff6808931f9e673e516da9f8f60264643f0c01ab",
+      "scarf": "none"
+    },
+    "body_snowy__hat_crown__none__scarf_bowtie": {
+      "body": "body_snowy",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_crown__none__scarf_bowtie.webp",
+      "runtime_sha256": "79803927f44fe72513f504e3538825b7496767cf4b99bd67973bc21db8b964d6",
+      "scarf": "scarf_bowtie"
+    },
+    "body_snowy__hat_crown__none__scarf_rainbow": {
+      "body": "body_snowy",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_crown__none__scarf_rainbow.webp",
+      "runtime_sha256": "737df6765fd97d4fc91ffc795889541a85fad7eaf734d19a141dc170a551dd02",
+      "scarf": "scarf_rainbow"
+    },
+    "body_snowy__hat_crown__none__scarf_red": {
+      "body": "body_snowy",
+      "goggles": "none",
+      "hat": "hat_crown",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_crown__none__scarf_red.webp",
+      "runtime_sha256": "d6b4deac18d68b7e6a284750565590739825ab53eecbf20f8b58836485ea7f60",
+      "scarf": "scarf_red"
+    },
+    "body_snowy__hat_earwarmers__goggles_aviator__none": {
+      "body": "body_snowy",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_earwarmers__goggles_aviator__none.webp",
+      "runtime_sha256": "d1519f4b92960e907b543d58581562fc4ae5935f7b6db7e86115573366a06ea7",
+      "scarf": "none"
+    },
+    "body_snowy__hat_earwarmers__goggles_aviator__scarf_bowtie": {
+      "body": "body_snowy",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_earwarmers__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "a1abb8d0c13f71fd6a03f132e007ae6efdcaa6e8ec4782968baa81802273be2a",
+      "scarf": "scarf_bowtie"
+    },
+    "body_snowy__hat_earwarmers__goggles_aviator__scarf_rainbow": {
+      "body": "body_snowy",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_earwarmers__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "fd8ded56aa01f8be2e438e72870844cbeaca1a3e46f9ac11497288da6e9c2ca7",
+      "scarf": "scarf_rainbow"
+    },
+    "body_snowy__hat_earwarmers__goggles_aviator__scarf_red": {
+      "body": "body_snowy",
+      "goggles": "goggles_aviator",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_earwarmers__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "ef48bf66a17d6e1e116093f1a4b9abb23592b8a68511b5243c325eaf1cb12638",
+      "scarf": "scarf_red"
+    },
+    "body_snowy__hat_earwarmers__goggles_ski__none": {
+      "body": "body_snowy",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_earwarmers__goggles_ski__none.webp",
+      "runtime_sha256": "f615a6f381a962275bd59ea40f48811ea170f297dc0042a886c8d458895c56db",
+      "scarf": "none"
+    },
+    "body_snowy__hat_earwarmers__goggles_ski__scarf_bowtie": {
+      "body": "body_snowy",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_earwarmers__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "b9b2321249ff7a8e83fd8dc0c9fc55557b282ff8483fe7052d6de814a9270648",
+      "scarf": "scarf_bowtie"
+    },
+    "body_snowy__hat_earwarmers__goggles_ski__scarf_rainbow": {
+      "body": "body_snowy",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_earwarmers__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "33b479f0035717b2f31e0eb6b0e1c43dcdee59f1a017963ddae20abe5dffa5ec",
+      "scarf": "scarf_rainbow"
+    },
+    "body_snowy__hat_earwarmers__goggles_ski__scarf_red": {
+      "body": "body_snowy",
+      "goggles": "goggles_ski",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_earwarmers__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "ac749a116652a25a798f928ca2f8ff08fe9b29ff1e7addcda62a1f1e3618f2ff",
+      "scarf": "scarf_red"
+    },
+    "body_snowy__hat_earwarmers__none__none": {
+      "body": "body_snowy",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_earwarmers__none__none.webp",
+      "runtime_sha256": "6ab55f16da817ec5516829e0d13b742e18481de508c9d6cadee8bc8398826489",
+      "scarf": "none"
+    },
+    "body_snowy__hat_earwarmers__none__scarf_bowtie": {
+      "body": "body_snowy",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_earwarmers__none__scarf_bowtie.webp",
+      "runtime_sha256": "ff15fea0a2c66d3d53efcb35cc54029ab569bd8ff4728b9a3cbf4e7a8f3a4f33",
+      "scarf": "scarf_bowtie"
+    },
+    "body_snowy__hat_earwarmers__none__scarf_rainbow": {
+      "body": "body_snowy",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_earwarmers__none__scarf_rainbow.webp",
+      "runtime_sha256": "375eb65ae58cf4161e2cec92769a7b6ea581c3870af676799e1890b20f4fb75a",
+      "scarf": "scarf_rainbow"
+    },
+    "body_snowy__hat_earwarmers__none__scarf_red": {
+      "body": "body_snowy",
+      "goggles": "none",
+      "hat": "hat_earwarmers",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_earwarmers__none__scarf_red.webp",
+      "runtime_sha256": "6a1e12340ab769a26db2c1546c7f21dd79a4892945dc3b480b0dc3d1bd498c61",
+      "scarf": "scarf_red"
+    },
+    "body_snowy__hat_headset__goggles_aviator__none": {
+      "body": "body_snowy",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_headset__goggles_aviator__none.webp",
+      "runtime_sha256": "2c7418108231c282ddcf170158a263d21972bb070261783de70c8697f3e40623",
+      "scarf": "none"
+    },
+    "body_snowy__hat_headset__goggles_aviator__scarf_bowtie": {
+      "body": "body_snowy",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_headset__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "7d8f9b7648c220b4601349e5288dec87390975d4aa72a10e5e7ec79e74fb716c",
+      "scarf": "scarf_bowtie"
+    },
+    "body_snowy__hat_headset__goggles_aviator__scarf_rainbow": {
+      "body": "body_snowy",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_headset__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "c43531837250dbeba5f7d7e9eabd7413c8f49fcb2b35570632bc28ecb29aa665",
+      "scarf": "scarf_rainbow"
+    },
+    "body_snowy__hat_headset__goggles_aviator__scarf_red": {
+      "body": "body_snowy",
+      "goggles": "goggles_aviator",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_headset__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "614165d611ef5ebe4e5f50588f35dd22776363991b4680f43afc724996a255fb",
+      "scarf": "scarf_red"
+    },
+    "body_snowy__hat_headset__goggles_ski__none": {
+      "body": "body_snowy",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_headset__goggles_ski__none.webp",
+      "runtime_sha256": "b26fdfc4d6dbebf92f245e7f3115bf6cdb08d2a15eb3027f474d7463a23b1e2e",
+      "scarf": "none"
+    },
+    "body_snowy__hat_headset__goggles_ski__scarf_bowtie": {
+      "body": "body_snowy",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_headset__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "90e12df0b609b02569f822efc294367d1adce1ef4acf7282942dc126bb608538",
+      "scarf": "scarf_bowtie"
+    },
+    "body_snowy__hat_headset__goggles_ski__scarf_rainbow": {
+      "body": "body_snowy",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_headset__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "300d59902f3f7649baddcceb13a0062be49f93463555c2112a472dfa94cb39b7",
+      "scarf": "scarf_rainbow"
+    },
+    "body_snowy__hat_headset__goggles_ski__scarf_red": {
+      "body": "body_snowy",
+      "goggles": "goggles_ski",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_headset__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "ebc31c62a1351fc571611afdc2c88398d53854ded47129b3141492808b98437c",
+      "scarf": "scarf_red"
+    },
+    "body_snowy__hat_headset__none__none": {
+      "body": "body_snowy",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_headset__none__none.webp",
+      "runtime_sha256": "8c0c899ab47353b9738c7bd7d9973a59f8e7dd9e4df945495c43a2c8c002743f",
+      "scarf": "none"
+    },
+    "body_snowy__hat_headset__none__scarf_bowtie": {
+      "body": "body_snowy",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_headset__none__scarf_bowtie.webp",
+      "runtime_sha256": "5b9deae7e09ca5b399d64f17e40efb2cc9fc267ba89cd6bcf46ad3695047f039",
+      "scarf": "scarf_bowtie"
+    },
+    "body_snowy__hat_headset__none__scarf_rainbow": {
+      "body": "body_snowy",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_headset__none__scarf_rainbow.webp",
+      "runtime_sha256": "6fe1f986c6b95bbfcc38317ce85c19c574f30ddfaa38c1d6279cd23972d365d0",
+      "scarf": "scarf_rainbow"
+    },
+    "body_snowy__hat_headset__none__scarf_red": {
+      "body": "body_snowy",
+      "goggles": "none",
+      "hat": "hat_headset",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__hat_headset__none__scarf_red.webp",
+      "runtime_sha256": "e548348b203b9c53b97daf8ffa8e8855758b09650e810d563e3fbc55a971c29a",
+      "scarf": "scarf_red"
+    },
+    "body_snowy__none__goggles_aviator__none": {
+      "body": "body_snowy",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__none__goggles_aviator__none.webp",
+      "runtime_sha256": "50ab872135298cb3b0b1a6240659839626debe24cd8579213cefd88e2bc14502",
+      "scarf": "none"
+    },
+    "body_snowy__none__goggles_aviator__scarf_bowtie": {
+      "body": "body_snowy",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__none__goggles_aviator__scarf_bowtie.webp",
+      "runtime_sha256": "f9804add314a88a5db0ff9f67e4aabb0e9cd3fbad0bcb480e12dec07487f2f85",
+      "scarf": "scarf_bowtie"
+    },
+    "body_snowy__none__goggles_aviator__scarf_rainbow": {
+      "body": "body_snowy",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__none__goggles_aviator__scarf_rainbow.webp",
+      "runtime_sha256": "ec7e3794065c04dca68fd78ae134d1806aeb0811512457cb5c45b511ac38f6d2",
+      "scarf": "scarf_rainbow"
+    },
+    "body_snowy__none__goggles_aviator__scarf_red": {
+      "body": "body_snowy",
+      "goggles": "goggles_aviator",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__none__goggles_aviator__scarf_red.webp",
+      "runtime_sha256": "5c077c5781a8ca972a13827079864450a73e514436caeecadc32a9203a0b83ae",
+      "scarf": "scarf_red"
+    },
+    "body_snowy__none__goggles_ski__none": {
+      "body": "body_snowy",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__none__goggles_ski__none.webp",
+      "runtime_sha256": "da589bf096effb19e1802f79e983f0e84704c6a0959e0c0423bfbafe23a56ceb",
+      "scarf": "none"
+    },
+    "body_snowy__none__goggles_ski__scarf_bowtie": {
+      "body": "body_snowy",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__none__goggles_ski__scarf_bowtie.webp",
+      "runtime_sha256": "033ebb18a7384b0ec8a27ab658dc2f44eb03a7f222c73dda02d9a08b1e4a28a3",
+      "scarf": "scarf_bowtie"
+    },
+    "body_snowy__none__goggles_ski__scarf_rainbow": {
+      "body": "body_snowy",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__none__goggles_ski__scarf_rainbow.webp",
+      "runtime_sha256": "9875b8d0448d503ee3d10775fd641dbe9b0de491ae7ad77f751da1cbe6279153",
+      "scarf": "scarf_rainbow"
+    },
+    "body_snowy__none__goggles_ski__scarf_red": {
+      "body": "body_snowy",
+      "goggles": "goggles_ski",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__none__goggles_ski__scarf_red.webp",
+      "runtime_sha256": "e1958f47661cb944d01f284b27c6dfb651cc927c93cecbd3f9a79c672c8d12bc",
+      "scarf": "scarf_red"
+    },
+    "body_snowy__none__none__none": {
+      "body": "body_snowy",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__none__none__none.webp",
+      "runtime_sha256": "9786cf3bfa9276d1e2c81577a4b1cc95b85249f82dcccba794ea3a0ba9fcf892",
+      "scarf": "none"
+    },
+    "body_snowy__none__none__scarf_bowtie": {
+      "body": "body_snowy",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__none__none__scarf_bowtie.webp",
+      "runtime_sha256": "d96f06681c7f1b860e3c28149d057669e0bf81096f2834206a7fdc2b935ddb2d",
+      "scarf": "scarf_bowtie"
+    },
+    "body_snowy__none__none__scarf_rainbow": {
+      "body": "body_snowy",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__none__none__scarf_rainbow.webp",
+      "runtime_sha256": "104cc8e12ad4f0b0710030cd902e7b6d1d30f5e367a1b539ba581840d16dac33",
+      "scarf": "scarf_rainbow"
+    },
+    "body_snowy__none__none__scarf_red": {
+      "body": "body_snowy",
+      "goggles": "none",
+      "hat": "none",
+      "runtime": "res://assets/art/ui/wardrobe_outfits_v1/body_snowy__none__none__scarf_red.webp",
+      "runtime_sha256": "6e72d710a5149e13831451360afdb8c2e90bafb2297c0649ba47eb4ebfc005fa",
+      "scarf": "scarf_red"
+    }
+  },
+  "expected": 480,
+  "version": 1
+}

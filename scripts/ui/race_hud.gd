@@ -114,6 +114,7 @@ var _position_total: Label = null
 var _position_stripe: Panel = null
 var _time_label: Label
 var _time_caption: Label
+var _time_card: PanelContainer
 var _fish_label: Label
 var _item_panel: Panel
 var _item_glow: Panel
@@ -213,6 +214,10 @@ func bottom_rail_rects_for_test() -> Array[Dictionary]:
 		if control != null and is_instance_valid(control):
 			rows.append({"name": key, "rect": control.get_global_rect()})
 	return rows
+
+
+func time_card_rect_for_test() -> Rect2:
+	return _time_card.get_global_rect() if _time_card != null else Rect2()
 
 
 func setup(p_manager: RaceManager, p_player: Racer) -> void:
@@ -717,6 +722,7 @@ func _build_shield_pill(s: float) -> void:
 ## Clock card (top centre): caption above, monospaced-feeling numerals below.
 func _build_time_card(s: float) -> void:
 	var card := PanelContainer.new()
+	_time_card = card
 	card.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	card.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1127,9 +1133,25 @@ var _endless_mode: bool = false
 
 
 func set_endless_status(score: int, distance: float, storm_gap: float) -> void:
+	if not _endless_mode and _layout != null and _layout.is_portrait():
+		# Two short lines stay legible without widening the centre card into the
+		# touch pause button. A single micro-caption still grazed it on Android.
+		_time_caption.add_theme_font_size_override("font_size", int(14 * _hud_scale))
 	_endless_mode = true
-	_time_caption.text = "ENDLESS"
-	_time_label.text = "Score %d   •   %dm   •   Storm %dm" % [score, int(distance), int(storm_gap)]
+	# Keep distance as the glance value; score and storm remain on the card.
+	if _layout != null and _layout.is_portrait():
+		var enlarged_pause := UITheme.is_touch() \
+			and float(SettingsManager.get_setting("gameplay", "touch_scale")) > 1.5
+		_time_caption.text = "SCORE\n%d\nSTORM\n%dm" % [score, int(storm_gap)] \
+			if _hud_scale > 1.5 or enlarged_pause else "SCORE %d\nSTORM %dm" % [score, int(storm_gap)]
+		# At high accessibility scales a five-digit metre count widens the
+		# card into the pause target. Past 10 km, the exact metres belong in
+		# results; a rounded kilometre glance keeps the live control clear.
+		_time_label.text = "%dkm" % int(roundf(distance / 1000.0)) \
+			if distance >= 10000.0 else "%dm" % int(distance)
+	else:
+		_time_caption.text = "ENDLESS"
+		_time_label.text = "Score %d   •   %dm   •   Storm %dm" % [score, int(distance), int(storm_gap)]
 	if storm_gap < 25.0:
 		_time_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.4))
 	else:

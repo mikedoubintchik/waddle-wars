@@ -1,0 +1,501 @@
+{
+  "schema_version": 1,
+  "passed_geometry": true,
+  "scope": "Source geometry, direction and software fixed-camera form validation; actual game appearance and human acceptance pending",
+  "shape_revision": "v9 right foot direction correction: smooth narrow heel, ankle over heel, broad anatomical forefoot pointing author+Y/Godot-Z with18degree outward splay; left foot and body unchanged",
+  "glb_sha256": "94f30dc898acb8abb85230ddad569e8e9530e8fca9bfe84a05a2ac8a34732fd1",
+  "source_sha256": "d6606c43e4f1bf7cd592f33827fe2f79bc232b88a7ae37f2b9d35368b46ce681",
+  "builder_sha256": "b88422d896d3a57efe062e003035c4480bd3f7bc1cdbb16481470ca98cbc8a5d",
+  "config_sha256": "985eccaf09c9ccbfc15bc6aaa844f8df014a2db2fac8f39daf4142d9d97507a3",
+  "feature_tags_sha256": "f67799b80908b02646d63d47c1d009de8aa5d2143d1aa7e54249ead9ecfded79",
+  "triangles": 14720,
+  "triangle_budget": 15000,
+  "production_upper_budget": 25000,
+  "positions_verified": 7372,
+  "normals_verified": 7372,
+  "literal_linear_colors_verified": 7372,
+  "identity_root": true,
+  "one_plain_matte_surface_no_maps_rig_or_animation": true,
+  "bmesh_color_index_error_m": 0,
+  "nonmanifold_edges": 0,
+  "zero_area_faces": 0,
+  "non_right_foot_parts_bit_identical_v8": {
+    "continuous_body_head": {
+      "POSITION": true,
+      "NORMAL": true,
+      "COLOR_0": true
+    },
+    "flipper_L": {
+      "POSITION": true,
+      "NORMAL": true,
+      "COLOR_0": true
+    },
+    "flipper_R": {
+      "POSITION": true,
+      "NORMAL": true,
+      "COLOR_0": true
+    },
+    "foot_L": {
+      "POSITION": true,
+      "NORMAL": true,
+      "COLOR_0": true
+    },
+    "short_tail_fan": {
+      "POSITION": true,
+      "NORMAL": true,
+      "COLOR_0": true
+    }
+  },
+  "base_palette_unchanged": true,
+  "foot_sole_vertices_exactly_grounded": {
+    "foot_L": 72,
+    "foot_R": 81
+  },
+  "actual_body_cap_containment": [
+    {
+      "part": "foot_L",
+      "glb_cap_position": [
+        -0.2744775712490082,
+        0.2849999964237213,
+        0.11467025429010391
+      ],
+      "ray_intersections": [
+        1,
+        1,
+        1
+      ],
+      "inside_actual_final_body": true
+    },
+    {
+      "part": "foot_R",
+      "glb_cap_position": [
+        0.2558070123195648,
+        0.2849999964237213,
+        -0.028664102777838707
+      ],
+      "ray_intersections": [
+        1,
+        1,
+        1
+      ],
+      "inside_actual_final_body": true
+    }
+  ],
+  "semantic_triangle_tags_verified": true,
+  "right_anatomical_direction": {
+    "outward_splay_degrees": 18.0,
+    "heel_width_scale": 0.7,
+    "rear_pad_detail_enabled": false,
+    "rear_heel": [
+      0.2105015516281128,
+      0.0,
+      0.08195213973522186
+    ],
+    "forward_middle_toe": [
+      0.3078418970108032,
+      0.0,
+      -0.21763066947460175
+    ],
+    "ankle_cap": [
+      0.2558070123195648,
+      0.2849999964237213,
+      -0.028664102777838707
+    ],
+    "anatomical_forward_direction_godot": [
+      0.30901700258255005,
+      0.0,
+      -0.9510565400123596
+    ],
+    "ankle_to_toe_forward_m": 0.19579756259918213,
+    "ankle_to_heel_forward_m": -0.1192024601623416,
+    "forward_toe_axis_dot_body_forward": 0.9510565400123596
+  },
+  "right_rear_toe_like_grooves_removed": true,
+  "left_rear_pad_detail_preserved": true,
+  "khronos_validator": {
+    "errors": 0,
+    "warnings": 0,
+    "infos": 0,
+    "hints": 0
+  },
+  "khronos_log_sha256": "6380ac0e31153067a60f023bc7809a30b4df9b2910918d4e523c539ef5e224a2",
+  "visual_approval": "pending actual-game direction review and human Gate1 decision",
+  "passed": true,
+  "software_fit_directory": "qa_shots/penguin-right-foot-20261012/projection/source-v9-first",
+  "software_fit": {
+    "scope": "Numerical silhouette diagnostic, not visual or human approval",
+    "full": {
+      "intersection_over_union": 0.9472458948243608,
+      "symmetric_boundary_mean_px": 2.0159567757371906,
+      "symmetric_boundary_p95_px": 5.0,
+      "symmetric_boundary_max_px": 11.40175425099138
+    },
+    "feet": {
+      "intersection_over_union": 0.7590399002493765,
+      "symmetric_boundary_mean_px": 2.382797325978662,
+      "symmetric_boundary_p95_px": 5.0990195135927845,
+      "symmetric_boundary_max_px": 8.54400374531753
+    },
+    "reference_feet": {
+      "area": 3015,
+      "bbox": [
+        155,
+        320,
+        303,
+        366
+      ]
+    },
+    "candidate_feet": {
+      "area": 2628,
+      "bbox": [
+        155,
+        322,
+        304,
+        366
+      ]
+    },
+    "per_foot": {
+      "left": {
+        "reference": {
+          "area": 1786,
+          "bbox": [
+            155,
+            320,
+            207,
+            366
+          ]
+        },
+        "candidate": {
+          "area": 1619,
+          "bbox": [
+            155,
+            322,
+            206,
+            366
+          ]
+        },
+        "metrics": {
+          "intersection_over_union": 0.8355795148247979,
+          "symmetric_boundary_mean_px": 1.7888970433426596,
+          "symmetric_boundary_p95_px": 4.242640687119285,
+          "symmetric_boundary_max_px": 5.0
+        }
+      },
+      "right": {
+        "reference": {
+          "area": 1229,
+          "bbox": [
+            246,
+            338,
+            303,
+            366
+          ]
+        },
+        "candidate": {
+          "area": 1009,
+          "bbox": [
+            252,
+            335,
+            304,
+            365
+          ]
+        },
+        "metrics": {
+          "intersection_over_union": 0.6541019955654102,
+          "symmetric_boundary_mean_px": 3.0837066685490795,
+          "symmetric_boundary_p95_px": 6.033105012119286,
+          "symmetric_boundary_max_px": 8.54400374531753
+        }
+      }
+    },
+    "rows": [
+      {
+        "y": 80,
+        "reference": [
+          182,
+          267
+        ],
+        "candidate": [
+          184,
+          268
+        ],
+        "candidate_body": [
+          184,
+          268
+        ]
+      },
+      {
+        "y": 100,
+        "reference": [
+          170,
+          278
+        ],
+        "candidate": [
+          170,
+          281
+        ],
+        "candidate_body": [
+          170,
+          281
+        ]
+      },
+      {
+        "y": 120,
+        "reference": [
+          163,
+          286
+        ],
+        "candidate": [
+          163,
+          288
+        ],
+        "candidate_body": [
+          163,
+          288
+        ]
+      },
+      {
+        "y": 140,
+        "reference": [
+          161,
+          288
+        ],
+        "candidate": [
+          162,
+          290
+        ],
+        "candidate_body": [
+          162,
+          290
+        ]
+      },
+      {
+        "y": 160,
+        "reference": [
+          160,
+          295
+        ],
+        "candidate": [
+          154,
+          299
+        ],
+        "candidate_body": [
+          169,
+          283
+        ]
+      },
+      {
+        "y": 180,
+        "reference": [
+          145,
+          312
+        ],
+        "candidate": [
+          140,
+          314
+        ],
+        "candidate_body": [
+          164,
+          288
+        ]
+      },
+      {
+        "y": 200,
+        "reference": [
+          129,
+          328
+        ],
+        "candidate": [
+          128,
+          326
+        ],
+        "candidate_body": [
+          156,
+          295
+        ]
+      },
+      {
+        "y": 220,
+        "reference": [
+          116,
+          342
+        ],
+        "candidate": [
+          119,
+          337
+        ],
+        "candidate_body": [
+          150,
+          304
+        ]
+      },
+      {
+        "y": 240,
+        "reference": [
+          105,
+          351
+        ],
+        "candidate": [
+          108,
+          349
+        ],
+        "candidate_body": [
+          142,
+          309
+        ]
+      },
+      {
+        "y": 260,
+        "reference": [
+          99,
+          356
+        ],
+        "candidate": [
+          99,
+          354
+        ],
+        "candidate_body": [
+          140,
+          312
+        ]
+      },
+      {
+        "y": 280,
+        "reference": [
+          96,
+          314
+        ],
+        "candidate": [
+          100,
+          311
+        ],
+        "candidate_body": [
+          141,
+          311
+        ]
+      },
+      {
+        "y": 300,
+        "reference": [
+          149,
+          311
+        ],
+        "candidate": [
+          144,
+          309
+        ],
+        "candidate_body": [
+          144,
+          309
+        ]
+      },
+      {
+        "y": 310,
+        "reference": [
+          153,
+          307
+        ],
+        "candidate": [
+          149,
+          305
+        ],
+        "candidate_body": [
+          149,
+          305
+        ]
+      },
+      {
+        "y": 320,
+        "reference": [
+          159,
+          302
+        ],
+        "candidate": [
+          156,
+          300
+        ],
+        "candidate_body": [
+          156,
+          300
+        ]
+      },
+      {
+        "y": 330,
+        "reference": [
+          165,
+          296
+        ],
+        "candidate": [
+          162,
+          294
+        ],
+        "candidate_body": [
+          188,
+          294
+        ]
+      },
+      {
+        "y": 340,
+        "reference": [
+          161,
+          289
+        ],
+        "candidate": [
+          158,
+          299
+        ],
+        "candidate_body": [
+          196,
+          287
+        ]
+      },
+      {
+        "y": 350,
+        "reference": [
+          156,
+          300
+        ],
+        "candidate": [
+          155,
+          304
+        ],
+        "candidate_body": null
+      },
+      {
+        "y": 360,
+        "reference": [
+          156,
+          298
+        ],
+        "candidate": [
+          163,
+          292
+        ],
+        "candidate_body": null
+      }
+    ]
+  },
+  "numeric_notes": {
+    "whole_target_0_94_pass": true,
+    "feet_target_0_80_pass": false,
+    "note": "Whole94.72%, feet75.90%IoU. Right smooth heel intentionally removes backward-reading posterior toe lobes; do not restore false anatomy to maximize rear reference overlap."
+  },
+  "independent_source_audit": {
+    "path": "qa_shots/penguin-right-foot-20261012/analysis-reference/source-94f30dc8-direction-audit.json",
+    "sha256": "495a4f7b8d608124e3c0c60c5e51a9e023e66c7c656bc4a8848c8b5aefdee7bd",
+    "decision": "Source anatomy pass; exact fixed-camera clay reviewed for export; actual RGB and human direction review pending"
+  },
+  "semantic_visibility_receipt": {
+    "path": "qa_shots/penguin-right-foot-20261012/analysis-source/direction-94f30dc8/feature-visibility.json",
+    "sha256": "ec0bdcbe9edfd7134414ed659162a4605190cf02faef24b71486fb9874ceb755"
+  },
+  "direction_diagram": {
+    "path": "qa_shots/penguin-right-foot-20261012/analysis-reference/v8-v9-right-direction-top-side.png",
+    "sha256": "a8a1d416818d32379b58eab03b068bb7a082f18fe7cf33cc21a388e45d88635d"
+  },
+  "unannotated_rear_clay": {
+    "path": "qa_shots/penguin-right-foot-20261012/analysis-source/direction-94f30dc8/reference_304px-geometry-clay-feet.png",
+    "sha256": "9e46d8ebb12c7e04a79104fb7a9859426852a62a4aa112dde02d3517c35f496d",
+    "decision": "Source form reviewed by root and author: smooth short heel with outward/forward forefoot profile; no posterior toe count requirement. Software prediction, not game capture."
+  }
+}

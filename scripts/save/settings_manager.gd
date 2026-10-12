@@ -48,6 +48,25 @@ var _governor_fps_count: int = 0
 var _governor_good_windows: int = 0
 ## Samples still to discard after a course load (see GOVERNOR_WARMUP_SAMPLES).
 var _governor_warmup: int = GOVERNOR_WARMUP_SAMPLES
+## Instance identity and readiness edge of the gameplay target being sampled.
+## A new race, retry countdown, death, loader, or pause invalidates any partial
+## window instead of donating its frames to the next playable interval.
+var _governor_target_id: int = 0
+var _governor_target_ready: bool = false
+## Target lookup is cached by SceneTree.current_scene identity. Race managers
+## appear only after their staged course build, so a CourseBase is a temporary
+## fallback; while that fallback is cached, only the current scene's direct
+## child count is polled. Once a gameplay manager is found there are no more
+## recursive tree walks for that scene.
+var _governor_cached_scene_id: int = 0
+var _governor_cached_scene_child_count: int = -1
+var _governor_cached_target: Node = null
+var _governor_target_scan_count: int = 0
+var _governor_monitoring: bool = false
+## Distinguishes a real production adaptation from the long-standing QA seam
+## that disables the governor by assigning `_governor_steps = GOVERNOR_MAX_STEPS`
+## before any gameplay sample. Production never stops monitoring at the floor.
+var _governor_has_adapted: bool = false
 
 
 ## Read-only shared copy of default_settings(), built once. get_setting() is
@@ -119,6 +138,7 @@ static func default_settings() -> Dictionary:
 			"display_name": "",  # optional leaderboard name (server-sanitized)
 		},
 		"controls": {},  # action -> array of serialized input events
+		"controls_meta": {"version": 0},
 	}
 
 
@@ -139,12 +159,18 @@ func get_setting(section: String, key: String) -> Variant:
 
 
 func set_setting(section: String, key: String, value: Variant) -> void:
-	if section == "display" and key == "quality_preset":
-		_governor_override = ""  # explicit user choice wins over the governor
+	var explicit_quality := section == "display" and key == "quality_preset"
+	if explicit_quality:
+		# Explicit user choice wins over every session-only adaptation, including
+		# render-scale and AA steps. A fresh readiness warmup may adapt again only
+		# after measuring the newly requested tier in real gameplay.
+		_reset_governor_for_user_quality()
 	if not settings.has(section):
 		settings[section] = {}
 	settings[section][key] = value
 	_apply_one(section, key, value)
+	if explicit_quality:
+		_apply_display("msaa", get_setting("display", "msaa"))
 	_save_settings()
 	setting_changed.emit("%s/%s" % [section, key], value)
 
@@ -281,6 +307,8 @@ func _store_bindings() -> void:
 
 
 func _apply_control_remaps() -> void:
+	_migrate_arrow_defaults()
+	_binding_labels.clear()
 	var controls: Dictionary = settings.get("controls", {})
 	for action: String in controls.keys():
 		if action not in REMAPPABLE_ACTIONS or not InputMap.has_action(action):
@@ -293,6 +321,42 @@ func _apply_control_remaps() -> void:
 			var ev := _deserialize_event(entry)
 			if ev != null:
 				InputMap.action_add_event(action, ev)
+
+
+## Old releases saved every action when any one key was rebound. Upgrade only
+## recognized old default key sets; a deliberate custom binding stays intact.
+func _migrate_arrow_defaults() -> void:
+	if int(settings.get("controls_meta", {}).get("version", 0)) >= 1:
+		return
+	var controls: Dictionary = settings.get("controls", {})
+	var legacy := {
+		"steer_left": [[KEY_A, KEY_LEFT]],
+		"steer_right": [[KEY_D, KEY_RIGHT]],
+		"jump": [[KEY_SPACE]],
+		"slide": [[KEY_CTRL, KEY_S], [KEY_CTRL, KEY_S, KEY_DOWN]],
+	}
+	for action: String in legacy:
+		if not controls.has(action): continue
+		var key_codes: Array = []
+		var other: Array = []
+		for entry: Dictionary in controls[action]:
+			if entry.get("type") == "key": key_codes.append(int(entry.get("code", 0)))
+			else: other.append(entry)
+		key_codes.sort()
+		var matched := false
+		for old_codes: Array in legacy[action]:
+			var sorted := old_codes.duplicate()
+			sorted.sort()
+			if key_codes == sorted: matched = true
+		if not matched: continue
+		var upgraded: Array = []
+		for event: InputEvent in _default_bindings.get(action, []):
+			if event is InputEventKey: upgraded.append(_serialize_event(event))
+		upgraded.append_array(other)
+		controls[action] = upgraded
+	settings["controls"] = controls
+	settings["controls_meta"] = {"version": 1}
+	_save_settings()
 
 
 func _serialize_event(ev: InputEvent) -> Dictionary:
@@ -387,6 +451,12 @@ var _design_basis: Vector2i = Vector2i.ZERO
 ## Polling the window shape makes the fix independent of whether the event
 ## arrives.
 func _process(delta: float) -> void:
+	# SettingsManager normally inherits the paused SceneTree. The web governor
+	# switches this autoload to PROCESS_MODE_ALWAYS, so this cheap state check
+	# observes even a sub-second pause and prevents samples on either side from
+	# being combined. Target resolution is cached after the manager appears.
+	if _governor_monitoring:
+		_governor_refresh_target_state()
 	if GameConfig.is_headless():
 		return
 	_orientation_timer += delta
@@ -500,7 +570,7 @@ func _apply_audio(key: String, value: Variant) -> void:
 		"muted":
 			AudioManager.set_muted(bool(value))
 		"mute_unfocused":
-			pass  # AudioManager reads this on focus notifications.
+			AudioManager.refresh_focus_mute()
 
 
 ## --- Web render scale ------------------------------------------------------
@@ -534,11 +604,11 @@ const WEB_RENDER_SCALE: Dictionary = {
 ## The FIRST step keeps full resolution and removes MSAA's per-frame resolve.
 ## Compatibility/Web does not support FXAA, so this step accepts a little more
 ## edge aliasing while the image stays pixel-for-pixel native. Resolution only
-## starts going at step 2. The old ladder gave up resolution first, and
-## resolution is the single most visible thing on the screen -- a browser that
-## missed the frame budget by one notch was immediately soft everywhere, which
-## players read (accurately) as "the game looks pixelated". Softness is now the
-## LAST resort, not the first.
+## starts going at step 2, only after a second sustained slow window. This
+## changes the 3D scene buffer, never the canvas backing size or UI resolution.
+## Desktop stops at 0.72; mobile can take the final 0.62 step. Starting native
+## and restoring gradually keeps healthy clients sharp without pinning a
+## struggling Retina desktop to millions of unnecessary 3D fragments.
 const RENDER_SCALE_STEPS: PackedFloat32Array = [1.0, 1.0, 0.85, 0.72, 0.62]
 ## Compatibility/Web has no supported screen-space AA path. Edge coverage is
 ## supplied by MSAA only while the device can afford it.
@@ -573,12 +643,32 @@ static func effective_fps_limit(requested: int, renderer: String = "",
 func render_scale_3d() -> float:
 	if not OS.has_feature("web") or GameConfig.is_headless():
 		return 1.0
-	var base := float(WEB_RENDER_SCALE.get(String(get_setting("display", "quality_preset")), 1.0))
+	return effective_web_render_scale(_governor_render_base_tier(), _render_scale_step)
+
+
+## Deterministic web 3D-buffer policy shared with headless contract tests.
+## The preferred tier and UI canvas remain outside this session-only scale.
+static func effective_web_render_scale(base_tier: String, render_scale_step: int) -> float:
+	var base := float(WEB_RENDER_SCALE.get(base_tier, 1.0))
 	# A governor step overrides the preset's own scale, never upward.
-	if _render_scale_step > 0:
-		var stepped := RENDER_SCALE_STEPS[mini(_render_scale_step, RENDER_SCALE_STEPS.size() - 1)]
+	if render_scale_step > 0:
+		var stepped := RENDER_SCALE_STEPS[mini(render_scale_step, RENDER_SCALE_STEPS.size() - 1)]
 		return minf(base, stepped)
 	return base
+
+
+## Base tier used for web render resolution. Optional mobile argument makes
+## native-desktop invariants deterministic in headless contract tests.
+func _governor_render_base_tier(mobile_override: int = -1) -> String:
+	var tier := String(get_setting("display", "quality_preset"))
+	# Desktop resolution follows the separate measured render-scale ladder, not
+	# the effective scene-complexity tier. The saved preference remains intact;
+	# only sustained slow windows may reduce the 3D buffer. Mobile web keeps its
+	# existing preset-derived base scaling as well as the fill-rate ladder.
+	if not _governor_override.is_empty() \
+			and not _governor_mobile_client(mobile_override):
+		tier = _saved_quality_preset()
+	return tier
 
 
 func _apply_web_render_scale() -> void:
@@ -598,18 +688,32 @@ func _apply_web_render_scale() -> void:
 ## offscreen stage -- a warm-up that disagreed would link programs the real
 ## scenes never use, and every material would stall again on first sight.
 func msaa_3d_mode() -> int:
+	return effective_msaa_3d(
+			String(get_setting("display", "msaa")),
+			String(get_setting("display", "quality_preset")),
+			_render_scale_step)
+
+
+## Deterministic effective policy shared with contract tests. Most importantly,
+## an explicit user `off` is authoritative on web; high quality may cap a
+## requested 2x/4x mode at 2x, but may never turn disabled AA back on.
+static func effective_msaa_3d(requested: String, quality: String,
+		render_scale_step: int, renderer: String = "", web_override: int = -1) -> int:
+	if requested == "off":
+		return Viewport.MSAA_DISABLED
+	var is_web := OS.has_feature("web") if web_override < 0 else web_override == 1
 	# Multisampling resolves the whole colour buffer every frame, and on web that
 	# buffer is already the most expensive thing in the frame. The desktop
 	# default of 4x on a dpr-2 canvas was a large part of why Chrome sat one
 	# notch over its frame budget, and the 3D pass is bilinear-upscaled there
 	# anyway, which hides most of what MSAA would have bought.
-	if OS.has_feature("web"):
+	if is_web:
 		# Web keeps 2x on the high tier: at native resolution the aliasing on
 		# ice edges and track rails is exactly what made the browser build read
 		# as lower fidelity than desktop. 4x is still refused -- it resolves the
 		# whole buffer every frame for a difference nobody sees at this scale --
 		# and any tier below high drops it entirely.
-		if String(get_setting("display", "quality_preset")) == "high" and _render_scale_step == 0:
+		if quality == "high" and render_scale_step == 0:
 			return Viewport.MSAA_2X
 		return Viewport.MSAA_DISABLED
 	# Godot's Compatibility renderer resolves the whole multisampled buffer and
@@ -617,12 +721,11 @@ func msaa_3d_mode() -> int:
 	# large frame-time spikes even when average GPU load was otherwise healthy.
 	# Keep requested setting in save/UI for renderer portability; cap only the
 	# effective mode in this renderer.
-	if RenderingServer.get_current_rendering_method() == "gl_compatibility":
-		return Viewport.MSAA_DISABLED if String(get_setting("display", "msaa")) == "off" \
-			else COMPATIBILITY_MAX_MSAA
-	match String(get_setting("display", "msaa")):
-		"off":
-			return Viewport.MSAA_DISABLED
+	var method := renderer if not renderer.is_empty() \
+			else RenderingServer.get_current_rendering_method()
+	if method == "gl_compatibility":
+		return COMPATIBILITY_MAX_MSAA
+	match requested:
 		"4x":
 			return Viewport.MSAA_4X
 		_:
@@ -650,13 +753,21 @@ func glow_allowed() -> bool:
 
 ## --- Web auto-quality governor ---------------------------------------------
 
-const GOVERNOR_SAMPLE_WINDOW: int = 8  # seconds of 1 Hz samples per decision
+const GOVERNOR_SAMPLE_WINDOW: int = 8  # mobile seconds of 1 Hz samples per decision
+## Desktop runs commonly end after 9–17 seconds. The mobile 3+8 sample delay
+## never reached a render-scale fallback in those runs. Desktop takes one full
+## 4-second window after a 1-second readiness warmup, then one step per window.
+const GOVERNOR_DESKTOP_SAMPLE_WINDOW: int = 4
 ## A web client pinned at 30 fps is not "playing badly", it is one notch over
 ## its frame budget and being halved by vsync -- exactly the case this governor
 ## exists to rescue. The old 22 fps trigger sat below that, so it never fired on
 ## the most common failure. 45 catches a halved 60 Hz client while staying clear
 ## of a healthy one.
 const GOVERNOR_MIN_FPS: float = 45.0
+## Desktop's 45–56 FPS dead band could leave a Retina client below its 57 FPS
+## acceptance target indefinitely. Require sustained <54, not a single hitch;
+## 57 FPS and two complete windows are still required before each recovery.
+const GOVERNOR_DESKTOP_MIN_FPS: float = 54.0
 ## Comfortably above the trigger, so restoring resolution cannot immediately
 ## re-trip the governor and leave the image oscillating.
 const GOVERNOR_RESTORE_FPS: float = 57.0
@@ -667,95 +778,240 @@ const GOVERNOR_RESTORE_WINDOWS: int = 2
 ## shader links and streaming, not steady-state cost, and judging the whole
 ## session on them was permanently softening healthy clients.
 const GOVERNOR_WARMUP_SAMPLES: int = 3
+const GOVERNOR_DESKTOP_WARMUP_SAMPLES: int = 1
+## Desktop keeps more detail than the mobile floor, but still has a fill-rate
+## escape hatch: 0.72 renders about 52% of native 3D pixels. MSAA-off remains
+## the first action; each lower scale requires another full slow window.
+const GOVERNOR_DESKTOP_RENDER_STEP_FLOOR: int = 3
 ## high -> medium -> low, at most.
 const GOVERNOR_MAX_STEPS: int = 2
+const GOVERNOR_QUALITY_ORDER: PackedStringArray = ["low", "medium", "high"]
 
 ## Browsers vary wildly: the desktop 'high' profile can melt a phone GPU while
 ## looking fine in Chrome on an M-series Mac. On web builds only, sample the
-## FPS at 1 Hz while a race course OR the standalone runner is loaded and, if
-## an 8-sample average drops below 45 FPS, step the quality preset down ONE tier
-## for the rest of the session. The override is applied through the normal
-## _apply_one path but never saved: settings.json keeps the user's own choice,
-## and a manual quality change clears the override immediately.
+## FPS at 1 Hz while a race course OR the standalone runner is playable. Mobile
+## retains its 8-sample <45 FPS policy; desktop uses 4 samples and <54 FPS.
+## The override is applied through the normal _apply_one path but never saved:
+## settings.json keeps the user's own choice, healthy play restores toward it,
+## and a manual quality change clears every session-only step immediately.
 func _start_web_governor() -> void:
 	if not OS.has_feature("web") or GameConfig.is_headless():
 		return
+	_governor_monitoring = true
+	# Pause is itself a readiness edge. Both this node and its timer must keep
+	# processing while SceneTree.paused, otherwise a short pause can bridge two
+	# halves of one FPS window without ever being observed.
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	var timer := Timer.new()
 	timer.name = "QualityGovernor"
 	timer.wait_time = 1.0
 	timer.autostart = true
+	timer.process_mode = Node.PROCESS_MODE_ALWAYS
 	timer.timeout.connect(_governor_tick.bind(timer))
 	add_child(timer)
 
 
 func _governor_tick(timer: Timer) -> void:
-	if _governor_steps >= GOVERNOR_MAX_STEPS:
+	# Existing fixed-tier QA probes set this exact untouched state to suspend the
+	# production governor. A real client that reached its floor has adapted and
+	# remains monitored so later healthy windows can restore quality.
+	if _governor_steps >= GOVERNOR_MAX_STEPS and not _governor_has_adapted \
+			and _governor_override.is_empty() and _render_scale_step == 0:
+		_governor_monitoring = false
 		timer.stop()
 		timer.queue_free()
 		return
-	if not _quality_governor_gameplay_active():
-		# Menus and loading screens say nothing about gameplay cost — restart
-		# the sampling window whenever no governed gameplay scene is active.
-		_governor_fps_sum = 0.0
-		_governor_fps_count = 0
-		_governor_warmup = GOVERNOR_WARMUP_SAMPLES
+	# Refresh once more at sample time in case Timer dispatch precedes this
+	# node's _process callback for the frame. Cached resolution makes this O(1).
+	_governor_refresh_target_state()
+	if not _governor_target_ready:
+		return
+	_governor_record_sample(Engine.get_frames_per_second())
+
+
+## Records one 1 Hz sample only after readiness has remained stable. Kept
+## separate from Timer/Engine reads for deterministic state-machine coverage.
+func _governor_record_sample(fps: float, mobile_override: int = -1,
+		apply_render_changes: bool = true) -> void:
+	if not _governor_target_ready:
 		return
 	if _governor_warmup > 0:
 		_governor_warmup -= 1
 		return
-	_governor_fps_sum += Engine.get_frames_per_second()
+	_governor_fps_sum += fps
 	_governor_fps_count += 1
-	if _governor_fps_count < GOVERNOR_SAMPLE_WINDOW:
+	var sample_window := GOVERNOR_SAMPLE_WINDOW if _governor_mobile_client(mobile_override) \
+			else GOVERNOR_DESKTOP_SAMPLE_WINDOW
+	if _governor_fps_count < sample_window:
 		return
 	var average := _governor_fps_sum / float(_governor_fps_count)
 	_governor_fps_sum = 0.0
 	_governor_fps_count = 0
-	if average >= GOVERNOR_MIN_FPS:
-		# Give resolution back once the client has proved it can hold a healthy
-		# frame rate. Without this the governor was a one-way ratchet: a single
-		# rough window during a shader link softened the image for the rest of
-		# the session, which is most of why the browser build stopped looking
-		# like the desktop one.
-		if _render_scale_step > 0 and average >= GOVERNOR_RESTORE_FPS:
+	_governor_apply_average(average, mobile_override, apply_render_changes)
+
+
+## Applies one complete steady-state window. Kept separate from Timer/Engine
+## reads so the quality state machine has deterministic headless coverage.
+func _governor_apply_average(average: float, mobile_override: int = -1,
+		apply_render_changes: bool = true) -> void:
+	var mobile_client := _governor_mobile_client(mobile_override)
+	var minimum_fps := GOVERNOR_MIN_FPS if mobile_client else GOVERNOR_DESKTOP_MIN_FPS
+	if average >= minimum_fps:
+		# Restore in reverse order after two healthy windows: effective preset
+		# first, then render scale/MSAA. Neither change touches the saved user tier.
+		if _governor_has_degradation() and average >= GOVERNOR_RESTORE_FPS:
 			_governor_good_windows += 1
 			if _governor_good_windows >= GOVERNOR_RESTORE_WINDOWS:
 				_governor_good_windows = 0
-				_render_scale_step -= 1
-				_apply_web_render_scale()
-				_apply_display("msaa", get_setting("display", "msaa"))
+				_governor_recover_one(apply_render_changes)
 		else:
 			_governor_good_windows = 0
 		return
 	_governor_good_windows = 0
-	# The ladder: step 1 drops MSAA but keeps full native resolution; the
-	# downscale steps beyond it are PHONE-ONLY. A desktop player sits close to
-	# a large screen, and a desktop that misses the budget under Chrome's
-	# ANGLE translation misses it during races -- exactly when the governor
-	# used to soften the whole world, which is why "even the highest quality
-	# looks pixelated" kept being reported on machines whose settings said
-	# high. Desktop web now stays native-sharp no matter what; sustained
-	# pressure there falls through to the preset drop below, which costs
-	# dressing and shadows but never the pixels.
+	# Step 1 drops MSAA while retaining native pixels. Further sustained slow
+	# windows lower only the 3D buffer, with a less aggressive desktop floor.
+	# The page-owned canvas and HUD stay native; saved preferences never change.
 	var scale_floor := RENDER_SCALE_STEPS.size() - 1 \
-		if (GameConfig.has_touchscreen() or is_mobile_web()) else 1
+		if mobile_client \
+		else mini(GOVERNOR_DESKTOP_RENDER_STEP_FLOOR, RENDER_SCALE_STEPS.size() - 1)
 	if _render_scale_step < scale_floor:
 		_render_scale_step += 1
-		_apply_web_render_scale()
-		_apply_display("msaa", get_setting("display", "msaa"))
+		_governor_has_adapted = true
+		if apply_render_changes:
+			_apply_web_render_scale()
+			_apply_display("msaa", get_setting("display", "msaa"))
 		return
-	var lower := ""
-	match String(get_setting("display", "quality_preset")):
-		"high":
-			lower = "medium"
-		"medium":
-			lower = "low"
-	_governor_steps += 1
-	if lower == "":
-		_governor_steps = GOVERNOR_MAX_STEPS  # already at the bottom tier
+	_governor_lower_quality(apply_render_changes)
+
+
+func _governor_lower_quality(apply_render_changes: bool) -> bool:
+	var current_rank := GOVERNOR_QUALITY_ORDER.find(String(get_setting(
+			"display", "quality_preset")))
+	if current_rank <= 0:
+		return false
+	var next_rank := current_rank - 1
+	_governor_override = GOVERNOR_QUALITY_ORDER[next_rank]
+	_governor_steps = clampi(
+			_governor_quality_rank(_saved_quality_preset()) - next_rank,
+			0, GOVERNOR_MAX_STEPS)
+	_governor_has_adapted = true
+	if apply_render_changes:
+		_apply_one("display", "quality_preset", _governor_override)
+		# Shadow/particle settings remain independent today. This governor fix does
+		# not redesign that preset contract; current scenes retain those authored
+		# nodes until a separately reviewed live-quality migration exists.
+		setting_changed.emit("display/quality_preset", _governor_override)
+	return true
+
+
+func _governor_recover_one(apply_render_changes: bool) -> void:
+	if not _governor_override.is_empty():
+		var saved_rank := _governor_quality_rank(_saved_quality_preset())
+		var current_rank := _governor_quality_rank(_governor_override)
+		var next_rank := mini(current_rank + 1, saved_rank)
+		_governor_override = "" if next_rank >= saved_rank \
+				else GOVERNOR_QUALITY_ORDER[next_rank]
+		_governor_steps = maxi(saved_rank - next_rank, 0)
+		var effective := String(get_setting("display", "quality_preset"))
+		if apply_render_changes:
+			_apply_one("display", "quality_preset", effective)
+			setting_changed.emit("display/quality_preset", effective)
+	elif _render_scale_step > 0:
+		_render_scale_step -= 1
+		if apply_render_changes:
+			_apply_web_render_scale()
+			_apply_display("msaa", get_setting("display", "msaa"))
+	if not _governor_has_degradation():
+		_governor_steps = 0
+		_governor_has_adapted = false
+
+
+func _governor_has_degradation() -> bool:
+	return not _governor_override.is_empty() or _render_scale_step > 0
+
+
+func _saved_quality_preset() -> String:
+	var display: Dictionary = settings.get("display", {})
+	return String(display.get("quality_preset", frozen_defaults()["display"]["quality_preset"]))
+
+
+static func _governor_quality_rank(tier: String) -> int:
+	return maxi(GOVERNOR_QUALITY_ORDER.find(tier), 0)
+
+
+func _governor_mobile_client(mobile_override: int = -1) -> bool:
+	if mobile_override >= 0:
+		return mobile_override == 1
+	return GameConfig.has_touchscreen() or is_mobile_web()
+
+
+func _reset_governor_sampling(mobile_override: int = -1) -> void:
+	_governor_fps_sum = 0.0
+	_governor_fps_count = 0
+	_governor_good_windows = 0
+	_governor_warmup = GOVERNOR_WARMUP_SAMPLES if _governor_mobile_client(mobile_override) \
+			else GOVERNOR_DESKTOP_WARMUP_SAMPLES
+
+
+func _reset_governor_for_user_quality() -> void:
+	_governor_override = ""
+	_governor_steps = 0
+	_render_scale_step = 0
+	_governor_has_adapted = false
+	_reset_governor_sampling()
+
+
+## Cheap every-frame edge detector. A pause shorter than the 1 Hz Timer period
+## still resets the partial window because SettingsManager processes while
+## paused. No Dictionary is allocated on this production path.
+func _governor_refresh_target_state() -> void:
+	var tree := get_tree()
+	if tree == null:
+		_governor_observe_target_state(0, false)
 		return
-	_governor_override = lower
-	_apply_one("display", "quality_preset", lower)
-	setting_changed.emit("display/quality_preset", lower)
+	var target := _governor_resolve_target(tree.current_scene)
+	var target_id := target.get_instance_id() if target != null else 0
+	var ready := _quality_governor_target_ready(
+			target, tree.paused, SceneRouter.is_busy())
+	_governor_observe_target_state(target_id, ready)
+
+
+func _governor_observe_target_state(target_id: int, ready: bool, mobile_override: int = -1) -> void:
+	if target_id == _governor_target_id and ready == _governor_target_ready:
+		return
+	_governor_target_id = target_id
+	_governor_target_ready = ready
+	_reset_governor_sampling(mobile_override)
+
+
+## Resolve once per current scene, then validate one cached Node. Race scenes
+## stage CourseBase before creating their manager; while that temporary course
+## fallback is cached, only direct-child-count changes trigger a new DFS.
+func _governor_resolve_target(root: Node) -> Node:
+	if root == null:
+		_governor_cached_scene_id = 0
+		_governor_cached_scene_child_count = -1
+		_governor_cached_target = null
+		return null
+	var root_id := root.get_instance_id()
+	var child_count := root.get_child_count()
+	var needs_scan := root_id != _governor_cached_scene_id
+	if not needs_scan and _governor_cached_target != null:
+		needs_scan = not is_instance_valid(_governor_cached_target) \
+				or not _governor_cached_target.is_inside_tree() \
+				or (_governor_cached_target != root \
+					and not root.is_ancestor_of(_governor_cached_target))
+	# A stable non-gameplay scene stays O(1). A staged race is rescanned only
+	# when Race adds another direct child; manager creation is one such edge.
+	if not needs_scan and (_governor_cached_target == null \
+			or _governor_cached_target is CourseBase):
+		needs_scan = child_count != _governor_cached_scene_child_count
+	if needs_scan:
+		_governor_cached_scene_id = root_id
+		_governor_cached_scene_child_count = child_count
+		_governor_cached_target = _find_governed_target(root)
+		_governor_target_scan_count += 1
+	return _governor_cached_target
 
 
 ## True while a scene whose rendering cost we govern is live.
@@ -768,6 +1024,10 @@ func _governor_tick(timer: Timer) -> void:
 ## the real runner below their own scene root.
 func _quality_governor_gameplay_active() -> bool:
 	var tree := get_tree()
+	if tree != null and _governor_resolve_target(tree.current_scene) != null:
+		return true
+	# Compatibility for existing course-group callers/tests. Sampling itself uses
+	# typed manager readiness below and never treats this fallback as measurable.
 	if tree == null:
 		return false
 	if tree.get_first_node_in_group(&"course") != null:
@@ -778,10 +1038,68 @@ func _quality_governor_gameplay_active() -> bool:
 func _is_quality_governed_scene(root: Node) -> bool:
 	if root == null:
 		return false
-	if root.scene_file_path == Game.SCENE_RUNNER:
-		return true
-	var runner_root := root.find_child("RunnerGame", true, false)
-	return runner_root != null and runner_root.scene_file_path == Game.SCENE_RUNNER
+	return int(_quality_governor_target_for(root, false, false).get("identity", 0)) != 0
+
+
+func _quality_governor_sample_target() -> Dictionary:
+	var tree := get_tree()
+	if tree == null:
+		return {"identity": 0, "ready": false}
+	var target := _governor_resolve_target(tree.current_scene)
+	return {"identity": target.get_instance_id() if target != null else 0,
+		"ready": _quality_governor_target_ready(
+			target, tree.paused, SceneRouter.is_busy())}
+
+
+## Typed gameplay readiness only: no node-name or scene-path inference. The
+## helper accepts pause/presentation state explicitly for deterministic tests.
+static func _quality_governor_target_for(root: Node, tree_paused: bool,
+		presentation_blocked: bool) -> Dictionary:
+	var target := _find_governed_target(root)
+	return {"identity": target.get_instance_id() if target != null else 0,
+		"ready": _quality_governor_target_ready(
+			target, tree_paused, presentation_blocked)}
+
+
+## One DFS for every governed type. Manager targets outrank the CourseBase
+## fallback even if the course is visited first.
+static func _find_governed_target(root: Node) -> Node:
+	if root == null:
+		return null
+	if root is RunnerGame or root is TutorialManager or root is RaceManager:
+		return root
+	var fallback: Node = root if root is CourseBase else null
+	for child_index: int in root.get_child_count():
+		var found := _find_governed_target(root.get_child(child_index))
+		if found == null:
+			continue
+		if not found is CourseBase:
+			return found
+		if fallback == null:
+			fallback = found
+	return fallback
+
+
+static func _quality_governor_target_ready(target: Node, tree_paused: bool,
+		presentation_blocked: bool) -> bool:
+	if target == null or tree_paused or presentation_blocked:
+		return false
+	if target is RunnerGame:
+		var runner := target as RunnerGame
+		return runner.build_finished and runner._presentation_started \
+				and runner.running and not runner._dead
+	if target is TutorialManager:
+		var tutorial := target as TutorialManager
+		return tutorial._spawn_ready and tutorial._presentation_started \
+				and not tutorial._finished
+	if target is RaceManager:
+		var manager := target as RaceManager
+		var ready := manager._grid_placed and manager._presentation_started \
+				and manager.started and not manager._completed
+		if manager is EndlessManager:
+			ready = ready and not (manager as EndlessManager)._ended
+		return ready
+	return false
 
 
 ## --- Persistence ----------------------------------------------------------

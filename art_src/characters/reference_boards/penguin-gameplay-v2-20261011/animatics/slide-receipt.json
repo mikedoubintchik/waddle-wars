@@ -1,0 +1,251 @@
+{
+  "schema": 1,
+  "action": "slide",
+  "description": "Eight generated still poses played as a stepped reference animatic; not a game capture or finished animation.",
+  "source_file": "slide-rear-sequence.png",
+  "source_sha256": "d90d4a1823135fa2af535cd7d56ba6e96abbde30fa5d28636f03be6690274e8e",
+  "source_dimensions": [
+    1774,
+    887
+  ],
+  "grid": [
+    4,
+    2
+  ],
+  "frame_dimensions": [
+    443,
+    443
+  ],
+  "extraction": "Original pixels; nearest rounded grid boundaries; at most one right/bottom pixel trimmed per cell; no resize or retouch.",
+  "source_pose_count": 8,
+  "timing_seconds": [
+    0.15,
+    0.15,
+    0.15,
+    0.15,
+    0.15,
+    0.15,
+    0.15,
+    0.15
+  ],
+  "sequence_seconds": 1.2,
+  "loop_transition": "Cyclic authored poses",
+  "frames": [
+    {
+      "frame": 1,
+      "file": "slide-frame-01.png",
+      "sheet_bounds_xyxy": [
+        0,
+        0,
+        444,
+        444
+      ],
+      "trim_right_bottom_px": [
+        1,
+        1
+      ],
+      "duration_seconds": 0.15,
+      "sha256": "8438c0b64322abcbc4846a66efaac8d854cee1d31d949afd914de92ed9d35cfe",
+      "source_crop_pixel_signature": "35ccc5914c706b59c71b81abdd54cd9b8c2b3ac38956e1a0f214b899a7564a0a",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 2,
+      "file": "slide-frame-02.png",
+      "sheet_bounds_xyxy": [
+        444,
+        0,
+        887,
+        444
+      ],
+      "trim_right_bottom_px": [
+        0,
+        1
+      ],
+      "duration_seconds": 0.15,
+      "sha256": "88e698d870f689cabacd5c117784a56d98405e109ef0c662dbdc2334fdb8f2f5",
+      "source_crop_pixel_signature": "95f630ffcc3287b98481b613213679b8ab3811303ffc536f7b94425a688be852",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 3,
+      "file": "slide-frame-03.png",
+      "sheet_bounds_xyxy": [
+        887,
+        0,
+        1330,
+        444
+      ],
+      "trim_right_bottom_px": [
+        0,
+        1
+      ],
+      "duration_seconds": 0.15,
+      "sha256": "77486e0234fb96e68bc59777d7da2d6e745260f76b5ef106ebad0af7a2e736d0",
+      "source_crop_pixel_signature": "a54b8235ec45839442b04bf46bccf9b90212b71d69d47138a55ed25b6ea1e1bf",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 4,
+      "file": "slide-frame-04.png",
+      "sheet_bounds_xyxy": [
+        1330,
+        0,
+        1774,
+        444
+      ],
+      "trim_right_bottom_px": [
+        1,
+        1
+      ],
+      "duration_seconds": 0.15,
+      "sha256": "8de6821514481fdae9701ce9c5ba73b90e2accd8fc6c5536df27db31b86433a4",
+      "source_crop_pixel_signature": "9a0bd27dcb2b04f641083ce76af8504cffed401cde22969b341c9022c75efbe9",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 5,
+      "file": "slide-frame-05.png",
+      "sheet_bounds_xyxy": [
+        0,
+        444,
+        444,
+        887
+      ],
+      "trim_right_bottom_px": [
+        1,
+        0
+      ],
+      "duration_seconds": 0.15,
+      "sha256": "bc6dd4c474da70c6221b125d19cc66a72e1e07848e2a4c34d96d98f17e5aec24",
+      "source_crop_pixel_signature": "2420b3adc3aec6dda5861db8507e174b96455770fbb57e204a8125ac049d897f",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 6,
+      "file": "slide-frame-06.png",
+      "sheet_bounds_xyxy": [
+        444,
+        444,
+        887,
+        887
+      ],
+      "trim_right_bottom_px": [
+        0,
+        0
+      ],
+      "duration_seconds": 0.15,
+      "sha256": "09b4c412a6f046777969a7da341573882387f42aac355c413da3980f6a2f9205",
+      "source_crop_pixel_signature": "d56ec6a1cc0e5d84304966a951df6b3ba1b69438f316538057d8f1ad276f803c",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 7,
+      "file": "slide-frame-07.png",
+      "sheet_bounds_xyxy": [
+        887,
+        444,
+        1330,
+        887
+      ],
+      "trim_right_bottom_px": [
+        0,
+        0
+      ],
+      "duration_seconds": 0.15,
+      "sha256": "b974a33bfda1d2ed741bd6e7e7bb477a68346945b809e6413275fffe1fb59574",
+      "source_crop_pixel_signature": "d00d5e51b60209d0e4c4153e5fac3a310384dc602a689a364714ea71595b1c3a",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 8,
+      "file": "slide-frame-08.png",
+      "sheet_bounds_xyxy": [
+        1330,
+        444,
+        1774,
+        887
+      ],
+      "trim_right_bottom_px": [
+        1,
+        0
+      ],
+      "duration_seconds": 0.15,
+      "sha256": "a0139970bb77c79b0c29ca3ba82c09fe3b1e4e4202a834d5a2b718f8f238508e",
+      "source_crop_pixel_signature": "3d80bfb97b3cf0d9909e5e30c50c6d0bba957520f9dcc81833977a86b61da372",
+      "lossless_pixel_match": true
+    }
+  ],
+  "verification": {
+    "lossless_source_crops": 8,
+    "gif_frames": 8,
+    "timings_verified": true
+  },
+  "gif": {
+    "file": "slide.gif",
+    "sha256": "f80a9eb2d5b40d1cf4af21f92f962879b5566b188ed4cd996ab275d865ea3b2d",
+    "canvas_width_height_delay_centiseconds": [
+      [
+        443,
+        443,
+        15
+      ],
+      [
+        443,
+        443,
+        15
+      ],
+      [
+        443,
+        443,
+        15
+      ],
+      [
+        443,
+        443,
+        15
+      ],
+      [
+        443,
+        443,
+        15
+      ],
+      [
+        443,
+        443,
+        15
+      ],
+      [
+        443,
+        443,
+        15
+      ],
+      [
+        443,
+        443,
+        15
+      ]
+    ],
+    "encoding": "GIF palette encoding; infinite loop"
+  },
+  "mp4": {
+    "file": "slide.mp4",
+    "sha256": "2b71a2f903b9d2626f0a6f7c0b3e60920b8dc012be817c0ce675defe6731a66c",
+    "probe": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "width": 444,
+          "height": 444,
+          "nb_frames": "120"
+        }
+      ],
+      "format": {
+        "duration": "1.200000"
+      }
+    },
+    "encoding": "H.264 yuv420p at 100 frames/sec for exact centisecond holds; duplicate stills only; at most one right/bottom padding pixel for even dimensions; no interpolation"
+  }
+}

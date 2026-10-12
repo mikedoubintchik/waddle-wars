@@ -8,8 +8,10 @@ extends Node
 
 const GOLDEN_SEED: int = 20260818
 const DISTANCES: PackedFloat32Array = [2.0, 74.0, 146.0, 218.0, 280.0]
+const PosedBounds = preload("res://tests/posed_mesh_screen_bounds.gd")
 
 var _out_path: String = "qa_shots/runner/golden.png"
+var _capture_distances: PackedFloat32Array = DISTANCES
 var _game: RunnerGame = null
 var _shot: int = 0
 var _started: bool = false
@@ -29,6 +31,7 @@ func _ready() -> void:
 			continue
 		match parts[0]:
 			"out": _out_path = parts[1]
+			"distance": _capture_distances = PackedFloat32Array([float(parts[1])])
 			"w": width = int(parts[1])
 			"h": height = int(parts[1])
 			"touch": emulate_touch = parts[1].to_lower() in ["1", "true", "yes"]
@@ -47,7 +50,20 @@ func _ready() -> void:
 	SettingsManager.apply_all()
 	DisplayServer.window_set_size(Vector2i(width, height))
 	DisplayServer.window_set_position(Vector2i(40, 60))
-	DisplayServer.window_move_to_foreground()
+	if "raster_background=1" not in OS.get_cmdline_user_args():
+		DisplayServer.window_move_to_foreground()
+	if "foreground_gate=1" in OS.get_cmdline_user_args():
+		set_process(false)
+		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, true)
+		var focus_deadline := Time.get_ticks_msec() + 20000
+		print("[runner-golden] awaiting actual foreground activation before real scene build")
+		while not get_window().has_focus() and Time.get_ticks_msec() < focus_deadline:
+			await get_tree().process_frame
+		if not get_window().has_focus():
+			push_error("runner-golden: foreground activation gate expired; no raster acceptance")
+			get_tree().quit(2)
+			return
+		print("[runner-golden] actual foreground activation confirmed")
 	var scene := load(Game.SCENE_RUNNER) as PackedScene
 	if scene == null:
 		push_error("runner_golden_shot: runner scene missing")
@@ -56,6 +72,7 @@ func _ready() -> void:
 	_game = scene.instantiate() as RunnerGame
 	add_child(_game)
 	_deadline = Time.get_ticks_msec() * 0.001 + 45.0
+	set_process(true)
 
 
 func _process(_delta: float) -> void:
@@ -80,7 +97,7 @@ func _process(_delta: float) -> void:
 		_game.player.set_input_enabled(false)
 		if _game.hud != null:
 			_game.hud.show_message("")
-	if _shot >= DISTANCES.size():
+	if _shot >= _capture_distances.size():
 		get_tree().quit(1 if _save_failed or _framing_failed else 0)
 		return
 	_capturing = true
@@ -88,13 +105,13 @@ func _process(_delta: float) -> void:
 
 
 func _capture(index: int) -> void:
-	var distance := DISTANCES[index]
+	var distance := _capture_distances[index]
 	var player := _game.player
 	player.distance = distance
 	player.position = Vector3(0.0, 0.0, -distance)
 	player.lane = 1
 	player.speed = lerpf(RunnerConfig.START_SPEED, RunnerConfig.MAX_SPEED,
-			float(index) / float(DISTANCES.size() - 1))
+			float(index) / float(maxi(_capture_distances.size() - 1, 1)))
 	player._launched = false
 	player._vertical = 0.0
 	match index:
@@ -158,19 +175,12 @@ func _capture(index: int) -> void:
 func _hero_screen_fraction() -> float:
 	if _game.camera == null or _game.player == null:
 		return 0.0
-	var low := INF
-	var high := -INF
-	for raw: Node in _game.player.find_children("*", "MeshInstance3D", true, false):
-		var mesh := raw as MeshInstance3D
-		if mesh.mesh == null or not mesh.visible:
-			continue
-		var box := mesh.get_aabb()
-		for x: float in [box.position.x, box.end.x]:
-			for y: float in [box.position.y, box.end.y]:
-				for z: float in [box.position.z, box.end.z]:
-					var screen := _game.camera.unproject_position(
-							mesh.global_transform * Vector3(x, y, z))
-					low = minf(low, screen.y)
-					high = maxf(high, screen.y)
-	var height := get_viewport().get_visible_rect().size.y
-	return 0.0 if is_inf(low) or height <= 0.0 else (high - low) / height
+	var bounds := PosedBounds.measure(_game.player, _game.camera)
+	print("[runner_golden_shot] hero bounds meshes=%d vertices=%d skinned=%d morphed=%d hidden=%d scope=%s" % [
+		bounds.mesh_count, bounds.vertex_count, bounds.skinned_vertices,
+		bounds.morphed_vertices, bounds.hidden_meshes, bounds.scope])
+	if not bounds.valid:
+		_framing_failed = true
+		push_error("runner_golden_shot: hero bounds invalid: %s" % "; ".join(bounds.errors))
+		return 0.0
+	return bounds.height_fraction

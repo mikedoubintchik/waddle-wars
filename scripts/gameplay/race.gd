@@ -25,6 +25,12 @@ func _ready() -> void:
 				SceneRouter.go_to(Game.SCENE_MAIN_MENU)
 				return
 			course = _instantiate_course_script(String(info.get("script", "res://scripts/courses/course_glacier.gd")))
+	# Course construction still runs in _ready/staged coroutines, but moving
+	# platforms and hazard timers must not advance underneath the loader.
+	# Tutorial/endless own their distinct start boundaries; standard races
+	# release this hold only at GO through RaceManager.
+	if Game.mode != Game.Mode.ENDLESS and Game.mode != Game.Mode.TUTORIAL:
+		course.process_mode = Node.PROCESS_MODE_DISABLED
 	course.add_to_group(&"course")
 	add_child(course)
 	# On web the course builds itself over several frames so the loading
@@ -50,7 +56,6 @@ func _ready() -> void:
 			SceneRouter.go_to(Game.SCENE_MAIN_MENU)
 			return
 		course.call(entry, self, powerups)
-		ShaderWarmup.warm(self)
 		return
 
 	Game.used_item_this_race = false
@@ -122,14 +127,9 @@ func _ready() -> void:
 	var music := String(CoursesDB.get_item(course_id).get("music", "music_race"))
 	AudioManager.play_music(music)
 
-	# Course geometry, props, HUD and the chase camera all exist now, and the
-	# racers are queued on the deferred flush — the last moment before anything
-	# is playable and the last moment SceneRouter's opaque overlay is still up.
-	# ShaderWarmup links every first-sight GPU program here so Chrome's
-	# ANGLE -> Metal path cannot stall a frame mid-race on a material it has
-	# never drawn. It runs for two or three frames and frees itself; headless
-	# sims skip it entirely.
-	ShaderWarmup.warm(self)
+	# Actor setup is still deferred/staged here. RaceManager starts the one-shot
+	# visual census after the final grid placement; TutorialManager owns the
+	# equivalent boundary for Waddle School. Collecting here missed late meshes.
 
 
 ## Runs after RaceManager's deferred player.setup, so the controller exists.

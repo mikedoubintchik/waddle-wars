@@ -1,0 +1,364 @@
+{
+  "source_height_m": 1.6931614875793457,
+  "gameplay_height_m": 1.05,
+  "gameplay_scale": 0.6201416744371788,
+  "author_axes": "Blender +Z up, +Y forward; exporter converts to glTF/Godot +Y up, -Z forward",
+  "bounds_author_m": {
+    "min": [
+      -0.7124186158180237,
+      -0.3670448362827301,
+      0.0
+    ],
+    "max": [
+      0.7117675542831421,
+      0.5318607687950134,
+      1.6931614875793457
+    ]
+  },
+  "root_transform": "identity",
+  "pose": {
+    "body_forward_pitch_degrees": 11,
+    "right_hip_settle_m": 0.04,
+    "integrated_lower_hem": {
+      "depth_m": 0.024,
+      "rear_overlap_m": 0.065,
+      "spacing_m": 0.105,
+      "fade_start_z_m": 0.23,
+      "fade_end_z_m": 0.31,
+      "rear_base_weight": 0.4,
+      "rear_scallop_weight": 0.2
+    },
+    "pose_scope": "Static reference stance; shared anatomical foot loft, upper ankle lean and right lower-rump settle. No rig or animation.",
+    "author_hip_pivot_yz_m": [
+      0.045,
+      0.28
+    ],
+    "leaned_parts": [
+      "continuous_body_head",
+      "flipper_L",
+      "flipper_R",
+      "short_tail_fan"
+    ],
+    "feet_rotated_with_body": false,
+    "crown_forward_direction": "author +Y; exported Godot -Z",
+    "static_reference_foot_poses": {
+      "L": {
+        "forward_offset_m": 0,
+        "height_scale": 1,
+        "width_scale": 0.94,
+        "yaw_offset_degrees": -6,
+        "center_x_offset_m": 0.0215,
+        "upper_lean_y_m": -0.18,
+        "upper_lean_x_m": 0,
+        "upper_bulge_y_m": -0.08,
+        "upper_lean_full_z_m": 0.225,
+        "upper_lean_start_z_m": 0.055
+      },
+      "R": {
+        "forward_offset_m": 0,
+        "height_scale": 1,
+        "width_scale": 1,
+        "yaw_offset_degrees": 0,
+        "center_x_offset_m": 0.04,
+        "upper_lean_y_m": -0.045,
+        "upper_lean_x_m": -0.04,
+        "upper_bulge_y_m": 0,
+        "upper_lean_full_z_m": 0.18,
+        "upper_lean_start_z_m": 0.09,
+        "heel_width_scale": 0.7,
+        "rear_pad_detail_enabled": false
+      }
+    },
+    "static_reference_flipper_poses": {
+      "L": {
+        "length_scale": 1.08
+      },
+      "R": {
+        "length_scale": 0.975
+      }
+    },
+    "attachment_checks": [
+      {
+        "part": "foot_L",
+        "ankle_cap_body_ellipse_ratio": 0.7718474956711996,
+        "sole_min_z_m": 0.0,
+        "ankle_cap_m": [
+          -0.2744775764604029,
+          -0.11467025236541308,
+          0.285
+        ]
+      },
+      {
+        "part": "foot_R",
+        "ankle_cap_body_ellipse_ratio": 0.32910195374389956,
+        "sole_min_z_m": 0.0,
+        "ankle_cap_m": [
+          0.2558070233172733,
+          0.0286641022651875,
+          0.285
+        ]
+      }
+    ]
+  },
+  "parts_vertex_ranges": {
+    "continuous_body_head": [
+      0,
+      2258
+    ],
+    "flipper_L": [
+      2258,
+      2740
+    ],
+    "flipper_R": [
+      2740,
+      3222
+    ],
+    "foot_L": [
+      3222,
+      5144
+    ],
+    "foot_R": [
+      5144,
+      7066
+    ],
+    "short_tail_fan": [
+      7066,
+      7372
+    ]
+  },
+  "anatomical_foot_direction": {
+    "left": {
+      "outward_splay_degrees": 12.000000000000002,
+      "heel_width_scale": 1.0,
+      "rear_pad_detail_enabled": true,
+      "rear_heel": [
+        -0.20656071603298187,
+        0.009594304487109184,
+        0.06666464358568192
+      ],
+      "forward_middle_toe": [
+        -0.27205291390419006,
+        0.0,
+        -0.22226324677467346
+      ],
+      "ankle_cap": [
+        -0.2744775712490082,
+        0.2849999964237213,
+        0.11467025429010391
+      ],
+      "anatomical_forward_direction_godot": [
+        -0.2079116851091385,
+        0.0,
+        -0.9781476259231567
+      ],
+      "ankle_to_toe_forward_m": 0.3290665960521437,
+      "ankle_to_heel_forward_m": 0.03283586446195841,
+      "forward_toe_axis_dot_body_forward": 0.9781476259231567
+    },
+    "right": {
+      "outward_splay_degrees": 18.0,
+      "heel_width_scale": 0.7,
+      "rear_pad_detail_enabled": false,
+      "rear_heel": [
+        0.2105015516281128,
+        0.0,
+        0.08195213973522186
+      ],
+      "forward_middle_toe": [
+        0.3078418970108032,
+        0.0,
+        -0.21763066947460175
+      ],
+      "ankle_cap": [
+        0.2558070123195648,
+        0.2849999964237213,
+        -0.028664102777838707
+      ],
+      "anatomical_forward_direction_godot": [
+        0.30901700258255005,
+        0.0,
+        -0.9510565400123596
+      ],
+      "ankle_to_toe_forward_m": 0.19579756259918213,
+      "ankle_to_heel_forward_m": -0.1192024601623416,
+      "forward_toe_axis_dot_body_forward": 0.9510565400123596
+    }
+  },
+  "schema_version": 1,
+  "gate": "rear-surface-v1",
+  "material_contract": "rear-surface-pbr-v1",
+  "unrigged": true,
+  "production_ready": false,
+  "animation_ready": false,
+  "visual_approval": "pending actual-game surface review",
+  "glb_sha256": "b21ca5327a7798b31b1b5b7aa098a4452c623db2c95044244aa490fb72fc7484",
+  "source_sha256": "7253e147302eb8476524d9694cb6f8eb0032cac7a37ca58bd730e7723fde98b2",
+  "builder_sha256": "8fb828a22695d19a98e93efef8b0c1a6a6b67e2c04d39dc80c16f8a661cc5442",
+  "reference_file": "art_src/characters/reference_boards/penguin-gameplay-v2-20261011/animatics-strong-lean/waddle-frame-04.png",
+  "geometry_reference": {
+    "path": "art_src/characters/penguin_rear_blockout_v1/candidate.glb",
+    "glb_sha256": "94f30dc898acb8abb85230ddad569e8e9530e8fca9bfe84a05a2ac8a34732fd1"
+  },
+  "geometry_identity": {
+    "method": "Exact float32 POSITION+NORMAL per triangle, cyclic orientation canonicalized; UV seam vertex duplication allowed",
+    "sha256": "10b230ec9f0dfd6ea563af6186b3ea450bf9d0b2ebf2b4f66da019e0d305de9e",
+    "source_sha256": "10b230ec9f0dfd6ea563af6186b3ea450bf9d0b2ebf2b4f66da019e0d305de9e",
+    "passed": true
+  },
+  "triangles": 14720,
+  "triangle_budget": 15000,
+  "vertices": 8095,
+  "source_vertices": 7372,
+  "surfaces": 1,
+  "surface_maps": {
+    "base_color": {
+      "image_index": 1,
+      "sha256": "18e05c52d147ec460f6318e83ec73cf070b10e3a90e82eb388a80677b363ed8a",
+      "width": 1024,
+      "height": 1024,
+      "color_space": "srgb",
+      "channels": "RGB color"
+    },
+    "normal": {
+      "image_index": 0,
+      "sha256": "129581c3b83b47efaceee14bb2cd9fc79d972e68c25995958ed6d217c056f3db",
+      "width": 1024,
+      "height": 1024,
+      "color_space": "linear",
+      "channels": "RGB tangent-space XYZ"
+    },
+    "metallic_roughness": {
+      "image_index": 2,
+      "sha256": "87c623281e4a9dc2cde74dc2a9ab02a82678e4c1dd1927f80ad142250840486f",
+      "width": 1024,
+      "height": 1024,
+      "color_space": "linear",
+      "channels": "R unused255; G roughness; B metallic0"
+    }
+  },
+  "material": {
+    "name": "RearSurfaceMattePBR",
+    "base_color_factor": [
+      1,
+      1,
+      1,
+      1
+    ],
+    "effective_metallic": 0,
+    "metallic_factor": 1,
+    "roughness_factor": 1,
+    "normal_scale": 0.6499999761581421,
+    "color_owner": "baseColorTexture only; no vertex colors"
+  },
+  "atlas": {
+    "size": 1024,
+    "rectangles": {
+      "continuous_body_head": [
+        8,
+        8,
+        632,
+        1016
+      ],
+      "flipper_L": [
+        648,
+        520,
+        816,
+        1016
+      ],
+      "flipper_R": [
+        832,
+        520,
+        1000,
+        1016
+      ],
+      "foot_L": [
+        648,
+        264,
+        816,
+        504
+      ],
+      "foot_R": [
+        832,
+        264,
+        1000,
+        504
+      ],
+      "tail_top": [
+        648,
+        136,
+        816,
+        248
+      ],
+      "tail_bottom": [
+        832,
+        136,
+        1000,
+        248
+      ],
+      "tail_edge": [
+        648,
+        8,
+        1000,
+        120
+      ]
+    },
+    "covered_texels": 952192,
+    "padding_pixels": 8,
+    "normal_convention": "OpenGL tangent +Y; image UV origin bottom-left",
+    "color_adjustment": "Charcoal95% warm-neutralized atRGB1.28:1:.76, normalized to previous1.10:1:.92 luminance; same1.38 value factor; ivory/gold/orange unchanged",
+    "roughness_range": [
+      0.7599999904632568,
+      0.9050000309944153
+    ],
+    "feather_recipe": "v4 authored ImageGen irregular tapered feather clusters; broken courses; rump-coherent tail phase/pigment; source barbs low-passed",
+    "authored_source": {
+      "path": "art_src/characters/penguin_rear_surface_v1/material_sources/feather-source-v2.png",
+      "sha256": "c0bc96ee273edfcfaf6350fb4319cf15af9c5a175332bd961609ec5b02adb4cc",
+      "prompt_path": "art_src/characters/penguin_rear_surface_v1/material_sources/feather-source-v2-prompt.txt",
+      "prompt_sha256": "a54d643607448cc4abe3e0744b4745e4b50ce49c7e561a3ecf74605ab0136fa6",
+      "generator": "OpenAI built-in ImageGen",
+      "original_path": "/Users/ninja/.codex/generated_images/01a12d09-d5ea-7952-8a60-3670fc421c94/exec-630cf216-24e4-48cf-82e1-17068bd9e3d1.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "raw_luma_p5_p50_p95": [
+        0.1697443127632141,
+        0.23023530840873718,
+        0.3114713728427887
+      ],
+      "pigment_luma_p5_p50_p95": [
+        0.1915811337530613,
+        0.23315975069999695,
+        0.28465016931295395
+      ],
+      "relief_luma_p5_p50_p95": [
+        0.20480342954397202,
+        0.2326473891735077,
+        0.2719746306538582
+      ],
+      "orientation": "Source PNG tips point down. Blender pixel array is bottom-left; all chart/source v derivatives positive. Atlas PNG row flip is serialization only."
+    },
+    "authored_mapping": {
+      "body_source_u_periods": "2.3 at rump to3.9 crown; source widths vary12\u201314 across; approximately18\u201324 visible midback faces",
+      "body_source_v": "1.75*v+.8*v^2+.17; derivative1.75..3.35 >0",
+      "flipper_source_span": [
+        0.78,
+        0.34
+      ],
+      "tail_mapping": "Original tail X/Z and edge perimeter projected into body UV; same authored feather phase and body pigment as rump; common source normalization; approximately2\u20133 tiers",
+      "tail_tiers": 3,
+      "normal_guide": "Two-pass7px source box low pass; inferred shallow face relief, not recovered physical height",
+      "pigment_filter": "Two-pass3px source box low pass; v2 filtered p5..p95 mapped to40% linear face spread, mean-normalized; extrema clamped .72..1.28",
+      "relief_strength": "Filtered v2 p5..p95 supplies72% of2mm body height span; no change to global material normalScale",
+      "foot_maps": "Original recipe unchanged; exact pixel comparison against7f required"
+    }
+  },
+  "rendered_frames": 0,
+  "deferred": [
+    "rig and animation",
+    "front face/podium authoring",
+    "runtime promotion"
+  ],
+  "reference_sha256": "edcf7e3e31d8595dc7ea600a1fcbb3157b47f016b0d38147e45108eeeb0a39bb"
+}

@@ -6,6 +6,16 @@ var _passes: int = 0
 var _failures: int = 0
 
 
+class PauseFixture:
+	extends RunnerGame
+
+	func _ready() -> void:
+		pass
+
+	func _process(_delta: float) -> void:
+		pass
+
+
 func _ready() -> void:
 	print("[runner_platform] contract checks starting")
 	_test_mobile_orientation()
@@ -14,10 +24,23 @@ func _ready() -> void:
 	_test_accessibility_contract()
 	_test_runner_accessibility_effects()
 	_test_quality_ladder()
+	_test_intro_pacing_contract()
+	_test_endless_milestones()
+	_test_mvp_wardrobe_contract()
 	_test_shader_warmup_contract()
+	await _test_runner_visible_countdown()
+	await _test_runner_touch_pause()
+	await _test_runner_pause_feedback()
 	_test_runner_tunnel_static_light_contract()
 	_test_runner_stream_trace_contract()
 	_test_quality_governor_registration()
+	# GUI checks can leave pooled one-shot playback alive at immediate headless
+	# shutdown. Release that test audio before the Dummy driver is destroyed.
+	for player: Node in AudioManager.get_children():
+		if player is AudioStreamPlayer or player is AudioStreamPlayer3D:
+			player.stop()
+			player.stream = null
+	await get_tree().create_timer(0.1).timeout
 	print("[runner_platform] DONE: %d passed, %d failed" % [_passes, _failures])
 	get_tree().quit(1 if _failures > 0 else 0)
 
@@ -30,6 +53,95 @@ func _check(check_name: String, ok: bool, detail: String = "") -> void:
 	_failures += 1
 	var suffix := ": %s" % detail if detail != "" else ""
 	print("[runner_platform] FAIL %s%s" % [check_name, suffix])
+
+
+func _test_intro_pacing_contract() -> void:
+	_check("gentle_speed_at_two_minutes", RunnerConfig.speed_at(120.0) <= 23.0)
+	_check("speed_ceiling_below_reflex_spike", RunnerConfig.speed_at(600.0) <= 27.0)
+	var track := RunnerTrack.new()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 419
+	var safe := [RunnerTrack.Pattern.OPEN, RunnerTrack.Pattern.FISH_ARC,
+		RunnerTrack.Pattern.LANE_WEAVE, RunnerTrack.Pattern.RAMP_RUN]
+	var opening_clear := true
+	var intro_safe := true
+	for index: int in RunnerTrack.INTRO_CHUNKS:
+		var pattern := track._pick_pattern(rng, 0.0, index)
+		if index < RunnerTrack.WARMUP_CHUNKS:
+			opening_clear = opening_clear and pattern == RunnerTrack.Pattern.OPEN
+		else:
+			intro_safe = intro_safe and pattern in safe
+	_check("four_obstacle_free_opening_chunks", opening_clear)
+	_check("intro_has_no_compulsory_jump_slide_or_seal", intro_safe)
+	track.free()
+
+
+func _test_endless_milestones() -> void:
+	var original := SaveManager.data.duplicate(true)
+	SaveManager.data = SaveManager.default_save()
+	var run := PauseFixture.new()
+	run._update_biome_milestone(RunnerTrack.BIOME_LENGTH - 1.0)
+	_check("biome_not_awarded_early", int(SaveManager.get_value("runner_biome_milestone", 0)) == 0)
+	run._update_biome_milestone(RunnerTrack.BIOME_LENGTH + 1.0)
+	_check("dusk_milestone_persists", int(SaveManager.get_value("runner_biome_milestone", 0)) == 1)
+	var xp := Progression.get_xp()
+	run._update_biome_milestone(RunnerTrack.BIOME_LENGTH + 2.0)
+	_check("biome_reward_once", Progression.get_xp() == xp)
+	var board_script := load("res://scripts/ui/leaderboard_menu.gd") as Script
+	var tabs: Array = board_script.call("tabs") if board_script != null else []
+	_check("runner_only_leaderboard", tabs.size() == 1)
+	run.free()
+	SaveManager.data = original
+
+
+func _test_mvp_wardrobe_contract() -> void:
+	var look := CharacterLook.from_equipped({
+		"body": "body_rockhopper", "hat": "hat_beanie",
+		"scarf": "scarf_red", "goggles": "goggles_ski",
+		"trail": "trail_snowflake",
+	}, CharacterLook.RenderRole.HERO)
+	var visual := PenguinVisual.new()
+	visual.setup_look(look)
+	_check("mvp_species_uses_visible_legacy_silhouette",
+		visual._scale_root != null and visual._scale_root.visible
+		and not visual.is_authored_backend_active())
+	for socket_id: StringName in [&"head", &"face", &"neck"]:
+		var socket := visual.get_socket(socket_id)
+		_check("mvp_cosmetic_attached_%s" % socket_id,
+			socket != null and socket.get_child_count() > 0)
+	var trail := TrailEffect.create("trail_snowflake")
+	var trail_mat := (trail.draw_pass_1 as PrimitiveMesh).material as StandardMaterial3D \
+		if trail != null else null
+	_check("mvp_trail_has_readable_particle_art",
+		trail_mat != null and trail_mat.albedo_texture != null)
+	if trail != null:
+		trail.free()
+	var rainbow := TrailEffect.create("trail_rainbow")
+	_check("rainbow_trail_has_gradient", rainbow != null and
+		(rainbow.process_material as ParticleProcessMaterial).color_ramp != null)
+	if rainbow != null:
+		rainbow.free()
+	var ear_look := CharacterLook.from_equipped({"body": "body_classic",
+		"hat": "hat_earwarmers"}, CharacterLook.RenderRole.HERO)
+	var ear_visual := PenguinVisual.new()
+	ear_visual.setup_look(ear_look)
+	var head := ear_visual.get_socket(&"head")
+	var has_front_torus := false
+	var arch := head.find_child("Headband",true,false) as MeshInstance3D if head != null else null
+	if head != null:
+		for child: Node in head.find_children("*","MeshInstance3D",true,false):
+			if (child as MeshInstance3D).mesh is TorusMesh:
+				has_front_torus = true
+	# Geometry contract, not the obsolete eight-cylinder implementation: a
+	# vertical crown arch spans both ears and rises above the hat socket while
+	# staying near its ear plane. A horizontal face-halo cannot satisfy it.
+	var arch_bounds := arch.transform * arch.mesh.get_aabb() if arch != null else AABB()
+	_check("earwarmers_use_crown_arch_not_face_halo", arch != null and not has_front_torus
+		and arch_bounds.size.x >= 0.44 and arch_bounds.size.y >= 0.20
+		and arch_bounds.position.y <= -0.07 and arch_bounds.end.y >= 0.08
+		and arch_bounds.position.z >= -0.04 and arch_bounds.end.z <= 0.08)
+	ear_visual.free()
+	visual.free()
 
 
 func _test_mobile_orientation() -> void:
@@ -244,6 +356,10 @@ func _test_runner_accessibility_effects() -> void:
 	player.invulnerable_for = 0.05  # Inside the normal blink's hidden phase.
 	access["reduced_flashing"] = false
 	player._drive_visual(0.0)
+	_check("runner_mvp_uses_distinct_legacy_species",
+		player._visual._root != null and not player._visual.is_authored_backend_active())
+	_check("runner_go_starts_run_without_recovery_delay",
+		player._visual.pose == PenguinVisual.Pose.RUN)
 	_check("runner_iframe_blink_default", not player._visual.visible)
 	access["reduced_flashing"] = true
 	player._drive_visual(0.0)
@@ -294,9 +410,9 @@ func _test_shader_warmup_contract() -> void:
 	var tunnel_mesh := RunnerTrack._tunnel_mesh()
 	var tunnel_material := RunnerTrack._tunnel_material()
 	var tunnel_cue_mesh := RunnerTrack._tunnel_light_cue_mesh()
-	var first_count := ShaderWarmup.external_probe_count()
+	var first_count := ShaderWarmup.external_probe_count(RunnerTrack.SHADER_WARMUP_SCOPE)
 	track._prime_art_cache()
-	var second_count := ShaderWarmup.external_probe_count()
+	var second_count := ShaderWarmup.external_probe_count(RunnerTrack.SHADER_WARMUP_SCOPE)
 	_check("runner_warmup_external_probes_registered", first_count > 0,
 		"count=%d" % first_count)
 	_check("runner_warmup_registration_idempotent", second_count == first_count,
@@ -305,14 +421,17 @@ func _test_shader_warmup_contract() -> void:
 		second_count <= ShaderWarmup.MAX_EXTERNAL_PROBES,
 		"count=%d max=%d" % [second_count, ShaderWarmup.MAX_EXTERNAL_PROBES])
 	_check("runner_warmup_contains_exact_tunnel_pair",
-		ShaderWarmup.has_external_probe(tunnel_mesh, tunnel_material))
+		ShaderWarmup.has_external_probe(tunnel_mesh, tunnel_material, [],
+				RunnerTrack.SHADER_WARMUP_SCOPE))
 	_check("runner_warmup_contains_exact_tunnel_cue_pair",
-		ShaderWarmup.has_external_probe(tunnel_cue_mesh, RunnerTrack._mark_material()))
+		ShaderWarmup.has_external_probe(tunnel_cue_mesh, RunnerTrack._mark_material(), [],
+				RunnerTrack.SHADER_WARMUP_SCOPE))
 	_check("runner_warmup_contains_exact_streamed_ice_pair",
-		ShaderWarmup.has_external_probe(streamed_ice_mesh, streamed_ice_material))
+		ShaderWarmup.has_external_probe(streamed_ice_mesh, streamed_ice_material, [],
+				RunnerTrack.SHADER_WARMUP_SCOPE))
 	_check("runner_warmup_streamed_ice_shader_exact",
 		streamed_ice_material.shader != null
-		and streamed_ice_material.shader.resource_path.ends_with("/ice.gdshader"),
+		and streamed_ice_material.shader.resource_path.ends_with("/runner_painted_surface_v1.gdshader"),
 		"shader=%s" % (streamed_ice_material.shader.resource_path
 				if streamed_ice_material.shader != null else "null"))
 	_check("runner_warmup_tunnel_reuses_prop_signature",
@@ -328,6 +447,7 @@ func _test_shader_warmup_contract() -> void:
 	var warmup := ShaderWarmup.new()
 	var anchor := Node3D.new()
 	warmup._world = track
+	warmup._external_scope = RunnerTrack.SHADER_WARMUP_SCOPE
 	warmup._anchor = anchor
 	warmup._build_queue()
 	var sequence := PackedStringArray()
@@ -410,6 +530,445 @@ func _test_shader_warmup_contract() -> void:
 	remove_child(pending)
 	pending.free()
 	track.free()
+
+
+func _test_runner_visible_countdown() -> void:
+	# Drive the real orchestrator across a deliberately slow construction seam.
+	# Before _ready finishes, dependencies can still be null; time cannot run.
+	var game := RunnerGame.new()
+	game._process(10.0)
+	_check("runner_no_countdown_during_construction",
+		is_equal_approx(game._countdown, RunnerGame.COUNTDOWN_TIME)
+		and not game.running and is_zero_approx(game.elapsed))
+	_check("loader_recognizes_unbuilt_runner_root",
+		SceneRouter._subtree_is_building(game))
+	add_child(game)
+	game.set_process(false)
+	# ArtCatalog's asynchronous preload yields even under the headless renderer.
+	# Observe actual completion instead of assuming _ready is synchronous.
+	for frame: int in 180:
+		if game.build_finished:
+			break
+		await get_tree().process_frame
+	_check("runner_headless_build_ready", game.build_finished)
+	if not game.build_finished:
+		game.free()
+		return
+	_check("loader_recognizes_finished_runner_root",
+		not SceneRouter._subtree_is_building(game))
+	var pending := ShaderWarmup.new()
+	# Keep this synthetic pending pass out of tree so no renderer is required.
+	game._startup_warmup = pending
+	game._process(10.0)
+	game._toggle_pause()
+	_check("runner_cannot_pause_under_loading_overlay", not get_tree().paused)
+	_check("runner_hazard_clocks_disabled_while_loading",
+		game.track.process_mode == Node.PROCESS_MODE_DISABLED)
+	_check("runner_no_countdown_during_warmup",
+		is_equal_approx(game._countdown, RunnerGame.COUNTDOWN_TIME)
+		and not game.running and not game.player._input_enabled
+		and is_zero_approx(game.player.distance))
+	pending.free()
+	var was_presenting := SceneRouter._presenting
+	SceneRouter._presenting = true
+	SceneRouter.go_to(Game.SCENE_MAIN_MENU)
+	_check("loader_preserves_startup_recovery_redirect",
+		SceneRouter._queued_scene_path == Game.SCENE_MAIN_MENU and not SceneRouter._busy)
+	SceneRouter._queued_scene_path = ""
+	game._process(10.0)
+	_check("runner_no_countdown_during_loader_fade",
+		is_equal_approx(game._countdown, RunnerGame.COUNTDOWN_TIME)
+		and not game._presentation_started and SceneRouter.is_busy())
+	SceneRouter._presenting = false
+	game._process(10.0)
+	_check("runner_discards_last_loading_frame_delta",
+		game._presentation_started and not game.running
+		and is_equal_approx(game._countdown, RunnerGame.COUNTDOWN_TIME))
+	_check("runner_hazard_clocks_resume_for_visible_countdown",
+		game.track.process_mode == Node.PROCESS_MODE_INHERIT)
+	game._process(0.4)
+	_check("runner_visible_countdown_advances",
+		is_equal_approx(game._countdown, RunnerGame.COUNTDOWN_TIME - 0.4)
+		and not game.running and not game.player._input_enabled)
+	game._process(RunnerGame.COUNTDOWN_TIME)
+	_check("runner_go_enables_input", game.running and game.player._input_enabled)
+	_test_runner_retry_blocked_by_loader(game)
+	game.restart()
+	_check("runner_idle_retry_resets_previous_result_and_mission_baselines",
+		not game._dead and game.running and game.player._input_enabled
+		and is_zero_approx(game._score)
+		and is_zero_approx(game.elapsed) and game.fish == 0 and game.hits_taken == 0
+		and game.ramps_hit == 0 and game.near_misses == 0
+		and is_zero_approx(game.missions._last_distance)
+		and is_zero_approx(game.missions._clean_base)
+		and is_zero_approx(game.missions._persist_distance))
+	_check("runner_retry_keeps_warm_presentation",
+		game._presentation_started and not is_instance_valid(game._startup_warmup)
+		and game._countdown <= 0.0 and game.player._input_enabled
+		and is_zero_approx(game.player.distance))
+	game._process(0.2)
+	_check("runner_retry_moves_on_first_process", game.player.distance > 0.0)
+	SceneRouter._presenting = was_presenting
+	game.free()
+
+	# Nested probes occur under RunnerGame, not only beneath the scene root.
+	var container := Node.new()
+	var nested := Node.new()
+	container.add_child(nested)
+	var nested_probe := ShaderWarmup.new()
+	nested.add_child(nested_probe)
+	_check("loader_recognizes_nested_warmup", SceneRouter._subtree_is_building(container))
+	nested_probe.free()
+	_check("loader_releases_finished_nested_warmup",
+		not SceneRouter._subtree_is_building(container))
+	container.free()
+
+
+func _test_runner_retry_blocked_by_loader(game: RunnerGame) -> void:
+	# Use the initialized runner and real restart entrypoint. No await may run
+	# while the actual autoload's flags are borrowed for these callback checks.
+	var saved_busy := SceneRouter._busy
+	var saved_presenting := SceneRouter._presenting
+	for phase: String in ["presenting", "busy"]:
+		SceneRouter._busy = phase == "busy"
+		SceneRouter._presenting = phase == "presenting"
+		game._dead = true
+		game.running = false
+		game._score = 321.0
+		game.elapsed = 17.0
+		game.fish = 11
+		game.hits_taken = 1
+		game.clean_metres = 66.0
+		game.ramps_hit = 2
+		game.near_misses = 3
+		game._countdown = 0.23
+		game.player.distance = 148.0
+		game.player.state = RunnerPlayer.State.DEAD
+		game.player.set_input_enabled(false)
+		game.missions._last_distance = 148.0
+		game.missions._clean_base = 33.0
+		game.missions._persist_distance = 130.0
+		var old_player := game.player
+		var mission_progress := game.missions._progress.duplicate()
+		game.restart()
+		_check("runner_%s_retry_preserves_dead_result" % phase,
+			game._dead and not game.running and is_equal_approx(game._score, 321.0)
+			and is_equal_approx(game.elapsed, 17.0) and game.fish == 11
+			and game.hits_taken == 1 and is_equal_approx(game.clean_metres, 66.0)
+			and game.ramps_hit == 2 and game.near_misses == 3
+			and is_equal_approx(game._countdown, 0.23))
+		_check("runner_%s_retry_preserves_exact_dead_player" % phase,
+			game.player == old_player and not old_player.is_queued_for_deletion()
+			and game.player.state == RunnerPlayer.State.DEAD
+			and is_equal_approx(game.player.distance, 148.0) and not game.player._input_enabled)
+		_check("runner_%s_retry_preserves_mission_run_state" % phase,
+			is_equal_approx(game.missions._last_distance, 148.0)
+			and is_equal_approx(game.missions._clean_base, 33.0)
+			and is_equal_approx(game.missions._persist_distance, 130.0)
+			and game.missions._progress == mission_progress)
+	SceneRouter._busy = saved_busy
+	SceneRouter._presenting = saved_presenting
+
+
+func _test_runner_touch_pause() -> void:
+	# An actual viewport dispatches shipped HUD input before RunnerTouch's
+	# unhandled phase. No renderer, provider or full runner construction needed.
+	var saved_insets := LayoutProfile.forced_insets
+	var saved_hud_scale: Variant = SettingsManager.settings["accessibility"]["hud_scale"]
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(540, 960)
+	viewport.handle_input_locally = true
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(viewport)
+	var game := PauseFixture.new()
+	viewport.add_child(game)
+	game.player = RunnerPlayer.new()
+	game.add_child(game.player)
+	game.hud = RunnerHUD.new()
+	game.add_child(game.hud)
+	game.hud.setup()
+	game.hud.pause_pressed.connect(game._on_hud_pause_pressed)
+	game._touch = RunnerTouch.new()
+	game.add_child(game._touch)
+	game._touch.setup(game.player)
+	await get_tree().process_frame
+	var button := game.hud._pause_button
+	_check("runner_touch_pause_hidden_before_play", not button.visible and button.disabled)
+	button.pressed.emit()
+	_check("runner_touch_pause_loading_signal_rejected", not get_tree().paused)
+	game.build_finished = true
+	game._presentation_started = true
+	button.pressed.emit()
+	_check("runner_touch_pause_countdown_signal_rejected", not get_tree().paused)
+	game.running = true
+	game.hud.set_pause_available(true)
+	button.pressed.emit()
+	_check("runner_pause_real_button_opens_existing_overlay",
+		get_tree().paused and is_instance_valid(game._pause_layer))
+	_check("runner_pause_existing_resume_button_gui_works",
+		await _resume_runner_pause(viewport, game))
+
+	for scale: float in [0.8, 1.6]:
+		# Rebuild at the real accessibility setting so fonts/style minima scale
+		# too, then rotate the same live HUD through both viewport orientations.
+		SettingsManager.settings["accessibility"]["hud_scale"] = scale
+		game.hud.free()
+		game.hud = RunnerHUD.new()
+		game.add_child(game.hud)
+		game.hud.setup()
+		game.hud.pause_pressed.connect(game._on_hud_pause_pressed)
+		game.hud.set_pause_available(true)
+		button = game.hud._pause_button
+		for row: Dictionary in [
+			{"name": "portrait", "size": Vector2i(540, 960)},
+			{"name": "landscape", "size": Vector2i(960, 540)},
+		]:
+			viewport.size = row["size"]
+			for insets: Vector4 in [Vector4(24, 24, 24, 24), Vector4(13, 29, 47, 31)]:
+				LayoutProfile.forced_insets = insets
+				game.hud._relayout()
+				await get_tree().process_frame
+				var profile := LayoutProfile.for_view_size(Vector2(viewport.size), insets)
+				var actual := button.get_global_rect()
+				var tag := "%s_%s_x%.1f" % [row["name"], str(insets), scale]
+				_check("runner_pause_safe_live_%s" % tag,
+					profile.contains_safe_rect(actual) and actual.size.x >= 56.0 \
+					and actual.size.y >= 56.0, "safe=%s button=%s" % [profile.safe_rect, actual])
+				_check("runner_pause_live_matches_budget_%s" % tag,
+					actual.is_equal_approx(RunnerHUD.pause_rect_for_profile(profile, scale)))
+				_check("runner_pause_no_headline_overlap_%s" % tag,
+					not actual.intersects(game.hud._headline_column.get_global_rect()),
+					"pause=%s headline=%s" % [actual, game.hud._headline_column.get_global_rect()])
+				_check("runner_pause_powerups_below_control_%s" % tag,
+					game.hud._powerup_box.get_global_rect().position.y >= actual.end.y)
+				await _test_runner_gui_resume_cycle(viewport, game, tag)
+
+	# Both finger 0 and a second finger own their entire pause gesture, even if
+	# Resume is activated before the first finger lifts and it moves off-button.
+	for index: int in [0, 1]:
+		game.player.state = RunnerPlayer.State.RUN
+		game.player.lane = 1
+		game._touch._begin(Vector2(240, 460))
+		var at := button.get_global_rect().get_center()
+		_push_runner_touch(viewport, index, at, true)
+		_check("runner_pause_touch_%d_dispatch_and_cancel" % index,
+			get_tree().paused and viewport.is_input_handled() \
+			and not game._touch._tracking and not game._touch._fired)
+		if index == 0:
+			_push_runner_emulated_mouse(viewport, at, true)
+			_check("runner_pause_touch_emulated_mouse_no_double_toggle",
+				get_tree().paused and viewport.is_input_handled())
+		# Finger 0 is still held, so a real mouse activates Resume in that case.
+		# Finger 1 may stay held while synthetic finger-0 mouse emulation resumes.
+		_check("runner_pause_touch_%d_gui_resume" % index,
+			await _resume_runner_pause(viewport, game, index != 0))
+		var drag := InputEventScreenDrag.new()
+		drag.index = index
+		drag.position = at + Vector2(-180, 130)
+		viewport.push_input(drag, true)
+		_check("runner_pause_touch_%d_drag_consumed" % index, viewport.is_input_handled())
+		_push_runner_touch(viewport, index, drag.position, false)
+		_check("runner_pause_touch_%d_release_consumed_no_movement" % index,
+			viewport.is_input_handled() and game.player.state == RunnerPlayer.State.RUN \
+			and game.player.lane == 1 and not get_tree().paused)
+		if index == 0:
+			_push_runner_emulated_mouse(viewport, drag.position, false)
+			_check("runner_pause_touch_emulated_release_cannot_repause",
+				viewport.is_input_handled() and not get_tree().paused)
+		# Existing overlay disposal is deferred; do not let its departing scrim
+		# invalidate the next unrelated-gesture positive control.
+		await get_tree().process_frame
+
+	# Positive controls: unrelated gestures still reach the real recognizer.
+	game._touch.setup(game.player)
+	var gameplay_at := Vector2(240, 460)
+	_push_runner_touch(viewport, 2, gameplay_at, true)
+	_push_runner_touch(viewport, 2, gameplay_at, false)
+	_check("runner_pause_unowned_tap_still_jumps", game.player.state == RunnerPlayer.State.JUMP)
+	game.player.state = RunnerPlayer.State.RUN
+	_push_runner_touch(viewport, 2, gameplay_at, true)
+	var gameplay_drag := InputEventScreenDrag.new()
+	gameplay_drag.index = 2
+	gameplay_drag.position = gameplay_at + Vector2(80, 0)
+	viewport.push_input(gameplay_drag, true)
+	_push_runner_touch(viewport, 2, gameplay_drag.position, false)
+	_check("runner_pause_unowned_swipe_still_changes_lane", game.player.lane == 2)
+
+	var saved_busy := SceneRouter._busy
+	SceneRouter._busy = true
+	button.pressed.emit()
+	_check("runner_touch_pause_busy_rejected", not get_tree().paused)
+	SceneRouter._busy = saved_busy
+	game._dead = true
+	game.running = false
+	game.hud.show_game_over({})
+	button.pressed.emit()
+	game._toggle_pause()
+	_check("runner_touch_pause_results_hidden_and_rejected",
+		not button.visible and button.disabled and not get_tree().paused)
+	game.hud.hide_game_over()
+	game._dead = false
+	button.pressed.emit()
+	_check("runner_touch_pause_no_active_run_rejected", not get_tree().paused)
+	LayoutProfile.forced_insets = saved_insets
+	SettingsManager.settings["accessibility"]["hud_scale"] = saved_hud_scale
+	viewport.free()
+
+
+func _test_runner_pause_feedback() -> void:
+	# Feedback is inside the pause footer. Put the covered HUD pause hit target
+	# underneath it deliberately: lower-layer raw input must not steal gestures.
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(1920, 1080)
+	viewport.handle_input_locally = true
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(viewport)
+	var game := PauseFixture.new()
+	viewport.add_child(game)
+	game.hud = RunnerHUD.new()
+	game.add_child(game.hud)
+	game.hud.setup()
+	game.hud.set_pause_available(true)
+	game.hud.pause_pressed.connect(game._on_hud_pause_pressed)
+	game.build_finished = true
+	game._presentation_started = true
+	game.running = true
+	game._toggle_pause()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var feedback := game._pause_layer.find_child("PauseFeedback", true, false) as Button
+	var card := game._pause_layer.find_child("PauseCard", true, false) as Control
+	_check("pause_feedback_inside_reference_card", card.get_global_rect().encloses(feedback.get_global_rect()))
+	game.hud._pause_button.global_position = feedback.global_position
+	var overlap := feedback.get_global_rect().intersection(game.hud._pause_button.get_global_rect())
+	_check("pause_feedback_reproduces_covered_hud_overlap", overlap.has_area())
+	var at := overlap.get_center()
+	var count := {"value":0}
+	feedback.pressed.connect(func() -> void: count["value"] += 1)
+	var motion := InputEventMouseMotion.new()
+	motion.device = InputEvent.DEVICE_ID_EMULATION
+	motion.position = at
+	motion.global_position = at
+	viewport.push_input(motion, true)
+	_push_runner_touch(viewport, 0, at, true)
+	_push_runner_emulated_mouse(viewport, at, true)
+	_push_runner_touch(viewport, 0, at, false)
+	_push_runner_emulated_mouse(viewport, at, false)
+	var form := game._pause_layer.get_node_or_null("FeedbackForm")
+	_check("pause_feedback_new_touch_reaches_overlay_once", count["value"] == 1 and form != null)
+	_check("pause_feedback_never_resumes_or_owns_new_touch", get_tree().paused
+		and game.hud._pause_button._touches.is_empty() and not game.hud._pause_button._emulated_press)
+	if form != null:
+		form.call("_close")
+	await get_tree().process_frame
+	_check("pause_feedback_close_preserves_pause", get_tree().paused and is_instance_valid(game._pause_layer))
+	_check("pause_feedback_resume_still_works", await _resume_runner_pause(viewport, game))
+	viewport.free()
+
+
+func _test_runner_gui_resume_cycle(viewport: SubViewport, game: RunnerGame, tag: String) -> void:
+	game.player.state = RunnerPlayer.State.RUN
+	game.player.lane = 1
+	game._touch.cancel_gesture()
+	var at := game.hud._pause_button.get_global_rect().get_center()
+	# Keep the pause-origin second finger held while GUI Resume uses finger 0.
+	_push_runner_touch(viewport, 1, at, true)
+	_check("runner_resume_gui_pause_entry_%s" % tag,
+		get_tree().paused and viewport.is_input_handled())
+	_check("runner_resume_gui_emulated_touch_%s" % tag,
+		await _resume_runner_pause(viewport, game))
+	var drag := InputEventScreenDrag.new()
+	drag.index = 1
+	drag.position = at + Vector2(-180, 130)
+	viewport.push_input(drag, true)
+	_check("runner_resume_gui_origin_drag_consumed_%s" % tag, viewport.is_input_handled())
+	_push_runner_touch(viewport, 1, drag.position, false)
+	_check("runner_resume_gui_origin_release_no_movement_%s" % tag,
+		viewport.is_input_handled() and not get_tree().paused \
+		and game.player.state == RunnerPlayer.State.RUN and game.player.lane == 1)
+	await get_tree().process_frame
+	# A new finger-0 pause must still work. Release its entire emulated stream
+	# while paused before using that finger for a separate GUI Resume tap.
+	_push_runner_touch(viewport, 0, at, true)
+	_push_runner_emulated_mouse(viewport, at, true)
+	_check("runner_resume_gui_second_pause_no_double_toggle_%s" % tag,
+		get_tree().paused and viewport.is_input_handled())
+	_push_runner_touch(viewport, 0, at, false)
+	_push_runner_emulated_mouse(viewport, at, false)
+	_check("runner_resume_gui_pause_release_stays_paused_%s" % tag,
+		get_tree().paused and viewport.is_input_handled() \
+		and game.player.state == RunnerPlayer.State.RUN and game.player.lane == 1)
+	_check("runner_resume_gui_second_resume_%s" % tag,
+		await _resume_runner_pause(viewport, game))
+	_check("runner_resume_gui_cycle_no_movement_%s" % tag,
+		not get_tree().paused and game._pause_layer == null \
+		and game.player.state == RunnerPlayer.State.RUN and game.player.lane == 1 \
+		and not game._touch._tracking and game.hud._pause_button._touches.is_empty())
+	await get_tree().process_frame
+
+
+func _resume_runner_pause(viewport: SubViewport, game: RunnerGame, emulate_touch: bool = true) -> bool:
+	if not is_instance_valid(game._pause_layer):
+		return false
+	# Containers need real process frames to sort the newly created overlay.
+	# These are engine-dispatched GUI events, not physical OS/device input.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	for child: Node in game._pause_layer.find_children("*", "Button", true, false):
+		var button := child as Button
+		if button.text.to_lower().contains("resume"):
+			var rect := button.get_global_rect()
+			if not button.is_visible_in_tree() or not rect.has_area() \
+					or not Rect2(Vector2.ZERO, Vector2(viewport.size)).encloses(rect):
+				game._close_pause()
+				return false
+			var activations := {"count": 0}
+			button.pressed.connect(func() -> void: activations["count"] += 1)
+			var at := rect.get_center()
+			var device := InputEvent.DEVICE_ID_EMULATION if emulate_touch else 0
+			var motion := InputEventMouseMotion.new()
+			motion.device = device
+			motion.position = at
+			motion.global_position = at
+			viewport.push_input(motion, true)
+			if emulate_touch:
+				_push_runner_touch(viewport, 0, at, true)
+			_push_runner_gui_mouse(viewport, at, true, device)
+			if emulate_touch:
+				_push_runner_touch(viewport, 0, at, false)
+			_push_runner_gui_mouse(viewport, at, false, device)
+			var resumed := not get_tree().paused and game._pause_layer == null \
+				and int(activations["count"]) == 1 and viewport.is_input_handled()
+			# A failed GUI assertion remains RED; cleanup only prevents that
+			# failure from leaving later, unrelated positive controls paused.
+			if not resumed and is_instance_valid(game._pause_layer):
+				game._close_pause()
+			return resumed
+	game._close_pause()
+	return false
+
+
+func _push_runner_touch(viewport: SubViewport, index: int, at: Vector2, down: bool) -> void:
+	var event := InputEventScreenTouch.new()
+	event.index = index
+	event.position = at
+	event.pressed = down
+	viewport.push_input(event, true)
+
+
+func _push_runner_emulated_mouse(viewport: SubViewport, at: Vector2, down: bool) -> void:
+	_push_runner_gui_mouse(viewport, at, down, InputEvent.DEVICE_ID_EMULATION)
+
+
+func _push_runner_gui_mouse(viewport: SubViewport, at: Vector2, down: bool, device: int) -> void:
+	var event := InputEventMouseButton.new()
+	event.device = device
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.button_mask = MOUSE_BUTTON_MASK_LEFT if down else 0
+	event.position = at
+	event.global_position = at
+	event.pressed = down
+	viewport.push_input(event, true)
 
 
 func _test_runner_tunnel_static_light_contract() -> void:

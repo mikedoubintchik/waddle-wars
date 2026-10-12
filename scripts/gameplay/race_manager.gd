@@ -47,10 +47,20 @@ var _pace_sample_time: float = -1.0
 ## Empty (and unused) whenever spawning runs straight through.
 var _spawn_queue: Array[Callable] = []
 var _spawn_staged: bool = false
+## Deferred spawning can have an empty queue before its callbacks run. Grid
+## placement, not queue length, is the completion boundary on both paths.
+var _grid_placed: bool = false
+## Countdown starts only after local construction/warmup and loader dismissal.
+## The first eligible tick discards the interval spent drawing the loader.
+var _presentation_started: bool = false
 
 
 func setup(p_course: CourseBase, p_powerups: PowerupSystem, time_trial: bool = false) -> void:
+	_grid_placed = false
+	_presentation_started = false
 	course = p_course
+	if course != null:
+		course.process_mode = Node.PROCESS_MODE_DISABLED
 	powerups = p_powerups
 	powerups.course = course
 	single_racer_mode = time_trial
@@ -60,6 +70,12 @@ func setup(p_course: CourseBase, p_powerups: PowerupSystem, time_trial: bool = f
 	_countdown_timer = 1.0
 	for racer: Racer in racers:
 		racer.set_physics_process(false)
+		# Deferred add_child has not entered these racers yet. Godot enables a
+		# scripted _physics_process while entering the tree, overriding the flag
+		# above. Reapply the hold after _ready, before any real physics tick;
+		# only _start_race may release it once the visible countdown reaches GO.
+		if not racer.is_node_ready():
+			racer.ready.connect(racer.set_physics_process.bind(false), CONNECT_ONE_SHOT)
 	# Let visuals idle during countdown.
 	set_physics_process(true)
 
@@ -84,8 +100,8 @@ func _process(_delta: float) -> void:
 
 
 func _spawn_racers() -> void:
-	# Same condition CourseBase uses: only the single-threaded web build pays
-	# for a stalled frame here.
+	# Same condition CourseBase uses: web and native phones avoid creating all
+	# eight racer visuals in one loading frame.
 	_spawn_staged = CourseBase.staged_builds_enabled()
 	var difficulty := DifficultyDB.get_item(Game.difficulty_id)
 	# Player.
@@ -156,9 +172,27 @@ func _place_on_grid() -> void:
 		racer.set("_facing_yaw", yaw)
 		racer.set("_velocity_yaw", yaw)
 		racer.last_checkpoint_transform = xform
+	# All deferred/staged actors now exist, and the orchestrator has attached
+	# its camera/HUD. Create warmup before releasing the construction latch so
+	# SceneRouter never observes a ready gap between spawning and preparation.
+	_start_visual_warmup()
+	_grid_placed = true
+
+
+func _start_visual_warmup() -> void:
+	# Collection is synchronous; the returned node owns the later draw work.
+	# Headless warmup is deliberately a no-op, not a reason to hold the grid.
+	ShaderWarmup.warm(get_parent())
 
 
 func _physics_process(delta: float) -> void:
+	if not _presentation_started:
+		if not _grid_placed or not SceneRouter.is_gameplay_ready(get_parent()):
+			return
+		_presentation_started = true
+		# A cold upload or the final fade can make this delta arbitrarily large.
+		# Keep the entire visible countdown, including direct/headless entry.
+		return
 	if not started:
 		_countdown_timer -= delta
 		if _countdown_timer <= 0.0:
@@ -194,10 +228,13 @@ func _physics_process(delta: float) -> void:
 
 func _start_race() -> void:
 	started = true
+	if is_instance_valid(course):
+		course.process_mode = Node.PROCESS_MODE_INHERIT
 	for racer: Racer in racers:
 		racer.set_physics_process(true)
 		if racer.controller is PlayerController:
 			var human := racer.controller as PlayerController
+			human.clear_pending_actions()
 			human.input_enabled = true
 			# However the player is holding the phone as the lights go out is
 			# what they mean by "straight ahead". Taking the neutral pose here

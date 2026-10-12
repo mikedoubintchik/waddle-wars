@@ -1,0 +1,36 @@
+{
+  "candidate_sha256": "c895c19f310f71d8667cc871b1947d9a5d635653c99ee5acca4035fcb063c62c",
+  "baseline_sha256": "b5826e16f4c975c92f469d9afe7d86ccfd6daef4d3b5718332dde59288a687a4",
+  "baseline_path": "qa_shots/penguin-tail-fan-flipper-match-20261012/rejected-b582/penguin_rear_surface_v3",
+  "all_geometry_attributes_bit_exact": {
+    "POSITION": true,
+    "NORMAL": true,
+    "TEXCOORD_0": true,
+    "TANGENT": true
+  },
+  "indices_bit_exact": true,
+  "body_feet_flipper_chart_pixels_exact": {
+    "continuous_body_head/base-color.png": true,
+    "foot_L/base-color.png": true,
+    "foot_R/base-color.png": true,
+    "flipper_L/base-color.png": true,
+    "flipper_R/base-color.png": true,
+    "continuous_body_head/normal.png": true,
+    "foot_L/normal.png": true,
+    "foot_R/normal.png": true,
+    "flipper_L/normal.png": true,
+    "flipper_R/normal.png": true,
+    "continuous_body_head/metallic-roughness.png": true,
+    "foot_L/metallic-roughness.png": true,
+    "foot_R/metallic-roughness.png": true,
+    "flipper_L/metallic-roughness.png": true,
+    "flipper_R/metallic-roughness.png": true
+  },
+  "tail_upper_root_v_075_to_1_maps_exact": {
+    "base-color.png": true,
+    "normal.png": true,
+    "metallic-roughness.png": true
+  },
+  "change": "Only tail-local authored motif1.5x wider/1.18x taller, central face raised and sides staggered. Rootblend, face/valley contrast recipe, normal height span and roughness unchanged.",
+  "note": "Source proof only; actual game remains final verification."
+}

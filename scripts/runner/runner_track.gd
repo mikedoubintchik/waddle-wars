@@ -18,7 +18,7 @@ extends Node3D
 ## THE WORLD HAS TO MOVE. A runner whose only moving parts are the ones the
 ## player dodges reads as a corridor with props in it, however good the props
 ## are. So: seals slide across the lanes, banners flap on the kerb, ice shards
-## tumble past the verge, gulls drift overhead, the fish bob and spin, crates
+## tumble past the verge, gulls drift overhead, the fish bob and spin, powerups
 ## turn on two axes, and the whole look changes every BIOME_LENGTH metres. All
 ## of it is instance-transform writes into MultiMeshes that already exist -- no
 ## extra nodes, no extra draw calls, and the entire animated set for a chunk is
@@ -49,6 +49,14 @@ extends Node3D
 ## the runner player owns the overlap test -- so their mask is 0 and their own
 ## monitoring stays off; being monitorABLE is the whole job.
 const HAZARD_LAYER: int = 1 << 9
+## Late stream probes own a bounded namespace; prior races cannot evict them.
+## Retry keeps cached resources/registrations rather than clearing any registry.
+const SHADER_WARMUP_SCOPE: StringName = &"runner"
+const PAINTED_SURFACE_SHADER: Shader = preload("res://assets/art/runner/materials/runner_painted_surface_v1.gdshader")
+const PAINTED_ICE_TEXTURE: String = "res://assets/art/runner/textures/runner_crystal_ice_v2.webp"
+const PAINTED_SNOW_TEXTURE: String = "res://assets/art/runner/textures/runner_painted_snow_v1.webp"
+const ReferenceIce = preload("res://scripts/runner/runner_reference_ice.gd")
+const ReferenceWalls = preload("res://scripts/runner/runner_reference_walls.gd")
 
 ## --- Corridor geometry ------------------------------------------------------
 ## Low kerb walls rather than a tunnel: they have to say "the deck ends here"
@@ -148,7 +156,10 @@ const POWERUP_CLEARANCE: float = 6.5
 
 ## --- Pacing -----------------------------------------------------------------
 ## Chunks at the very start of a run that are guaranteed empty.
-const WARMUP_CHUNKS: int = 3
+const WARMUP_CHUNKS: int = 4
+## First ~25 seconds teach lane choice and reward ramps before mandatory
+## jump/slide rows or moving seals enter the pattern pool.
+const INTRO_CHUNKS: int = 12
 ## Keeps obstacle rows off the chunk seams, so two chunks authored independently
 ## cannot butt two rows up against each other.
 const CHUNK_EDGE_MARGIN: float = 4.5
@@ -172,6 +183,21 @@ const KIND_GAP_HARD: float = 22.0
 ## cap exists so a teleport or a long frame hitch cannot turn into a multi-
 ## hundred-millisecond build spike.
 const MAX_SPAWNS_PER_UPDATE: int = 1
+## Rendered streaming assembles one detached chunk over several frames. Time is
+## the primary guard; the unit cap also makes scheduling bounded on very fast
+## machines where a millisecond clock may not advance between tiny operations.
+## One unit is at most one deck cassette, dressing family, obstacle, seal,
+## power-up, or fish collider -- never an entire chunk phase.
+const STREAM_BUILD_BUDGET_USEC: int = 4000
+const STREAM_BUILD_MAX_UNITS_PER_UPDATE: int = 4
+const STREAM_DECK_STAGE_COUNT: int = 5
+const STREAM_DRESSING_STAGE_COUNT: int = 11
+## A spent chunk exits collision/groups atomically, but releasing all of its
+## MultiMesh buffers and branches together needlessly concentrates destruction
+## in one browser callback. Dispose only a few already-detached branches on
+## later quiet updates. The indivisible branch can exceed this time budget.
+const STREAM_DISPOSE_BUDGET_USEC: int = 4000
+const STREAM_DISPOSE_MAX_BRANCHES_PER_UPDATE: int = 4
 ## Medium/low keep all gameplay colliders but stop submitting geometry beyond
 ## their authored far-chunk budgets. Both remain well past the 70 m decision
 ## horizon; high stays uncapped.
@@ -187,7 +213,7 @@ const DIFFICULTY_DISTANCE: float = 2600.0
 ## --- Biomes -----------------------------------------------------------------
 ## Metres of running per biome band. Long enough to settle into (25-40 seconds
 ## depending on speed), short enough that a five-minute run sees all four.
-const BIOME_LENGTH: float = 600.0
+const BIOME_LENGTH: float = RunnerConfig.BIOME_LENGTH
 const BIOME_COUNT: int = 4
 ## Internal showcase: ten authored pattern chunks, exactly 360 metres, all DAY.
 ## It is entered only through setup_golden_slice(); normal streaming never sees
@@ -229,10 +255,9 @@ const DAY_KIT_ASSETS: PackedStringArray = [
 	DAY_TUNNEL_ASSET, DAY_ICEBERG_ASSET,
 	DAY_RADAR_ASSET, DAY_HUB_ASSET, DAY_ICEBREAKER_ASSET,
 ]
-## Global warmup probes are intentionally bounded and survive scene changes.
-## Register late/far DAY buffers first so a prior authored course cannot evict
-## the assets absent from opening runner chunks. Deck variants sit last because
-## their first real instances are already submitted under loading overlay.
+## Runner-scoped warmup probes are bounded and survive scene changes. Late/far
+## DAY buffers precede opening decks; every known pair fits the independent
+## 32-entry runner budget even after another mode fills its legacy registry.
 const DAY_WARMUP_ASSETS: PackedStringArray = [
 	DAY_HUB_ASSET, DAY_ICEBREAKER_ASSET, DAY_RADAR_ASSET,
 	DAY_TUNNEL_ASSET, DAY_ICEBERG_ASSET,
@@ -299,7 +324,6 @@ static var _deck_mesh_cache: PlaneMesh = null
 static var _seam_mesh_cache: ArrayMesh = null
 static var _verge_mesh_cache: ArrayMesh = null
 static var _authored_day_shelf_mesh_cache: ArrayMesh = null
-static var _block_mesh_cache: ArrayMesh = null
 static var _low_mesh_cache: ArrayMesh = null
 static var _arch_mesh_cache: ArrayMesh = null
 static var _fish_mesh_cache: ArrayMesh = null
@@ -321,8 +345,9 @@ static var _powerup_ring_mesh_cache: TorusMesh = null
 static var _crate_meshes: Dictionary = {}
 static var _powerup_materials: Dictionary = {}
 static var _fish_material_cache: StandardMaterial3D = null
-static var _dodge_material_cache: StandardMaterial3D = null
 static var _mark_material_cache: StandardMaterial3D = null
+static var _painted_surface_cache: Dictionary = {}
+static var _painted_texture_cache: Dictionary = {}
 static var _box_shapes: Dictionary = {}
 static var _sphere_shapes: Dictionary = {}
 
@@ -356,6 +381,7 @@ var _next_powerup_z: float = 0.0
 var _powerup_cursor: int = 0
 var _golden_slice: bool = false
 var _dressing_density: float = 1.0
+var _dressing_range_scale: float = 0.0
 var _runner_art_set: RunnerArtSet = null
 var _art_catalog: ArtCatalog = null
 var _authored_day_meshes: Dictionary = {}
@@ -363,9 +389,72 @@ var _authored_day_surface_material: Material = null
 var _authored_day_shell_material: Material = null
 var _perf_trace_events: Array[Dictionary] = []
 var _perf_last_tunnel_lights: int = -1
+var _stream_job: StreamBuildJob = null
+var _retiring_chunks: Array[RunnerChunk] = []
+var _live_range_pending: Array[RunnerChunk] = []
+
+
+enum StreamBuildPhase {
+	DECK,
+	DRESSING,
+	TUNNEL,
+	PATTERN,
+	POWERUP,
+	FINISH,
+	RANGE,
+	COMMIT,
+}
+
+
+## Detached build state. Only one exists, so the track's cross-chunk fairness
+## cursors advance in exactly the same order as synchronous generation.
+class StreamBuildJob:
+	extends RefCounted
+	var chunk: RunnerChunk = null
+	var index: int = 0
+	var difficulty: float = 0.0
+	var pattern: int = 0
+	var rng: RandomNumberGenerator = null
+	var art_rng: RandomNumberGenerator = null
+	var phase: int = 0
+	var step: int = 0
+	var pattern_work: Dictionary = {}
+	var stage_cpu_us: Dictionary = {}
+	var started_usec: int = 0
+	var frames: int = 0
+	var units: int = 0
+	var max_unit_us: int = 0
+	var current_unit: String = "reserved"
+	var elapsed_seconds: float = 0.0
 
 
 ## --- Public API -------------------------------------------------------------
+
+func _init() -> void:
+	# Streaming enables this only while a detached job exists. Its delta is the
+	# same presentation clock moving hazards would have received had the chunk
+	# been committed synchronously on reservation.
+	set_process(false)
+
+
+func _process(delta: float) -> void:
+	if _stream_job != null:
+		_stream_job.elapsed_seconds += delta
+	# Changing every resident instance from the settings callback concentrates
+	# render-server writes into one frame. One existing chunk per frame keeps
+	# adaptation bounded; all ranges use the newest profile if it changes again.
+	if not _live_range_pending.is_empty():
+		var chunk := _live_range_pending.pop_front() as RunnerChunk
+		if is_instance_valid(chunk) and chunk in _chunks:
+			chunk.apply_visual_range(_chunk_visual_range(),
+					_dressing_density, _dressing_range_scale)
+	set_process(_stream_job != null or not _live_range_pending.is_empty())
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		_cancel_stream_chunk()
+		_clear_retiring_chunks()
 
 ## Builds the opening run of chunks from z = 0 heading toward -Z. Also primes
 ## the static mesh cache, so the first STREAMED chunk of a run never pays for
@@ -379,12 +468,15 @@ func setup(seed_value: int, dressing_density: float = 1.0,
 	_seed = seed_value
 	_golden_slice = false
 	_dressing_density = clampf(dressing_density, 0.0, 1.0)
+	_dressing_range_scale = VisualLibrary.dressing_range_scale()
 	_clear()
 	_resolve_art_context()
 	if not _headless:
 		_prime_art_cache()
 	for i: int in RunnerConfig.CHUNKS_AHEAD:
 		_spawn_chunk(i, 0.0)
+	if not _headless:
+		_build_start_apron()
 	if perf_trace_enabled:
 		_trace_tunnel_light_state(0)
 
@@ -393,6 +485,25 @@ func setup(seed_value: int, dressing_density: float = 1.0,
 ## costs a couple of milliseconds instead of a scene reload.
 func reset(seed_value: int, dressing_density: float = -1.0) -> void:
 	setup(seed_value, _dressing_density if dressing_density < 0.0 else dressing_density)
+
+
+## A quality change affects the current run without rebuilding any gameplay.
+## Reserved chunks retain their art-density snapshot; their final submission
+## ranges still use the latest profile when committed. Existing geometry only
+## changes its authored visibility ranges, never meshes, materials or colliders.
+func set_dressing_density(dressing_density: float) -> void:
+	var density := clampf(dressing_density, 0.0, 1.0)
+	var range_scale := VisualLibrary.dressing_range_scale()
+	if density == _dressing_density and range_scale == _dressing_range_scale:
+		return
+	_dressing_density = density
+	_dressing_range_scale = range_scale
+	if _headless:
+		return
+	_live_range_pending.assign(_chunks)
+	set_process(not _live_range_pending.is_empty() or _stream_job != null)
+	# The range phase may have run before a setting change in this frame. Apply
+	# the latest profile again at commit; do not touch the detached build job.
 
 
 ## Injection seam used by isolated art-gallery/contract tests. Runtime obtains
@@ -413,6 +524,7 @@ func setup_golden_slice(seed_value: int = 20260818, visuals_override: int = -1) 
 	_seed = seed_value
 	_golden_slice = true
 	_dressing_density = 1.0
+	_dressing_range_scale = VisualLibrary.dressing_range_scale()
 	_clear()
 	_resolve_art_context()
 	if not _headless:
@@ -440,16 +552,29 @@ func update_stream(player_z: float, difficulty: float) -> void:
 	if _golden_slice:
 		return
 	var trace := perf_trace_enabled
-	var stream_started := Time.get_ticks_usec() if trace else 0
+	var stream_started := Time.get_ticks_usec() if trace or not _headless else 0
 	var diff := clampf(difficulty, 0.0, 1.0)
 	var current := _chunk_index_at(player_z)
 	var spawned := 0
 	var spawned_indices: Variant = PackedInt32Array() if trace else null
-	while _next_index < current + RunnerConfig.CHUNKS_AHEAD and spawned < MAX_SPAWNS_PER_UPDATE:
-		if trace:
-			spawned_indices.append(_next_index)
-		_spawn_chunk(_next_index, diff)
-		spawned += 1
+	if _headless:
+		# Simulations and setup fixtures keep the original synchronous contract.
+		while _next_index < current + RunnerConfig.CHUNKS_AHEAD \
+				and spawned < MAX_SPAWNS_PER_UPDATE:
+			if trace:
+				spawned_indices.append(_next_index)
+			_spawn_chunk(_next_index, diff)
+			spawned += 1
+	else:
+		if _stream_job == null \
+				and _next_index < current + RunnerConfig.CHUNKS_AHEAD:
+			_reserve_stream_chunk(_next_index, diff)
+		if _stream_job != null:
+			var committed_index := _advance_stream_chunk()
+			if committed_index >= 0:
+				spawned = 1
+				if trace:
+					spawned_indices.append(committed_index)
 	var cull_before := current - RunnerConfig.CHUNKS_BEHIND
 	var retired := 0
 	var retired_indices: Variant = PackedInt32Array() if trace else null
@@ -457,9 +582,19 @@ func update_stream(player_z: float, difficulty: float) -> void:
 		var spent: RunnerChunk = _chunks.pop_front()
 		if trace:
 			retired_indices.append(spent.index)
-		_free_chunk(spent)
+		if _headless:
+			_free_chunk(spent)
+		else:
+			_retire_stream_chunk(spent)
 		_first_index += 1
 		retired += 1
+	# Commit and detachment keep their exact atomic lifetime contract. Buffer
+	# destruction gets a separate update rather than joining either tree change.
+	if not _headless and spawned == 0 and retired == 0:
+		var remaining_usec := STREAM_BUILD_BUDGET_USEC \
+				- (Time.get_ticks_usec() - stream_started)
+		if remaining_usec > 0:
+			_advance_stream_disposal(mini(remaining_usec, STREAM_DISPOSE_BUDGET_USEC))
 	var stream_changed := spawned > 0 or retired > 0
 	if trace and stream_changed:
 		_push_perf_trace({
@@ -491,6 +626,7 @@ func perf_trace_snapshot(player_z: float) -> Dictionary:
 	for chunk: RunnerChunk in _chunks:
 		if chunk.pattern == Pattern.TUNNEL:
 			tunnel_chunks += 1
+	var pending := _stream_job != null
 	return {
 		"current_chunk": current,
 		"current_biome": _biome_for(current),
@@ -500,6 +636,11 @@ func perf_trace_snapshot(player_z: float) -> Dictionary:
 		"tunnel_chunks": tunnel_chunks,
 		"tunnel_lights": 0,
 		"tunnel_light_cues": tunnel_chunks * TUNNEL_LIGHT_CUES_PER_CHUNK,
+		"stream_build_pending": pending,
+		"stream_build_chunk": _stream_job.index if pending else -1,
+		"stream_build_phase": _stream_job.current_unit if pending else "",
+		"stream_build_units": _stream_job.units if pending else 0,
+		"stream_dispose_pending_chunks": _retiring_chunks.size(),
 	}
 
 
@@ -608,13 +749,13 @@ static func biome_environment(biome: int) -> Dictionary:
 			}
 		_:
 			return {
-				"sky_top": Color(0.09, 0.31, 0.57),
-				"sky_horizon": Color(0.46, 0.72, 0.82),
-				"ground_horizon": Color(0.31, 0.51, 0.63),
-				"ground_bottom": Color(0.10, 0.27, 0.43),
-				"sun": Color(0.97, 0.91, 0.78),
-				"sun_energy": 1.08,
-				"fog": Color(0.43, 0.69, 0.78),
+				"sky_top": Color(0.02, 0.42, 1.0),
+				"sky_horizon": Color(0.18, 0.70, 1.0),
+				"ground_horizon": Color(0.10, 0.43, 0.72),
+				"ground_bottom": Color(0.025, 0.22, 0.47),
+				"sun": Color(1.0, 0.98, 0.92),
+				"sun_energy": 0.25,
+				"fog": Color(0.34, 0.72, 0.96),
 				"fog_density": 0.0020,
 				"ambient": 0.56,
 				"shaft": Color(0.96, 0.94, 0.86),
@@ -685,7 +826,14 @@ static func _first_scene_mesh(node: Node) -> Mesh:
 
 
 func _authored_day_mesh(asset_id: String) -> Mesh:
-	return _authored_day_meshes.get(asset_id, null) as Mesh
+	var source := _authored_day_meshes.get(asset_id, null) as Mesh
+	if source != null and asset_id in DAY_DECK_ASSETS:
+		return ReferenceWalls.deck_mesh(source)
+	return source
+
+
+func _authored_day_draw_material(asset_id: String) -> Material:
+	return ReferenceWalls.material() if asset_id in DAY_DECK_ASSETS else _authored_day_material()
 
 
 func _authored_day_material(shell: bool = false) -> Material:
@@ -729,6 +877,14 @@ func _biome_for(index: int) -> int:
 
 
 func _clear() -> void:
+	var old_apron := get_node_or_null("StartApron")
+	if old_apron != null:
+		remove_child(old_apron)
+		old_apron.queue_free()
+	_live_range_pending.clear()
+	_cancel_stream_chunk()
+	set_process(false)
+	_clear_retiring_chunks()
 	for chunk: RunnerChunk in _chunks:
 		_free_chunk(chunk)
 	_chunks.clear()
@@ -758,6 +914,259 @@ func _free_chunk(chunk: RunnerChunk) -> void:
 	chunk.queue_free()
 
 
+func _retire_stream_chunk(chunk: RunnerChunk) -> void:
+	if not is_instance_valid(chunk):
+		return
+	if chunk.get_parent() == self:
+		remove_child(chunk)
+	_retiring_chunks.append(chunk)
+
+
+## Detached children are not visible, collidable, grouped or processing. Free
+## direct branches rather than the whole subtree so each update releases at
+## most a handful of render/physics resources. No new resource is allocated.
+func _advance_stream_disposal(budget_usec: int = STREAM_DISPOSE_BUDGET_USEC) -> void:
+	if _retiring_chunks.is_empty():
+		return
+	var started := Time.get_ticks_usec()
+	var branches := 0
+	var completed := 0
+	var disposed_indices: Variant = PackedInt32Array() if perf_trace_enabled else null
+	while not _retiring_chunks.is_empty() \
+			and branches < STREAM_DISPOSE_MAX_BRANCHES_PER_UPDATE:
+		var chunk: RunnerChunk = _retiring_chunks[0]
+		if not is_instance_valid(chunk):
+			_retiring_chunks.pop_front()
+			continue
+		# Node-owned references now control buffer lifetime individually. These
+		# two animation references otherwise keep every MultiMesh until the last
+		# branch, recreating the resource release burst at the end of disposal.
+		chunk.fish_mm = null
+		chunk._anim_mm.clear()
+		if chunk.get_child_count() > 0:
+			chunk.get_child(chunk.get_child_count() - 1).free()
+			branches += 1
+		else:
+			# An already-empty root still consumes one bounded lifetime unit.
+			branches += 1
+		if chunk.get_child_count() == 0:
+			if perf_trace_enabled:
+				disposed_indices.append(chunk.index)
+			_retiring_chunks.pop_front()
+			chunk.free()
+			completed += 1
+		if Time.get_ticks_usec() - started >= budget_usec:
+			break
+	if perf_trace_enabled:
+		_push_perf_trace({
+			"kind": "dispose",
+			"branches": branches,
+			"completed": completed,
+			"disposed_indices": disposed_indices,
+			"pending_chunks": _retiring_chunks.size(),
+			"cpu_us": Time.get_ticks_usec() - started,
+		})
+
+
+func _clear_retiring_chunks() -> void:
+	for chunk: RunnerChunk in _retiring_chunks:
+		if is_instance_valid(chunk):
+			chunk.free()
+	_retiring_chunks.clear()
+
+
+func _cancel_stream_chunk() -> void:
+	if _stream_job == null:
+		return
+	var detached := _stream_job.chunk
+	_stream_job = null
+	set_process(not _live_range_pending.is_empty())
+	if not is_instance_valid(detached):
+		return
+	if detached.get_parent() != null:
+		detached.get_parent().remove_child(detached)
+	# This job is sole owner and no external reference can observe an
+	# uncommitted chunk, so immediate destruction makes cancellation measurable.
+	detached.free()
+
+
+func _reserve_stream_chunk(index: int, difficulty: float) -> void:
+	assert(_stream_job == null)
+	assert(index == _next_index)
+	var job := StreamBuildJob.new()
+	job.started_usec = Time.get_ticks_usec()
+	job.index = index
+	job.difficulty = difficulty
+	job.chunk = RunnerChunk.new()
+	job.chunk.name = "Chunk%d" % index
+	job.chunk.index = index
+	job.chunk.difficulty = difficulty
+	job.chunk.dressing_density = _dressing_density
+	job.chunk.dressing_range_scale = _dressing_range_scale
+	job.chunk.biome = _biome_for(index)
+	job.chunk.position = Vector3(0.0, 0.0, -float(index) * RunnerConfig.CHUNK_LENGTH)
+	job.rng = _chunk_rng(index, 11)
+	job.art_rng = _chunk_rng(index, 60493)
+	# Reservation owns the same first RNG/state mutation as _spawn_chunk(). No
+	# later chunk can reserve until this one commits.
+	job.pattern = _pick_pattern(job.rng, difficulty, index)
+	job.chunk.pattern = job.pattern
+	job.stage_cpu_us = {
+		"select_us": Time.get_ticks_usec() - job.started_usec,
+		"deck_us": 0,
+		"dressing_us": 0,
+		"tunnel_us": 0,
+		"pattern_us": 0,
+		"powerup_us": 0,
+		"finish_us": 0,
+		"range_us": 0,
+		"commit_us": 0,
+	}
+	_stream_job = job
+	set_process(true)
+	if perf_trace_enabled:
+		_push_perf_trace({
+			"kind": "stream_stage",
+			"chunk": index,
+			"stage": "reserve",
+			"cpu_us": int(job.stage_cpu_us["select_us"]),
+		})
+
+
+## Advances bounded small units and returns committed chunk index, or -1.
+func _advance_stream_chunk() -> int:
+	if _stream_job == null:
+		return -1
+	var job := _stream_job
+	job.frames += 1
+	var frame_started := Time.get_ticks_usec()
+	var frame_units := 0
+	while _stream_job == job and frame_units < STREAM_BUILD_MAX_UNITS_PER_UPDATE:
+		var unit_started := Time.get_ticks_usec()
+		var unit := _advance_stream_unit(job)
+		var unit_us := Time.get_ticks_usec() - unit_started
+		job.units += 1
+		frame_units += 1
+		job.max_unit_us = maxi(job.max_unit_us, unit_us)
+		job.current_unit = String(unit["name"])
+		var bucket := String(unit["bucket"])
+		job.stage_cpu_us[bucket] = int(job.stage_cpu_us.get(bucket, 0)) + unit_us
+		if perf_trace_enabled:
+			_push_perf_trace({
+				"kind": "stream_stage",
+				"chunk": job.index,
+				"stage": job.current_unit,
+				"unit": job.units,
+				"cpu_us": unit_us,
+				"committed": bool(unit["committed"]),
+			})
+		if bool(unit["committed"]):
+			if perf_trace_enabled:
+				_push_staged_spawn_trace(job)
+			_stream_job = null
+			set_process(not _live_range_pending.is_empty())
+			return job.index
+		if Time.get_ticks_usec() - frame_started >= STREAM_BUILD_BUDGET_USEC:
+			break
+	return -1
+
+
+func _advance_stream_unit(job: StreamBuildJob) -> Dictionary:
+	match job.phase:
+		StreamBuildPhase.DECK:
+			var deck_step := job.step
+			_build_deck_stage(job.chunk, job.pattern, deck_step)
+			job.step += 1
+			if job.step >= STREAM_DECK_STAGE_COUNT:
+				job.phase = StreamBuildPhase.DRESSING
+				job.step = 0
+			return _stream_unit("deck_%d" % deck_step, "deck_us")
+		StreamBuildPhase.DRESSING:
+			var dressing_step := job.step
+			_build_dressing_stage(job.chunk, job.art_rng, dressing_step)
+			job.step += 1
+			if job.step >= STREAM_DRESSING_STAGE_COUNT:
+				job.phase = StreamBuildPhase.TUNNEL
+				job.step = 0
+			return _stream_unit("dressing_%d" % dressing_step, "dressing_us")
+		StreamBuildPhase.TUNNEL:
+			if job.pattern == Pattern.TUNNEL:
+				_build_tunnel(job.chunk)
+			job.phase = StreamBuildPhase.PATTERN
+			return _stream_unit("tunnel", "tunnel_us")
+		StreamBuildPhase.PATTERN:
+			if job.pattern_work.is_empty():
+				job.pattern_work = _create_pattern_work(
+						job.pattern, job.chunk, job.rng, job.difficulty)
+			var action_name := _pattern_work_unit_name(job.pattern_work)
+			if _advance_pattern_work(job.pattern_work):
+				_last_pattern = job.pattern
+				job.phase = StreamBuildPhase.POWERUP
+			return _stream_unit("pattern_%s" % action_name, "pattern_us")
+		StreamBuildPhase.POWERUP:
+			if job.index >= WARMUP_CHUNKS:
+				_maybe_add_powerup(job.chunk, job.rng)
+			job.phase = StreamBuildPhase.FINISH
+			return _stream_unit("powerup", "powerup_us")
+		StreamBuildPhase.FINISH:
+			job.chunk.finish(false)
+			job.phase = StreamBuildPhase.RANGE
+			return _stream_unit("finish", "finish_us")
+		StreamBuildPhase.RANGE:
+			job.chunk.apply_visual_range(_chunk_visual_range(),
+					_dressing_density, _dressing_range_scale)
+			job.phase = StreamBuildPhase.COMMIT
+			return _stream_unit("visual_range", "range_us")
+		_:
+			job.chunk.apply_visual_range(_chunk_visual_range(),
+					_dressing_density, _dressing_range_scale)
+			_prime_staged_movers(job.chunk, job.elapsed_seconds)
+			add_child(job.chunk)
+			_chunks.append(job.chunk)
+			_next_index = job.index + 1
+			return _stream_unit("commit", "commit_us", true)
+
+
+static func _stream_unit(name_value: String, bucket: String,
+		committed: bool = false) -> Dictionary:
+	return {"name": name_value, "bucket": bucket, "committed": committed}
+
+
+func _push_staged_spawn_trace(job: StreamBuildJob) -> void:
+	var cpu_total := 0
+	for key: String in ["select_us", "deck_us", "dressing_us", "tunnel_us",
+			"pattern_us", "powerup_us", "finish_us", "range_us", "commit_us"]:
+		cpu_total += int(job.stage_cpu_us.get(key, 0))
+	_push_perf_trace({
+		"kind": "spawn",
+		"chunk": job.index,
+		"biome": job.chunk.biome,
+		"biome_name": PERF_BIOME_NAMES[job.chunk.biome],
+		"pattern": job.pattern,
+		"pattern_name": PERF_PATTERN_NAMES[job.pattern],
+		"select_us": int(job.stage_cpu_us["select_us"]),
+		"deck_us": int(job.stage_cpu_us["deck_us"]),
+		"dressing_us": int(job.stage_cpu_us["dressing_us"]),
+		"tunnel_us": int(job.stage_cpu_us["tunnel_us"]),
+		"pattern_us": int(job.stage_cpu_us["pattern_us"]),
+		"powerup_us": int(job.stage_cpu_us["powerup_us"]),
+		"finish_us": int(job.stage_cpu_us["finish_us"]),
+		"range_us": int(job.stage_cpu_us["range_us"]),
+		"commit_us": int(job.stage_cpu_us["commit_us"]),
+		"total_us": cpu_total,
+		"staged_frames": job.frames,
+		"work_units": job.units,
+		"max_unit_us": job.max_unit_us,
+	})
+
+
+func _prime_staged_movers(node: Node, elapsed: float) -> void:
+	if node is RunnerMover:
+		(node as RunnerMover).prime_elapsed(elapsed)
+	for child: Node in node.get_children():
+		_prime_staged_movers(child, elapsed)
+
+
 func _spawn_chunk(index: int, difficulty: float) -> void:
 	var trace := perf_trace_enabled
 	var total_started := Time.get_ticks_usec() if trace else 0
@@ -766,6 +1175,8 @@ func _spawn_chunk(index: int, difficulty: float) -> void:
 	chunk.name = "Chunk%d" % index
 	chunk.index = index
 	chunk.difficulty = difficulty
+	chunk.dressing_density = _dressing_density
+	chunk.dressing_range_scale = _dressing_range_scale
 	chunk.biome = _biome_for(index)
 	chunk.position = Vector3(0.0, 0.0, -float(index) * RunnerConfig.CHUNK_LENGTH)
 	add_child(chunk)
@@ -808,7 +1219,8 @@ func _spawn_chunk(index: int, difficulty: float) -> void:
 	var finish_us := Time.get_ticks_usec() - finish_started if trace else 0
 	var range_started := Time.get_ticks_usec() if trace else 0
 	if not _headless:
-		chunk.apply_visual_range(_chunk_visual_range())
+		chunk.apply_visual_range(_chunk_visual_range(),
+				_dressing_density, _dressing_range_scale)
 	var range_us := Time.get_ticks_usec() - range_started if trace else 0
 	_chunks.append(chunk)
 	_next_index = index + 1
@@ -849,6 +1261,8 @@ func _spawn_golden_chunk(index: int, pattern: int, difficulty: float) -> void:
 	chunk.name = "GoldenChunk%d" % index
 	chunk.index = index
 	chunk.difficulty = difficulty
+	chunk.dressing_density = _dressing_density
+	chunk.dressing_range_scale = _dressing_range_scale
 	chunk.biome = Biome.DAY
 	chunk.pattern = pattern
 	chunk.set_meta("golden_pattern", pattern)
@@ -887,6 +1301,12 @@ func _add_golden_powerup(chunk: RunnerChunk, id: StringName) -> void:
 func _pick_pattern(rng: RandomNumberGenerator, difficulty: float, index: int) -> int:
 	if index < WARMUP_CHUNKS:
 		return Pattern.OPEN
+	if index < INTRO_CHUNKS:
+		# Same seeded art/gameplay RNG contract as the rest of the stream. Each
+		# early chunk offers a safe route; no compulsory reflex verb yet.
+		var introductory: Array[int] = [Pattern.FISH_ARC, Pattern.LANE_WEAVE,
+			Pattern.OPEN, Pattern.RAMP_RUN]
+		return introductory[rng.randi_range(0, introductory.size() - 1)]
 	# A tunnel that owes another chunk takes it before anything is rolled.
 	if _tunnel_left > 0:
 		_tunnel_left -= 1
@@ -936,27 +1356,482 @@ func _pick_pattern(rng: RandomNumberGenerator, difficulty: float, index: int) ->
 
 
 func _run_pattern(pattern: int, chunk: RunnerChunk, rng: RandomNumberGenerator, difficulty: float) -> void:
+	var work := _create_pattern_work(pattern, chunk, rng, difficulty)
+	while not _advance_pattern_work(work):
+		pass
+
+
+## Pattern actions are deliberately lazy. RNG is consumed only when the
+## corresponding original branch is reached; a refused obstacle can therefore
+## still suppress a later conditional roll exactly as the synchronous builder
+## did. Node-producing actions add one obstacle/seal/fish at most.
+func _create_pattern_work(pattern: int, chunk: RunnerChunk,
+		rng: RandomNumberGenerator, difficulty: float) -> Dictionary:
+	var op := "open_init"
 	match pattern:
-		Pattern.LANE_WEAVE:
-			_pattern_lane_weave(chunk, rng, difficulty)
-		Pattern.SLIDE_GALLERY:
-			_pattern_slide_gallery(chunk, rng, difficulty)
-		Pattern.JUMP_STUTTER:
-			_pattern_jump_stutter(chunk, rng, difficulty)
-		Pattern.FISH_ARC:
-			_pattern_fish_arc(chunk, rng, difficulty)
-		Pattern.MIXED_GAUNTLET:
-			_pattern_mixed_gauntlet(chunk, rng, difficulty)
-		Pattern.PINCH:
-			_pattern_pinch(chunk, rng, difficulty)
-		Pattern.SEAL_SLIDE:
-			_pattern_seal_slide(chunk, rng, difficulty)
-		Pattern.TUNNEL:
-			_pattern_tunnel(chunk, rng, difficulty)
-		Pattern.RAMP_RUN:
-			_pattern_ramp_run(chunk, rng, difficulty)
-		_:
-			_pattern_open(chunk, rng, difficulty)
+		Pattern.LANE_WEAVE: op = "lane_weave_init"
+		Pattern.SLIDE_GALLERY: op = "slide_init"
+		Pattern.JUMP_STUTTER: op = "jump_init"
+		Pattern.FISH_ARC: op = "fish_arc_init"
+		Pattern.MIXED_GAUNTLET: op = "mixed_init"
+		Pattern.PINCH: op = "pinch_init"
+		Pattern.SEAL_SLIDE: op = "seal_init"
+		Pattern.TUNNEL: op = "tunnel_init"
+		Pattern.RAMP_RUN: op = "ramp_init"
+	return {
+		"chunk": chunk,
+		"rng": rng,
+		"difficulty": difficulty,
+		"actions": [{"op": op}],
+		"cursor": 0,
+	}
+
+
+func _pattern_work_unit_name(work: Dictionary) -> String:
+	var cursor := int(work.get("cursor", 0))
+	var actions: Array = work.get("actions", [])
+	if cursor < 0 or cursor >= actions.size():
+		return "done"
+	var action: Dictionary = actions[cursor]
+	return String(action.get("op", "unknown"))
+
+
+func _advance_pattern_work(work: Dictionary) -> bool:
+	var actions: Array = work["actions"]
+	var cursor := int(work["cursor"])
+	if cursor >= actions.size():
+		return true
+	var action: Dictionary = actions[cursor]
+	var done := _execute_pattern_action(work, action)
+	# Action may have inserted successors into work's queue.
+	actions = work["actions"]
+	actions[cursor] = action
+	work["actions"] = actions
+	if done:
+		work["cursor"] = cursor + 1
+	return int(work["cursor"]) >= actions.size()
+
+
+func _pattern_insert_after(work: Dictionary, additions: Array) -> void:
+	if additions.is_empty():
+		return
+	var actions: Array = work["actions"]
+	var at := int(work["cursor"]) + 1
+	for addition: Dictionary in additions:
+		actions.insert(at, addition)
+		at += 1
+	work["actions"] = actions
+
+
+static func _fish_line_action(lane: int, z_from: float, z_to: float, y: float) -> Dictionary:
+	return {"op": "fish_line", "lane": lane, "z": z_from, "to": z_to, "y": y}
+
+
+static func _fish_arc_action(lane: int, z: float, half_length: float) -> Dictionary:
+	return {"op": "fish_arc", "lane": lane, "z": z,
+		"half_length": half_length, "i": 0}
+
+
+static func _fish_sweep_action(lane_from: int, lane_to: int, z_from: float,
+		z_to: float, count: int, y: float) -> Dictionary:
+	return {"op": "fish_sweep", "lane_from": lane_from, "lane_to": lane_to,
+		"z_from": z_from, "z_to": z_to, "count": count, "y": y, "i": 0}
+
+
+static func _fish_point_action(position: Vector3) -> Dictionary:
+	return {"op": "fish_point", "position": position}
+
+
+static func _obstacle_action(kind: int, lane: int, span: int, z: float,
+		success: Array = []) -> Dictionary:
+	return {"op": "obstacle", "kind": kind, "lane": lane, "span": span,
+		"z": z, "success": success}
+
+
+func _execute_pattern_action(work: Dictionary, action: Dictionary) -> bool:
+	var chunk: RunnerChunk = work["chunk"]
+	var rng: RandomNumberGenerator = work["rng"]
+	var difficulty := float(work["difficulty"])
+	var op := String(action["op"])
+	match op:
+		"fish_line":
+			var z := float(action["z"])
+			if z <= float(action["to"]):
+				return true
+			_add_fish(chunk, Vector3(RunnerConfig.lane_x(clampi(int(action["lane"]), 0,
+					RunnerConfig.LANE_COUNT - 1)), float(action["y"]), z))
+			action["z"] = z - FISH_SPACING
+			return float(action["z"]) <= float(action["to"])
+		"fish_arc":
+			var arc_i := int(action["i"])
+			if arc_i >= 5:
+				return true
+			var arc_t := (float(arc_i) / 2.0) - 1.0
+			var arc_y := lerpf(FISH_ARC_APEX, FISH_Y, arc_t * arc_t)
+			var arc_x := RunnerConfig.lane_x(clampi(int(action["lane"]), 0,
+					RunnerConfig.LANE_COUNT - 1))
+			_add_fish(chunk, Vector3(arc_x, arc_y,
+					float(action["z"]) - arc_t * float(action["half_length"])))
+			action["i"] = arc_i + 1
+			return int(action["i"]) >= 5
+		"fish_sweep":
+			var count := int(action["count"])
+			var sweep_i := int(action["i"])
+			if count <= 1 or sweep_i >= count:
+				return true
+			var sweep_t := float(sweep_i) / float(count - 1)
+			var x0 := RunnerConfig.lane_x(clampi(int(action["lane_from"]), 0,
+					RunnerConfig.LANE_COUNT - 1))
+			var x1 := RunnerConfig.lane_x(clampi(int(action["lane_to"]), 0,
+					RunnerConfig.LANE_COUNT - 1))
+			_add_fish(chunk, Vector3(lerpf(x0, x1, smoothstep(0.0, 1.0, sweep_t)),
+					float(action["y"]), lerpf(float(action["z_from"]),
+					float(action["z_to"]), sweep_t)))
+			action["i"] = sweep_i + 1
+			return int(action["i"]) >= count
+		"ramp_fish":
+			var ramp_i := int(action["i"])
+			const RAMP_FISH_COUNT: int = 9
+			if ramp_i >= RAMP_FISH_COUNT:
+				return true
+			var speed := _speed_estimate(difficulty)
+			var air := 2.0 * RunnerConfig.RAMP_LAUNCH / RunnerConfig.GRAVITY
+			var flight_t := air * lerpf(0.06, 0.82,
+					float(ramp_i) / float(RAMP_FISH_COUNT - 1))
+			var flight_y := RunnerConfig.RAMP_LAUNCH * flight_t \
+					- 0.5 * RunnerConfig.GRAVITY * flight_t * flight_t
+			_add_fish(chunk, Vector3(RunnerConfig.lane_x(clampi(int(action["lane"]), 0,
+					RunnerConfig.LANE_COUNT - 1)),
+					flight_y + RunnerConfig.STAND_HEIGHT * 0.5,
+					float(action["lip_z"]) - speed * flight_t))
+			action["i"] = ramp_i + 1
+			return int(action["i"]) >= RAMP_FISH_COUNT
+		"fish_point":
+			_add_fish(chunk, action["position"])
+			return true
+		"obstacle":
+			var placed := _add_obstacle(chunk, int(action["kind"]), int(action["lane"]),
+					int(action["span"]), float(action["z"]))
+			if placed:
+				var success: Array = action.get("success", [])
+				_pattern_insert_after(work, success)
+			return true
+		"seal_one":
+			_add_seal(chunk, float(action["z"]), float(action["phase"]),
+					float(action["period"]))
+			return true
+		"open_init":
+			var lane_a := rng.randi_range(0, RunnerConfig.LANE_COUNT - 1)
+			var lane_b := lane_a
+			if rng.randf() < 0.6:
+				lane_b = clampi(lane_a + (1 if rng.randf() < 0.5 else -1), 0,
+						RunnerConfig.LANE_COUNT - 1)
+			var open_actions: Array = []
+			if lane_b == lane_a:
+				open_actions.append(_fish_line_action(lane_a, -3.0,
+						-RunnerConfig.CHUNK_LENGTH + 3.0, FISH_Y))
+			else:
+				open_actions.append(_fish_line_action(lane_a, -3.0,
+						-RunnerConfig.CHUNK_LENGTH * 0.42, FISH_Y))
+				open_actions.append(_fish_sweep_action(lane_a, lane_b,
+						-RunnerConfig.CHUNK_LENGTH * 0.45,
+						-RunnerConfig.CHUNK_LENGTH * 0.62, 4, FISH_Y))
+				open_actions.append(_fish_line_action(lane_b,
+						-RunnerConfig.CHUNK_LENGTH * 0.66,
+						-RunnerConfig.CHUNK_LENGTH + 3.0, FISH_Y))
+			if chunk.index >= WARMUP_CHUNKS:
+				open_actions.append({"op": "open_hazard"})
+			_pattern_insert_after(work, open_actions)
+			return true
+		"open_hazard":
+			if rng.randf() < lerpf(0.6, 0.8, difficulty):
+				var lane := rng.randi_range(0, RunnerConfig.LANE_COUNT - 1)
+				var obstacle_z := -RunnerConfig.CHUNK_LENGTH * rng.randf_range(0.3, 0.66)
+				if _add_obstacle(chunk, Kind.LOW, lane, 1, obstacle_z):
+					_pattern_insert_after(work, [_fish_arc_action(lane, obstacle_z, 5.0)])
+			return true
+		"lane_weave_init":
+			_pattern_insert_after(work, [{"op": "lane_weave_row",
+					"rows": _row_positions(difficulty), "i": 0, "prev_z": -1.0}])
+			return true
+		"lane_weave_row":
+			var weave_rows: PackedFloat32Array = action["rows"]
+			var weave_i := int(action["i"])
+			if weave_i >= weave_rows.size():
+				if not weave_rows.is_empty():
+					_pattern_insert_after(work, [_fish_line_action(
+							rng.randi_range(0, RunnerConfig.LANE_COUNT - 1),
+							weave_rows[weave_rows.size() - 1] - 3.0,
+							-RunnerConfig.CHUNK_LENGTH + 3.0, FISH_Y)])
+				return true
+			var weave_z := weave_rows[weave_i]
+			var blocked := 2 if rng.randf() < difficulty * 0.55 else 1
+			var open_lane := rng.randi_range(0, RunnerConfig.LANE_COUNT - 1)
+			var weave_actions: Array = []
+			var requested := 0
+			for lane: int in RunnerConfig.LANE_COUNT:
+				if lane == open_lane or requested >= blocked:
+					continue
+				weave_actions.append(_obstacle_action(Kind.BLOCK, lane, 1, weave_z))
+				requested += 1
+			weave_actions.append(_fish_line_action(open_lane, float(action["prev_z"]),
+					weave_z - 2.0, FISH_Y))
+			weave_actions.append({"op": "lane_weave_row", "rows": weave_rows,
+					"i": weave_i + 1, "prev_z": weave_z + 2.0})
+			_pattern_insert_after(work, weave_actions)
+			return true
+		"slide_init":
+			_pattern_insert_after(work, [{"op": "slide_row",
+					"rows": _row_positions(difficulty), "i": 0,
+					"lane": rng.randi_range(0, RunnerConfig.LANE_COUNT - 1)}])
+			return true
+		"slide_row":
+			var slide_rows: PackedFloat32Array = action["rows"]
+			var slide_i := int(action["i"])
+			if slide_i >= slide_rows.size():
+				return true
+			var slide_z := slide_rows[slide_i]
+			var slide_lane := int(action["lane"])
+			_pattern_insert_after(work, [{"op": "slide_bar", "z": slide_z,
+					"lane": slide_lane, "rows": slide_rows, "i": slide_i}])
+			return true
+		"slide_bar":
+			if _add_obstacle(chunk, Kind.BAR, 0, RunnerConfig.LANE_COUNT,
+					float(action["z"])):
+				var fish_x := RunnerConfig.lane_x(int(action["lane"]))
+				var slide_success: Array = [
+					_fish_point_action(Vector3(fish_x, 0.42, float(action["z"]))),
+					_fish_point_action(Vector3(fish_x, 0.42, float(action["z"]) - 2.4)),
+				]
+				var slide_rows: PackedFloat32Array = action["rows"]
+				var slide_i := int(action["i"])
+				if slide_i + 1 < slide_rows.size():
+					slide_success.append(_fish_line_action(int(action["lane"]),
+							float(action["z"]) - 5.0,
+							slide_rows[slide_i + 1] + 3.0, FISH_Y))
+				slide_success.append({"op": "slide_next", "rows": slide_rows,
+						"i": slide_i, "lane": action["lane"]})
+				_pattern_insert_after(work, slide_success)
+			else:
+				# Original `continue` keeps lane unchanged and consumes no lane roll.
+				_pattern_insert_after(work, [{"op": "slide_row", "rows": action["rows"],
+						"i": int(action["i"]) + 1, "lane": action["lane"]}])
+			return true
+		"slide_next":
+			var next_slide_lane := clampi(int(action["lane"]) + rng.randi_range(-1, 1),
+					0, RunnerConfig.LANE_COUNT - 1)
+			_pattern_insert_after(work, [{"op": "slide_row", "rows": action["rows"],
+					"i": int(action["i"]) + 1, "lane": next_slide_lane}])
+			return true
+		"jump_init":
+			_pattern_insert_after(work, [{"op": "jump_row",
+					"rows": _row_positions(difficulty), "i": 0}])
+			return true
+		"jump_row":
+			var jump_rows: PackedFloat32Array = action["rows"]
+			var jump_i := int(action["i"])
+			if jump_i >= jump_rows.size():
+				return true
+			var jump_z := jump_rows[jump_i]
+			var jump_lane := rng.randi_range(0, RunnerConfig.LANE_COUNT - 1)
+			var jump_span := 2 if rng.randf() < difficulty * 0.7 else 1
+			if jump_lane + jump_span > RunnerConfig.LANE_COUNT:
+				jump_lane = RunnerConfig.LANE_COUNT - jump_span
+			var jump_actions: Array = [_obstacle_action(Kind.LOW, jump_lane, jump_span,
+					jump_z, [_fish_arc_action(jump_lane, jump_z, 5.0)])]
+			var free_lane := (jump_lane + jump_span) % RunnerConfig.LANE_COUNT
+			if jump_i + 1 < jump_rows.size():
+				jump_actions.append(_fish_line_action(free_lane, jump_z - 4.5,
+						jump_rows[jump_i + 1] + 3.0, FISH_Y))
+			jump_actions.append({"op": "jump_row", "rows": jump_rows, "i": jump_i + 1})
+			_pattern_insert_after(work, jump_actions)
+			return true
+		"fish_arc_init":
+			var fish_lane_a := rng.randi_range(0, RunnerConfig.LANE_COUNT - 1)
+			var fish_lane_b := RunnerConfig.LANE_COUNT - 1 - fish_lane_a
+			if fish_lane_a == fish_lane_b:
+				fish_lane_b = (fish_lane_a + 1) % RunnerConfig.LANE_COUNT
+			var mid := -RunnerConfig.CHUNK_LENGTH * 0.5
+			var reward_actions: Array = [
+				_fish_line_action(fish_lane_a, -3.0, mid + 7.0, FISH_Y),
+				_fish_sweep_action(fish_lane_a, fish_lane_b, mid + 6.0, mid - 6.0, 6, FISH_Y),
+				_fish_line_action(fish_lane_b, mid - 7.0,
+						-RunnerConfig.CHUNK_LENGTH + 3.0, FISH_Y),
+			]
+			if difficulty > 0.15:
+				var low_z := mid - 10.0
+				reward_actions.append(_obstacle_action(Kind.LOW, fish_lane_b, 1,
+						low_z, [_fish_arc_action(fish_lane_b, low_z, 5.5)]))
+			_pattern_insert_after(work, reward_actions)
+			return true
+		"mixed_init":
+			_pattern_insert_after(work, [{"op": "mixed_row",
+					"rows": _row_positions(difficulty), "i": 0}])
+			return true
+		"mixed_row":
+			var mixed_rows: PackedFloat32Array = action["rows"]
+			var mixed_i := int(action["i"])
+			if mixed_i >= mixed_rows.size():
+				return true
+			var mixed_z := mixed_rows[mixed_i]
+			var mixed_actions: Array = []
+			match mixed_i % 3:
+				0:
+					var mixed_open := rng.randi_range(0, RunnerConfig.LANE_COUNT - 1)
+					for lane: int in RunnerConfig.LANE_COUNT:
+						if lane != mixed_open:
+							mixed_actions.append(_obstacle_action(
+									Kind.BLOCK, lane, 1, mixed_z))
+					mixed_actions.append(_fish_line_action(mixed_open,
+							mixed_z + 2.5, mixed_z - 4.0, FISH_Y))
+				1:
+					mixed_actions.append({"op": "mixed_bar", "z": mixed_z})
+				_:
+					var mixed_lane := rng.randi_range(0, RunnerConfig.LANE_COUNT - 1)
+					mixed_actions.append(_obstacle_action(Kind.LOW, mixed_lane, 1,
+							mixed_z, [_fish_arc_action(mixed_lane, mixed_z, 5.0)]))
+			mixed_actions.append({"op": "mixed_row", "rows": mixed_rows,
+					"i": mixed_i + 1})
+			_pattern_insert_after(work, mixed_actions)
+			return true
+		"mixed_bar":
+			if _add_obstacle(chunk, Kind.BAR, 0, RunnerConfig.LANE_COUNT,
+					float(action["z"])):
+				var mixed_lane := rng.randi_range(0, RunnerConfig.LANE_COUNT - 1)
+				_pattern_insert_after(work, [_fish_point_action(Vector3(
+						RunnerConfig.lane_x(mixed_lane), 0.42, float(action["z"])))])
+			return true
+		"pinch_init":
+			_pattern_insert_after(work, [{"op": "pinch_row",
+					"rows": _row_positions(difficulty), "i": 0, "prev_z": -1.0,
+					"open_lane": rng.randi_range(0, RunnerConfig.LANE_COUNT - 1)}])
+			return true
+		"pinch_row":
+			var pinch_rows: PackedFloat32Array = action["rows"]
+			var pinch_i := int(action["i"])
+			if pinch_i >= pinch_rows.size():
+				return true
+			var pinch_z := pinch_rows[pinch_i]
+			var pinch_open := int(action["open_lane"])
+			var pinch_actions: Array = []
+			for lane: int in RunnerConfig.LANE_COUNT:
+				if lane != pinch_open:
+					pinch_actions.append(_obstacle_action(Kind.BLOCK, lane, 1, pinch_z))
+			pinch_actions.append(_fish_line_action(pinch_open, float(action["prev_z"]),
+					pinch_z - 2.0, FISH_Y))
+			pinch_actions.append({"op": "pinch_shift", "rows": pinch_rows,
+					"i": pinch_i, "z": pinch_z, "open_lane": pinch_open})
+			_pattern_insert_after(work, pinch_actions)
+			return true
+		"pinch_shift":
+			var shifted := clampi(int(action["open_lane"])
+					+ (1 if rng.randf() < 0.5 else -1), 0, RunnerConfig.LANE_COUNT - 1)
+			var pinch_rows: PackedFloat32Array = action["rows"]
+			var next_i := int(action["i"]) + 1
+			if next_i < pinch_rows.size():
+				_pattern_insert_after(work, [{"op": "pinch_row", "rows": pinch_rows,
+						"i": next_i, "prev_z": float(action["z"]) + 2.0,
+						"open_lane": shifted}])
+			else:
+				_pattern_insert_after(work, [_fish_line_action(shifted,
+						float(action["z"]) + 2.0,
+						-RunnerConfig.CHUNK_LENGTH + 3.0, FISH_Y)])
+			return true
+		"seal_init":
+			_pattern_insert_after(work, [{"op": "seal_group",
+					"rows": _row_positions(difficulty), "i": 0,
+					"period": lerpf(SEAL_PERIOD_EASY, SEAL_PERIOD_HARD, difficulty)}])
+			return true
+		"seal_group":
+			var seal_rows: PackedFloat32Array = action["rows"]
+			var seal_i := int(action["i"])
+			if seal_i >= seal_rows.size():
+				return true
+			var train := 1
+			if seal_rows.size() - seal_i >= 2 \
+					and rng.randf() < lerpf(0.25, 0.7, difficulty):
+				train = mini(seal_rows.size() - seal_i, 2 if rng.randf() < 0.6 else 3)
+			var phase := rng.randf() * TAU
+			var phase_step := (1.0 if rng.randf() < 0.5 else -1.0) * 0.72
+			var seal_actions: Array = []
+			for train_i: int in train:
+				seal_actions.append({"op": "seal_one",
+						"z": seal_rows[seal_i + train_i] - float(train_i) * 1.5,
+						"phase": phase + float(train_i) * phase_step,
+						"period": float(action["period"])})
+			var safe_lane := 0 if sin(phase) > 0.0 else RunnerConfig.LANE_COUNT - 1
+			var z_to := -RunnerConfig.CHUNK_LENGTH + 3.0
+			if seal_i + train < seal_rows.size():
+				z_to = seal_rows[seal_i + train] + 3.0
+			seal_actions.append(_fish_line_action(safe_lane,
+					seal_rows[seal_i + train - 1] - 4.0, z_to, FISH_Y))
+			seal_actions.append({"op": "seal_group", "rows": seal_rows,
+					"i": seal_i + train, "period": action["period"]})
+			_pattern_insert_after(work, seal_actions)
+			return true
+		"tunnel_init":
+			_pattern_insert_after(work, [{"op": "tunnel_row",
+					"rows": _row_positions(difficulty), "i": 0,
+					"lane": rng.randi_range(0, RunnerConfig.LANE_COUNT - 1)}])
+			return true
+		"tunnel_row":
+			var tunnel_rows: PackedFloat32Array = action["rows"]
+			var tunnel_i := int(action["i"])
+			if tunnel_i >= tunnel_rows.size():
+				return true
+			var tunnel_z := tunnel_rows[tunnel_i]
+			var tunnel_lane := int(action["lane"])
+			var tunnel_actions: Array = [{"op": "tunnel_obstacle", "i": tunnel_i,
+					"z": tunnel_z, "lane": tunnel_lane}]
+			if tunnel_i + 1 < tunnel_rows.size():
+				tunnel_actions.append(_fish_line_action(tunnel_lane, tunnel_z - 5.0,
+						tunnel_rows[tunnel_i + 1] + 3.0, FISH_Y))
+			tunnel_actions.append({"op": "tunnel_next", "rows": tunnel_rows,
+					"i": tunnel_i, "lane": tunnel_lane})
+			_pattern_insert_after(work, tunnel_actions)
+			return true
+		"tunnel_obstacle":
+			var tunnel_lane := int(action["lane"])
+			var tunnel_z := float(action["z"])
+			if int(action["i"]) % 2 == 0:
+				if _add_obstacle(chunk, Kind.BAR, 0, RunnerConfig.LANE_COUNT, tunnel_z):
+					var tunnel_x := RunnerConfig.lane_x(tunnel_lane)
+					_pattern_insert_after(work, [
+						_fish_point_action(Vector3(tunnel_x, 0.42, tunnel_z)),
+						_fish_point_action(Vector3(tunnel_x, 0.42, tunnel_z - 2.2)),
+					])
+			elif _add_obstacle(chunk, Kind.LOW, tunnel_lane, 1, tunnel_z):
+				_pattern_insert_after(work, [_fish_arc_action(
+						tunnel_lane, tunnel_z, 4.6)])
+			return true
+		"tunnel_next":
+			var next_tunnel_lane := clampi(int(action["lane"]) + rng.randi_range(-1, 1),
+					0, RunnerConfig.LANE_COUNT - 1)
+			_pattern_insert_after(work, [{"op": "tunnel_row", "rows": action["rows"],
+					"i": int(action["i"]) + 1, "lane": next_tunnel_lane}])
+			return true
+		"ramp_init":
+			var ramp_lane := rng.randi_range(0, RunnerConfig.LANE_COUNT - 1)
+			var ramp_z := -RunnerConfig.CHUNK_LENGTH * rng.randf_range(0.22, 0.38)
+			_pattern_insert_after(work, [
+				_fish_line_action(ramp_lane, -2.5, ramp_z - RAMP_DEPTH * 0.5 - 1.0, FISH_Y),
+				{"op": "ramp_obstacle", "lane": ramp_lane, "z": ramp_z},
+			])
+			return true
+		"ramp_obstacle":
+			var ramp_lane := int(action["lane"])
+			var ramp_z := float(action["z"])
+			if not _add_obstacle(chunk, Kind.RAMP, ramp_lane, 1, ramp_z):
+				_pattern_insert_after(work, [{"op": "fish_arc_init"}])
+			else:
+				_pattern_insert_after(work, [
+					{"op": "ramp_fish", "lane": ramp_lane,
+							"lip_z": ramp_z - RAMP_DEPTH * 0.5, "i": 0},
+					_fish_line_action((ramp_lane + 1) % RunnerConfig.LANE_COUNT,
+							ramp_z - RAMP_DEPTH, -RunnerConfig.CHUNK_LENGTH + 3.0, FISH_Y),
+				])
+			return true
+	return true
 
 
 ## Local z of each obstacle row in a chunk, front (nearest the player) first.
@@ -969,6 +1844,10 @@ func _row_positions(difficulty: float) -> PackedFloat32Array:
 		z -= gap
 	return rows
 
+
+## Monolithic pattern helpers below remain temporarily as an independent source
+## oracle while the staged action executor proves byte-for-byte parity. Runtime
+## and synchronous setup both call `_run_pattern()` above; these are not called.
 
 ## Breathing room. Not empty, though: a chunk with literally nothing in it is
 ## where a runner stops being a game for two seconds, so an OPEN chunk still
@@ -1310,8 +2189,10 @@ func _add_obstacle(chunk: RunnerChunk, kind: int, lane: int, span: int, local_z:
 		# RunnerArtSet obstacle roles are shared across biome profiles. DAY owns
 		# this kit; every other band keeps its existing shell until its own art
 		# set lands instead of inheriting a research-port prop by accident.
+		# Full-height dodge hazards are ice boulders in every biome. Retain the
+		# imported service arch; block, jump and ramp use shared reference meshes.
 		var authored_mesh := _authored_day_mesh(authored_asset_id) \
-				if chunk.biome == Biome.DAY else null
+			if chunk.biome == Biome.DAY and kind == Kind.BAR else null
 		if authored_mesh != null:
 			visual.mesh = authored_mesh
 			visual.set_meta("authored_asset_id", authored_asset_id)
@@ -1332,6 +2213,10 @@ func _add_obstacle(chunk: RunnerChunk, kind: int, lane: int, span: int, local_z:
 				Kind.RAMP:
 					visual.scale = Vector3(RAMP_WIDTH / 2.72, RAMP_HEIGHT / 1.733,
 							RAMP_DEPTH / 4.117)
+					# Imported source's high lip is at +Z (player side).
+					# Turn only the visual so its low approach faces +Z and
+					# the takeoff lip faces gameplay forward (-Z).
+					visual.rotation.y = PI
 				Kind.BAR:
 					# Same collider/silhouette, alternating authored face. Cyan inlay,
 					# lamps and access panels no longer repeat in one flat procession.
@@ -1341,16 +2226,20 @@ func _add_obstacle(chunk: RunnerChunk, kind: int, lane: int, span: int, local_z:
 			match kind:
 				Kind.BLOCK:
 					visual.mesh = _block_mesh()
-					visual.rotation.y = fmod(absf(local_z) * 0.7, 0.5) - 0.25
+					visual.set_meta("reference_ice_block", true)
+					# Keep the silhouette aligned with the unchanged collision box.
 				Kind.LOW:
 					visual.mesh = _low_mesh()
 					visual.scale.x = size.x
 				Kind.RAMP:
 					visual.mesh = _ramp_mesh()
+					visual.set_meta("ice_ramp", true)
 				_:
 					visual.mesh = _arch_mesh()
-			visual.material_override = _dodge_material() \
-					if kind == Kind.BLOCK or kind == Kind.LOW else _prop_material()
+			if kind == Kind.LOW or kind == Kind.BLOCK:
+				visual.material_override = ReferenceIce.material()
+			else:
+				visual.material_override = _prop_material()
 		area.add_child(visual)
 		# Grounding is not left to the scene's light rig: with no SSAO on
 		# gl_compatibility, and no guarantee the runner's sun casts shadows at
@@ -1689,6 +2578,13 @@ static func _powerup_ring_mesh() -> TorusMesh:
 ## shared surfaces. Authored DAY uses three topology variants plus one snow
 ## shelf, all MultiMesh/shared-material draws; gameplay floor stays unchanged.
 func _build_deck(chunk: RunnerChunk, pattern: int) -> void:
+	for stage: int in STREAM_DECK_STAGE_COUNT:
+		_build_deck_stage(chunk, pattern, stage)
+
+
+## One cassette/draw family per stage. Synchronous setup loops these stages;
+## rendered streaming schedules them across frames with identical child order.
+func _build_deck_stage(chunk: RunnerChunk, pattern: int, stage: int) -> void:
 	var biome := chunk.biome
 	# A tunnel darkens its own floor. This is the cheapest honest "the light
 	# changed" available: no extra lights, no environment write, and it is the
@@ -1705,7 +2601,8 @@ func _build_deck(chunk: RunnerChunk, pattern: int) -> void:
 		# Three topology-distinct six-metre cassettes. Grouping transforms by
 		# mesh keeps each variant one MultiMesh draw per chunk while eliminating
 		# the copied-board procession that survived 180-degree rotations.
-		for variant: int in DAY_DECK_ASSETS.size():
+		if stage < DAY_DECK_ASSETS.size():
+			var variant := stage
 			var modules: Array[Transform3D] = []
 			var module_tints := PackedColorArray()
 			for module_index: int in 6:
@@ -1719,26 +2616,17 @@ func _build_deck(chunk: RunnerChunk, pattern: int) -> void:
 						Basis(Vector3.UP, yaw),
 						Vector3(0.0, AUTHORED_DAY_DECK_Y,
 								-3.0 - float(module_index) * 6.0)))
-				# The authored cassettes were painted for the old all-white look,
-				# and their surface shader is ALBEDO = atlas * COLOR — so the
-				# instance colour is the one place the value ladder can reach
-				# them. Without this the whole palette was dead code on the day
-				# band: every deck tint in this file was being drawn over by a
-				# white texture. The authored per-module variation is preserved
-				# by tinting it rather than replacing it.
-				var deck_wash := _biome_deck_tint(biome).lightened(0.10)
+				# Ice skin now owns road colour. Tinting the whole authored cassette
+				# with road blue also darkened its coral inserts and ivory snowcaps.
 				var variation: Color = [
 						Color(1.0, 1.0, 1.0, 1.0),
 						Color(0.95, 0.995, 1.0, 1.0),
 						Color(1.0, 0.975, 0.93, 1.0),
 				][posmod(module_index + chunk.index * 2, 3)]
-				module_tints.append(Color(
-						deck_wash.r * variation.r,
-						deck_wash.g * variation.g,
-						deck_wash.b * variation.b, 1.0))
+				module_tints.append(variation)
 			var authored_instance := _add_multimesh(chunk, authored_decks[variant], modules,
-					_authored_day_material(), "AuthoredDeckKerb%d" % variant,
-					220.0, module_tints)
+					_authored_day_draw_material(DAY_DECK_ASSETS[variant]), "AuthoredDeckKerb%d" % variant,
+					220.0, module_tints, true)
 			if authored_instance != null:
 				authored_instance.set_meta("authored_asset_id", DAY_DECK_ASSETS[variant])
 				# Dummy/headless RenderingServer does not round-trip MultiMesh
@@ -1746,7 +2634,7 @@ func _build_deck(chunk: RunnerChunk, pattern: int) -> void:
 				# debug contracts; release builds retain only the GPU buffer.
 				if OS.is_debug_build():
 					authored_instance.set_meta("authored_source_transforms", modules.duplicate())
-	else:
+	elif stage == 0:
 		var deck := MeshInstance3D.new()
 		deck.name = "Deck"
 		deck.mesh = _deck_mesh()
@@ -1769,7 +2657,21 @@ func _build_deck(chunk: RunnerChunk, pattern: int) -> void:
 	# staging. Splitting it lets the crown be BRIGHT, the body MID and the
 	# drop-off face DARK, which is the three-value law expressed in the one
 	# object that touches all three tiers. Two extra draw calls per chunk.
-	if authored_day:
+	if stage == 3 and authored_day:
+		# A continuous polished-ice skin hides the cassette panel grid on the
+		# playable strip. The authored deck still supplies rounded kerbs and
+		# snowbank relief; collision stays at y=0. This is one shared ice draw
+		# per visible chunk, not another material/mesh family per cassette.
+		var ice_skin := MeshInstance3D.new()
+		ice_skin.name = "GlacialIceSkin"
+		ice_skin.mesh = _deck_mesh()
+		ice_skin.material_override = _deck_material(biome, tunnel)
+		# Authored hatches and repair plates peak at y=0.018 after cassette
+		# placement. At 0.015 they poked through as square steel patches;
+		# 0.022 covers them while keeping gameplay decals at y=0.024/0.030.
+		ice_skin.position = Vector3(0.0, 0.022, -RunnerConfig.CHUNK_LENGTH * 0.5)
+		ice_skin.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		chunk.add_child(ice_skin)
 		# Authored cassettes include their own rounded kerb. Keep only snow shelf
 		# from procedural verge; drawing both walls produced floating black boards
 		# over every carefully-painted module.
@@ -1779,7 +2681,7 @@ func _build_deck(chunk: RunnerChunk, pattern: int) -> void:
 		shelf.material_override = _verge_snow_material(biome, tunnel)
 		shelf.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		chunk.add_child(shelf)
-	else:
+	elif stage == 3:
 		var verge := MeshInstance3D.new()
 		verge.name = "Verge"
 		verge.mesh = _verge_mesh()
@@ -1789,7 +2691,8 @@ func _build_deck(chunk: RunnerChunk, pattern: int) -> void:
 		verge.set_surface_override_material(3, _verge_snow_material(biome, tunnel))
 		verge.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		chunk.add_child(verge)
-	_build_deck_decals(chunk, biome)
+	if stage == 4:
+		_build_deck_decals(chunk, biome)
 
 
 ## Quiet edge inlays give an empty chunk a countable ground rhythm. They share
@@ -1828,40 +2731,46 @@ static func _deck_tint(biome: int, tunnel: bool) -> Color:
 
 
 static func _deck_material(biome: int, tunnel: bool) -> ShaderMaterial:
-	# The play strip is polished glacial ice, not groomed snow. The previous snow
-	# shader's screen-wide corduroy survived as cyan stripes and made the deck
-	# read like an untextured prototype plane. The shared ice program supplies
-	# broad plate cracks, depth veining and a moving specular streak; lane seams
-	# and verb decals remain separate, crisp navigation layers above it.
-	# Calm the stock skating-rink streak for this camera. At runner pitch the
-	# default lobe covered a whole lane in featureless white and erased seams.
-	return VisualLibrary.shader_variant(
-			VisualLibrary.ice_material(_deck_tint(biome, tunnel), 0.30), {
-				"roughness_base": 0.34,
-				"specular_amount": 0.30,
-				"streak_strength": 0.12,
-				"glint_strength": 0.24,
-				"crack_strength": 0.48,
-				# The reason the MID-tier deck kept rendering near-white. The ice
-				# program mixes albedo toward its pale rim colour by fresnel, and
-				# a FLAT FLOOR under a chase camera is grazing-angle across its
-				# whole visible length: fresnel sits near 1 everywhere, so the
-				# tint was being overwritten by rim colour on every pixel the
-				# player looks at. Vertical ice (walls, bergs) wants that rim and
-				# keeps it; the deck cannot have it and be a mid tone at once.
-				"rim_strength": 0.10,
-				"rim_power": 6.5,
-				"rim_tint": _deck_tint(biome, tunnel).lightened(0.18),
-			})
+	return _painted_surface_material(biome, tunnel, false)
 
 
 ## The shelf keeps its own BRIGHT tint rather than inheriting the deck's, so
 ## darkening the play strip cannot darken the frame around it.
 static func _verge_snow_material(biome: int, tunnel: bool) -> ShaderMaterial:
-	var tint := _biome_shelf_tint(biome)
-	if tunnel:
+	return _painted_surface_material(biome, tunnel, true)
+
+
+## One cached material for each biome/tunnel/surface combination. Primed before
+## GO and reused by the start apron and every chunk; no runtime texture readback,
+## per-cassette materials, extra geometry or gameplay RNG.
+static func _painted_surface_material(biome: int, tunnel: bool, snow: bool) -> ShaderMaterial:
+	var key := "%d_%d_%d" % [biome, int(tunnel), int(snow)]
+	if _painted_surface_cache.has(key):
+		return _painted_surface_cache[key]
+	var mat := ShaderMaterial.new()
+	mat.shader = PAINTED_SURFACE_SHADER
+	var tint := _biome_shelf_tint(biome) if snow else _deck_tint(biome, tunnel)
+	if snow and tunnel:
 		tint *= Color(0.82, 0.86, 0.96, 1.0)
-	return VisualLibrary.snow_material(tint, 0.3)
+	mat.set_shader_parameter("tint", tint)
+	mat.set_shader_parameter("paint_reference", Color(0.8957, 0.9330, 0.9884) if snow else Color(0.381, 0.775, 0.946))
+	mat.set_shader_parameter("tile_metres", 7.0 if snow else 10.0)
+	mat.set_shader_parameter("paint_strength", 0.78 if snow else 1.0)
+	mat.set_shader_parameter("roughness_base", 0.86 if snow else 0.44)
+	mat.set_shader_parameter("specular_amount", 0.15 if snow else 0.26)
+	mat.set_shader_parameter("emission_lift", 0.085 if biome == Biome.CAVE or biome == Biome.NIGHT else 0.055)
+	# Headless logic tests retain palette/material identity without loading GPU
+	# textures. Missing optional paint keeps a readable solid-colour fallback.
+	if not GameConfig.is_headless():
+		var path := PAINTED_SNOW_TEXTURE if snow else PAINTED_ICE_TEXTURE
+		if not _painted_texture_cache.has(path):
+			_painted_texture_cache[path] = load(path) as Texture2D if ResourceLoader.exists(path) else null
+		var texture := _painted_texture_cache[path] as Texture2D
+		if texture != null:
+			mat.set_shader_parameter("painted_albedo", texture)
+			mat.set_shader_parameter("painted_enabled", true)
+	_painted_surface_cache[key] = mat
+	return mat
 
 
 static func _seam_material(biome: int) -> StandardMaterial3D:
@@ -1869,11 +2778,10 @@ static func _seam_material(biome: int) -> StandardMaterial3D:
 			_biome_seam_glow(biome), _biome_seam_energy(biome), 0.7)
 
 
-## Kerb wall body. Still the ice shader -- the raking gleam it puts along the
-## wall is one of the few things in the old look worth keeping, and it is the
-## strongest near-field speed cue after the pennants.
-static func _kerb_body_material(biome: int) -> ShaderMaterial:
-	return VisualLibrary.ice_material(_biome_kerb_body(biome), 0.55)
+## Recessed blue wall bays use one opaque vertex-paint material in both the
+## authored DAY deck and fallback bands. Biome light still changes their value.
+static func _kerb_body_material(_biome: int) -> StandardMaterial3D:
+	return ReferenceWalls.material()
 
 
 ## Kerb crown. Emissive, at zero-ish energy in the lit bands and hard in the
@@ -1933,37 +2841,37 @@ static func _kerb_deep_material(biome: int) -> StandardMaterial3D:
 ## The running deck: MID tier, saturated. The single most consequential eight
 ## constants in the file.
 static func _biome_deck_tint(biome: int) -> Color:
-	# These sit BELOW the MID luminance band on paper on purpose. The brief's
-	# values are the target for what ends up on screen, and the deck is lit by
-	# a 1.55-energy sun and tonemapped: authoring the target value as albedo
-	# put the rendered deck back up at BRIGHT, which is the whole defect. Read
-	# off qa_shots/deck/*.png, not derived.
+	# Keep the route in a comparable albedo band across the run. Later skies
+	# and key lights already darken the scene; near-black road paint compounds
+	# that loss and leaves only emissive seams visible. Hue carries the biome.
 	match biome:
 		Biome.DUSK:
-			return Color(0.30, 0.14, 0.22)
+			return Color(0.60, 0.44, 0.52)
 		Biome.CAVE:
-			return Color(0.09, 0.19, 0.29)
+			return Color(0.35, 0.47, 0.66)
 		Biome.NIGHT:
-			return Color(0.07, 0.10, 0.24)
+			return Color(0.37, 0.46, 0.67)
 		_:
-			return Color(0.17, 0.38, 0.52)
+			# Day is glacial ice, not painted steel. Keep enough blue value
+			# separation for orange hazards and gold fish above the floor.
+			return Color(0.15, 0.57, 0.84)
 
 
 ## The snow shelf beyond the drop-off: BRIGHT tier, and deliberately NOT
 ## derived from the deck any more. It is the frame around the play space, and a
-## frame that darkens with its picture frames nothing. The cave is the one band
-## where the shelf gives up its brightness -- underground there is no sky to
-## light it, so the glowing kerb seams take over as the BRIGHT tier instead.
+## frame that darkens with its picture frames nothing. Cave and night retain
+## cool snow with enough reflected light to frame the whole lane, not just
+## the narrow emissive seams.
 static func _biome_shelf_tint(biome: int) -> Color:
 	match biome:
 		Biome.DUSK:
 			return Color(1.0, 0.80, 0.72)
 		Biome.CAVE:
-			return Color(0.30, 0.52, 0.70)
+			return Color(0.64, 0.82, 0.94)
 		Biome.NIGHT:
-			return Color(0.24, 0.32, 0.60)
+			return Color(0.69, 0.78, 0.96)
 		_:
-			return Color(0.97, 0.99, 1.0)
+			return Color(0.99, 0.985, 0.97)
 
 
 ## Wind-polished top of the kerb wall: BRIGHT, and in the two dark bands it is
@@ -2002,9 +2910,9 @@ static func _biome_kerb_body(biome: int) -> Color:
 		Biome.DUSK:
 			return Color(0.86, 0.30, 0.32)
 		Biome.CAVE:
-			return Color(0.08, 0.34, 0.56)
+			return Color(0.23, 0.46, 0.65)
 		Biome.NIGHT:
-			return Color(0.10, 0.22, 0.55)
+			return Color(0.30, 0.43, 0.69)
 		_:
 			return Color(0.20, 0.52, 0.76)
 
@@ -2157,25 +3065,51 @@ static func _shelf_y_at(abs_x: float) -> float:
 ## a banner that flaps and a shard that tumbles cost one instance-transform
 ## write each per frame and are the difference between a corridor and a place.
 func _build_dressing(chunk: RunnerChunk, rng: RandomNumberGenerator) -> void:
+	for stage: int in STREAM_DRESSING_STAGE_COUNT:
+		_build_dressing_stage(chunk, rng, stage)
+
+
+## Preserve original family and art-RNG order while bounding each streamed
+## submission to one visual family.
+func _build_dressing_stage(chunk: RunnerChunk, rng: RandomNumberGenerator,
+		stage: int) -> void:
 	var biome := chunk.biome
-	_build_drifts(chunk, rng, biome)
-	_build_crystals(chunk, rng, biome)
-	_build_bergs(chunk, rng, biome)
-	if biome == Biome.DAY:
-		_build_day_port_near(chunk, rng)
-		_build_day_port_modules(chunk, rng)
-		_build_day_port_cargo(chunk, rng)
-		_build_day_port_landmark(chunk, rng)
-	# DAY's sensor sleds already own the near-parallax band. Alternate pennant
-	# chunks there instead of paying both repeated draws on every 36 m segment;
-	# other biomes keep banners every chunk.
-	if biome != Biome.DAY or posmod(chunk.index, 2) == 0:
-		_build_banners(chunk, rng)
-	_build_debris(chunk, rng)
-	if biome == Biome.NIGHT or (biome == Biome.DAY and rng.randf() < 0.5):
-		_build_birds(chunk, rng)
-	if biome == Biome.NIGHT and rng.randf() < 0.35:
-		_build_aurora(chunk, rng)
+	match stage:
+		0:
+			_build_drifts(chunk, rng, biome)
+		1:
+			_build_crystals(chunk, rng, biome)
+		2:
+			_build_bergs(chunk, rng, biome)
+		3:
+			if biome == Biome.DAY:
+				_build_day_port_near(chunk, rng)
+		4:
+			if biome == Biome.DAY:
+				_build_day_port_modules(chunk, rng)
+		5:
+			if biome == Biome.DAY:
+				_build_day_port_cargo(chunk, rng)
+		6:
+			if biome == Biome.DAY:
+				_build_day_port_landmark(chunk, rng)
+		7:
+			# DAY's sensor sleds own the near-parallax band. Alternate pennants
+			# there; other biomes keep banners every chunk.
+			if biome != Biome.DAY or posmod(chunk.index, 2) == 0:
+				_build_banners(chunk, rng)
+		8:
+			_build_debris(chunk, rng)
+		9:
+			# Spell out short-circuit order: DAY consumes one chance roll, NIGHT
+			# consumes none here, and DUSK/CAVE consume none.
+			if biome == Biome.NIGHT:
+				_build_birds(chunk, rng)
+			elif biome == Biome.DAY and rng.randf() < 0.5:
+				_build_birds(chunk, rng)
+		10:
+			if biome == Biome.NIGHT and rng.randf() < 0.35:
+				_build_aurora(chunk, rng)
 
 
 func _build_drifts(chunk: RunnerChunk, rng: RandomNumberGenerator, biome: int) -> void:
@@ -2188,7 +3122,7 @@ func _build_drifts(chunk: RunnerChunk, rng: RandomNumberGenerator, biome: int) -
 				Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s * rng.randf_range(0.45, 0.85), s)),
 				Vector3(side * drift_x, _shelf_y_at(drift_x),
 						-rng.randf() * RunnerConfig.CHUNK_LENGTH)))
-	if not _supporting_family_enabled(chunk.index, 0):
+	if not _supporting_family_enabled(chunk.index, 0, chunk.dressing_density):
 		return
 	_add_multimesh(chunk, VisualLibrary.snow_drift_mesh(), drifts,
 			VisualLibrary.rock_material(_biome_shelf_tint(biome), 0.88), "Drifts", 170.0)
@@ -2207,7 +3141,7 @@ func _build_crystals(chunk: RunnerChunk, rng: RandomNumberGenerator, biome: int)
 	# Thin whole presentation families on lower tiers; reducing instance count
 	# inside a MultiMesh does not reduce its draw call. RNG was still consumed,
 	# so later authored placement stays stable across quality changes.
-	if not _decorative_family_enabled(chunk.index, 0):
+	if not _decorative_family_enabled(chunk.index, 0, chunk.dressing_density):
 		return
 	_add_multimesh(chunk, VisualLibrary.ice_crystal_mesh(), crystals,
 			VisualLibrary.rock_material(_biome_ice_tint(biome), 0.25), "Crystals", 170.0)
@@ -2237,24 +3171,26 @@ func _build_bergs(chunk: RunnerChunk, rng: RandomNumberGenerator, biome: int) ->
 					else (rng.randf_range(8.0, 18.0) if biome == Biome.DAY \
 					else rng.randf_range(5.0, 13.0))
 			var yaw := rng.randf() * TAU
-			var vertical_ratio := rng.randf_range(0.82, 1.28) if authored != null \
+			var vertical_ratio := rng.randf_range(0.90, 1.08) if authored != null \
 					else rng.randf_range(0.7, 1.5)
 			bergs.append(Transform3D(
 					Basis(Vector3.UP, yaw).scaled(
 							Vector3(s, s * vertical_ratio, s)),
-					Vector3(side * rng.randf_range(34.0, 84.0), -SHELF_DROP - 1.5,
+					Vector3(side * (rng.randf_range(42.0, 72.0) if authored != null \
+							else rng.randf_range(34.0, 84.0)), -SHELF_DROP - 1.5,
 							-rng.randf() * RunnerConfig.CHUNK_LENGTH)))
 		var variant: int = [101, 211, 331, 449][rng.randi_range(0, 3)]
-		if not _supporting_family_enabled(chunk.index, 1):
+		if not _supporting_family_enabled(chunk.index, 1, chunk.dressing_density):
 			return
-		var berg_mesh: Mesh = authored if authored != null \
+		var berg_mesh: Mesh = ReferenceIce.sea_mesh(authored) if authored != null \
 				else VisualLibrary.berg_mesh(variant)
-		var berg_material: Material = _authored_day_material() if authored != null \
+		var berg_material: Material = ReferenceIce.material() if authored != null \
 				else VisualLibrary.rock_material(_biome_far_tint(biome), 0.72)
 		var instance := _add_multimesh(chunk, berg_mesh, bergs, berg_material,
 				"AuthoredIcebergClusters" if authored != null else "Bergs", 900.0)
 		if instance != null and authored != null:
 			instance.set_meta("authored_asset_id", DAY_ICEBERG_ASSET)
+			instance.set_meta("reference_ice_derivative", true)
 
 
 ## DAY is an active polar research port, staged in three depth bands: sensor
@@ -2269,7 +3205,7 @@ func _build_day_port_near(chunk: RunnerChunk, rng: RandomNumberGenerator) -> voi
 	# Sensor sleds form irregular two/three-piece service clusters rather than a
 	# stamped fence. They stay beyond the kerb, so extra instances strengthen
 	# near parallax without touching the 55--70 m lane-decision silhouette.
-	var prop_count := maxi(1, roundi(float(rng.randi_range(2, 4)) * _dressing_density))
+	var prop_count := maxi(1, roundi(float(rng.randi_range(2, 4)) * chunk.dressing_density))
 	for i: int in prop_count:
 		var side := -1.0 if (i + chunk.index) % 2 == 0 else 1.0
 		var sx := rng.randf_range(0.76, 1.04)
@@ -2289,7 +3225,7 @@ func _build_day_port_near(chunk: RunnerChunk, rng: RandomNumberGenerator) -> voi
 	# Cluster / breathing-space rhythm. Seeded transforms are still consumed so
 	# this remains presentation-only and later art families keep deterministic.
 	if posmod(chunk.index, 3) == 2 \
-			or (_dressing_density < 0.99 and posmod(chunk.index, 4) == 3):
+			or (chunk.dressing_density < 0.99 and posmod(chunk.index, 4) == 3):
 		return
 	var mesh: Mesh = authored if authored != null else _port_prop_mesh()
 	var instance := _add_multimesh(chunk, mesh, near_props,
@@ -2305,7 +3241,7 @@ func _build_day_port_near(chunk: RunnerChunk, rng: RandomNumberGenerator) -> voi
 func _build_day_port_modules(chunk: RunnerChunk, rng: RandomNumberGenerator) -> void:
 	var modules: Array[Transform3D] = []
 	var module_tints := PackedColorArray()
-	var module_count := maxi(1, roundi(float(rng.randi_range(2, 3)) * _dressing_density))
+	var module_count := maxi(1, roundi(float(rng.randi_range(2, 3)) * chunk.dressing_density))
 	var cluster_side := -1.0 if rng.randf() < 0.5 else 1.0
 	for i: int in module_count:
 		var side := cluster_side if i < 2 else -cluster_side
@@ -2327,9 +3263,9 @@ func _build_day_port_modules(chunk: RunnerChunk, rng: RandomNumberGenerator) -> 
 	# Leave authored negative-space chunks even on high. Equipment clusters now
 	# frame destination landmarks instead of forming two continuous lab walls.
 	if posmod(chunk.index, 4) == 2 \
-			or (_dressing_density < 0.99 and posmod(chunk.index, 5) == 3):
+			or (chunk.dressing_density < 0.99 and posmod(chunk.index, 5) == 3):
 		return
-	if not _supporting_family_enabled(chunk.index, 2):
+	if not _supporting_family_enabled(chunk.index, 2, chunk.dressing_density):
 		return
 	var authored := _authored_day_mesh(DAY_LAB_ASSET)
 	var mesh: Mesh = authored if authored != null else _research_module_mesh()
@@ -2346,11 +3282,11 @@ func _build_day_port_modules(chunk: RunnerChunk, rng: RandomNumberGenerator) -> 
 ## obstacle generation, replay order, or score determinism.
 func _build_day_port_cargo(chunk: RunnerChunk, rng: RandomNumberGenerator) -> void:
 	var authored := _authored_day_mesh(DAY_CARGO_ASSET)
-	if authored == null or not _supporting_family_enabled(chunk.index, 1):
+	if authored == null or not _supporting_family_enabled(chunk.index, 1, chunk.dressing_density):
 		return
 	var stacks: Array[Transform3D] = []
 	var cargo_tints := PackedColorArray()
-	var count := maxi(1, roundi(float(rng.randi_range(2, 4)) * _dressing_density))
+	var count := maxi(1, roundi(float(rng.randi_range(2, 4)) * chunk.dressing_density))
 	for index: int in count:
 		var side := -1.0 if (chunk.index + index) % 2 == 0 else 1.0
 		var x := rng.randf_range(7.2, 11.4)
@@ -2369,7 +3305,7 @@ func _build_day_port_cargo(chunk: RunnerChunk, rng: RandomNumberGenerator) -> vo
 				Color(1.0, 0.92, 0.83, 1.0),
 		][posmod(chunk.index + index, 3)])
 	if posmod(chunk.index, 4) == 1 \
-			or (_dressing_density < 0.99 and posmod(chunk.index, 4) == 3):
+			or (chunk.dressing_density < 0.99 and posmod(chunk.index, 4) == 3):
 		return
 	var instance := _add_multimesh(chunk, authored, stacks, _authored_day_material(),
 			"AuthoredCargoStacks", 280.0, cargo_tints)
@@ -2426,7 +3362,7 @@ func _build_day_port_landmark(chunk: RunnerChunk, rng: RandomNumberGenerator) ->
 			landmark_scale = rng.randf_range(1.84, 2.12)
 	# High keeps the full authored landmark cadence. Lower presets retain the
 	# same three landmark families but thin instances without changing meshes.
-	if landmark_mesh != null and rng.randf() > _dressing_density:
+	if landmark_mesh != null and rng.randf() > chunk.dressing_density:
 		landmark_mesh = null
 	if landmark_mesh != null:
 		if landmark_name != "IcebreakerLandmark":
@@ -2481,7 +3417,7 @@ func _build_debris(chunk: RunnerChunk, rng: RandomNumberGenerator) -> void:
 				Vector3(side * rng.randf_range(RunnerConfig.DECK_HALF_WIDTH + 1.2, SHELF_WIDTH * 0.5),
 						-SHELF_DROP + rng.randf_range(0.5, 1.6),
 						-rng.randf() * RunnerConfig.CHUNK_LENGTH)))
-	if not _decorative_family_enabled(chunk.index, 1):
+	if not _decorative_family_enabled(chunk.index, 1, chunk.dressing_density):
 		return
 	chunk.register_anim(_add_multimesh(chunk, _shard_mesh(), shards,
 			VisualLibrary.rock_material(Color(0.86, 0.94, 1.0), 0.3), "Shards", 150.0),
@@ -2492,20 +3428,20 @@ func _build_debris(chunk: RunnerChunk, rng: RandomNumberGenerator) -> void:
 ## chunk; low uses a four-chunk cadence. Drifts, port architecture, silhouettes
 ## and all gameplay cues remain present, so this removes repeated draws rather
 ## than flattening the scene.
-func _decorative_family_enabled(chunk_index: int, phase: int) -> bool:
-	if _dressing_density >= 0.99:
+func _decorative_family_enabled(chunk_index: int, phase: int, density: float) -> bool:
+	if density >= 0.99:
 		return true
-	var cadence := 3 if _dressing_density >= 0.5 else 4
+	var cadence := 3 if density >= 0.5 else 4
 	return posmod(chunk_index + phase, cadence) == 0
 
 
 ## Larger supporting forms stay denser than small garnish: medium keeps two of
 ## every three placements and low keeps alternating placements. Phases keep a
 ## chunk from losing every depth band at once.
-func _supporting_family_enabled(chunk_index: int, phase: int) -> bool:
-	if _dressing_density >= 0.99:
+func _supporting_family_enabled(chunk_index: int, phase: int, density: float) -> bool:
+	if density >= 0.99:
 		return true
-	var cadence := 3 if _dressing_density >= 0.5 else 2
+	var cadence := 3 if density >= 0.5 else 2
 	return posmod(chunk_index + phase, cadence) != 0
 
 
@@ -2595,7 +3531,8 @@ static func _aurora_material() -> ShaderMaterial:
 
 func _add_multimesh(parent: Node3D, mesh: Mesh, transforms: Array[Transform3D],
 		material: Material, name_hint: String, range_base: float,
-		colors: PackedColorArray = PackedColorArray()) -> MultiMeshInstance3D:
+		colors: PackedColorArray = PackedColorArray(),
+		gameplay_surface: bool = false) -> MultiMeshInstance3D:
 	if transforms.is_empty():
 		return null
 	var mm := MultiMesh.new()
@@ -2621,10 +3558,14 @@ func _add_multimesh(parent: Node3D, mesh: Mesh, transforms: Array[Transform3D],
 	# presentation range as well. High stays bit-for-bit uncapped because
 	# VisualLibrary treats its range scale as zero; medium still retains its
 	# strongest near/mid cues through the 70 m gameplay horizon.
-	var tier_range_scale := 1.0
-	if _dressing_density < 0.99:
-		tier_range_scale = 0.35 if _dressing_density >= 0.5 else 0.25
-	VisualLibrary.apply_dressing_range(instance, range_base * tier_range_scale)
+	instance.set_meta("runner_dressing_base_range", range_base)
+	if gameplay_surface:
+		instance.set_meta("runner_gameplay_surface", true)
+	var chunk := parent as RunnerChunk
+	if chunk != null:
+		chunk.apply_dressing_range(instance, chunk.dressing_density, chunk.dressing_range_scale)
+	else:
+		VisualLibrary.apply_dressing_range(instance, range_base)
 	parent.add_child(instance)
 	return instance
 
@@ -2670,6 +3611,7 @@ func _prime_art_cache() -> void:
 	_authored_day_shelf_mesh()
 	_block_mesh()
 	_low_mesh()
+	ReferenceIce.material()
 	_arch_mesh()
 	_fish_mesh()
 	_ramp_mesh()
@@ -2700,36 +3642,54 @@ func _prime_art_cache() -> void:
 ## runner loading overlay before countdown instead of on first contact.
 func _register_shader_warmup_probes() -> void:
 	var prop := _prop_material()
-	var dodge := _dodge_material()
 	# DAY uses authored atlas decking, so the shared ice program does not enter
 	# the live tree until the first procedural DUSK band. Submit that exact
 	# streamed mesh/material pair now; constructing the cached material alone
 	# never links its Compatibility pipeline.
-	ShaderWarmup.register_external_probe(
+	_register_runner_warmup_probe(
 			_deck_mesh(), _deck_material(Biome.DUSK, false))
-	ShaderWarmup.register_external_probe(_block_mesh(), dodge)
-	ShaderWarmup.register_external_probe(_low_mesh(), dodge)
-	ShaderWarmup.register_external_probe(_arch_mesh(), prop)
-	ShaderWarmup.register_external_probe(_ramp_mesh(), prop)
-	ShaderWarmup.register_external_probe(_seal_mesh(), prop)
+	# The authored DAY cassettes also replace the procedural seams and verge.
+	# These buffers are private RunnerTrack caches, not VisualLibrary meshes;
+	# generic material probes and the opening DAY shelf cannot submit them.
+	# Keep the verge's four actual surface overrides on one exact mesh instance:
+	# together with seams this uses the two remaining fresh-runner probe slots.
+	_register_runner_warmup_probe(_seam_mesh(), _seam_material(Biome.DUSK))
+	_register_runner_warmup_probe(_verge_mesh(), null, [
+		_kerb_body_material(Biome.DUSK), _kerb_crown_material(Biome.DUSK),
+		_kerb_deep_material(Biome.DUSK), _verge_snow_material(Biome.DUSK, false),
+	])
+	_register_runner_warmup_probe(_block_mesh(), ReferenceIce.material())
+	_register_runner_warmup_probe(_low_mesh(), ReferenceIce.material())
+	_register_runner_warmup_probe(_arch_mesh(), prop)
+	_register_runner_warmup_probe(_ramp_mesh(), prop)
+	_register_runner_warmup_probe(_seal_mesh(), prop)
 	# Procedural tunnel faces are wound inward, so the shared prop material is
 	# sufficient from inside and avoids a late cull-disabled shader signature.
-	ShaderWarmup.register_external_probe(_tunnel_mesh(), _prop_material())
-	ShaderWarmup.register_external_probe(_tunnel_light_cue_mesh(), _mark_material())
-	ShaderWarmup.register_external_probe(_fish_mesh(), _fish_material())
-	ShaderWarmup.register_external_probe(_mark_mesh(), _mark_material())
+	_register_runner_warmup_probe(_tunnel_mesh(), _prop_material())
+	_register_runner_warmup_probe(_tunnel_light_cue_mesh(), _mark_material())
+	_register_runner_warmup_probe(_fish_mesh(), _fish_material())
+	_register_runner_warmup_probe(_mark_mesh(), _mark_material())
 	for id: StringName in RunnerConfig.POWERUP_IDS:
-		ShaderWarmup.register_external_probe(_crate_mesh(id), _powerup_shell_material(id))
+		_register_runner_warmup_probe(_crate_mesh(id), _powerup_shell_material(id))
 	var powerup_tint := _powerup_colour(RunnerConfig.POWERUP_MAGNET)
-	ShaderWarmup.register_external_probe(_powerup_ring_mesh(),
+	_register_runner_warmup_probe(_powerup_ring_mesh(),
 			VisualLibrary.emissive_material(powerup_tint * 0.42, powerup_tint, 1.8, 0.2))
-	ShaderWarmup.register_external_probe(_curtain_mesh(), _aurora_material())
+	_register_runner_warmup_probe(_curtain_mesh(), _aurora_material())
 	# DAY GLBs use one external atlas material family. Draw exact imported
 	# buffers behind loading overlay; no first-sight upload during capture/run.
 	for asset_id: String in DAY_WARMUP_ASSETS:
 		var mesh := _authored_day_mesh(asset_id)
 		if mesh != null:
-			ShaderWarmup.register_external_probe(mesh, _authored_day_material(false))
+			if asset_id == DAY_ICEBERG_ASSET:
+				_register_runner_warmup_probe(ReferenceIce.sea_mesh(mesh), ReferenceIce.material())
+			else:
+				_register_runner_warmup_probe(mesh, _authored_day_draw_material(asset_id))
+
+
+func _register_runner_warmup_probe(mesh: Mesh, material: Material,
+		surface_materials: Array[Material] = []) -> void:
+	ShaderWarmup.register_external_probe(mesh, material, surface_materials,
+			SHADER_WARMUP_SCOPE)
 
 
 ## Everything a STREAMED chunk could otherwise build for the first time
@@ -2749,7 +3709,6 @@ func _prime_dressing_cache() -> void:
 	VisualLibrary.rock_material(Color(0.86, 0.94, 1.0), 0.3)
 	VisualLibrary.rock_material(Color(0.24, 0.28, 0.36), 0.9)
 	_prop_material()
-	_dodge_material()
 	_mark_material()
 	_aurora_material()
 	_curtain_mesh()
@@ -2780,40 +3739,25 @@ func _prime_dressing_cache() -> void:
 ## multiplies baked vertex colours into the tint, which is how one material can
 ## carry a dark ice block, a hot-orange fin and a pale ice ridge at once.
 static func _prop_material() -> StandardMaterial3D:
-	return VisualLibrary.rock_material(Color.WHITE, 0.42)
-
-
-## Warm ambient lift for dodge hardware. Compatibility's blue sky fill drove
-## physically unlit orange faces toward olive in shadow; a restrained cached
-## emission keeps the safety livery orange without adding lights or draw calls.
-static func _dodge_material() -> StandardMaterial3D:
-	if _dodge_material_cache == null:
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = Color.WHITE
-		mat.vertex_color_use_as_albedo = true
-		mat.roughness = 0.42
-		mat.emission_enabled = true
-		mat.emission = Color(1.0, 0.18, 0.008)
-		mat.emission_energy_multiplier = 0.10
-		_dodge_material_cache = mat
-	return _dodge_material_cache
+	# Softer painted hardware keeps the established vertex-colour verb liveries.
+	return VisualLibrary.rock_material(Color(1.0, 0.985, 0.965), 0.62)
 
 
 ## Collectibles share one glossy material distinct from matte scenery. Vertex
-## colours carry the gold counter-shading, so every fish in a chunk remains one
+## colours carry the blue counter-shading, so every fish in a chunk remains one
 ## MultiMesh draw while catching a clean highlight at speed.
 static func _fish_material() -> StandardMaterial3D:
 	if _fish_material_cache == null:
 		var mat := StandardMaterial3D.new()
-		mat.albedo_color = Color(1.0, 0.94, 0.36)
+		mat.albedo_color = Color.WHITE
 		mat.vertex_color_use_as_albedo = true
 		mat.roughness = 0.24
 		mat.metallic = 0.12
-		# Low lift preserves gold under the blue sky/shadow fill without turning
+		# Low lift keeps the shared blue fish cue visible in shadow without turning
 		# each MultiMesh fish into an unshaded lamp.
 		mat.emission_enabled = true
-		mat.emission = Color(1.0, 0.62, 0.025)
-		mat.emission_energy_multiplier = 0.32
+		mat.emission = Color(0.03, 0.42, 0.80)
+		mat.emission_energy_multiplier = 0.16
 		_fish_material_cache = mat
 	return _fish_material_cache
 
@@ -2853,6 +3797,44 @@ static func _deck_mesh() -> PlaneMesh:
 	mesh.orientation = PlaneMesh.FACE_Y
 	_deck_mesh_cache = mesh
 	return _deck_mesh_cache
+
+
+## Purely visual runway behind z=0. The real first chunk begins at the hero,
+## which otherwise leaves a hard rectangular cutoff across the opening shot.
+## This uses an already-warm deck mesh/material and never touches collisions,
+## patterns, RNG, or obstacle spacing.
+func _build_start_apron() -> void:
+	var opening_ice: MeshInstance3D = null
+	if not _chunks.is_empty():
+		opening_ice = _chunks[0].get_node_or_null("GlacialIceSkin") as MeshInstance3D
+		if opening_ice == null:
+			opening_ice = _chunks[0].get_node_or_null("Deck") as MeshInstance3D
+	var apron := Node3D.new()
+	apron.name = "StartApron"
+	add_child(apron)
+	var ice := MeshInstance3D.new()
+	ice.name = "StartIce"
+	ice.mesh = _deck_mesh()
+	ice.material_override = opening_ice.material_override if opening_ice != null \
+			else _deck_material(Biome.DAY, false)
+	# Meet the actual opening surface exactly. A separate 0.018 m apron sat
+	# below authored ice (0.022 m) and above procedural ice (0.0 m), leaving a
+	# full-width raster seam through the penguin's feet during the countdown.
+	ice.position = Vector3(0.0, opening_ice.position.y if opening_ice != null else 0.0,
+			RunnerConfig.CHUNK_LENGTH * 0.5)
+	ice.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ice.visibility_range_end = 65.0
+	apron.add_child(ice)
+	# Continue both snow shoulders too. Extending only the centre ice left a
+	# conspicuous transverse world edge outside the kerbs in the opening shot.
+	var shelf := MeshInstance3D.new()
+	shelf.name = "StartSnowShoulders"
+	shelf.mesh = _authored_day_shelf_mesh()
+	shelf.material_override = _verge_snow_material(Biome.DAY, false)
+	shelf.position.z = RunnerConfig.CHUNK_LENGTH
+	shelf.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	shelf.visibility_range_end = 65.0
+	apron.add_child(shelf)
 
 
 static func _seam_mesh() -> ArrayMesh:
@@ -2915,7 +3897,7 @@ static func _authored_day_shelf_mesh() -> ArrayMesh:
 
 ## Kerb wall, drop-off face and the snowfield below, both sides, in one mesh —
 ## in FOUR surfaces, one per luminance tier the verge has to span:
-##   0 wall body   MID    (ice shader, saturated, keeps the raking gleam)
+##   0 wall body   MID    (opaque blue frames and recessed navy inserts)
 ##   1 crown cap   BRIGHT (emissive; the light source in the dark bands)
 ##   2 drop face   DARK   (vertex-ramped, tinted per band)
 ##   3 snow shelf  BRIGHT (snow shader)
@@ -2933,21 +3915,11 @@ static func _verge_mesh() -> ArrayMesh:
 	var inner := RunnerConfig.DECK_HALF_WIDTH
 	var outer := inner + WALL_THICKNESS
 	var w := Color.WHITE
-	# Surface 0: the wall body, inner face and the outer face's top metre.
+	# Surface 0: reference blue frames and real recessed panels. Same canonical
+	# wall envelope and six-metre joints as DAY; cap and deep drop stay separate.
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for s: int in 2:
-		var sign_x := -1.0 if s == 0 else 1.0
-		var xi := sign_x * inner
-		var xo := sign_x * outer
-		var facing := Vector3(-sign_x, 0.0, 0.0)
-		_quad_out(st, Vector3(xi, 0.0, 0.0), Vector3(xi, WALL_HEIGHT - 0.16, 0.0),
-				Vector3(xi, WALL_HEIGHT - 0.16, -length), Vector3(xi, 0.0, -length),
-				facing, w, w, w, w)
-		_quad_out(st, Vector3(xo, WALL_HEIGHT - 0.16, 0.0), Vector3(xo, WALL_HEIGHT - 1.0, 0.0),
-				Vector3(xo, WALL_HEIGHT - 1.0, -length), Vector3(xo, WALL_HEIGHT - 0.16, -length),
-				-facing, w, w, w, w)
-	st.generate_normals()
+	ReferenceWalls.append_bays(st, length, WALL_HEIGHT - 0.16, 0.0, WALL_HEIGHT - 1.0)
 	st.commit(mesh)
 	# Surface 1: the crown cap, plus a 16 cm lip carried down both faces so the
 	# bright edge is visible from the deck AND from outside the corridor. This
@@ -3004,91 +3976,16 @@ static func _verge_mesh() -> ArrayMesh:
 	return _verge_mesh_cache
 
 
-## Parked expedition snowcat filling one lane. Collider remains the same blunt
-## gameplay block; the shell supplies tracks, plough, cab glass and beacon so
-## the player reads an object with a story instead of a blue placeholder cube.
+## Full-height snow-crowned ice boulder. Uses the same lane-blocking envelope
+## as before; mesh/material changes never consume pattern RNG or affect pickups.
 static func _block_mesh() -> ArrayMesh:
-	if _block_mesh_cache != null:
-		return _block_mesh_cache
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var hx := BLOCK_WIDTH * 0.5
-	var hz := BLOCK_DEPTH * 0.5
-	var tread := _vc(Color(0.035, 0.055, 0.085))
-	var rubber_hi := _vc(Color(0.13, 0.18, 0.24))
-	var orange := _vc(_verb_dodge())
-	var orange_hi := _vc(Color(1.0, 0.70, 0.12))
-	var shell := _vc(Color(0.78, 0.90, 0.94))
-	var glass := _vc(Color(0.025, 0.16, 0.27))
-	var lamp := _vc(Color(0.94, 1.0, 0.72))
-	# Two dark continuous tracks establish the vehicle before any small detail.
-	for side: int in 2:
-		var track_min := -hx if side == 0 else hx - 0.34
-		var track_max := -hx + 0.34 if side == 0 else hx
-		_box_faces(st, Vector3(track_min, 0.04, -hz),
-				Vector3(track_max, 0.48, hz), tread, rubber_hi)
-		for tooth: int in 4:
-			var z0 := lerpf(-hz + 0.08, hz - 0.18, float(tooth) / 3.0)
-			var tooth_x := -hx + 0.035 if side == 0 else hx - 0.035
-			_box_faces(st, Vector3(tooth_x - 0.035, 0.08, z0),
-					Vector3(tooth_x + 0.035, 0.43, z0 + 0.11), rubber_hi, rubber_hi)
-	# Orange chassis and pale cab create a two-value expedition livery.
-	_box_faces(st, Vector3(-0.92, 0.35, -0.62), Vector3(0.92, 1.02, 0.55),
-			orange, orange_hi)
-	_box_faces(st, Vector3(-0.72, 0.96, -0.40), Vector3(0.72, 1.72, 0.38),
-			glass, shell)
-	_box_faces(st, Vector3(-0.78, 1.68, -0.46), Vector3(0.78, 1.83, 0.43),
-			glass, shell)
-	# Broad front windscreen, split by one mullion. +Z faces the player.
-	for pane: int in 2:
-		var x0 := -0.64 + float(pane) * 0.66
-		_quad_out(st, Vector3(x0, 1.13, 0.405), Vector3(x0 + 0.58, 1.13, 0.405),
-				Vector3(x0 + 0.52, 1.59, 0.405), Vector3(x0 + 0.06, 1.59, 0.405),
-				Vector3.BACK, glass, glass, _vc(Color(0.18, 0.54, 0.68)), glass)
-	# Angled snow plough: a strong trapezoid breaks the remaining box profile.
-	_quad_out(st, Vector3(-hx * 1.04, 0.10, hz + 0.18), Vector3(hx * 1.04, 0.10, hz + 0.18),
-			Vector3(0.86, 0.62, hz - 0.02), Vector3(-0.86, 0.62, hz - 0.02),
-			Vector3.BACK, tread, tread, orange_hi, orange_hi)
-	_box_faces(st, Vector3(-hx * 1.05, 0.08, hz + 0.14),
-			Vector3(hx * 1.05, 0.18, hz + 0.27), tread, orange)
-	# Headlights and a roof beacon remain readable as three bright points.
-	for side: int in 2:
-		var x := -0.58 if side == 0 else 0.58
-		_box_faces(st, Vector3(x - 0.13, 0.68, hz + 0.18),
-				Vector3(x + 0.13, 0.90, hz + 0.26), orange, lamp)
-	_box_faces(st, Vector3(-0.12, 1.82, -0.08), Vector3(0.12, 2.02, 0.14),
-			orange, lamp)
-	st.generate_normals()
-	_block_mesh_cache = st.commit()
-	return _block_mesh_cache
+	return ReferenceIce.block_mesh()
 
 
-## Bundled heated utility pipes, ONE metre wide so callers can scale them to any
-## lane span. Three rounded silhouettes, dark clamps and sled feet read as port
-## hardware; the collider stays the original jump-height ridge.
+## Jumpable snow-crowned ridge. Keep the exact original collider envelope;
+## the taller reference chunks use BLOCK collision and their own cached mesh.
 static func _low_mesh() -> ArrayMesh:
-	if _low_mesh_cache != null:
-		return _low_mesh_cache
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var orange := _vc(_verb_dodge())
-	var orange_hi := _vc(Color(1.0, 0.72, 0.12))
-	var dark := _vc(Color(0.025, 0.055, 0.085))
-	var steel := _vc(Color(0.30, 0.46, 0.56))
-	_cylinder_x(st, Vector3(0.0, 0.24, -0.19), 0.92, 0.19, 8, orange, orange_hi)
-	_cylinder_x(st, Vector3(0.0, 0.24, 0.19), 0.92, 0.19, 8, orange, orange_hi)
-	_cylinder_x(st, Vector3(0.0, 0.57, 0.0), 0.92, 0.19, 8, orange, orange_hi)
-	# Two broad clamps stay separate at 50 m and stop the bundle reading as logs.
-	for clamp_x: float in [-0.31, 0.31]:
-		_box_faces(st, Vector3(clamp_x - 0.055, 0.03, -0.43),
-				Vector3(clamp_x + 0.055, 0.73, 0.43), dark, steel)
-	# Sled runners ground it without growing beyond the collision silhouette.
-	for z: float in [-0.36, 0.36]:
-		_box_faces(st, Vector3(-0.49, 0.0, z - 0.06),
-				Vector3(0.49, 0.10, z + 0.06), dark, steel)
-	st.generate_normals()
-	_low_mesh_cache = st.commit()
-	return _low_mesh_cache
+	return ReferenceIce.ridge_mesh()
 
 
 ## Full-deck research-port service gantry. Slim threshold beam plus open truss
@@ -3147,11 +4044,8 @@ static func _arch_mesh() -> ArrayMesh:
 	return _arch_mesh_cache
 
 
-## Launch ramp: a wedge of packed snow with a kicker lip, rising toward -Z so
-## the player runs UP it. Chevrons painted up the face in the same "go" green
-## the deck marks use, because the one obstacle in the game that must never be
-## dodged has to be distinguishable at range, in a glance, from the ones that
-## must.
+## Curved ice launch: continuous pale run-up, carved side facets and one small
+## green takeoff mark. No dark metal rails or big painted chevrons.
 static func _ramp_mesh() -> ArrayMesh:
 	if _ramp_mesh_cache != null:
 		return _ramp_mesh_cache
@@ -3160,14 +4054,12 @@ static func _ramp_mesh() -> ArrayMesh:
 	var hx := RAMP_WIDTH * 0.5
 	var z_near := RAMP_DEPTH * 0.5
 	var z_far := -RAMP_DEPTH * 0.5
-	# Near-black flanks. The ONLY cue that says "this is a slope, not paint" from
-	# a camera that looks along it is the side triangle read against the snow,
-	# so the sides get the darkest value in the scene and the top stays pale.
-	var flank := Color(0.03, 0.05, 0.10)
-	var foot := Color(0.44, 0.58, 0.76)
-	var crown := Color(0.98, 1.0, 1.0)
-	var go := Color(0.02, 0.62, 0.12)
-	var strips := 6
+	var flank := _vc(Color(0.12, 0.34, 0.49))
+	var foot := Color(0.38, 0.66, 0.78)
+	var crown := Color(0.78, 0.94, 0.98)
+	var ice_edge := _vc(Color(0.91, 0.98, 1.0))
+	var go := _vc(Color(0.22, 0.94, 0.47))
+	var strips := 12
 	var profile: PackedFloat32Array = PackedFloat32Array()
 	for i: int in strips + 1:
 		var u := float(i) / float(strips)
@@ -3182,39 +4074,35 @@ static func _ramp_mesh() -> ArrayMesh:
 		var y0 := profile[i]
 		var y1 := profile[i + 1]
 		var top_n := Vector3(0.0, z0 - z1, y1 - y0).normalized()
-		var c0 := foot.lerp(crown, u0)
-		var c1 := foot.lerp(crown, u1)
+		var c0 := _vc(foot.lerp(crown, u0))
+		var c1 := _vc(foot.lerp(crown, u1))
 		_quad_out(st, Vector3(-hx, y0, z0), Vector3(hx, y0, z0),
 				Vector3(hx, y1, z1), Vector3(-hx, y1, z1), top_n, c0, c0, c1, c1)
-		if i % 2 == 0:
-			# Chevron band, floating 3 cm over the face. Pointed rather than
-			# square: a bar across a slope is a rung, an arrow is a direction.
-			var mid_z := lerpf(z0, z1, 0.5)
-			var mid_y := lerpf(y0, y1, 0.5) + 0.03
-			_tri_out(st, Vector3(-hx * 0.82, y0 + 0.03, z0), Vector3(0.0, mid_y, mid_z - 0.55),
-					Vector3(hx * 0.82, y0 + 0.03, z0), top_n, go, go, go)
+		# Thin ice lips catch light without changing the collider silhouette.
+		for side: float in [-1.0, 1.0]:
+			var edge_x := side * (hx - 0.10)
+			_quad_out(st, Vector3(edge_x - 0.04, y0 + 0.013, z0),
+					Vector3(edge_x + 0.04, y0 + 0.013, z0),
+					Vector3(edge_x + 0.04, y1 + 0.013, z1),
+					Vector3(edge_x - 0.04, y1 + 0.013, z1),
+					top_n, ice_edge, ice_edge, ice_edge, ice_edge)
+		if i == 8:
+			_tri_out(st, Vector3(-0.28, y0 + 0.018, z0),
+					Vector3(0.28, y0 + 0.018, z0),
+					Vector3(0.0, y1 + 0.018, z1), top_n, go, go, go)
 		for s: int in 2:
 			var sx := -hx if s == 0 else hx
 			var facing := Vector3(-1.0 if s == 0 else 1.0, 0.0, 0.0)
 			_quad_out(st, Vector3(sx, 0.0, z0), Vector3(sx, 0.0, z1),
 					Vector3(sx, y1, z1), Vector3(sx, y0, z0), facing, flank, flank, flank, flank)
-	# The lip: the back face, plus a bright green bar standing proud of the top
-	# edge. That bar is the thing the player is actually timing, and it is the
-	# only part of the ramp still visible once they are on top of it.
+	# Small luminous inlay at the takeoff edge; blue ice remains dominant.
 	_quad_out(st, Vector3(-hx, RAMP_HEIGHT, z_far), Vector3(hx, RAMP_HEIGHT, z_far),
 			Vector3(hx, 0.0, z_far), Vector3(-hx, 0.0, z_far), Vector3.FORWARD,
-			go, go, flank, flank)
-	_box_faces(st, Vector3(-hx - 0.06, RAMP_HEIGHT, z_far - 0.02),
-			Vector3(hx + 0.06, RAMP_HEIGHT + 0.16, z_far + 0.34), go, crown)
-	# Kicker rails running the WHOLE length of both top edges, following the
-	# profile. Two posts at the lip read as two posts; a rail reads as a ramp.
-	for s: int in 2:
-		var sx := (-hx - 0.09) if s == 0 else (hx + 0.09)
-		for i: int in strips:
-			var z0 := lerpf(z_near, z_far, float(i) / float(strips))
-			var z1 := lerpf(z_near, z_far, float(i + 1) / float(strips))
-			_box_faces(st, Vector3(sx - 0.09, profile[i], minf(z0, z1)),
-					Vector3(sx + 0.09, profile[i + 1] + 0.2, maxf(z0, z1)), flank, go)
+			ice_edge, ice_edge, flank, flank)
+	_box_faces(st, Vector3(-hx, RAMP_HEIGHT - 0.02, z_far - 0.06),
+			Vector3(hx, RAMP_HEIGHT + 0.08, z_far + 0.13), flank, ice_edge)
+	_box_faces(st, Vector3(-0.31, RAMP_HEIGHT + 0.08, z_far - 0.035),
+			Vector3(0.31, RAMP_HEIGHT + 0.095, z_far + 0.10), go, go)
 	st.generate_normals()
 	_ramp_mesh_cache = st.commit()
 	return _ramp_mesh_cache
@@ -3821,10 +4709,10 @@ static func _crate_mesh(id: StringName) -> ArrayMesh:
 ## reads the racing accessibility settings, and it draws three surfaces (body,
 ## fin and eye shaders) per fish -- three draw calls each, where a run can have
 ## eighty fish in view at once. This is the same silhouette (fusiform body,
-## dark amber dorsal over luminous gold belly, oversized gold tail and fin)
+## navy dorsal over luminous blue belly, oversized blue tail and fin)
 ## folded into ONE vertex-coloured surface, so a whole chunk's fish are a
-## single MultiMesh draw. Gold is the fixed collect cue: amber counter-shading
-## and a bright lateral flash keep the fish readable against both ice and sky.
+## single MultiMesh draw. Saturated blue matches the menu/HUD currency icon;
+## a dark dorsal and bright lateral flash keep it readable against the ice.
 ##
 ## Sized against FISH_LENGTH rather than authored in absolute units: the first
 ## pass drew a 0.8 m fish inside a 1.9 m grab sphere, and the result read as a
@@ -3834,25 +4722,25 @@ static func _fish_mesh() -> ArrayMesh:
 		return _fish_mesh_cache
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var dorsal := _vc(Color(0.95, 0.70, 0.08))
-	var gold := _vc(Color(1.0, 0.95, 0.32))
-	var fin := _vc(Color(1.0, 0.86, 0.16))
-	var glint := _vc(Color(1.0, 0.96, 0.68))
+	var dorsal := _vc(Color("1265bb"))
+	var gold := _vc(Color("65cfff"))
+	var fin := _vc(Color("248cdf"))
+	var glint := _vc(Color("d4f6ff"))
 	var eye := _vc(Color(0.025, 0.028, 0.035))
 	# The proportions below are authored in units of the original 0.82 m fish;
 	# k rescales the whole thing to FISH_LENGTH nose-to-tail in one place.
 	var k := FISH_LENGTH / 0.82
 	var rings := 7
-	var segs := 6
+	var segs := 12
 	var ring_pts: Array[PackedVector3Array] = []
 	for i: int in rings + 1:
 		var t := float(i) / float(rings)
 		var x := lerpf(-0.30, 0.26, t) * k
-		var r := maxf(0.155 * pow(maxf(sin(PI * pow(t, 0.72)), 0.0), 0.85), 0.005) * k
+		var r := maxf(0.215 * pow(maxf(sin(PI * pow(t, 0.72)), 0.0), 0.85), 0.005) * k
 		var pts := PackedVector3Array()
 		for j: int in segs:
 			var a := TAU * float(j) / float(segs)
-			pts.append(Vector3(x, cos(a) * r, sin(a) * r * 0.6))
+			pts.append(Vector3(x, cos(a) * r, sin(a) * r * 0.72))
 		ring_pts.append(pts)
 	for i: int in rings:
 		for j: int in segs:
@@ -3883,10 +4771,22 @@ static func _fish_mesh() -> ArrayMesh:
 		_quad_out(st, Vector3(-0.23, -0.015, z), Vector3(0.15, -0.015, z),
 				Vector3(0.12, 0.045, z), Vector3(-0.20, 0.045, z), facing,
 				glint, gold, gold, glint)
-		var eye_z := z + facing.z * 0.004
-		_flat_fin(st, Vector3(-0.255, 0.055, eye_z) * Vector3(k, k, 1.0),
-				Vector3(-0.205, 0.075, eye_z) * Vector3(k, k, 1.0),
-				Vector3(-0.225, 0.025, eye_z) * Vector3(k, k, 1.0), eye)
+		# Round ivory eye, navy pupil and one catchlight match the HUD fish.
+		var eye_z := facing.z * 0.143 * k
+		var eye_centre := Vector3(-0.175 * k, 0.058 * k, eye_z)
+		for ring: int in 3:
+			var radius: float = [0.057, 0.036, 0.011][ring] * k
+			var centre := eye_centre + facing * float(ring) * 0.001
+			if ring == 2:
+				centre += Vector3(-0.014, 0.017, 0.0) * k
+			var color := glint if ring != 1 else eye
+			for edge: int in 12:
+				var a := TAU * float(edge) / 12.0
+				var b := TAU * float(edge + 1) / 12.0
+				_tri_out(st, centre,
+					centre + Vector3(cos(a), sin(a), 0.0) * radius,
+					centre + Vector3(cos(b), sin(b), 0.0) * radius,
+					facing, color, color, color)
 	st.generate_normals()
 	_fish_mesh_cache = st.commit()
 	return _fish_mesh_cache
@@ -4017,6 +4917,14 @@ class RunnerChunk:
 	var difficulty: float = 0.0
 	var biome: int = 0
 	var pattern: int = 0  # Pattern.OPEN; kept numeric inside nested class scope.
+	## Build-time snapshot, including detached jobs whose assembly spans a live
+	## quality change. Presentation range has a separate reversible live profile.
+	var dressing_density: float = 1.0
+	var dressing_range_scale: float = 0.0
+	var _range_profile_applied: bool = false
+	var _range_profile_distance: float = -1.0
+	var _range_profile_density: float = -1.0
+	var _range_profile_scale: float = -1.0
 	## Blocked-lane count per obstacle row, keyed by rounded local z. This is
 	## what makes "never fill all three lanes" enforceable without every pattern
 	## having to reason about it.
@@ -4106,22 +5014,66 @@ class RunnerChunk:
 
 	## Applies quality-tier submission range to presentation only. Collision,
 	## fairness rows, AI hints and deterministic generation remain resident.
-	func apply_visual_range(max_distance: float) -> void:
-		if max_distance <= 0.0:
+	func apply_visual_range(max_distance: float, density: float = -1.0,
+			range_scale: float = -1.0) -> void:
+		var next_density := dressing_density if density < 0.0 else density
+		var next_scale := dressing_range_scale if range_scale < 0.0 else range_scale
+		if _range_profile_applied and max_distance == _range_profile_distance \
+				and next_density == _range_profile_density and next_scale == _range_profile_scale:
 			return
-		_apply_visual_range_recursive(self, max_distance)
+		var first_uncapped := not _range_profile_applied and max_distance <= 0.0 \
+				and next_density == dressing_density and next_scale == dressing_range_scale
+		# Opening high chunks already carry their authored ranges. Avoid adding a
+		# tree walk to their normal stream path; defaults are captured lazily when
+		# the first live cap is actually applied.
+		if not first_uncapped:
+			_apply_visual_range_recursive(self, max_distance, next_density, next_scale)
+		_range_profile_applied = true
+		_range_profile_distance = max_distance
+		_range_profile_density = next_density
+		_range_profile_scale = next_scale
 
-	func _apply_visual_range_recursive(node: Node, max_distance: float) -> void:
+	func apply_dressing_range(geometry: GeometryInstance3D, density: float,
+			range_scale: float) -> void:
+		var tier_scale := 1.0 if density >= 0.99 else (0.35 if density >= 0.5 else 0.25)
+		# Authored deck cassettes share the instancing path with dressing but are
+		# gameplay surfaces. Low's decorative factor would cut their floor to
+		# 38.5 m, before the 55--70 m decision horizon. Only decoration is thinned.
+		if bool(geometry.get_meta("runner_gameplay_surface", false)):
+			tier_scale = 1.0
+		var end_distance := float(geometry.get_meta("runner_dressing_base_range", 0.0)) \
+				* tier_scale * range_scale
+		geometry.visibility_range_end = end_distance
+		geometry.visibility_range_end_margin = end_distance * 0.15
+		geometry.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF \
+				if end_distance > 0.0 else GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+
+	func _apply_visual_range_recursive(node: Node, max_distance: float,
+			density: float, range_scale: float) -> void:
 		if node is GeometryInstance3D:
 			var geometry := node as GeometryInstance3D
-			if geometry.visibility_range_end <= 0.0:
-				geometry.visibility_range_end = max_distance
+			# Capture once before the first cap; applying min() to the already
+			# capped value made recovery irreversibly retain the lowest range.
+			if not geometry.has_meta("runner_authored_visibility_range"):
+				geometry.set_meta("runner_authored_visibility_range", [
+					geometry.visibility_range_end, geometry.visibility_range_end_margin,
+					geometry.visibility_range_fade_mode,
+				])
+			if geometry.has_meta("runner_dressing_base_range"):
+				apply_dressing_range(geometry, density, range_scale)
 			else:
-				geometry.visibility_range_end = minf(geometry.visibility_range_end, max_distance)
-			geometry.visibility_range_end_margin = 0.0
-			geometry.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+				var authored: Array = geometry.get_meta("runner_authored_visibility_range")
+				geometry.visibility_range_end = float(authored[0])
+				geometry.visibility_range_end_margin = float(authored[1])
+				geometry.visibility_range_fade_mode = int(authored[2]) \
+						as GeometryInstance3D.VisibilityRangeFadeMode
+			if max_distance > 0.0:
+				geometry.visibility_range_end = max_distance if geometry.visibility_range_end <= 0.0 \
+						else minf(geometry.visibility_range_end, max_distance)
+				geometry.visibility_range_end_margin = 0.0
+				geometry.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 		for child: Node in node.get_children():
-			_apply_visual_range_recursive(child, max_distance)
+			_apply_visual_range_recursive(child, max_distance, density, range_scale)
 
 	func _flush_fish() -> void:
 		if fish_base.is_empty():
@@ -4318,6 +5270,22 @@ class RunnerMover:
 	var body: Node3D = null
 	var _time: float = 0.0
 	var _runner: Node3D = null
+
+	## Detached streamed chunks do not receive process ticks. Restore gameplay
+	## phase accumulated from reservation so commit cannot teleport a crossing
+	## seal backward relative to the synchronous timeline.
+	func prime_elapsed(elapsed: float) -> void:
+		if elapsed <= 0.0:
+			return
+		_time = maxf(0.0, elapsed)
+		var a := phase + _time * omega
+		position.x = sin(a) * sweep
+		if body != null:
+			var heading := cos(a)
+			body.rotation.y = 0.0 if heading < 0.0 else PI
+			body.rotation.z = -heading * 0.22
+			body.rotation.x = sin(a * 2.0) * 0.07
+			body.position.y = absf(sin(a)) * 0.05
 
 	func _process(delta: float) -> void:
 		_time += delta

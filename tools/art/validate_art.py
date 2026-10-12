@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import math
 import re
@@ -38,7 +39,9 @@ ALLOWED_KINDS = {
     "texture",
     "mesh",
     "resource",
+    "metadata",
 }
+REFERENCE_ONLY_LICENSE_IDS = {"reference_unverified"}
 EXPECTED_BUDGETS: dict[str, int] = {
     "character_deform_bones_max": 36,
     "character_lod0_triangles_max": 25_000,
@@ -75,6 +78,21 @@ ASSET_CLASS_BUDGETS: dict[str, dict[str, int]] = {
         "lod0_triangles_min": 18_000,
         "lod0_triangles_max": 25_000,
         "surfaces_max": 2,
+    },
+    "character_lod": {
+        "lod0_triangles_min": 8_000,
+        "lod0_triangles_max": 12_000,
+        "surfaces_max": 2,
+    },
+    "gameplay_interactive": {
+        "lod0_triangles_min": 1_500,
+        "lod0_triangles_max": 5_000,
+        "surfaces_max": 1,
+    },
+    "gameplay_interactive_lod": {
+        "lod0_triangles_min": 250,
+        "lod0_triangles_max": 1_100,
+        "surfaces_max": 1,
     },
     "obstacle": {
         "lod0_triangles_min": 1_500,
@@ -132,7 +150,18 @@ KIND_EXTENSIONS = {
     "material": {".tres", ".res"},
     "texture": {".png", ".webp", ".jpg", ".jpeg", ".svg"},
     "mesh": {".glb", ".gltf", ".tres", ".res"},
-    "resource": {".tres", ".res"},
+    "resource": {".tres", ".res", ".gdshader", ".gdshaderinc"},
+    "metadata": {".json"},
+}
+
+# The rear runner package uses its own builder and deliberately does not claim
+# the shared CharacterLook/podium/accessory contract or its 23 animation clips.
+RUNNER_PACKAGE_CONTRACT = {
+    "deform_bones_max": 15,
+    "required_animations": ["jump", "slide", "waddle"],
+    "skin_influences_max": 4,
+    "surfaces_max": 1,
+    "triangles_max": 15000,
 }
 
 
@@ -223,11 +252,14 @@ def _png_size(path) -> tuple[int, int]:
     return struct.unpack(">II", header[16:24])
 
 class ArtValidator:
-    def __init__(self) -> None:
+    def __init__(self, *, include_review_fragments: bool = False) -> None:
         self.errors: list[str] = []
         self.notes: list[str] = []
         self.runtime: dict[str, Any] = {}
         self.source: dict[str, Any] = {}
+        self.include_review_fragments = include_review_fragments
+        self.review_asset_ids: set[str] = set()
+        self.unresolved_review_count = 0
 
     def error(self, message: str) -> None:
         self.errors.append(message)
@@ -255,12 +287,47 @@ class ArtValidator:
         self.runtime = self.load_json(RUNTIME_MANIFEST, "runtime manifest")
         self.source = self.load_json(SOURCE_MANIFEST, "source manifest")
         if self.runtime:
+            self._validate_canonical(RUNTIME_MANIFEST, self.runtime, "runtime manifest")
+        if self.source:
+            self._validate_canonical(SOURCE_MANIFEST, self.source, "source manifest")
+        if self.include_review_fragments and self.runtime and self.source:
+            self._load_review_fragments()
+        if self.runtime:
             self._validate_runtime()
         if self.source:
             self._validate_source()
         self._validate_cross_manifest()
         self._validate_repository_contract()
         return not self.errors
+
+    def _load_review_fragments(self) -> None:
+        """Validate the authoring inventory without registering it for release.
+
+        Only additional fragment entries may remain production_ready=false.
+        Central catalog entries are always held to the strict release contract.
+        Everything else uses the same hash, provenance, schema and orphan checks.
+        """
+        path = ROOT / "tools/art/merge_art_fragments.py"
+        spec = importlib.util.spec_from_file_location("_art_review_merger", path)
+        if spec is None or spec.loader is None:
+            self.error("cannot load art fragment merger")
+            return
+        merger = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(merger)
+        central_ids = {str(entry.get("id", "")) for entry in self.runtime.get("assets", [])
+                       if isinstance(entry, dict)}
+        try:
+            fragments = merger.load_fragments(ROOT / "data/art/fragments")
+            runtime, source, _counts = merger.merge_documents(self.runtime, self.source, fragments)
+        except (OSError, ValueError) as exc:
+            self.error(f"review fragment integrity: {exc}")
+            return
+        self.review_asset_ids = {str(entry.get("id", "")) for entry in runtime["assets"]} - central_ids
+        self.runtime, self.source = runtime, source
+        self.unresolved_review_count = sum(entry.get("production_ready") is False
+                                          for entry in runtime["assets"]
+                                          if entry.get("id") in self.review_asset_ids)
+        self.note(f"review integrity only; unresolved production_ready=false assets={self.unresolved_review_count}; release readiness is not evaluated as passed")
 
     def format_manifests(self) -> None:
         for path in (RUNTIME_MANIFEST, SOURCE_MANIFEST):
@@ -279,7 +346,6 @@ class ArtValidator:
 
     def _validate_runtime(self) -> None:
         data = self.runtime
-        self._validate_canonical(RUNTIME_MANIFEST, data, "runtime manifest")
         if data.get("schema_version") != SCHEMA_VERSION:
             self.error(f"runtime schema_version must be {SCHEMA_VERSION}")
         if not ID_RE.fullmatch(str(data.get("catalog_id", ""))):
@@ -378,6 +444,14 @@ class ArtValidator:
                 self.error(f"asset {asset_id} groups must be lower_snake_case array")
             elif groups != sorted(set(groups)):
                 self.error(f"asset {asset_id} groups must be sorted and unique")
+            screen_space_sampling = entry.get("sampling_policy") == "screen_space_no_mipmaps"
+            if "sampling_policy" in entry:
+                if not screen_space_sampling:
+                    self.error(f"asset {asset_id} has unknown sampling_policy")
+                elif kind != "texture" or not isinstance(groups, list) or "frontend" not in groups \
+                        or not path_value.startswith("res://assets/art/ui/") \
+                        or path is None or not path.is_relative_to((ROOT / "assets/art/ui").resolve()):
+                    self.error(f"asset {asset_id} screen_space_no_mipmaps is restricted to frontend UI textures")
             if kind == "texture" and isinstance(groups, list) and "frontend" in groups \
                     and path is not None and path.is_file():
                 import_path = path.with_name(path.name + ".import")
@@ -403,11 +477,20 @@ class ArtValidator:
                             f"frontend texture {asset_id} is {width}x{height} and VRAM "
                             "compressed; iOS Safari renders that as garbage, so it must "
                             "be imported lossless (compress/mode=0)")
-                    if "mipmaps/generate=true" not in import_settings:
+                    # Flat UI plates and icons can deliberately retain their
+                    # original no-mipmap import to avoid extra resident memory.
+                    # This exception requires explicit asset metadata; it must
+                    # never silently apply to world/3D textures.
+                    if screen_space_sampling and "mipmaps/generate=false" not in import_settings:
+                        self.error(f"frontend texture {asset_id} sampling_policy requires mipmaps/generate=false")
+                    elif not screen_space_sampling and "mipmaps/generate=true" not in import_settings:
                         self.error(f"frontend texture {asset_id} must generate mipmaps")
             if str(entry.get("license_id", "")) not in license_ids:
                 self.error(f"asset {asset_id} uses unknown license_id")
-            if entry.get("production_ready") is not True:
+            if str(entry.get("license_id", "")) in REFERENCE_ONLY_LICENSE_IDS:
+                self.error(f"asset {asset_id} cannot use source-only reference license")
+            review_only = asset_id in self.review_asset_ids and entry.get("production_ready") is False
+            if entry.get("production_ready") is not True and not review_only:
                 self.error(f"asset {asset_id} must be production_ready=true before registration")
             if not ID_RE.fullmatch(str(entry.get("source_export_id", ""))):
                 self.error(f"asset {asset_id} source_export_id is invalid")
@@ -427,7 +510,6 @@ class ArtValidator:
 
     def _validate_source(self) -> None:
         data = self.source
-        self._validate_canonical(SOURCE_MANIFEST, data, "source manifest")
         if data.get("schema_version") != SCHEMA_VERSION:
             self.error(f"source schema_version must be {SCHEMA_VERSION}")
         if data.get("blender_version") != BLENDER_VERSION:
@@ -460,6 +542,8 @@ class ArtValidator:
                 self.error(f"export {job_id} forward_axis must be -Z")
             if str(job.get("license_id", "")) not in runtime_license_ids:
                 self.error(f"export {job_id} uses unknown license_id")
+            if str(job.get("license_id", "")) in REFERENCE_ONLY_LICENSE_IDS:
+                self.error(f"export {job_id} cannot use source-only reference license")
             collection = str(job.get("collection", ""))
             if not ID_RE.fullmatch(collection):
                 self.error(f"export {job_id} collection must be lower_snake_case")
@@ -525,7 +609,7 @@ class ArtValidator:
                 if bool(job.get("export_animations", False)) \
                         and not expected.get("required_animations"):
                     self.error(f"export {job_id} animations require required_animations")
-                if asset_class == "character":
+                if asset_class in {"character", "character_lod"}:
                     if job.get("export_animations") is not True:
                         self.error(f"export {job_id} character must export animations")
                     if strict_int(expected.get("deform_bones_max")) != 36:
@@ -544,6 +628,8 @@ class ArtValidator:
             self.error("source exports must be sorted by ID")
         if len(export_ids) != len(set(export_ids)):
             self.error("source export IDs must be unique")
+        source_files.update(self._validate_study_sources(runtime_license_ids))
+        source_files.update(self._validate_authored_packages(runtime_license_ids))
         for path in (ROOT / "art_src").rglob("*.blend"):
             if path.resolve() not in source_files:
                 self.error(f"unregistered Blender source: {path.relative_to(ROOT)}")
@@ -600,10 +686,11 @@ class ArtValidator:
         if len(concept_ids) != len(set(concept_ids)):
             self.error("source concept IDs must be unique")
         # A sibling `.prompt.md` marks a non-runtime PNG as a generated concept.
-        # UI production images are audited separately below; texture sources do
-        # not carry prompt records and therefore are not misclassified here.
+        # UI and painted runner production images are audited separately below;
+        # a sibling prompt does not turn their runtime source into a concept.
         for path in (ROOT / "art_src").rglob("*.png"):
-            if path.is_relative_to(ROOT / "art_src/ui"):
+            if path.is_relative_to(ROOT / "art_src/ui") \
+                    or path.is_relative_to(ROOT / "art_src/runner/painted"):
                 continue
             prompt = path.with_suffix(".prompt.md")
             if prompt.is_file() and path.resolve() not in concept_files:
@@ -619,7 +706,9 @@ class ArtValidator:
             generated_assets = []
         generated_ids: list[str] = []
         generated_files: set[Path] = set()
-        generated_root = (ROOT / "art_src/ui").resolve()
+        generated_roots = tuple((ROOT / value).resolve() for value in (
+            "art_src/ui", "art_src/runner/painted",
+        ))
         for entry in generated_assets:
             if not isinstance(entry, dict):
                 self.error("generated asset entry must be an object")
@@ -631,11 +720,10 @@ class ArtValidator:
             path = (ROOT / str(entry.get("path", ""))).resolve()
             prompt_path = (ROOT / str(entry.get("prompt_path", ""))).resolve()
             for candidate, label in ((path, "path"), (prompt_path, "prompt_path")):
-                try:
-                    candidate.relative_to(generated_root)
-                except ValueError:
+                if not any(candidate.is_relative_to(root) for root in generated_roots):
                     self.error(
-                        f"generated asset {generated_id} {label} must stay below art_src/ui"
+                        f"generated asset {generated_id} {label} must stay below "
+                        "art_src/ui or art_src/runner/painted"
                     )
             if not path.is_file():
                 self.error(f"generated asset {generated_id} image is missing")
@@ -665,8 +753,104 @@ class ArtValidator:
         if len(generated_ids) != len(set(generated_ids)):
             self.error("generated asset IDs must be unique")
         for path in (ROOT / "art_src/ui").rglob("*.png"):
-            if path.resolve() not in generated_files:
+            if path.resolve() not in generated_files | concept_files:
                 self.error(f"unregistered generated source: {path.relative_to(ROOT)}")
+        for path in (ROOT / "art_src/runner/painted").rglob("*.png"):
+            if path.resolve() not in generated_files | concept_files:
+                self.error(f"unregistered generated source: {path.relative_to(ROOT)}")
+
+    def _validate_study_sources(self, license_ids: set[str]) -> set[Path]:
+        """Track preserved Blender research without inventing release exports."""
+        entries = self.source.get("study_sources", [])
+        if not isinstance(entries, list):
+            self.error("study_sources must be an array")
+            return set()
+        files: set[Path] = set()
+        ids = []
+        for entry in entries:
+            if not isinstance(entry, dict):
+                self.error("study source must be an object")
+                continue
+            identifier = str(entry.get("id", ""))
+            ids.append(identifier)
+            if not ID_RE.fullmatch(identifier):
+                self.error(f"invalid study source ID: {identifier!r}")
+            path = (ROOT / str(entry.get("path", ""))).resolve()
+            if not path.is_relative_to((ROOT / "art_src").resolve()) or path.suffix != ".blend":
+                self.error(f"study source {identifier} must be a Blender file below art_src")
+            elif not path.is_file() or file_sha256(path) != entry.get("sha256"):
+                self.error(f"study source {identifier} is missing or has a stale hash")
+            if path in files:
+                self.error(f"duplicate study source path: {path}")
+            if entry.get("license_id") not in license_ids:
+                self.error(f"study source {identifier} uses unknown license_id")
+            if entry.get("status") not in {"source_study", "archived_study"} or entry.get("production_ready") is not False:
+                self.error(f"study source {identifier} must remain explicitly source-only")
+            files.add(path)
+        if ids != sorted(set(ids)):
+            self.error("study source IDs must be sorted and unique")
+        return files
+
+    def _validate_authored_packages(self, license_ids: set[str]) -> set[Path]:
+        """Validate a prepared runner package, separate from generic Blender exports."""
+        entries = self.source.get("authored_packages", [])
+        if not isinstance(entries, list):
+            self.error("authored_packages must be an array")
+            return set()
+        sources: set[Path] = set()
+        outputs: set[Path] = set()
+        ids = []
+        for entry in entries:
+            if not isinstance(entry, dict):
+                self.error("authored package must be an object")
+                continue
+            identifier = str(entry.get("id", ""))
+            ids.append(identifier)
+            if not ID_RE.fullmatch(identifier):
+                self.error(f"invalid authored package ID: {identifier!r}")
+            if entry.get("asset_class") != "runner_character" or entry.get("expected") != RUNNER_PACKAGE_CONTRACT:
+                self.error(f"authored package {identifier} must use the exact runner_character contract")
+            if entry.get("scope") != "rear_runner_only" or entry.get("front_ready") is not False:
+                self.error(f"authored package {identifier} cannot claim full-character approval")
+            if entry.get("license_id") not in license_ids or entry.get("license_id") in REFERENCE_ONLY_LICENSE_IDS:
+                self.error(f"authored package {identifier} uses invalid runtime license")
+            paths = {}
+            for field, suffix, directory in (("source", ".blend", "art_src"), ("output", ".glb", "assets/art"),
+                                              ("binding", ".json", "assets/art"), ("builder", ".py", "tools/art")):
+                path = (ROOT / str(entry.get(field, ""))).resolve()
+                paths[field] = path
+                if not path.is_relative_to((ROOT / directory).resolve()) or path.suffix != suffix:
+                    self.error(f"authored package {identifier} invalid {field} path")
+                elif not path.is_file() or file_sha256(path) != entry.get(field + "_sha256"):
+                    self.error(f"authored package {identifier} {field} is missing or has a stale hash")
+            if paths["output"] in outputs:
+                self.error(f"duplicate authored package output: {paths['output']}")
+            sources.add(paths["source"])
+            outputs.add(paths["output"])
+            try:
+                raw = paths["output"].read_bytes()
+                if raw[:4] != b"glTF" or struct.unpack_from("<I", raw, 4)[0] != 2:
+                    raise ValueError("GLB 2 required")
+                length, kind = struct.unpack_from("<II", raw, 12)
+                if kind != 0x4E4F534A:
+                    raise ValueError("GLB JSON chunk required")
+                document = json.loads(raw[20:20 + length])
+                primitives = [p for mesh in document["meshes"] for p in mesh["primitives"]]
+                triangles = sum(document["accessors"][p["indices"]]["count"] // 3 for p in primitives)
+                clips = sorted(a["name"] for a in document.get("animations", []))
+                joints = [j for skin in document.get("skins", []) for j in skin["joints"]]
+                if not 1 <= triangles <= RUNNER_PACKAGE_CONTRACT["triangles_max"] or len(primitives) != 1:
+                    raise ValueError("runner triangle/surface budget exceeded")
+                if clips != RUNNER_PACKAGE_CONTRACT["required_animations"] or not 1 <= len(joints) <= 15:
+                    raise ValueError("runner clip/bone contract mismatch")
+                if any("JOINTS_0" not in p["attributes"] or "WEIGHTS_0" not in p["attributes"] or
+                       "JOINTS_1" in p["attributes"] or "WEIGHTS_1" in p["attributes"] for p in primitives):
+                    raise ValueError("runner must use a single four-influence skin set")
+            except (OSError, ValueError, KeyError, TypeError, struct.error) as exc:
+                self.error(f"authored package {identifier} actual GLB: {exc}")
+        if ids != sorted(set(ids)):
+            self.error("authored package IDs must be sorted and unique")
+        return sources
 
     def _validate_cross_manifest(self) -> None:
         if not self.runtime or not self.source:
@@ -681,6 +865,8 @@ class ArtValidator:
             for entry in self.source.get("generated_assets", [])
             if isinstance(entry, dict)
         )
+        source_ids.update(str(entry.get("id", "")) for entry in self.source.get("authored_packages", [])
+                          if isinstance(entry, dict))
         for entry in self.runtime.get("assets", []):
             if not isinstance(entry, dict):
                 continue
@@ -795,12 +981,14 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--format", action="store_true", help="canonicalize both manifests before validation")
     parser.add_argument("--quiet", action="store_true", help="only print failures and final result")
+    parser.add_argument("--review-fragments", action="store_true",
+                        help="check authoring integrity including review fragments; does not pass release readiness")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    validator = ArtValidator()
+    validator = ArtValidator(include_review_fragments=args.review_fragments)
     if args.format:
         validator.format_manifests()
         validator.errors.clear()
@@ -819,6 +1007,8 @@ def main() -> int:
             f"[art] PASS assets={asset_count} exports={export_count} "
             f"generated={generated_count} concepts={concept_count}"
         )
+        if args.review_fragments:
+            print(f"[art] REVIEW_INTEGRITY_ONLY unresolved_review_assets={validator.unresolved_review_count} release_ready=false")
         if asset_count == 0:
             print("[art] NOTE foundation only; no authored runtime assets registered")
         return 0

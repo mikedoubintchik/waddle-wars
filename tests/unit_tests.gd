@@ -436,13 +436,16 @@ func _test_progression() -> void:
 	_check("progression_spend_fish_insufficient",
 		not Progression.spend_fish(1000) and Progression.get_fish() == 60)
 
-	# hat_crown costs 400, balance is 60: unlock must fail without charging.
+	# Exercise the current catalog price, not a retired economy constant.
 	_check("progression_unlock_insufficient",
 		not Progression.try_unlock_cosmetic("hat_crown") and Progression.get_fish() == 60)
-	# hat_beanie costs 50: unlock must succeed and charge exactly 50.
+	var beanie_cost := int(CosmeticsDB.get_item("hat_beanie")["cost"])
+	Progression.add_fish(beanie_cost)
+	var balance_before_unlock := Progression.get_fish()
 	var unlocked := Progression.try_unlock_cosmetic("hat_beanie")
 	_check("progression_unlock_success",
-		unlocked and Progression.is_cosmetic_unlocked("hat_beanie") and Progression.get_fish() == 10,
+		unlocked and Progression.is_cosmetic_unlocked("hat_beanie")
+		and Progression.get_fish() == balance_before_unlock - beanie_cost,
 		"fish=%d" % Progression.get_fish())
 
 	Progression.equip("hat", "hat_beanie")

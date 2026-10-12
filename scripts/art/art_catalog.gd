@@ -4,6 +4,7 @@ extends Resource
 
 const SCHEMA_VERSION: int = 1
 const DEFAULT_MANIFEST_PATH: String = "res://assets/art/art_manifest.json"
+const REQUEST_DRAIN = preload("res://scripts/utilities/threaded_resource_drain.gd")
 const ALLOWED_KINDS: PackedStringArray = [
 	"scene", "animation_library", "material", "texture", "mesh", "resource",
 ]
@@ -28,10 +29,10 @@ var _preview_ids := PackedStringArray()
 
 
 func reload_manifest() -> Error:
+	_abandon_pending()
 	_manifest = {}
 	_entries.clear()
 	_errors.clear()
-	_pending.clear()
 	_loaded.clear()
 	_failed.clear()
 	_preview_ids.clear()
@@ -211,6 +212,7 @@ func asset_path(asset_id: String) -> String:
 
 
 func begin_preload(asset_ids_to_load: PackedStringArray) -> Error:
+	REQUEST_DRAIN.watch_shutdown()
 	var load_error := _ensure_loaded()
 	if load_error != OK:
 		return load_error
@@ -228,6 +230,21 @@ func begin_preload(asset_ids_to_load: PackedStringArray) -> Error:
 			_failed[asset_id] = "resource not found: %s" % path
 			if first_error == OK:
 				first_error = ERR_FILE_NOT_FOUND
+			continue
+		if GameConfig.is_headless():
+			# Godot 4.7.1's dummy renderer has non-thread-safe material/mesh
+			# RID owners. Parallel resource decoding can corrupt their allocation
+			# even though no frame is drawn. Upstream reproduces this on 4.7.1:
+			# https://github.com/godotengine/godot/issues/121949
+			# The engine fix targets 4.8 (PR 121958); preserve our 4.7.1 pin and
+			# load synchronously only when there is no interactive loading UI.
+			var resource := ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_REUSE)
+			if resource == null:
+				_failed[asset_id] = "resource load returned null: %s" % path
+				if first_error == OK:
+					first_error = ERR_CANT_OPEN
+			else:
+				_loaded[asset_id] = resource
 			continue
 		var request_error := ResourceLoader.load_threaded_request(
 			path, "", true, ResourceLoader.CACHE_MODE_REUSE
@@ -260,7 +277,12 @@ func poll_preload() -> Dictionary:
 				else:
 					_loaded[id] = resource
 				completed.append(id)
-			ResourceLoader.THREAD_LOAD_FAILED, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+			ResourceLoader.THREAD_LOAD_FAILED:
+				# Failed jobs retain their ResourceLoader token until collected too.
+				ResourceLoader.load_threaded_get(path)
+				_failed[id] = "threaded load failed: %s" % path
+				completed.append(id)
+			ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
 				_failed[id] = "threaded load failed: %s" % path
 				completed.append(id)
 	for asset_id: String in completed:
@@ -315,9 +337,24 @@ func instantiate_scene(asset_id: String) -> Node:
 
 
 func clear_runtime_cache() -> void:
-	_pending.clear()
+	_abandon_pending()
 	_loaded.clear()
 	_failed.clear()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		# A RefCounted reaches this notification after its reference count is
+		# zero: do not dispatch another instance method on the dying Resource.
+		for path: String in _pending.values():
+			REQUEST_DRAIN.abandon(path)
+		_pending.clear()
+
+
+func _abandon_pending() -> void:
+	for path: String in _pending.values():
+		REQUEST_DRAIN.abandon(path)
+	_pending.clear()
 
 
 func _ensure_loaded() -> Error:

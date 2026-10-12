@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "scope": "Source geometry and material data only; game appearance pending",
+  "passed": true,
+  "glb_sha256": "b21ca5327a7798b31b1b5b7aa098a4452c623db2c95044244aa490fb72fc7484",
+  "source_sha256": "7253e147302eb8476524d9694cb6f8eb0032cac7a37ca58bd730e7723fde98b2",
+  "builder_sha256": "8fb828a22695d19a98e93efef8b0c1a6a6b67e2c04d39dc80c16f8a661cc5442",
+  "verifier_sha256": "7ec96f9ce004f2a37aa50c3bb5f7cbba4905aed4f1ceb5d47b4b83cdc66fd06d",
+  "geometry_reference": {
+    "path": "art_src/characters/penguin_rear_blockout_v1/candidate.glb",
+    "glb_sha256": "94f30dc898acb8abb85230ddad569e8e9530e8fca9bfe84a05a2ac8a34732fd1"
+  },
+  "geometry_identity": {
+    "method": "Exact float32 POSITION+NORMAL per triangle, cyclic orientation canonicalized; UV seam vertex duplication allowed",
+    "sha256": "10b230ec9f0dfd6ea563af6186b3ea450bf9d0b2ebf2b4f66da019e0d305de9e",
+    "source_sha256": "10b230ec9f0dfd6ea563af6186b3ea450bf9d0b2ebf2b4f66da019e0d305de9e",
+    "passed": true
+  },
+  "triangles": 14720,
+  "triangles_unchanged": true,
+  "unique_positions": 7372,
+  "exported_vertices_with_uv_splits": 8095,
+  "nonmanifold_welded_edges": 0,
+  "zero_area_uv_triangles": 0,
+  "minimum_uv_triangle_twice_area": 2.0559871245495742e-06,
+  "normal_unit_max_error": 1.1920928955078125e-07,
+  "tangent_unit_max_error": 7.176399230957031e-05,
+  "tangent_normal_max_dot_error": 0.0001189112663269043,
+  "tangent_numerical_tolerance": 0.001,
+  "color_owner": "sRGB baseColorTexture only; COLOR_0 absent; factor white",
+  "metallic_response_zero": true,
+  "surface_maps": {
+    "base_color": {
+      "sha256": "18e05c52d147ec460f6318e83ec73cf070b10e3a90e82eb388a80677b363ed8a",
+      "size": [
+        1024,
+        1024
+      ],
+      "mode": "RGB",
+      "embedded_png": true,
+      "channels_min": [
+        0,
+        0,
+        0
+      ],
+      "channels_max": [
+        242,
+        237,
+        222
+      ]
+    },
+    "normal": {
+      "sha256": "129581c3b83b47efaceee14bb2cd9fc79d972e68c25995958ed6d217c056f3db",
+      "size": [
+        1024,
+        1024
+      ],
+      "mode": "RGB",
+      "embedded_png": true,
+      "channels_min": [
+        54,
+        82,
+        232
+      ],
+      "channels_max": [
+        193,
+        160,
+        255
+      ]
+    },
+    "metallic_roughness": {
+      "sha256": "87c623281e4a9dc2cde74dc2a9ab02a82678e4c1dd1927f80ad142250840486f",
+      "size": [
+        1024,
+        1024
+      ],
+      "mode": "RGB",
+      "embedded_png": true,
+      "channels_min": [
+        255,
+        194,
+        0
+      ],
+      "channels_max": [
+        255,
+        231,
+        0
+      ]
+    }
+  },
+  "uv_padding_pixels": 8,
+  "normal_map_unit_vector_max_quantization_error": 0.005103372068672174,
+  "source_v9_original_preserved": true,
+  "khronos_validator": {
+    "errors": 0,
+    "warnings": 0,
+    "infos": 0,
+    "hints": 0,
+    "log_sha256": "b3fac137d80f93d58ed10b190b01719e20547ca9d86886cca73446516f768d18"
+  }
+}

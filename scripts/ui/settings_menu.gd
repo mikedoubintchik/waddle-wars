@@ -1,10 +1,7 @@
 extends Control
-## Settings screen covering the full SettingsManager schema.
-##
-## Shape follows the results/main-menu language: an eyebrow + headline hero, a
-## focused content workspace (never a full-bleed table), cards at radius 18 whose
-## titles are an accent tick plus an uppercase tracked caption, rows at radius
-## 10 with a faint zebra, and one promoted primary action — Back.
+## Settings screen covering the full SettingsManager schema. Player-facing
+## destinations expose one group at a time: Controls, Comfort, Sound, Account,
+## Graphics. Storage keys and reset scopes remain unchanged.
 ##
 ## Every row shares one anatomy: name, an optional one-line description, and a
 ## control block of a single fixed width so the right edge is a real column.
@@ -42,13 +39,15 @@ const COMPACT_COLUMN: float = 720.0
 ## the results screen needs — settings is dense and must not overflow.
 const BOOST_MAX: float = 1.35
 
-## Section id (also the SettingsManager section) -> title, in screen order.
+## Player-facing destinations, not the SettingsManager storage order. One
+## destination is visible at a time; advanced graphics no longer dominates the
+## first view and account/help live together.
 const SECTIONS: Array = [
-	["display", "Display"],
-	["audio", "Audio"],
-	["gameplay", "Gameplay"],
-	["accessibility", "Accessibility"],
-	["online", "Online"],
+	["gameplay", "Controls"],
+	["accessibility", "Comfort"],
+	["audio", "Sound"],
+	["online", "Account"],
+	["display", "Graphics"],
 ]
 
 var _scroll: ScrollContainer
@@ -62,6 +61,8 @@ var _refreshers: Dictionary = {}
 var _reset_armed: String = ""
 var _reset_buttons: Dictionary = {}  # section id -> Button
 var _section_cards: Dictionary = {}  # section id -> PanelContainer, for the jump chips
+var _category_buttons: Dictionary = {}
+var _active_category: String = "gameplay"
 var _boost: float = 1.0
 var _column: float = COLUMN_WIDTH
 var _compact: bool = false
@@ -70,6 +71,8 @@ var _fit: float = 1.0
 var _row_index: int = 0
 var _profile: LayoutProfile = null
 var _layout_root: Control = null
+var _account_status_label: Label = null
+var _account_deletion_panel: AccountDeletionPanel = null
 
 
 func _ready() -> void:
@@ -78,6 +81,12 @@ func _ready() -> void:
 	var initial := UtilityScreenLayout.bind_view_class(self, _on_view_class_changed)
 	_build_layout(initial, true, 0.0)
 	SettingsManager.setting_changed.connect(_on_setting_changed)
+	LeaderboardClient.auth_changed.connect(_refresh_account_status)
+	var native_auth := get_node_or_null("/root/NativeAuthClient")
+	if native_auth != null:
+		native_auth.connect("auth_changed", _refresh_account_status)
+		if native_auth.has_signal("status_changed"):
+			native_auth.connect("status_changed", _on_native_account_status_changed)
 	UITheme.attach_swipe_back(self, _go_back)
 
 
@@ -87,15 +96,22 @@ func _on_view_class_changed(next: LayoutProfile) -> void:
 
 
 func _build_layout(next: LayoutProfile, animate: bool, scroll_fraction: float) -> void:
+	# Keep the same confirmation and its opening account identity across rotation.
+	# Its CanvasLayer stays mounted while the scrollable settings tree is replaced.
+	if _account_deletion_panel != null and is_instance_valid(_account_deletion_panel) \
+			and _account_deletion_panel.get_parent() != self:
+		_account_deletion_panel.reparent(self, false)
 	if _layout_root != null and is_instance_valid(_layout_root):
 		_layout_root.free()
 	_profile = next
 	_refreshers.clear()
 	_reset_buttons.clear()
 	_section_cards.clear()
+	_category_buttons.clear()
 	_entrance_items.clear()
 	_reset_armed = ""
 	_back_button = null
+	_account_status_label = null
 	_boost = _tall_boost()
 	_column = _measure_column()
 	_fit = clampf(_column / maxf(UITheme.scaled(COLUMN_WIDTH), 1.0), 0.40, 1.0)
@@ -165,7 +181,9 @@ func _build_layout(next: LayoutProfile, animate: bool, scroll_fraction: float) -
 	_build_gameplay_section()
 	_build_accessibility_section()
 	_build_online_section()
+	_build_support_section()
 	_build_about_footer()
+	_show_category(_active_category)
 
 	# Closing note plus breathing room so the last card is never flush against
 	# the bottom edge of the scroll viewport.
@@ -369,11 +387,13 @@ func _build_action_bar(parent: VBoxContainer) -> Control:
 	return bar
 
 
-## Jump strip: one small quiet button per card. On a long settings list this is
-## the difference between scanning and hunting, and it wraps onto a second line
-## rather than clipping on a narrow window.
+## Category selector: three wide targets per row on phones, a vertical rail on
+## wide screens. Hidden panels never force the player through a long settings
+## document to find one control.
 func _build_section_chips(parent: Control, vertical: bool = false) -> Control:
-	var chips: Container = VBoxContainer.new() if vertical else HFlowContainer.new()
+	var chips: Container = VBoxContainer.new() if vertical else GridContainer.new()
+	if chips is GridContainer:
+		(chips as GridContainer).columns = 3
 	chips.add_theme_constant_override("h_separation", _ui(8.0))
 	chips.add_theme_constant_override("v_separation", _ui(6.0))
 	parent.add_child(chips)
@@ -381,12 +401,13 @@ func _build_section_chips(parent: Control, vertical: bool = false) -> Control:
 		var id := String(entry[0])
 		var chip := UITheme.make_button(String(entry[1]), _btn(0.0, 40.0), _f(16))
 		chip.add_theme_color_override("font_color", UITheme.COLOR_TEXT_DIM)
-		if vertical:
-			chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		chip.toggle_mode = true
+		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		UITheme.hook_sounds(chip)
 		chip.pressed.connect(func() -> void:
-			_jump_to(id))
+			_show_category(id))
 		chips.add_child(chip)
+		_category_buttons[id] = chip
 	return chips
 
 
@@ -405,7 +426,7 @@ func _build_navigation_rail(parent: Control) -> Control:
 	var body := VBoxContainer.new()
 	body.add_theme_constant_override("separation", _gap(8))
 	card.add_child(body)
-	body.add_child(_caption_label("Expedition Systems", 14,
+	body.add_child(_caption_label("Choose a category", 14,
 		Color(UITheme.COLOR_GOLD, 0.82)))
 	body.add_child(_divider())
 	_build_section_chips(body, true)
@@ -413,12 +434,24 @@ func _build_navigation_rail(parent: Control) -> Control:
 
 
 func _jump_to(id: String) -> void:
-	var card: Variant = _section_cards.get(id)
-	if not (card is Control) or not is_instance_valid(card as Control):
+	_show_category(id)
+
+
+func _show_category(id: String) -> void:
+	if not _section_cards.has(id):
 		return
-	if _scroll == null:
-		return
-	_scroll.scroll_vertical = maxi(0, roundi((card as Control).position.y - _u(6.0)))
+	_active_category = id
+	_disarm_resets()
+	for key: String in _section_cards.keys():
+		var card := _section_cards[key] as Control
+		card.visible = key == id or (id == "online" and key == "support")
+	for key: String in _category_buttons.keys():
+		var button := _category_buttons[key] as Button
+		button.set_pressed_no_signal(key == id)
+		button.add_theme_color_override("font_color",
+			UITheme.COLOR_GOLD if key == id else UITheme.COLOR_TEXT_DIM)
+	if _scroll != null:
+		_scroll.scroll_vertical = 0
 
 
 ## --- Type ramp (boost-aware mirrors of the UITheme helpers) ------------------
@@ -498,7 +531,7 @@ func _build_about_footer() -> void:
 	_sections.add_child(line)
 
 
-func _section(id: String, title: String) -> VBoxContainer:
+func _section(id: String, title: String, resettable: bool = true) -> VBoxContainer:
 	var card := PanelContainer.new()
 	var style := UITheme.make_card_style()
 	style.content_margin_left = _u(18.0)
@@ -520,12 +553,13 @@ func _section(id: String, title: String) -> VBoxContainer:
 	body.add_child(head)
 	_card_title(head, title)
 	head.add_child(_flex_spacer())
-	var reset := UITheme.make_ghost_button("Reset", _btn(0.0, 32.0), _f(16))
-	reset.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	UITheme.hook_sounds(reset)
-	reset.pressed.connect(_on_reset_pressed.bind(id))
-	_reset_buttons[id] = reset
-	head.add_child(reset)
+	if resettable:
+		var reset := UITheme.make_ghost_button("Reset", _btn(0.0, 32.0), _f(16))
+		reset.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		UITheme.hook_sounds(reset)
+		reset.pressed.connect(_on_reset_pressed.bind(id))
+		_reset_buttons[id] = reset
+		head.add_child(reset)
 
 	body.add_child(_divider())
 	_row_index = 0
@@ -1025,7 +1059,7 @@ func _owns_window() -> bool:
 
 
 func _build_display_section() -> void:
-	var body := _section("display", "Display")
+	var body := _section("display", "Graphics & Performance")
 	if _owns_window():
 		_add_choice_row(body, "display", "window_mode", "Window Mode", [
 			["windowed", "Windowed"], ["fullscreen", "Fullscreen"], ["borderless", "Borderless"],
@@ -1061,7 +1095,7 @@ func _build_display_section() -> void:
 
 
 func _build_audio_section() -> void:
-	var body := _section("audio", "Audio")
+	var body := _section("audio", "Sound")
 	_add_slider_row(body, "audio", "master_volume", "Master Volume", 0.0, 1.0, 0.05, true)
 	_add_slider_row(body, "audio", "music_volume", "Music Volume", 0.0, 1.0, 0.05, true)
 	_add_slider_row(body, "audio", "sfx_volume", "SFX Volume", 0.0, 1.0, 0.05, true)
@@ -1072,7 +1106,7 @@ func _build_audio_section() -> void:
 
 
 func _build_gameplay_section() -> void:
-	var body := _section("gameplay", "Gameplay")
+	var body := _section("gameplay", "Controls")
 	_add_slider_row(body, "gameplay", "steer_sensitivity", "Steer Sensitivity",
 		0.5, 1.5, 0.05, true, "How sharply the penguin answers a turn.")
 	# Tilt only appears where a lean can actually be read. On a desktop it
@@ -1104,7 +1138,7 @@ func _build_gameplay_section() -> void:
 
 
 func _build_accessibility_section() -> void:
-	var body := _section("accessibility", "Accessibility")
+	var body := _section("accessibility", "Comfort & Accessibility")
 	_add_choice_row(body, "accessibility", "camera_shake", "Camera Shake", [
 		["full", "Full"], ["reduced", "Reduced"], ["off", "Off"],
 	], "Impact and speed shake, softened or removed.")
@@ -1124,20 +1158,128 @@ func _build_accessibility_section() -> void:
 
 
 func _build_online_section() -> void:
-	var body := _section("online", "Online")
+	var body := _section("online", "Account & Progress")
+	if not AccountAuthPresentation.account_surface_enabled():
+		_account_status_label = _note(body, _account_status())
+		# There are no editable account settings in the offline mobile edition.
+		(_reset_buttons["online"] as Button).hide()
+		return
 	_add_text_row(body, "online", "display_name", "Leaderboard Name",
 		"2-20 letters/numbers", "Shown beside your times on the global boards.")
-	_note(body, _account_status())
+	_account_status_label = _note(body, _account_status())
+	body.add_child(_divider())
+	if _account_deletion_panel == null or not is_instance_valid(_account_deletion_panel):
+		_account_deletion_panel = AccountDeletionPanel.new()
+		body.add_child(_account_deletion_panel)
+	else:
+		_account_deletion_panel.reparent(body, false)
+
+
+## Bundled contact/help and explicit links to the published mobile policy.
+## Constructing/reading this card never launches another app or sends data.
+func _build_support_section() -> void:
+	if not GameConfig.native_offline_mvp():
+		return
+	var body := _section("support", "Help & Support", false)
+	var contact := _note(body, "Ninja Consulting LLC\nninjaconsultingllc@gmail.com")
+	contact.name = "SupportContact"
+	contact.add_theme_font_size_override("font_size", _f(18))
+	contact.add_theme_color_override("font_color", UITheme.COLOR_TEXT)
+	var version: Variant = ProjectSettings.get_setting("application/config/version", GameConfig.GAME_VERSION)
+	var support_version := String(version).strip_edges() if version is String else ""
+	if support_version.is_empty():
+		support_version = GameConfig.GAME_VERSION
+	var identity := _note(body, "Version %s\nBuild %s" % [
+		support_version, GameConfig.BUILD_ID])
+	identity.name = "SupportBuildIdentity"
+	_note(body, "In your email, include device model, OS version, game mode, "
+		+ "what happened and steps to repeat it.")
+	var safety := _note(body, "Do not send passwords, payment credentials, "
+		+ "account tokens or unrelated private information. "
+		+ "Deleting app data can erase local progress.")
+	safety.name = "SupportSafety"
+	# Bundled edition facts do not imply store approval or a runtime audit.
+	body.add_child(_divider())
+	var privacy_heading := _note(body, "Privacy & local data")
+	privacy_heading.name = "SupportPrivacyHeading"
+	privacy_heading.add_theme_font_override("font", UITheme.bold_font())
+	privacy_heading.add_theme_font_size_override("font_size", _f(18))
+	privacy_heading.add_theme_color_override("font_color", UITheme.COLOR_TEXT)
+	var local := _note(body, "Local progress, earned cosmetics, best results, "
+		+ "runner missions, settings and Time Trial ghosts are stored on this device. "
+		+ "Core gameplay works offline.")
+	local.name = "SupportPrivacyLocal"
+	var features := _note(body, "This mobile edition has no account sign-in, "
+		+ "game-account cloud sync, purchases or score posting.")
+	features.name = "SupportPrivacyFeatures"
+	var requests := _note(body, "Opening Leaderboard fetches your selected board "
+		+ "over HTTPS: mode, course and result limit. Requests do not send your local save.")
+	requests.name = "SupportPrivacyRequests"
+	var provider := _note(body, "Cloudflare provides the service and can see your "
+		+ "network address and process requests to deliver and secure it. "
+		+ "Avoid Leaderboard to skip these game-service requests.")
+	provider.name = "SupportPrivacyProvider"
+	var retention := _note(body, "If you email support, we receive the details you "
+		+ "choose to send to respond and troubleshoot. Routine correspondence is deleted "
+		+ "from the publisher's active mailbox within 90 days after resolution.")
+	retention.name = "SupportPrivacyRetention"
+	var limits := _note(body, "Specific records are held longer only for legal "
+		+ "obligations or necessary fraud or security handling. Gmail/Google processes "
+		+ "email separately; provider backup copies have no fixed deletion deadline from us.")
+	limits.name = "SupportPrivacyRetentionLimits"
+	var deletion := _note(body, "Deleting the app or clearing app data can erase "
+		+ "local progress. Device backups may retain a separate copy. "
+		+ "This does not delete a separate browser-game account.")
+	deletion.name = "SupportPrivacyDeletionWarning"
+	body.add_child(_divider())
+	_note(body, "Privacy policy and support pages open in your browser. "
+		+ "Visiting them sends normal website requests; you do not need to open them to play.")
+	var privacy_link := UITheme.make_ghost_button("Privacy Policy", Vector2(0.0, _f(48)), _f(18))
+	privacy_link.name = "NativePrivacyLink"
+	privacy_link.pressed.connect(_open_native_help_url.bind(GameConfig.NATIVE_PRIVACY_URL))
+	body.add_child(privacy_link)
+	var support_link := UITheme.make_ghost_button("Support Website", Vector2(0.0, _f(48)), _f(18))
+	support_link.name = "NativeSupportLink"
+	support_link.pressed.connect(_open_native_help_url.bind(GameConfig.NATIVE_SUPPORT_URL))
+	body.add_child(support_link)
+
+
+func _open_native_help_url(url: String) -> void:
+	# Fixed allowlist, no credentials/local state/query parameters and no
+	# automatic visit on menu construction, focus, pause or orientation changes.
+	if not GameConfig.native_offline_mvp() or GameConfig.is_headless() \
+			or url not in [GameConfig.NATIVE_PRIVACY_URL, GameConfig.NATIVE_SUPPORT_URL]:
+		return
+	OS.shell_open(url)
 
 
 ## One-line description of the leaderboard account state, so the Online section
 ## explains what the name is actually for.
 func _account_status() -> String:
-	if not LeaderboardClient.can_sign_in():
-		return "Play the web version to sign in and post times."
+	if not AccountAuthPresentation.account_surface_enabled():
+		return "Progress saves on this device. No account is needed. Earn cosmetics with fish in Customize; this edition has no purchases."
+	var auth_message := AccountAuthPresentation.message()
+	if not auth_message.is_empty():
+		return auth_message
 	if LeaderboardClient.signed_in:
 		return "Signed in as %s — times post to the global boards." % LeaderboardClient.display_name
-	return "Sign in from the Leaderboard screen to post times and back up progress."
+	if LeaderboardClient.can_sign_in():
+		return "Sign in from the Leaderboard screen to post times and back up progress."
+	var native_auth := get_node_or_null("/root/NativeAuthClient")
+	if native_auth != null and bool(native_auth.call("signed_in")):
+		return "Account connected on this device. Cloud backup and posting times currently require the web version."
+	if native_auth != null and bool(native_auth.get("pending")):
+		return "Account sign-in is in progress. Return to the Cosmetic Shop to finish connecting your account."
+	return "Connect your account from the Cosmetic Shop. Cloud backup and posting times are available in the web version."
+
+
+func _refresh_account_status() -> void:
+	if _account_status_label != null and is_instance_valid(_account_status_label):
+		_account_status_label.text = _account_status()
+
+
+func _on_native_account_status_changed(_message: String) -> void:
+	_refresh_account_status()
 
 
 ## --- Plumbing ---------------------------------------------------------------
@@ -1158,10 +1300,12 @@ var on_back: Callable = Callable()
 
 
 func _go_back() -> void:
+	if _account_deletion_panel != null and _account_deletion_panel.consume_back():
+		return
 	if on_back.is_valid():
 		on_back.call()
 		return
-	SceneRouter.go_to(Game.SCENE_MAIN_MENU)
+	SceneRouter.go_back()
 
 
 func _unhandled_input(event: InputEvent) -> void:

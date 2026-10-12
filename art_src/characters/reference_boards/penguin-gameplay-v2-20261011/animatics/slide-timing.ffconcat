@@ -1,0 +1,27 @@
+ffconcat version 1.0
+file 'slide-frame-01.png'
+option framerate 100
+duration 0.15
+file 'slide-frame-02.png'
+option framerate 100
+duration 0.15
+file 'slide-frame-03.png'
+option framerate 100
+duration 0.15
+file 'slide-frame-04.png'
+option framerate 100
+duration 0.15
+file 'slide-frame-05.png'
+option framerate 100
+duration 0.15
+file 'slide-frame-06.png'
+option framerate 100
+duration 0.15
+file 'slide-frame-07.png'
+option framerate 100
+duration 0.15
+file 'slide-frame-08.png'
+option framerate 100
+duration 0.15
+file 'slide-frame-08.png'
+option framerate 100

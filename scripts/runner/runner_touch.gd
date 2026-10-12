@@ -42,9 +42,16 @@ func setup(player: RunnerPlayer, layout_override: LayoutProfile = null) -> void:
 	_player = player
 	_layout_override = layout_override
 	_refresh_layout()
-	# Runs while the tree is paused so a swipe cannot be swallowed mid-pause and
-	# then applied on resume.
+	# Gameplay gestures stop while paused; the pause authority cancels any
+	# in-flight gesture before stopping the tree.
 	process_mode = Node.PROCESS_MODE_PAUSABLE
+	cancel_gesture()
+
+
+## A gesture begun before a pause/retry must not fire after it resumes.
+func cancel_gesture() -> void:
+	_tracking = false
+	_fired = false
 
 
 func _unhandled_input(event: InputEvent) -> void:

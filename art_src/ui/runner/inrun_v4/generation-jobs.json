@@ -1,0 +1,122 @@
+[
+  {
+    "key": "runner_surfaces_v4",
+    "transparent": true,
+    "refs": [
+      "/Users/ninja/Fun/waddle-wars/art_src/ui/runner/runner_hud_portrait_v1.png"
+    ],
+    "prompt": "Use case: stylized-concept. Production transparent UI sprite atlas for Waddle Wars. Input image is style reference only: reproduce the clean sculpted warm ivory, navy-blue shadow, soft fresh snow and polished ice materials, not the entire screenshot. Make one precisely arranged 3-column by 2-row atlas, six separate cutout objects, equal square cells, with generous transparent gutters. Row1 left: blank rounded rectangular ivory challenge card with snow only along top corners, portrait-ish almost square shape; row1 middle: blank wide ivory capsule for distance/score, proportion 3:1; row1 right: blank rounded square ivory power-up badge with snow cap. Row2 left: long empty inset icy-blue progress trough in thin ivory rim, proportion 4:1; row2 middle: long smooth luminous cyan-ice filled progress capsule, proportion 5:1; row2 right: small blank ivory capsule for hearts/fish counters, proportion 3:1. All six objects front-facing orthographic, consistent soft upper-left light, restrained shallow contact shadow contained inside each cell. No text, numbers, icons, penguins, checkerboard, scene background, neon glow, outer frame, labels or decorations beyond the six UI surfaces. Actual transparent alpha outside objects. High-quality game-ready raster, smooth readable materials at small sizes; no noisy crystalline speckles.",
+    "source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-677e4401-8b8b-4ebf-a729-4c70eff96b5f.png"
+  },
+  {
+    "key": "avalanche_front_v2",
+    "transparent": true,
+    "refs": [
+      "/Users/ninja/Fun/waddle-wars/assets/art/runner/avalanche_front_v1.png",
+      "/Users/ninja/Fun/waddle-wars/art_src/ui/menu/reference_iteration_v3/runner_pause_portrait_v3.png"
+    ],
+    "prompt": "Use case: stylized-concept. Production avalanche foreground sprite for Waddle Wars. Image1 is geometry reference for the wide alpha-cut snow lip; image2 is style reference for rounded illustrated powder, cool blue shadows, playful premium 3D storybook game. Generate a very wide 3:1 transparent cutout, only a turbulent bank of soft powder snow rolling toward the camera. Snow body fills full bottom width all the way to bottom edge and extends through both side edges; top edge an organic irregular rolling billow silhouette. The central upper snow crest starts about 37 percent down the canvas; top third mostly transparent with a few small detached puffs, modest higher billows near side edges. Rich sculpted soft cloud forms, light icy-blue shadows, restrained ivory-white highlights, gentle rounded depth. Clearly readable solid snow bank at bottom, airy powder only near contour. No horizon, sky, ground plane, penguin, UI, words, watermark, rectangular visible boundary, outline glow or harsh white flare. Actual alpha transparency above snow silhouette. This will sweep upward during a 2.4-second game catch, and stay as a very low lip during normal play.",
+    "source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-e6c642d2-847a-473e-bf1e-1d4c0d37b94c.png"
+  },
+  {
+    "key": "paused_wordmark_v1",
+    "transparent": true,
+    "refs": [
+      "/Users/ninja/Fun/waddle-wars/art_src/ui/menu/reference_iteration_v3/runner_pause_portrait_v3.png"
+    ],
+    "prompt": "Use case: background-extraction. Production transparent title cutout for Waddle Wars pause panel, using supplied image as exact style reference. Only the word PAUSED in large chunky softly rounded dark navy sculpted 3D letters with subtle cool-blue bevel highlights, soft contact shadow and little fresh snow perched on top of first and last letters. Match the PAUSED title from reference. Single horizontal centered word, all six letters P A U S E D perfectly legible. No card, no penguin, no scene, no other text, no frame, no ground, no checkerboard, no glow. Tight but uncropped composition with modest transparent margin, approximately 3.2:1 width:height, actual transparent alpha.",
+    "source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-afc49931-c841-4d57-b6b5-fcd3b808fb5b.png"
+  },
+  {
+    "key": "caught_background_portrait_v1",
+    "transparent": false,
+    "refs": [
+      "/Users/ninja/Fun/waddle-wars/art_src/ui/menu/reference_iteration_v3/runner_pause_portrait_v3.png"
+    ],
+    "prompt": "Use case: illustration-story. Production mobile game-over background painting for Waddle Wars, tall 9:16. Reference image is art direction only: same endearing navy/white penguin, coral knitted scarf, premium rounded storybook 3D fur, snow, bright cool blue ice with gentle warm sunlight. After an avalanche has caught the runner, show the penguin harmlessly plopped into a soft snowdrift with surprised-but-cheerful expression, both flippers peeking out and scarf resting on snow; head and shoulders clearly visible, no injury. Composition: character centered in the upper third, roughly y18\u201338 percent; distant icy pier and avalanche cloud receding behind him. Lower 60 percent is softly detailed blue ice/snow negative space reserved for real results UI. No UI panels, logos, title, text, numbers, buttons, labels, watermark or border. Keep a visible snowdrift directly beneath the character, not a running pose. Cohesive full-frame painted scene, no transparent background.",
+    "source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-e2aa7576-9e45-4a88-8dbc-4856afdbf676.png"
+  },
+  {
+    "key": "caught_background_desktop_v1",
+    "transparent": false,
+    "refs": [
+      "/Users/ninja/Fun/waddle-wars/art_src/ui/menu/reference_iteration_v3/runner_pause_portrait_v3.png"
+    ],
+    "prompt": "Use case: illustration-story. Production desktop game-over background painting for Waddle Wars, wide16:9. Reference image is art direction only: same endearing navy/white penguin, coral knitted scarf, premium rounded storybook3D fur, snow, bright cool-blue ice and gentle warm sunlight. After avalanche catches runner, show him harmlessly plopped into a soft snowdrift on the LEFT40 percent of image, surprised-but-cheerful expression, head/shoulders/flippers sticking out, scarf resting on snow. Character fills x10\u201344%,y25\u201385%; no injury. Distant icy pier, glacial peaks and rolling powder behind. RIGHT55 percent softly detailed blue ice/snow negative space for real results panel. No panels, logos, title, text, numbers, buttons, labels, watermark, border, no running pose. Cohesive full-frame painted scene, no transparent background.",
+    "source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-52b3869f-6cdc-444c-8fea-47ac20e2e86f.png"
+  },
+  {
+    "key": "runner_hud_desktop_v4",
+    "ref": "/Users/ninja/Fun/waddle-wars/art_src/ui/runner/runner_hud_landscape_v1.png",
+    "prompt": "Use case: ui-mockup. Create a polished 16:9 desktop Waddle Run gameplay reference matching this existing approved reference's exact art direction and main composition. Same sculpted snow-capped warm ivory HUD panels, thick dark navy rounded text, glossy red heart and blue fish icons, chilly blue ocean/pier, visible rear-facing penguin running forward. Keep three readable challenge rows upper left, live distance/score centered top with three hearts/fish/x1 beneath, pause upper right and three separate powerup badges below it. Bottom-center avalanche-gap bar with icy blue fill. In-run sample values distance 60 m, score 361, fish 13, three full hearts. Challenge labels: RUN 250 m; COLLECT 10 FISH; DODGE FOR 20s with small truthful sample progress. Large unobstructed central gameplay: lanes, obstacles, character all clearly visible. Avalanche threat only a gentle low soft rolling powder lip at bottom, not a blinding white foreground cloud. Preserve premium dimensional rounded material and sunlight of reference; no black panels, no generic flat web UI, no extra menu or labels. Full screen edge-to-edge, no device frame.",
+    "source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-c71452ea-8a9e-4a66-8c27-b6c08f5b2603.png"
+  },
+  {
+    "key": "runner_hud_portrait_v4",
+    "ref": "/Users/ninja/Fun/waddle-wars/art_src/ui/runner/runner_hud_portrait_v1.png",
+    "prompt": "Use case: ui-mockup. Create a polished 9:16 portrait mobile Waddle Run gameplay reference matching existing approved reference's exact style and placement. Same sculpted snow-capped warm ivory HUD panels, thick dark navy rounded text, glossy red heart and blue fish icons, chilly blue ocean/pier, visible rear-facing penguin running forward. Three compact readable challenge rows upper left, distance/score top center with three hearts/fish/x1 beneath, pause upper right and vertical compact powerup badges beneath. Bottom avalanche-gap meter sculpted ivory with icy cyan fill. Sample: distance60m, score361, fish13, x1, three hearts. Challenges RUN250m, COLLECT10FISH, DODGEFOR20s. Leave gameplay center open: clear icy runway obstacles and penguin. Avalanche only a gentle low rolling powder edge in bottom8percent, never blocking character or horizon. Premium soft dimensional game materials, no flat generic web UI, no dark rectangular panels, no extra menu, no device frame. The image should look like a finished mobile game's real gameplay screen.",
+    "source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-9c49d115-d8ff-4471-9d41-87426de22486.png"
+  },
+  {
+    "key": "avalanche_catch_desktop_v1",
+    "ref": "/Users/ninja/Fun/waddle-wars/art_src/ui/runner/runner_hud_landscape_v1.png",
+    "prompt": "Use case: ui-mockup. Create missing Waddle Run fatal-hit avalanche-catch state reference, 16:9 desktop, same game's sculpted ivory/snow navy-letter HUD and blue icy runway as reference. This is the middle of a2.4second catch animation before results appear. Hero penguin has just fallen forward on icy runway, rolling soft powder from behind starts to wrap around legs and rises at lower sides; face/head and full scene remain readable, dynamic but friendly and no injury. THREE emptied heart outlines in upper-center HUD clearly represent third-hit death; distance245m, score1460, fish32, x1. Upper-left challenges keep existing style. Pause absent/inactive after fatal hit; no active powerup badges. Large native-looking navy caption 'AVALANCHE!' centered below top HUD. Bottom gap meter0m. Powder billows with irregular soft edges, no horizontal rectangular cutoff. Do not show retry/menu/buttons yet, no white blinding solid wash, no red danger veil. Cohesive premium storybook3D game art, visible ocean/pier/ice remains under snow.",
+    "source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-eaedf476-a9c9-43e8-9cf4-1bb6078fbbcc.png"
+  },
+  {
+    "key": "avalanche_catch_portrait_v1",
+    "ref": "/Users/ninja/Fun/waddle-wars/art_src/ui/runner/runner_hud_portrait_v1.png",
+    "prompt": "Use case: ui-mockup. Create missing Waddle Run fatal-hit avalanche-catch state reference, 9:16 portrait mobile, same game's sculpted ivory/snow navy-letter HUD and blue icy runway as reference. Middle of a2.4second catch animation before results. Penguin runner has fallen forward on icy runway, rolling powder from behind curls around feet/flippers and rises on lower sides; head still visible. Friendly snow catch, no injury. Top HUD distance245m, score1460, fish32, x1, THREE emptied heart outlines to show third hit. Compact challenge card upper left. Pause hidden after death and no active powerup badges. Bold readable navy caption 'AVALANCHE!' below top HUD. Bottom avalanche-gap meter0m. Irregular soft rising powder with blue shadows and no straight rectangle bottom edge, no white blinding wash, no red veil. Keep clear snowy-pier game scene in middle, no retry/results buttons yet, no device frame, same premium rounded storybook3D style.",
+    "source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-75585b0a-9807-4f29-9c4c-a5be6f84b04b.png"
+  },
+  {
+    "key": "avalanche_results_desktop_v1",
+    "refs": [
+      "/Users/ninja/Fun/waddle-wars/qa_shots/tests/runner-inrun-v4-20261007/native-v1/landscape/runner_catch_results.png",
+      "/Users/ninja/Fun/waddle-wars/art_src/ui/runner/inrun_v4/caught_background_desktop_v1.png"
+    ],
+    "prompt": "Use case: ui-mockup. New 16:9 desktop Waddle Run avalanche-losing results state reference. Input1 is actual implemented UI layout and functional inventory; preserve its score summary, prominent completed-challenge row, and two real actions exactly. Input2 is approved runtime caught-in-snow art; preserve this penguin's surprised cheerful snowdrift pose, red scarf, sunset glacial scene and composition. Render a polished final quality cohesive sculpted snow/ivory UI reference. Heading 'RUN COMPLETE' in huge icy blue/gold dimensional lettering. Score panel label 'SCORE', number '1,460', subtle 'NEW PERSONAL BEST'. Three stat cells: 'BEST' '1,460' with gold trophy, 'DISTANCE' '245 m' with blue pin, 'FISH' '32' with blue fish. One separate prominent completed row: blue fish icon, 'Collect 60 fish', full green progress, round green check. Large glossy coral primary action 'RUN AGAIN' with tiny running penguin on left and right chevron. Smaller ivory secondary button 'BASE CAMP' with tent/flag. All results UI on right half; large caught penguin on left and title above him. No device frame, no extra buttons, no dark web panels, no false currency purchases. Full exact text, clear legibility, balanced spacing, preserve input palette and tactile illustration.",
+    "source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-d52a940b-d50a-425b-b225-d2328af74336.png"
+  },
+  {
+    "key": "avalanche_results_portrait_v1",
+    "refs": [
+      "/Users/ninja/Fun/waddle-wars/qa_shots/tests/runner-inrun-v4-20261007/native-v1/portrait/runner_catch_results.png",
+      "/Users/ninja/Fun/waddle-wars/art_src/ui/runner/inrun_v4/caught_background_portrait_v1.png"
+    ],
+    "prompt": "Use case: ui-mockup. New 9:16 mobile portrait Waddle Run avalanche-losing results state reference. Input1 is actual implemented UI layout and functional inventory; preserve its score summary, prominent completed-challenge row, and two real actions exactly. Input2 is approved runtime caught-in-snow art; preserve this penguin's surprised cheerful snowdrift pose, red scarf, sunset glacial scene and composition. Render a polished final quality cohesive sculpted snow/ivory UI reference. Heading 'RUN COMPLETE' in huge icy blue/gold dimensional lettering. Score panel label 'SCORE', number '1,460', subtle 'NEW PERSONAL BEST'. Three stat cells: 'BEST' '1,460' with gold trophy, 'DISTANCE' '245 m' with blue pin, 'FISH' '32' with blue fish. One separate prominent completed row: blue fish icon, 'Collect 60 fish', full green progress, round green check. Large glossy coral primary action 'RUN AGAIN' with tiny running penguin on left and right chevron. Smaller ivory secondary button 'BASE CAMP' with tent/flag. Title top, caught penguin face and shoulders beneath it, full score card/stats/challenge in lower half and both actions visible above bottom edge. No device frame, no extra buttons, no dark web panels, no false currency purchases. Full exact text, clear legibility, balanced spacing, preserve input palette and tactile illustration.",
+    "source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-9f07aadf-0262-472a-8823-053e40fb448a.png"
+  },
+  {
+    "key": "runner_hud_desktop_v5",
+    "refs": [
+      "/Users/ninja/Fun/waddle-wars/art_src/ui/runner/inrun_v4/runner_hud_desktop_v4.png"
+    ],
+    "prompt": "Use case: precise-object-edit. Change ONLY every golden/yellow collectible FISH along the icy runway into glossy bright BLUE fish, matching the blue fish in the HUD counter. ALL collectible fish must be blue, including tiny distant ones. Preserve exact scene, penguin, snowfall, obstacle placement, panel shapes, text, all numbers, all UI, composition, size, style and colors of everything else. Leave gold x2 powerup stars, yellow lamp caps, yellow flags and beaks unchanged. Do not remove any fish or add objects. Full-frame existing reference preserved; no cropping.",
+    "source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-78288243-35b8-490d-a44f-62d6ece1be10.png"
+  },
+  {
+    "key": "runner_hud_portrait_v5",
+    "refs": [
+      "/Users/ninja/Fun/waddle-wars/art_src/ui/runner/inrun_v4/runner_hud_portrait_v4.png"
+    ],
+    "prompt": "Use case: precise-object-edit. Change ONLY every golden/yellow collectible FISH along the icy runway into glossy bright BLUE fish, matching the blue fish in the HUD counter. ALL collectible fish must be blue, including tiny distant ones. Preserve exact scene, penguin, snowfall, obstacle placement, panel shapes, text, all numbers, all UI, composition, size, style and colors of everything else. Leave gold x2 powerup stars, yellow lamp caps, yellow flags and beaks unchanged. Do not remove any fish or add objects. Full-frame existing reference preserved; no cropping.",
+    "source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-0ea72198-086a-4616-b226-a232d9dd0349.png"
+  },
+  {
+    "key": "avalanche_catch_desktop_v2",
+    "refs": [
+      "/Users/ninja/Fun/waddle-wars/art_src/ui/runner/inrun_v4/avalanche_catch_desktop_v1.png"
+    ],
+    "prompt": "Use case: precise-object-edit. Change ONLY every golden/yellow collectible FISH along the icy runway into glossy bright BLUE fish, matching the blue fish in the HUD counter. ALL collectible fish must be blue, including tiny distant ones. Preserve exact scene, penguin, snowfall, obstacle placement, panel shapes, text, all numbers, all UI, composition, size, style and colors of everything else. Leave gold x2 powerup stars, yellow lamp caps, yellow flags and beaks unchanged. Do not remove any fish or add objects. Full-frame existing reference preserved; no cropping.",
+    "source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-16f47450-9e6d-4e7b-91fe-fb7b5805a027.png"
+  },
+  {
+    "key": "avalanche_catch_portrait_v2",
+    "refs": [
+      "/Users/ninja/Fun/waddle-wars/art_src/ui/runner/inrun_v4/avalanche_catch_portrait_v1.png"
+    ],
+    "prompt": "Use case: precise-object-edit. Change ONLY every golden/yellow collectible FISH along the icy runway into glossy bright BLUE fish, matching the blue fish in the HUD counter. ALL collectible fish must be blue, including tiny distant ones. Preserve exact scene, penguin, snowfall, obstacle placement, panel shapes, text, all numbers, all UI, composition, size, style and colors of everything else. Leave gold x2 powerup stars, yellow lamp caps, yellow flags and beaks unchanged. Do not remove any fish or add objects. Full-frame existing reference preserved; no cropping.",
+    "source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-e78ed8d1-ee18-41a3-ad28-fb2fd62f0471.png"
+  }
+]

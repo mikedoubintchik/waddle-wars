@@ -1,0 +1,190 @@
+{
+  "schema_version": 1,
+  "scope": "Source geometry and material data only; game appearance pending",
+  "passed": true,
+  "glb_sha256": "7cc6cf708ce5c2f58d3f160339d7b7177a8e5eb729b28140145e726f84a7db85",
+  "source_sha256": "b658f5235e7a014cd4f5bc20840c1fb9b40564324e6684c1a9269b5064736aa1",
+  "builder_sha256": "6fa6d0185fede5292bc5c87f24254b79630d1c036b0bf2d03cd4741d9bb09f60",
+  "verifier_sha256": "72029c0f548acb013970ad8e682827315346ab93dec42e1497f5b52adcdef669",
+  "geometry_reference": {
+    "path": "art_src/characters/penguin_rear_surface_v1/candidate.glb",
+    "glb_sha256": "b21ca5327a7798b31b1b5b7aa098a4452c623db2c95044244aa490fb72fc7484"
+  },
+  "geometry_identity": {
+    "method": "Scoped exact oriented POSITION+NORMAL triangles; body/feet protected, tail/flippers allowed",
+    "sha256": "dd8b852e9ce570854c8122fea1cb41af09a756dabdf5b8de974dc72cdcf439c2",
+    "source_sha256": "10b230ec9f0dfd6ea563af6186b3ea450bf9d0b2ebf2b4f66da019e0d305de9e",
+    "passed": true
+  },
+  "scoped_geometry_identity": {
+    "protected": [
+      "continuous_body_head",
+      "foot_L",
+      "foot_R"
+    ],
+    "allowed": [
+      "flipper_L",
+      "flipper_R",
+      "short_tail_fan"
+    ],
+    "baseline": {
+      "flipper_L": {
+        "unique_positions": 482,
+        "triangles": 960,
+        "position_normal_sha256": "ba502acc69b7bafe566981dd47ff6f3e748da70bb30ad401bb9ad820cfc2a5b7",
+        "uv_triangles_sha256": "40a92a6fe27cc07181479ea03154c18f2ac89e80b144e7558183cbbbe7534af3"
+      },
+      "foot_L": {
+        "unique_positions": 1922,
+        "triangles": 3840,
+        "position_normal_sha256": "2db979e8e240fb30e9e88ee5af586d68c14e9b303519edf8f496e3369130f2c3",
+        "uv_triangles_sha256": "9bb75e6b67774cd235cacb9c8cd0c37c8e860b0dc89c748445b8e1f87558ff19"
+      },
+      "short_tail_fan": {
+        "unique_positions": 306,
+        "triangles": 608,
+        "position_normal_sha256": "824fab0a86896097ce6e656904f7a110349a0d6fc7a1cca3e3ab26a1a38e7491",
+        "uv_triangles_sha256": "203fb0d8fc38487705037835fb6a9008edb1e05f92eed9021c477c398cd0c134"
+      },
+      "continuous_body_head": {
+        "unique_positions": 2258,
+        "triangles": 4512,
+        "position_normal_sha256": "e5e13c43a0f35c0f83773966ee9b6e2f210472d193557fe0317e2b5f9fb29ef7",
+        "uv_triangles_sha256": "22f9bf4eef044c7587ef47f90be99bb37843044f555b4ce675d3c0b2d43b4d38"
+      },
+      "foot_R": {
+        "unique_positions": 1922,
+        "triangles": 3840,
+        "position_normal_sha256": "ed8fa93fa6a08ad559905d01fae3376de5ecf4af9b723d921078e84b3aba5c35",
+        "uv_triangles_sha256": "0cffd782bd1da254faeaef02953b6a0506c231e742da269f5c7075ba5ea1fd1c"
+      },
+      "flipper_R": {
+        "unique_positions": 482,
+        "triangles": 960,
+        "position_normal_sha256": "27e7fba6c5bcf4bfb7081123773b729dc95fe9c4b518c016efb4728347596f4b",
+        "uv_triangles_sha256": "3459fc4795fd6ef2d744579ebeb2106c21d4a673121aa239c77d43f3b7887a7c"
+      }
+    },
+    "candidate": {
+      "flipper_L": {
+        "unique_positions": 482,
+        "triangles": 960,
+        "position_normal_sha256": "3ef72551ef07df4454fead00d7f9813034a80cceda86cd1fe6613c642a3aa3da",
+        "uv_triangles_sha256": "40a92a6fe27cc07181479ea03154c18f2ac89e80b144e7558183cbbbe7534af3"
+      },
+      "foot_L": {
+        "unique_positions": 1922,
+        "triangles": 3840,
+        "position_normal_sha256": "2db979e8e240fb30e9e88ee5af586d68c14e9b303519edf8f496e3369130f2c3",
+        "uv_triangles_sha256": "9bb75e6b67774cd235cacb9c8cd0c37c8e860b0dc89c748445b8e1f87558ff19"
+      },
+      "short_tail_fan": {
+        "unique_positions": 306,
+        "triangles": 608,
+        "position_normal_sha256": "61d5cbed001bc29a4c59bfda73f6606412cb18c3ad57dc751f966b171d5264c6",
+        "uv_triangles_sha256": "203fb0d8fc38487705037835fb6a9008edb1e05f92eed9021c477c398cd0c134"
+      },
+      "continuous_body_head": {
+        "unique_positions": 2258,
+        "triangles": 4512,
+        "position_normal_sha256": "e5e13c43a0f35c0f83773966ee9b6e2f210472d193557fe0317e2b5f9fb29ef7",
+        "uv_triangles_sha256": "22f9bf4eef044c7587ef47f90be99bb37843044f555b4ce675d3c0b2d43b4d38"
+      },
+      "foot_R": {
+        "unique_positions": 1922,
+        "triangles": 3840,
+        "position_normal_sha256": "ed8fa93fa6a08ad559905d01fae3376de5ecf4af9b723d921078e84b3aba5c35",
+        "uv_triangles_sha256": "0cffd782bd1da254faeaef02953b6a0506c231e742da269f5c7075ba5ea1fd1c"
+      },
+      "flipper_R": {
+        "unique_positions": 482,
+        "triangles": 960,
+        "position_normal_sha256": "e7ccde695391928635fb6e753a4bfcd835493ee98f92a5551c33c7b236dd7cd0",
+        "uv_triangles_sha256": "3459fc4795fd6ef2d744579ebeb2106c21d4a673121aa239c77d43f3b7887a7c"
+      }
+    },
+    "passed": true
+  },
+  "triangles": 14720,
+  "triangles_unchanged": true,
+  "unique_positions": 7372,
+  "exported_vertices_with_uv_splits": 8095,
+  "nonmanifold_welded_edges": 0,
+  "zero_area_uv_triangles": 0,
+  "minimum_uv_triangle_twice_area": 2.0559871245495742e-06,
+  "normal_unit_max_error": 1.1920928955078125e-07,
+  "tangent_unit_max_error": 7.355213165283203e-05,
+  "tangent_normal_max_dot_error": 0.00012655556201934814,
+  "tangent_numerical_tolerance": 0.001,
+  "color_owner": "sRGB baseColorTexture only; COLOR_0 absent; factor white",
+  "metallic_response_zero": true,
+  "surface_maps": {
+    "base_color": {
+      "sha256": "7368f9c94da43bac5a890f2fa8d1393050d9b9f3c04fba9373ac0770b9456d4c",
+      "size": [
+        1024,
+        1024
+      ],
+      "mode": "RGB",
+      "embedded_png": true,
+      "channels_min": [
+        0,
+        0,
+        0
+      ],
+      "channels_max": [
+        242,
+        237,
+        222
+      ]
+    },
+    "normal": {
+      "sha256": "6e5b60a572d7c85c650196aeb2a00eafa7b915c6c9801b5d3958789f2ad2d7f2",
+      "size": [
+        1024,
+        1024
+      ],
+      "mode": "RGB",
+      "embedded_png": true,
+      "channels_min": [
+        50,
+        82,
+        225
+      ],
+      "channels_max": [
+        210,
+        160,
+        255
+      ]
+    },
+    "metallic_roughness": {
+      "sha256": "5677a6ef7a0d0024ee28db8616b48d105c06587f7f2a9c0d4e70c4c589244d27",
+      "size": [
+        1024,
+        1024
+      ],
+      "mode": "RGB",
+      "embedded_png": true,
+      "channels_min": [
+        255,
+        194,
+        0
+      ],
+      "channels_max": [
+        255,
+        231,
+        0
+      ]
+    }
+  },
+  "uv_padding_pixels": 8,
+  "normal_map_unit_vector_max_quantization_error": 0.005103372068672174,
+  "baseline_b21_and_v9_preserved": true,
+  "khronos_validator": {
+    "errors": 0,
+    "warnings": 0,
+    "infos": 0,
+    "hints": 0,
+    "log_sha256": "7ea3cd6fa38acd46432f3caa1a7d2d37701fc0b166c95c1ca8b837f04f2fad99"
+  }
+}

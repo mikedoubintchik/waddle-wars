@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "file": "preserved_normals_c380.glb",
+  "sha256": "c380a0f91dd2149936f9dd6bb5de9a8fb4e2a6631090a8e27e731d47a1a01dc5",
+  "bytes": 2259236,
+  "original_path": "qa_shots/penguin-tail-fan-flipper-match-20261012/rejected-c380/penguin_rear_surface_v3/candidate.glb",
+  "purpose": "Immutable NORMAL and TANGENT lookup for unchanged body, feet and flippers when rebuilding the tail join. This historical candidate was rejected visually; retaining its preserved-region data is not visual approval.",
+  "copy_byte_identical": true,
+  "human_approval": false
+}

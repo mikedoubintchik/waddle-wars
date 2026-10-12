@@ -1,0 +1,23 @@
+# Isolated commerce integration environment. No payment or purchase secrets.
+# Never deploy this configuration over waddle-wars-leaderboard.
+name = "waddle-wars-commerce-staging"
+main = "../../leaderboard/src/worker.js"
+compatibility_date = "2026-08-01"
+account_id = "592217b354c4f0813d17c0818429ef93"
+workers_dev = true
+preview_urls = false
+
+[[d1_databases]]
+binding = "DB"
+database_name = "waddle-wars-commerce-staging"
+database_id = "434033da-2364-4e38-9afa-888b6bdf7e0b"
+migrations_dir = "../../leaderboard/migrations"
+
+[vars]
+CLERK_ISSUER = "https://stunning-hen-13.clerk.accounts.dev"
+COMMERCE_ENABLED = "true"
+COMMERCE_MODE = "test"
+COMMERCE_APPLE_SALES_ENABLED = "false"
+COMMERCE_GOOGLE_SALES_ENABLED = "false"
+APPLE_SERVER_NOTIFICATIONS_ENABLED = "false"
+COMMERCE_NATIVE_AUTH_ENABLED = "false"

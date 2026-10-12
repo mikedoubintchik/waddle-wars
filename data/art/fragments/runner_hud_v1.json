@@ -1,0 +1,64 @@
+{
+  "concepts": [],
+  "generated_assets": [
+    {
+      "dimensions": [
+        1536,
+        1024
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_runner_hud_icons_v1",
+      "license_id": "project_original",
+      "path": "art_src/ui/runner/runner_hud_icons_v1.png",
+      "prompt_path": "art_src/ui/runner/runner_hud_v1.prompt.md",
+      "sha256": "4a79fed6c6ab444287a6cd390f3c6366340721b5798579b5f10089411e759316",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1672,
+        941
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_runner_hud_landscape_v1",
+      "license_id": "project_original",
+      "path": "art_src/ui/runner/runner_hud_landscape_v1.png",
+      "prompt_path": "art_src/ui/runner/runner_hud_v1.prompt.md",
+      "sha256": "d853b76d790a03b1a80a4ed180bd2bf5854bde3dc628d941be2c5bd5a7248c31",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        941,
+        1672
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_runner_hud_portrait_v1",
+      "license_id": "project_original",
+      "path": "art_src/ui/runner/runner_hud_portrait_v1.png",
+      "prompt_path": "art_src/ui/runner/runner_hud_v1.prompt.md",
+      "sha256": "87d535520f388ad415229b8a97b3437a834de211ef8a25fa580b006ecae17ad8",
+      "status": "production_source"
+    }
+  ],
+  "runtime_assets": [
+    {
+      "groups": [
+        "frontend",
+        "runner",
+        "runner_hud"
+      ],
+      "id": "runner_hud_icons_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/runner/runner_hud_icons_v1.webp",
+      "production_ready": false,
+      "sha256": "5226fbbcce457dd726d6a322d8bdf0fe4c22a4ca25121823bc834b18703d84d8",
+      "source_export_id": "imagegen_runner_hud_icons_v1"
+    }
+  ],
+  "source_exports": []
+}

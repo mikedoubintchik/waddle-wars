@@ -1,0 +1,290 @@
+{
+  "schema_version": 1,
+  "historical_checkpoint_note": "The top-level state, scope, source_sha256, android, ios and still_required fields retain the original Android7/iOS5 observations. The separate current_free_mvp_static_checkpoint describes the later unsigned free-MVP artifacts, not a final collection audit.",
+  "state": "existing_unsigned_candidates_metadata_reviewed",
+  "scope": "mobile_mvp_read_only_static_metadata_and_pinned_plugin_bytecode",
+  "store_ready": false,
+  "privacy_declarations_approved": false,
+  "runtime_traffic_verified": false,
+  "app_executed": false,
+  "signing_or_credentials_accessed": false,
+  "candidates_modified": false,
+  "source_sha256": "b316cd77c2256fd02c65080edee8c16b60eac2abc1091d87de073362aa3a3e33",
+  "android": {
+    "build_number": 7,
+    "state": "unsigned_awaiting_signing",
+    "aab_sha256": "ae2a607b5220ab9eab399fc2c22deb3fe0ed68a17ce64548ba1a742b833ff12f",
+    "plugin_aar_sha256": "b667b4ae3ecf91d7dea90bebd4ba5a7aef56cfc2cd7de4787aeb51a1927dcef7",
+    "merged_permissions": [
+      "android.permission.INTERNET",
+      "android.permission.ACCESS_NETWORK_STATE",
+      "com.android.vending.BILLING",
+      "com.blubberandbyte.waddlewars.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+    ],
+    "camera_microphone_location_storage_contacts_ad_id_permissions_found": false,
+    "allow_backup": false,
+    "shell_profileable": false,
+    "packaged_dependency_observations": [
+      "com.android.billingclient:billing:9.1.0",
+      "com.android.billingclient:billing-ktx:9.1.0",
+      "Google DataTransport",
+      "Firebase encoders (not evidence of Firebase Analytics)",
+      "com.google.android.gms:play-services-location:19.0.0",
+      "com.google.android.gms:play-services-places-placereport:17.0.0"
+    ],
+    "ads_firebase_analytics_crashlytics_dependency_identified": false,
+    "plugin_constructor": "inspected pinned classes.jar bytecode: local-field initialization only; no plugin onMainCreate override or static initializer",
+    "plugin_init": "explicit initPlugin builds BillingClient; no connection/send dispatch observed in inspected plugin methods",
+    "remaining_gaps": [
+      "inherited engine behavior",
+      "SDK internals",
+      "actual runtime traffic",
+      "accepted store-installed artifact"
+    ],
+    "evidence": [
+      {
+        "path": "/var/tmp/waddle-android7-privacy.JvkUXx/base-manifest.xml",
+        "sha256": "70153a433ecb1249c2c6320bbd4aed51bd8da48ac272096bcac1ef8975386f83"
+      },
+      {
+        "path": "/var/tmp/waddle-android7-privacy.JvkUXx/dependencies.decode.txt",
+        "sha256": "34d9144858dba87cf38a8d49cc7a57fb2152db5410beb3ae6abaf300748909f3"
+      }
+    ]
+  },
+  "ios": {
+    "build_number": 5,
+    "state": "exported_unsigned_archive_signing_failed",
+    "export_receipt_sha256": "75751a46cecda87abaf03399c23056fdf63734bf999401c1ec56c88f316f5d3b",
+    "privacy_manifest_sha256": "4b61978794a0d6042d6fb5751bf9474cded649ab89956a1304667a1f0260ab2e",
+    "info_plist_sha256": "44cda6c29510cea495482ff5d4d2a11270ae6cbfd3aecaa0f70a78a29e5b8c4b",
+    "entitlements_sha256": "cdfbe71d09e8cf3817487ea7c4403b82ce24d646ded36924f794e3cd3ff78894",
+    "xcode_project_sha256": "00f2793f28789643f83d3530d73e75d056b999c50459135ededf459bcbf51fc3",
+    "manifest_in_exported_resources_phase": true,
+    "tracking_declared": false,
+    "accessed_api_reasons": {
+      "NSPrivacyAccessedAPICategoryFileTimestamp": [
+        "DDA9.1",
+        "C617.1"
+      ],
+      "NSPrivacyAccessedAPICategorySystemBootTime": [
+        "35F9.1"
+      ],
+      "NSPrivacyAccessedAPICategoryDiskSpace": [
+        "E174.1",
+        "85F4.1"
+      ]
+    },
+    "sensitive_usage_purpose_keys_found": [],
+    "entitlements": {},
+    "remaining_gaps": [
+      "declared required-reason actual uses",
+      "final signed bundle manifest placement",
+      "SDK/runtime data practices",
+      "Xcode privacy report",
+      "accepted device/store build"
+    ]
+  },
+  "current_free_mvp_static_checkpoint": {
+    "review_date": "2026-10-03",
+    "state": "unsigned_free_mvp_artifacts_static_evidence_reconciled",
+    "scope": "existing Android14 export receipt and recorded static package findings; existing iOS12 export and linked-app static review receipts; artifact hashes rechecked without execution",
+    "launch_edition": "free_offline_mvp",
+    "source_sha256": "cc89e3d732a9f8ccdf49df130975abec84c57438414dd373c5a2fff640593606",
+    "newer_runtime_source_sha256": "fdb9c3f702bb621a8a495aca4392b5f0e270713ce128007f72981eaab3bf1a1c",
+    "newer_runtime_included": false,
+    "store_ready": false,
+    "privacy_declarations_approved": false,
+    "runtime_traffic_verified": false,
+    "signing_or_credentials_accessed_during_reconciliation": false,
+    "candidates_modified_during_reconciliation": false,
+    "android": {
+      "build_number": 14,
+      "state": "android_unsigned_awaiting_upload_signature",
+      "signed": false,
+      "store_ready": false,
+      "aab_path": "/Users/ninja/Library/Application Support/WaddleWarsLaunchCandidates/android-free-mvp-20261003-b14.YnNWir/candidate/project/build/waddle-wars-unsigned.aab",
+      "aab_sha256": "a21e45b92d9d243dad8821e9e05b900f85df6139c6b70d138cd42f2050688d1f",
+      "receipt": {
+        "path": "/Users/ninja/Library/Application Support/WaddleWarsLaunchCandidates/android-free-mvp-20261003-b14.YnNWir/candidate/receipt.json",
+        "sha256": "68dc37478f4a1776e1a16ba556f658c6220c85b99163dfb319ed8ee8e47d53d9"
+      },
+      "receipt_path_note": "The frozen receipt records the original pre-signing filename waddle-wars.aab. The retained file was renamed, not rebuilt; its bytes still match unsigned_artifact_sha256.",
+      "native_billing_build_inputs_included": false,
+      "omitted_deferred_sdk_source_file_count": 11,
+      "recorded_static_package_findings": {
+        "source": "tools/release/privacy_review.md#current-android-build-14-free-mvp-review",
+        "merged_permissions": [
+          "android.permission.INTERNET"
+        ],
+        "allow_backup": false,
+        "billing_datatransport_firebase_encoder_gms_location_places_markers_identified": false,
+        "scope_limit": "Previously recorded manifest/dependency-metadata/DEX inspection, not a decoded dependency graph, runtime traffic measurement or no-collection conclusion. This reconciliation does not rerun that inspection."
+      }
+    },
+    "ios": {
+      "build_number": 12,
+      "state": "linked_unsigned_app_static_review_passed",
+      "signing_passed": false,
+      "gameplay_passed": false,
+      "store_ready": false,
+      "export_receipt": {
+        "path": "/Users/ninja/Library/Application Support/WaddleWarsLaunchCandidates/ios-free-mvp-device-20261003-b12.unIe5p/candidate/receipt.json",
+        "sha256": "82554e93a9a7fc0baff5a992be63d4739fe14b46e18c2546f30fc48bb78e07b3"
+      },
+      "linked_app_static_review_receipt": {
+        "path": "/Users/ninja/Library/Application Support/WaddleWarsLaunchCandidates/ios-free-mvp-device-20261003-b12.unIe5p/linked-app-static-review/receipt.json",
+        "sha256": "0bff73229a2c55de6d2c0d22acebd7f3d47b4e33abe9977b7a9304f9936cdf7a"
+      },
+      "app_path": "/Users/ninja/Library/Application Support/WaddleWarsLaunchCandidates/ios-free-mvp-device-20261003-b12.unIe5p/DerivedData/Build/Intermediates.noindex/ArchiveIntermediates/waddlewars/InstallationBuildProductsLocation/Applications/waddlewars.app",
+      "executable_sha256": "69a76a599e4b70a8a3d060cc4fe44826d62aef8d360c866e2c087593100f3824",
+      "pck_sha256": "6235c28b69c9c72500c2a335752ad16a7052ef07516f6854104ac0190513a2ee",
+      "privacy_manifest_sha256": "7b856fa8cdbb2d03e861eac7e1ca7531559651ee092b736e49e360345fc08e7f",
+      "tracking_declared": false,
+      "accessed_api_reasons": {
+        "NSPrivacyAccessedAPICategoryFileTimestamp": [
+          "C617.1"
+        ],
+        "NSPrivacyAccessedAPICategorySystemBootTime": [
+          "35F9.1"
+        ]
+      },
+      "disk_space_category_present": false,
+      "inspected_capacity_imports": [],
+      "inspected_capacity_keys": [],
+      "inspected_deferred_bridge_tokens": [],
+      "inspected_deferred_frameworks": [],
+      "manifest_matches_export": true,
+      "pck_matches_export": true,
+      "scope_limit": "Unsigned linked-app static findings and rechecked hashes, not signed final-bundle acceptance, simulator gameplay, SDK runtime behavior or approved privacy/store answers."
+    },
+    "remaining_gates": [
+      "current-source native loading/gameplay and lifecycle acceptance",
+      "current signed final packages and their privacy reconciliation",
+      "actual off-device app/provider processing and accurate App Privacy/Data Safety answers",
+      "age and audience declarations",
+      "effective published privacy/support pages and in-app policy access",
+      "store acceptance"
+    ]
+  },
+  "public_pages_checkpoint": {
+    "state": "published_https_readback_verified",
+    "verified_utc": "2026-10-03T19:15:31Z",
+    "policy_effective_date": "2026-10-03",
+    "receipt_path": "/Users/ninja/Library/Application Support/WaddleWarsLaunchCandidates/native-policy-publication-20261003.gi6f8U/publication-receipt.json",
+    "game_or_worker_changed": false,
+    "native_runtime_traffic_verified": false,
+    "store_declarations_approved": false,
+    "phone_visual_preview_verified": false,
+    "pages": {
+      "privacy": {
+        "url": "https://waddlewars.ninjaconsulting.ai/native/privacy.html",
+        "status": 200,
+        "content_type": "text/html; charset=utf-8",
+        "source_sha256": "1183d297b36a3cc708e890614b14c3a49dd3c87a706977f0b4c43b4e583f07c6",
+        "stored_object_exact_match": true,
+        "public_body_exact_match": true,
+        "host_beacon_count_in_capture": 0
+      },
+      "support": {
+        "url": "https://waddlewars.ninjaconsulting.ai/native/support.html",
+        "status": 200,
+        "content_type": "text/html; charset=utf-8",
+        "source_sha256": "7f2717899dd75e7555eeb14f371aa0ced65401ada49eee066b6a79c9c9d88032",
+        "stored_object_exact_match": true,
+        "public_body_exact_match": true,
+        "host_beacon_count_in_capture": 0
+      }
+    },
+    "source_reviewed_native_flows": [
+      "Local progress/settings/ghost data stay in app storage; native sign-in/cloud/purchase and score-submission routes are disabled by free-MVP guards.",
+      "Leaderboard requests use HTTPS GET with selected mode/course/result limit; native default token and body are empty. No startup polling occurs through the native sign-in-disabled leaderboard autoload.",
+      "Native share actions copy selected result/challenge text to the device clipboard; publication by another app is user-selected, not an automatic Waddle upload.",
+      "Optional information/external links and support email involve separate browser/email-provider processing. The game website's existing Cloudflare beacon is not a native SDK."
+    ],
+    "collection_scope_limit": "Current source and prior unsigned free-MVP package static evidence, not a final signed-build runtime capture or store no-collection declaration. Dated logging controls and public provider guidance do not eliminate provider network/security processing."
+  },
+  "public_pages_followup_20261005": {
+    "state": "published_https_readback_verified",
+    "verified_utc": "2026-10-06T03:08:04Z",
+    "scope": "Current source bytes matched public HTTPS responses on waddlewars.io; this does not verify native runtime traffic or a final binary.",
+    "pages": {
+      "privacy": {
+        "url": "https://waddlewars.io/native/privacy.html",
+        "status": 200,
+        "source_sha256": "7f0cabdd7bca1566d22e3b9f2b9ce99e01036f441e91d9b32b340046b00a5bb0",
+        "public_body_exact_match": true
+      },
+      "support": {
+        "url": "https://waddlewars.io/native/support.html",
+        "status": 200,
+        "source_sha256": "ce90c1ab1779b655f6c62e09d764a758959a16f159b86f20b0b1a583f95a4e18",
+        "public_body_exact_match": true
+      },
+      "deletion": {
+        "url": "https://waddlewars.io/native/delete-data.html",
+        "status": 200,
+        "source_sha256": "973405cb64f0c6b0de12f5c5e0717d91f814f3a09105a71b6a7cfb203aa6c035",
+        "public_body_exact_match": true
+      }
+    }
+  },
+  "still_required": [
+    "public legal publisher and support/privacy email",
+    "actual hosting and support data handling and retention",
+    "accurate final App Privacy and Data Safety answers",
+    "age and audience declarations",
+    "final public pages and in-app access",
+    "current signed candidates and device/store acceptance"
+  ],
+  "public_pages_followup_20261006": {
+    "state": "published_https_readback_verified",
+    "verified_utc": "2026-10-06T03:38:52Z",
+    "scope": "Current source bytes matched public HTTPS responses on waddlewars.io after branding and canonical-link updates; this does not verify native runtime traffic or a final binary.",
+    "pages": {
+      "privacy": {
+        "url": "https://waddlewars.io/native/privacy.html",
+        "status": 200,
+        "source_sha256": "6f45a0229ce1d2b3b51909eb928ad791fe387209449dc70f078f6d5b8f5c2b7c",
+        "public_body_exact_match": true
+      },
+      "support": {
+        "url": "https://waddlewars.io/native/support.html",
+        "status": 200,
+        "source_sha256": "39662253fea6c265eab2371e0720b5747e982e7a07fb3105b7e58eda26f86c6c",
+        "public_body_exact_match": true
+      },
+      "deletion": {
+        "url": "https://waddlewars.io/native/delete-data.html",
+        "status": 200,
+        "source_sha256": "55ef0e9d36705f82d33fa31bc29edcc789fca8a0a5823959af6fd3e7cda87b42",
+        "public_body_exact_match": true
+      }
+    }
+  },
+  "public_pages_followup_20261009": {
+    "state": "published_https_readback_verified",
+    "verified_utc": "2026-10-09T03:43:26.353619Z",
+    "scope": "Current privacy/support/deletion source bytes matched public HTTPS responses on waddlewars.io; this does not verify native runtime traffic or a final binary. Privacy page now discloses in-game Feedback routing.",
+    "pages": {
+      "privacy": {
+        "url": "https://waddlewars.io/native/privacy.html",
+        "status": 200,
+        "source_sha256": "5a35e9eae56c1aea4d2cdc0508fd06b1832e92ddc0f91a59cd503dd55b64fdc1",
+        "public_body_exact_match": true
+      },
+      "support": {
+        "url": "https://waddlewars.io/native/support.html",
+        "status": 200,
+        "source_sha256": "08962428fdee184a2ceee6bdd422a72b527d879909ff473e9d5c6f8dd973cb63",
+        "public_body_exact_match": true
+      },
+      "deletion": {
+        "url": "https://waddlewars.io/native/delete-data.html",
+        "status": 200,
+        "source_sha256": "31790067814d8d80d7e7d30fb0aa7ad5707e383541c0ebd2a28e7fdbd662a6f2",
+        "public_body_exact_match": true
+      }
+    }
+  }
+}

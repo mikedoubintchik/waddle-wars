@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "references": [
+    {
+      "name": "cozy",
+      "path": "art_src/ui/runner/equipment_v11/runner_outfit_cozy_desktop_v1.png",
+      "sha256": "9bbe0b6275f9e83f5018c311fdb534b5f94396211a6b43aa1028656775a48def",
+      "prompt": "cozy.prompt.txt",
+      "kind": "outfit-and-trail design-family reference",
+      "phone_usage": "Same design-family reference; not a portrait UI layout target",
+      "generator": "built-in image_gen"
+    },
+    {
+      "name": "explorer",
+      "path": "art_src/ui/runner/equipment_v11/runner_outfit_explorer_desktop_v1.png",
+      "sha256": "bea037a8ca46a9898dd4689fb4cfecb76a7d9c9a3a8f82b57594abbb351cc333",
+      "prompt": "explorer.prompt.txt",
+      "kind": "outfit-and-trail design-family reference",
+      "phone_usage": "Same design-family reference; not a portrait UI layout target",
+      "generator": "built-in image_gen"
+    },
+    {
+      "name": "research",
+      "path": "art_src/ui/runner/equipment_v11/runner_outfit_research_desktop_v1.png",
+      "sha256": "62e5f3a3d782ea97b4e101cf76f29e87b824a248118897e8b45670b7ae99e9ea",
+      "prompt": "research.prompt.txt",
+      "kind": "outfit-and-trail design-family reference",
+      "phone_usage": "Same design-family reference; not a portrait UI layout target",
+      "generator": "built-in image_gen"
+    },
+    {
+      "name": "royal",
+      "path": "art_src/ui/runner/equipment_v11/runner_outfit_royal_desktop_v1.png",
+      "sha256": "fab680e5080d88a2f4dcbc14b754da6fab7918114a4954b92f243702f8a9d125",
+      "prompt": "royal.prompt.txt",
+      "kind": "outfit-and-trail design-family reference",
+      "phone_usage": "Same design-family reference; not a portrait UI layout target",
+      "generator": "built-in image_gen"
+    }
+  ],
+  "notes": [
+    "Generated design targets, not gameplay captures.",
+    "Course, camera and HUD use existing dedicated references; these targets specify apparel fit, rear silhouette and trail theme/scale."
+  ]
+}

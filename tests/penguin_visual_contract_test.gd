@@ -2,9 +2,15 @@ extends Node
 ## Compatibility contract for the shared character presentation facade.
 
 var _failures: int = 0
+var _checks: int = 0
 
 
 func _ready() -> void:
+	var previous_qa_backend := PenguinVisual.use_authored_backend_for_qa
+	_check(not previous_qa_backend, "production keeps unapproved authored backend disabled")
+	# Exercise the retained authored candidate explicitly, without promoting it
+	# in normal gameplay. Other fixtures cover the default procedural backend.
+	PenguinVisual.use_authored_backend_for_qa = true
 	var look := CharacterLook.from_legacy_config({
 		"species": "gentoo",
 		"display_name": "Contract Gentoo",
@@ -69,22 +75,55 @@ func _ready() -> void:
 	_check(visible_geometry_count > 0, "ghost keeps one visible render backend")
 
 	visual.set_render_role(PenguinVisual.RenderRole.HERO)
+	var hero_shadow_count := 0
+	var apparel_shadow_exemptions := 0
 	for child: Node in visual.find_children("*", "GeometryInstance3D", true, false):
 		var geometry := child as GeometryInstance3D
-		_check(geometry.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_ON,
+		var tagged_apparel := bool(geometry.get_meta("apparel_no_shadow", false))
+		# The retained authored candidate applies one shadow policy to its whole
+		# rig. Production procedural apparel is checked independently below.
+		var no_apparel_shadow := tagged_apparel and not authored.is_ancestor_of(geometry)
+		if tagged_apparel:
+			apparel_shadow_exemptions += 1
+		if no_apparel_shadow:
+			_check(geometry.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF,
+				"small apparel geometry preserves explicit no-shadow contract")
+		else:
+			hero_shadow_count += 1
+			_check(geometry.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_ON,
 				"hero geometry restores shadow")
 		if geometry.is_visible_in_tree():
 			_check(is_zero_approx(geometry.transparency),
 					"visible hero backend restores opacity")
+	_check(hero_shadow_count > 0, "hero body still owns shadow-casting geometry")
+	_check(apparel_shadow_exemptions > 0, "beanie carries explicit apparel shadow metadata")
+
+	PenguinVisual.use_authored_backend_for_qa = previous_qa_backend
+	var production_visual := PenguinVisual.new()
+	add_child(production_visual)
+	production_visual.setup_look(look)
+	_check(not production_visual.is_authored_backend_active(),
+		"production role checks retain procedural backend")
+	for role: PenguinVisual.RenderRole in [PenguinVisual.RenderRole.GHOST, PenguinVisual.RenderRole.HERO]:
+		production_visual.set_render_role(role)
+		for child: Node in production_visual.find_children("*", "GeometryInstance3D", true, false):
+			var geometry := child as GeometryInstance3D
+			var expected_shadow := GeometryInstance3D.SHADOW_CASTING_SETTING_OFF \
+				if role == PenguinVisual.RenderRole.GHOST or geometry.get_meta("apparel_no_shadow", false) \
+				else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+			_check(geometry.cast_shadow == expected_shadow,
+				"production role preserves body shadow and exact apparel exemption")
 
 	if _failures == 0:
-		print("PENGUIN VISUAL CONTRACT: PASS")
+		print("PENGUIN VISUAL CONTRACT: PASS (%d checks)" % _checks)
 	else:
 		push_error("PENGUIN VISUAL CONTRACT: %d failure(s)" % _failures)
+	PenguinVisual.use_authored_backend_for_qa = previous_qa_backend
 	get_tree().quit(_failures)
 
 
 func _check(condition: bool, label: String) -> void:
+	_checks += 1
 	if condition:
 		return
 	_failures += 1

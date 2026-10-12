@@ -1,0 +1,12 @@
+diff --git a/src/lib/libwebgl.js b/src/lib/libwebgl.js
+--- a/src/lib/libwebgl.js
++++ b/src/lib/libwebgl.js
+@@ -973,7 +973,7 @@
+     blitOffscreenFramebuffer: (context) => {
+       var gl = context.GLctx;
+ 
+-      var prevScissorTest = gl.getParameter(0xC11 /*GL_SCISSOR_TEST*/);
++      var prevScissorTest = gl.isEnabled(0xC11 /*GL_SCISSOR_TEST*/);
+       if (prevScissorTest) gl.disable(0xC11 /*GL_SCISSOR_TEST*/);
+ 
+       var prevFbo = gl.getParameter(0x8CA6 /*GL_FRAMEBUFFER_BINDING*/);

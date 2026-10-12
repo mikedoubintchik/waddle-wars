@@ -46,6 +46,77 @@ static func apply_safe_rect(page: Control, profile: LayoutProfile) -> void:
 	page.offset_bottom = -profile.safe_insets.w
 
 
+## Shared phone header contract. Artwork remains full bleed; readable titles,
+## back buttons and balances share one center line below the camera cutout.
+## Call after authored page sizing, since several pages override shell sizes.
+static func align_header_controls(profile: LayoutProfile, title: Control,
+		back: Control, companions: Array[Control] = []) -> void:
+	if profile == null or title == null or not is_instance_valid(title):
+		return
+	# Preserve the deliberately asymmetric desktop art compositions.
+	if not profile.is_portrait() and profile.safe_insets == Vector4.ZERO:
+		return
+	var controls: Array[Control] = [title]
+	if is_instance_valid(back): controls.append(back)
+	for control: Control in companions:
+		if is_instance_valid(control): controls.append(control)
+	var gap := minf(12.0, profile.viewport_size.x * 0.012)
+	var left := profile.safe_rect.position.x
+	var right := profile.safe_rect.end.x
+	var original_center_x := title.global_position.x + title.size.x * 0.5
+	for control: Control in controls:
+		if control == title: continue
+		var rect := control.get_global_rect()
+		if rect.get_center().x < original_center_x:
+			left = maxf(left, rect.end.x + gap)
+		else:
+			right = minf(right, rect.position.x - gap)
+	# Side controls need their own columns. Shrink the title art into the
+	# remaining interval rather than letting large titles cover Back/currency.
+	if right > left:
+		title.size.x = minf(title.size.x, right - left)
+		title.global_position.x = clampf(original_center_x - title.size.x * 0.5,
+			left, maxf(left, right - title.size.x))
+	var tallest := 0.0
+	for control: Control in controls:
+		tallest = maxf(tallest, control.size.y)
+	var center_y := maxf(title.global_position.y + title.size.y * 0.5,
+		profile.safe_rect.position.y + gap + tallest * 0.5)
+	for control: Control in controls:
+		var position := control.global_position
+		position.y = center_y - control.size.y * 0.5
+		position.x = clampf(position.x, profile.safe_rect.position.x,
+			maxf(profile.safe_rect.position.x, profile.safe_rect.end.x - control.size.x))
+		control.global_position = position
+
+
+## Containers settle after page construction. Weak references avoid retaining
+## old headers when rotation/navigation replaces a page before the next frame.
+static func defer_header_alignment(host: Node, title: Control, back: Control,
+		companions: Array[Control] = []) -> void:
+	if host == null or not host.is_inside_tree() or title == null:
+		return
+	var host_ref: WeakRef = weakref(host)
+	var title_ref: WeakRef = weakref(title)
+	var back_ref: WeakRef = weakref(back) if back != null else null
+	var companion_refs: Array[WeakRef] = []
+	for control: Control in companions:
+		if is_instance_valid(control): companion_refs.append(weakref(control))
+	var apply := func() -> void:
+		var live_host := host_ref.get_ref() as Node
+		var live_title := title_ref.get_ref() as Control
+		if live_host == null or not live_host.is_inside_tree() or live_title == null:
+			return
+		var live_companions: Array[Control] = []
+		for reference: WeakRef in companion_refs:
+			var control := reference.get_ref() as Control
+			if control != null: live_companions.append(control)
+		align_header_controls(LayoutProfile.for_viewport(live_host.get_viewport()),
+			live_title, back_ref.get_ref() as Control if back_ref != null else null,
+			live_companions)
+	host.get_tree().process_frame.connect(func() -> void: apply.call_deferred(), CONNECT_ONE_SHOT)
+
+
 ## Installs resize-safe inset updates and returns the initial profile. Layout
 ## composition is selected by the screen at build time; insets continue to
 ## track browser/native furniture while it remains open.
@@ -58,14 +129,23 @@ static func bind_safe_rect(host: Control, page: Control) -> LayoutProfile:
 	var viewport := host.get_viewport()
 	if viewport == null:
 		return profile
+	# A resize listener earlier in the signal can rebuild/free this page before
+	# our already-dispatched callback runs. Weak captures remain valid objects
+	# even then; capturing the page itself warns before a validity guard executes.
+	var host_ref: WeakRef = weakref(host)
+	var page_ref: WeakRef = weakref(page)
+	var viewport_ref: WeakRef = weakref(viewport)
 	var refresh := func() -> void:
-		if not is_instance_valid(host) or not is_instance_valid(page):
+		var live_host := host_ref.get_ref() as Control
+		var live_page := page_ref.get_ref() as Control
+		if live_host == null or live_page == null or not live_host.is_inside_tree():
 			return
-		apply_safe_rect(page, LayoutProfile.for_viewport(host.get_viewport()))
+		apply_safe_rect(live_page, LayoutProfile.for_viewport(live_host.get_viewport()))
 	viewport.size_changed.connect(refresh)
 	var teardown := func() -> void:
-		if is_instance_valid(viewport) and viewport.size_changed.is_connected(refresh):
-			viewport.size_changed.disconnect(refresh)
+		var live_viewport := viewport_ref.get_ref() as Viewport
+		if live_viewport != null and live_viewport.size_changed.is_connected(refresh):
+			live_viewport.size_changed.disconnect(refresh)
 	# Rebuilt layouts replace `page` while the screen root survives a rotation.
 	# Disconnect with the page, otherwise every rotation leaves a dead resize
 	# callback attached until the whole screen closes.

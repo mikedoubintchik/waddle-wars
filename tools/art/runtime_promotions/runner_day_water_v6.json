@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "recipe_id": "runner-day-water-v6",
+  "authorization": "User explicitly requested activation of reviewed penguin and water in gameplay on 2026-10-12.",
+  "reference_recipe_sha256": "a11983e7072397df685e58cddacf4a4275d85e3dae60f1f19920d48a97bc1605",
+  "files": {
+    "data/art/course_profiles/runner_day.tres": {
+      "before_sha256": "0d8cd8f3428eb260d8b2420128823c470db059c218f1bf480a1073155e7d2d0d",
+      "promoted_sha256": "ad3ae0d379d4bf86aea6e36163db6798406c627e9edfc456d00a3d922251ee15"
+    },
+    "scripts/runner/runner_track.gd": {
+      "before_sha256": "a826ac2d121c5121899cb44e568881a9815802d221b1ab6cf9a93f4a21653561",
+      "promoted_sha256": "7927e8a7babfd9448d2287f67a4f9bd9f208a82285690354150f670fbf23efe6"
+    },
+    "scripts/runner/runner_game.gd": {
+      "before_sha256": "48c8fcf13078c5083883838a91328c12a657e48cead3cdd8738132e50dd89faf",
+      "promoted_sha256": "c7709a490dc66e31a3aa334df23d0bcb97a49456d1bde527f094c60da9613f7a"
+    },
+    "scripts/runner/runner_painted_sea.gd": {
+      "before_sha256": "87a6b592e7f856c948f2c3ae761ff113ee3f8d0b3a635985360141b4306cb066",
+      "promoted_sha256": "1fec3cf5c64aeccf8f7c969f5788a8027ab799e296f309c5e9c3d5ba172d1b69"
+    },
+    "assets/art/runner/materials/runner_painted_sea_v1.gdshader": {
+      "before_sha256": "6e6f02a4f28b17c459a9e02ba116dd2f9bde2f1f77408048c87284f19ee989ac",
+      "promoted_sha256": "17c87e4b1f9aaecec97f053ee31e762cc9fba44f138b61daef8b9f925ec63f90"
+    }
+  },
+  "scope": "DAY lighting, ice, sky and water. Existing other-biome interpolation retained. Palette uses original paint texture and imported filtering; no image recoloring.",
+  "limits": "Angular lateral water mapping is authored for runner camera. Front/podium character approval and physical-device performance remain separate."
+}

@@ -1,0 +1,34 @@
+[
+  {
+    "id": "hud_reference_surfaces_v1",
+    "reference_paths": [
+      "art_src/ui/runner/inrun_v4/runner_hud_portrait_v5.png"
+    ],
+    "source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-556c60fd-e5bc-4d93-8b3e-3ff7e813e3b0.png",
+    "source_sha256": "1a6b769acf0f1889ec87c015a3bd84d06e8a883dd4b507ea7529f6d320232591",
+    "runtime_sha256": "14e29fa780d549d8226845ad40ce6d93dbf6092738a626de281d1297717ab62c",
+    "transparency": "Actual RGBA, no alpha editing. Invisible RGB glow remains under alpha=0; sampled exterior alpha0.",
+    "review": "Blank clean ivory surfaces and small snow corners match reference; icons have bare navy pause bars, blue fish, red heart, magnet, shield and x2 star. Runtime comparison still pending."
+  },
+  {
+    "id": "hud_reference_icons_v1",
+    "reference_paths": [
+      "art_src/ui/runner/inrun_v4/runner_hud_portrait_v5.png"
+    ],
+    "source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-befa56cb-c3a4-448c-97e1-922c3a484efa.png",
+    "source_sha256": "a739dabe43c66462bf791685d5f4c3f540d46175c33027bf9bab64a2892d75a8",
+    "runtime_sha256": "40c2d6adc1a91ff1f7c58e9570483525c91bce72708f9ff9bf639b31bee6889e",
+    "transparency": "Actual RGBA, no alpha editing. Invisible RGB glow remains under alpha=0; sampled exterior alpha0.",
+    "review": "Blank clean ivory surfaces and small snow corners match reference; icons have bare navy pause bars, blue fish, red heart, magnet, shield and x2 star. Runtime comparison still pending."
+  },
+  {
+    "id": "hud_heart_spent_v1",
+    "source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-8669e975-2893-40d4-bd5b-10ee8b390838.png",
+    "source_sha256": "2db2800ddc359b77dc9f43c2f8be429a836385d565918e8c60e287b566a4877d",
+    "runtime_sha256": "0772d1a52116543c68c78ff892e63f108317b051e1e35939f1d99fd74d92e7b5",
+    "reference_paths": [
+      "art_src/ui/runner/inrun_v5/hud_reference_icons_v1.png"
+    ],
+    "review": "Approved gray outlined ivory heart, no pink/red, transparent exterior alpha0. Matches spent life reference treatment."
+  }
+]

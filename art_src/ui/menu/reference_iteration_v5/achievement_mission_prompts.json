@@ -1,0 +1,17 @@
+[
+  {
+    "key": "achievements_portrait_v3",
+    "ref": "achievements_portrait_v2.png",
+    "prompt": "Use case: precise-object-edit. Update this exact portrait Waddle Wars achievement reference, retaining tall canvas, original illustrated penguin/cabin/title/snow, badge designs and order, gold selected outline, navy typography, ice and ivory materials. Improve SELECTED Fish Finder detail to explain its meaning. Keep icon, title \"FISH FINDER — BRONZE\", goal \"Pick up 750 fish during runs.\", progress \"0 / 750\", reward \"50 XP\". Grow the ivory detail card downward and add a full-width explanation underneath that row: bold heading \"ACROSS ALL RUNS\"; body exactly \"Fish picked up on the course count, including magnet pickups. Mission rewards and other fish grants do not count; spending fish does not reduce progress.\"; final bold line \"Next: Silver — Pick up 4,000 fish during runs.\". Use large readable navy text, natural paragraph wrapping and generous side padding; no clipped lines. Shift lower badge rows downward within the scrollable collection; preserve visible blue scrollbar. Generic collection header keeps \"YOUR TROPHY COLLECTION\" and uses two body sentences: \"Select a badge to see its goal, what counts and the next tier.\" and \"Some goals add across runs; others need one run or a hit-free streak.\" Keep 0 / 32. Preserve all other artwork, no new goals or invented progress. Whole uncropped portrait design."
+  },
+  {
+    "key": "missions_desktop_v4",
+    "ref": "missions_desktop_v3.png",
+    "prompt": "Use case: text-localization. Make ONE exact text change to this existing desktop Waddle Wars Missions reference. On the lower-left wooden milestone plaque ONLY, replace the ambiguous single line \"NEXT: 1,800 M\" with TWO centered navy lines: top line \"NEXT: TWILIGHT\" and bottom line \"1,800 M · ONE RUN\". Keep both lines fully contained, readable and evenly padded inside the same wooden plaque. Permit only a modest enlargement of that plaque's ivory inner writing area if needed. Preserve the entire image otherwise: full canvas, exact characters, red current-location marker at Day Ice, locked blue markers, location labels, all three mission texts, blank progress bars, RUN NOW button, title, star counter, colors, artwork and composition. Do not change any other text or object, do not crop."
+  },
+  {
+    "key": "missions_portrait_v3",
+    "ref": "missions_portrait_v2.png",
+    "prompt": "Use case: text-localization. Make ONE exact text change to this existing portrait Waddle Wars Missions reference. On the wooden milestone plaque near the lower-left of the map ONLY, replace the single line \"NEXT: 1,800 M\" with TWO centered navy lines: \"NEXT: TWILIGHT\" above \"1,800 M · ONE RUN\". Preserve the warm ivory panel and snow-covered wooden framing; both lines must fit comfortably at readable phone size. Slightly increase only the plaque writing area if required. All other image pixels/layout/artwork should remain visually unchanged: tall canvas, penguin at Day Ice, red current marker, blue locked markers, landscape labels, map, compass, Missions title, back button, star counter, three mission rows and RUN NOW action. No added objects, no changed thresholds, no crop."
+  }
+]

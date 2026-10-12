@@ -1,0 +1,15 @@
+Use case: stylized-concept. Create an ANIMATION SPRITE SHEET, using the attached penguin identity sheet as exact visual reference. This is a frame sequence of ONE IDENTICAL penguin, not a character redesign or a set of camera angles.
+Layout is STRICTLY 4 columns by 2 rows, EIGHT IDENTICAL-SIZE SQUARE CELLS, 2:1 landscape canvas. No gutters, no lines, NO labels, no numbers, NO text. Reading order 1,2,3,4 across top, then5,6,7,8 across bottom. Each cell is a consecutive animation keyframe. Entire character and shadow fully inside its own cell.
+Camera MUST remain fixed directly BEHIND the penguin, slightly elevated 20 degrees, looking down at the back as in a runner game. Character faces straight AWAY from viewer toward top of every cell. NEVER show its face, eyes or bill, NEVER rotate camera or turn head. Same camera focal length, same model scale, same light and same framing in all eight cells. Character standing height about sixty percent of cell height, ground contact baseline at eighty-six percent down each cell; floor anchor horizontally centered. Small body displacement for motion only; no zoom.
+Design from reference: rounded charcoal crown and back, muted golden neck patches visible symmetrically at sides, ivory belly only visible at edges from rear, compact pear-shaped body, small feather tail, two tapered flippers, two golden orange webbed feet with dark subtle toe tips. Broad matte feather shading with subtle fine detail, no dramatic fur. Same body proportions, anatomy and texture in every cell.
+Background in every cell: identical simple PALE ICY BLUE ground and matching nearly-solid soft blue backdrop, no landscape, no railings, no horizon, no props, no particles hiding feet. One soft contact shadow under penguin, lighting upper left with sky fill. Clean stylized real-time3D reference quality. Preserve silhouette and clear distinction of both feet and flippers.
+ACTION: a SINGLE JUMP from rear, eight distinct chronological frames. Show actual height change within each cell at constant model scale and same ground/shadow position. The character does NOT shrink when airborne.
+Frame1: upright neutral, feet on floor, flippers down.
+Frame2: anticipation squash, knees compress under body, hips lowered, flippers sweep slightly backward, both feet planted.
+Frame3: takeoff, body extends upward, feet just leaving floor, flippers opening outward.
+Frame4: rising, body roughly15%cell above baseline, feet tucked upward, flippers spread diagonally.
+Frame5: apex, body roughly20%cell above baseline, head still safely within cell, feet tucked, flippers extended for balance, shadow clearly separated below.
+Frame6: descending, body about10%cell above baseline, feet reaching down toward landing, flippers still open.
+Frame7: landing compression, both feet touch floor, body visibly squashed downward, flippers begin lowering.
+Frame8: recovered neutral near frame1, both feet planted and body upright, flippers down, ready to resume waddle.
+Exact same rear character throughout. Clear airborne gap and floor shadow in frames3–6; keep body volume and head size consistent; no flapping to fly, no face visible, no body spin.

@@ -1,0 +1,3 @@
+# Store screenshots, evidence and export artwork are not game resources.
+# Some evidence files have JPEG bytes with a .png extension; importing them
+# into Godot fails and must never block gameplay tests or native exports.

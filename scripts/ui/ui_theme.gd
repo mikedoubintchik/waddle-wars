@@ -311,13 +311,20 @@ static func crisp_subviewport(viewport: SubViewport, host: Node) -> void:
 	if GameConfig.is_headless():
 		return
 	viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+	# Pages can rebuild a preview without leaving the scene (rotation). Do not
+	# capture its viewport strongly in a Window signal that outlives that child.
+	var viewport_ref: WeakRef = weakref(viewport)
+	var host_ref: WeakRef = weakref(host)
+	var window_ref: WeakRef = weakref(host.get_window())
 	var apply := func() -> void:
-		if not is_instance_valid(viewport) or not is_instance_valid(host):
+		var live_viewport := viewport_ref.get_ref() as SubViewport
+		var live_host := host_ref.get_ref() as Node
+		if live_viewport == null or live_host == null:
 			return
-		var win := host.get_window()
+		var win := live_host.get_window()
 		if win == null:
 			return
-		var logical := host.get_viewport().get_visible_rect().size
+		var logical := live_host.get_viewport().get_visible_rect().size
 		if logical.y <= 0.0:
 			return
 		var scale := maxf(
@@ -332,14 +339,19 @@ static func crisp_subviewport(viewport: SubViewport, host: Node) -> void:
 		# supersamples to at least native; on web it is whatever the platform
 		# scale allows, which is the whole point of that setting.
 		var platform_scale := SettingsManager.render_scale_3d()
-		viewport.scaling_3d_scale = clampf(
+		live_viewport.scaling_3d_scale = clampf(
 			scale * platform_scale, minf(platform_scale, 1.0), 2.0)
 	apply.call()
-	host.get_window().size_changed.connect(apply)
-	host.tree_exiting.connect(func() -> void:
-		var win := host.get_window()
+	var window := window_ref.get_ref() as Window
+	if window == null:
+		return
+	window.size_changed.connect(apply)
+	var disconnect := func() -> void:
+		var win := window_ref.get_ref() as Window
 		if win != null and win.size_changed.is_connected(apply):
-			win.size_changed.disconnect(apply))
+			win.size_changed.disconnect(apply)
+	viewport.tree_exiting.connect(disconnect)
+	host.tree_exiting.connect(disconnect)
 
 
 ## Menu enlargement factor: 1.0 on desktop, MENU_TOUCH_SCALE on touch. Use the
@@ -1213,8 +1225,9 @@ static func animate_rule(rule: Control) -> void:
 	rule.ready.connect(start, CONNECT_ONE_SHOT)
 
 
-## Unified screen-entry transition: staggered fade + rise for a screen's main
-## blocks (title, cards, buttons). Call from _ready after building children;
+## Unified screen-entry transition: staggered fade for a screen's main blocks
+## (title, cards, buttons), plus rise for controls not owned by a Container.
+## Call from _ready after building children;
 ## no await needed by callers. Headless runs skip it entirely so sims and the
 ## unit suite see final layout immediately. Items freed mid-flight are skipped.
 static func play_entrance(root: Control, items: Array[Control], rise: float = 20.0) -> void:
@@ -1243,16 +1256,21 @@ static func _start_entrance(root: Control, items: Array[Control], rise: float) -
 		var item := items[i]
 		if not is_instance_valid(item) or not item.is_inside_tree():
 			continue
+		# Containers own child positions throughout live reflow. A captured
+		# entrance target would overwrite their new rows after rotation.
+		var animate_position := not (item.get_parent() is Container)
 		var target_y := item.position.y
-		item.position.y = target_y + rise
+		if animate_position:
+			item.position.y = target_y + rise
 		# Tight stagger: the whole cascade lands inside ~0.6s so menus feel
 		# instant while still reading as a choreographed entrance.
 		var delay := minf(0.02 + 0.04 * float(i), 0.38)
 		var tween := item.create_tween()
 		tween.set_parallel(true)
 		tween.tween_property(item, "modulate:a", 1.0, 0.20).set_delay(delay)
-		tween.tween_property(item, "position:y", target_y, 0.28) \
-			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT).set_delay(delay)
+		if animate_position:
+			tween.tween_property(item, "position:y", target_y, 0.28) \
+				.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT).set_delay(delay)
 
 
 ## Rasterizes an inline SVG string into a texture. Returns null when the

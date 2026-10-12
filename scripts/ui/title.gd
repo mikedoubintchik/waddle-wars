@@ -8,8 +8,9 @@ extends Control
 
 const MOTION_STEP: float = 1.0 / 30.0
 
-## Original Waddle Wars wordmark glyph skeletons. Rasterized once per session;
-## BootWarmup primes cache before title transition.
+## Authored wordmark is primary; original glyph skeletons remain as a
+## deterministic fallback if the texture cannot load. BootWarmup primes it.
+const AUTHORED_LOGO_PATH := "res://assets/art/ui/waddle_wars_wordmark_v4.png"
 const LOGO_LETTERS: Dictionary = {
 	"W": {"w": 96.0, "paths": ["M8 10 L30 90 L48 42 L66 90 L88 10"],
 			"snow": [[8.0, -1.0, 12.0, 6.0], [88.0, -1.0, 12.0, 6.0]]},
@@ -35,7 +36,7 @@ const LOGO_RENDER_SCALE: float = 3.0
 const LOGO_ROT: Array[float] = [-2.2, 1.8, -1.5, 2.0, -1.8, 1.6]
 const LOGO_DY: Array[float] = [3.0, -2.0, 2.0, -3.0, 2.0, -2.0]
 
-static var _logo_texture: ImageTexture = null
+static var _logo_texture: Texture2D = null
 static var _logo_texture_aspect: float = 0.5
 
 var _started: bool = false
@@ -355,8 +356,13 @@ func _build_prompt_glow(button: Button) -> Panel:
 
 
 ## Session-cached wordmark raster. Safe before title exists.
-static func logo_texture() -> ImageTexture:
+static func logo_texture() -> Texture2D:
 	if _logo_texture != null:
+		return _logo_texture
+	var authored := load(AUTHORED_LOGO_PATH) as Texture2D
+	if authored != null and authored.get_width() > 0:
+		_logo_texture = authored
+		_logo_texture_aspect = float(authored.get_height()) / float(authored.get_width())
 		return _logo_texture
 	var svg := _build_logo_svg()
 	if svg.is_empty():

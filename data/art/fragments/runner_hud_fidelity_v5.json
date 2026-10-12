@@ -1,0 +1,92 @@
+{
+  "concepts": [],
+  "generated_assets": [
+    {
+      "id": "imagegen_hud_heart_spent_v1",
+      "dimensions": [
+        1312,
+        1199
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "license_id": "project_original",
+      "path": "art_src/ui/runner/inrun_v5/hud_heart_spent_v1.png",
+      "prompt_path": "art_src/ui/runner/inrun_v5/hud_heart_spent_v1.prompt.md",
+      "sha256": "2db2800ddc359b77dc9f43c2f8be429a836385d565918e8c60e287b566a4877d",
+      "status": "production_source"
+    },
+    {
+      "id": "imagegen_hud_reference_icons_v1",
+      "dimensions": [
+        1536,
+        1024
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "license_id": "project_original",
+      "path": "art_src/ui/runner/inrun_v5/hud_reference_icons_v1.png",
+      "prompt_path": "art_src/ui/runner/inrun_v5/hud_reference_icons_v1.prompt.md",
+      "sha256": "a739dabe43c66462bf791685d5f4c3f540d46175c33027bf9bab64a2892d75a8",
+      "status": "production_source"
+    },
+    {
+      "id": "imagegen_hud_reference_surfaces_v1",
+      "dimensions": [
+        2172,
+        724
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "license_id": "project_original",
+      "path": "art_src/ui/runner/inrun_v5/hud_reference_surfaces_v1.png",
+      "prompt_path": "art_src/ui/runner/inrun_v5/hud_reference_surfaces_v1.prompt.md",
+      "sha256": "1a6b769acf0f1889ec87c015a3bd84d06e8a883dd4b507ea7529f6d320232591",
+      "status": "production_source"
+    }
+  ],
+  "runtime_assets": [
+    {
+      "id": "hud_heart_spent_v1",
+      "groups": [
+        "frontend",
+        "runner",
+        "runner_hud"
+      ],
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/runner/inrun_v5/hud_heart_spent_v1.webp",
+      "production_ready": false,
+      "sha256": "0772d1a52116543c68c78ff892e63f108317b051e1e35939f1d99fd74d92e7b5",
+      "source_export_id": "imagegen_hud_heart_spent_v1"
+    },
+    {
+      "id": "hud_reference_icons_v1",
+      "groups": [
+        "frontend",
+        "runner",
+        "runner_hud"
+      ],
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/runner/inrun_v5/hud_reference_icons_v1.webp",
+      "production_ready": false,
+      "sha256": "40c2d6adc1a91ff1f7c58e9570483525c91bce72708f9ff9bf639b31bee6889e",
+      "source_export_id": "imagegen_hud_reference_icons_v1"
+    },
+    {
+      "id": "hud_reference_surfaces_v1",
+      "groups": [
+        "frontend",
+        "runner",
+        "runner_hud"
+      ],
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/runner/inrun_v5/hud_reference_surfaces_v1.webp",
+      "production_ready": false,
+      "sha256": "14e29fa780d549d8226845ad40ce6d93dbf6092738a626de281d1297717ab62c",
+      "source_export_id": "imagegen_hud_reference_surfaces_v1"
+    }
+  ],
+  "source_exports": []
+}

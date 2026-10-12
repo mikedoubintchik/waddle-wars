@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Penguin movement references · Waddle Wars</title>
+  <style>
+    :root { color-scheme: dark; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0b1924; color: #e7f2f7; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { max-width: 1500px; margin: auto; padding: clamp(20px, 4vw, 60px); }
+    .eyebrow { color: #9cc5d5; letter-spacing: .15em; text-transform: uppercase; font-size: .72rem; font-weight: 750; }
+    h1 { font-size: clamp(2rem, 4vw, 3.8rem); line-height: 1.03; letter-spacing: -.045em; margin: 14px 0 18px; }
+    .intro { color: #b8cdd8; max-width: 850px; line-height: 1.6; font-size: 1.05rem; }
+    .board { margin: 32px 0; background: #132734; border: 1px solid #284251; border-radius: 18px; overflow: hidden; }
+    .board > a { display: block; }
+    .board img { display: block; width: 100%; height: auto; }
+    .caption { padding: 18px 22px; }
+    h2 { font-size: 1.12rem; margin: 0 0 8px; letter-spacing: -.015em; }
+    p { margin: 0; }
+    .caption p, .note { color: #b8cdd8; font-size: .92rem; line-height: 1.55; }
+    .motion-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-top: 32px; }
+    .motion { background: #132734; border: 1px solid #284251; border-radius: 18px; overflow: hidden; }
+    .motion > img { display: block; width: 100%; height: auto; background: #dcebf0; }
+    a { color: #9cdeee; text-underline-offset: .2em; }
+    .links { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 15px; font-size: .84rem; }
+    .note { margin-top: 28px; padding: 20px 0; border-top: 1px solid #284251; }
+    footer { color: #7996a6; margin-top: 12px; font-size: .8rem; }
+    @media (max-width: 850px) { .motion-grid { grid-template-columns: 1fr; } .motion { max-width: 600px; width: 100%; margin: 0 auto; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">Waddle Wars · Working rear-view reference · 11 October 2026</div>
+    <h1>More lean.<br>Every move from behind.</h1>
+    <p class="intro">The infinite runner's gameplay view: a stronger side-to-side waddle, a jump and a low belly slide. One penguin, always facing away from the camera.</p>
+
+    <section class="motion-grid" aria-label="Movement reference animatics">
+      <article class="motion">
+        <img src="animatics-strong-lean/waddle.gif" alt="Eight-pose rear-view waddle animatic with pronounced left and right torso lean over the planted foot">
+        <div class="caption"><h2>Waddle — stronger lean</h2><p>Torso and hips roll over each planted foot, passing through upright between short steps.</p><div class="links"><a href="animatics-strong-lean/waddle.mp4">Play video</a><a href="waddle-rear-strong-lean-sequence.png">Pose sheet</a></div></div>
+      </article>
+      <article class="motion">
+        <img src="animatics/jump.gif" alt="Eight-pose jump animatic seen strictly from behind the penguin">
+        <div class="caption"><h2>Jump from behind</h2><p>Preparation, lift, airborne shape and landing. End hold; cut to reset.</p><div class="links"><a href="animatics/jump.mp4">Play video</a><a href="jump-rear-sequence.png">Pose sheet</a></div></div>
+      </article>
+      <article class="motion">
+        <img src="animatics/slide.gif" alt="Eight-pose belly-slide animatic seen strictly from behind the penguin">
+        <div class="caption"><h2>Belly slide from behind</h2><p>Already on belly, gliding low. Small flipper and balance adjustments.</p><div class="links"><a href="animatics/slide.mp4">Play video</a><a href="slide-rear-sequence.png">Pose sheet</a></div></div>
+      </article>
+    </section>
+
+    <figure class="board">
+      <a href="waddle-rear-strong-lean-sequence.png"><img src="waddle-rear-strong-lean-sequence.png" alt="Eight consecutive rear waddle poses: strong left lean, upright passing, strong right lean, upright passing"></a>
+      <figcaption class="caption"><h2>Rear waddle poses</h2><p>Working reference for visible weight transfer and grounded feet. Read left to right across the top row, then the bottom row.</p></figcaption>
+    </figure>
+
+    <p class="note">Pose animatics assembled from generated reference frames. They communicate appearance and key poses; they are not game captures or finished rig animation. Use the candidate runtime preview for final model, materials, motion and camera verification.</p>
+    <footer>Original ImageGen references · Preserved source sheets · No synthesized intermediate poses</footer>
+  </main>
+</body>
+</html>

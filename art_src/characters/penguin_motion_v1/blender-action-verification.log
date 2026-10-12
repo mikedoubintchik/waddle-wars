@@ -1,0 +1,5 @@
+00:00.892  blend            | Read blend: "/Users/ninja/.codex/worktrees/penguin-visual-strategy/waddle-wars/art_src/characters/penguin_motion_v1/source.blend"
+{"waddle": {"max_matrix_error": 1.6312333173118532e-06, "worst": {"frame": 18, "bone": "foot_R", "matrix_max_error": 1.6312333173118532e-06}, "samples": 90}, "jump": {"max_matrix_error": 1.3746321201324463e-06, "worst": {"frame": 1, "bone": "foot_R", "matrix_max_error": 1.3746321201324463e-06}, "samples": 90}, "slide": {"max_matrix_error": 1.605600118637085e-06, "worst": {"frame": 27, "bone": "foot_R", "matrix_max_error": 1.605600118637085e-06}, "samples": 90}}
+Blender 5.2.0 LTS (hash fbe6228777e7 built 2026-07-14 01:31:22)
+
+Blender quit

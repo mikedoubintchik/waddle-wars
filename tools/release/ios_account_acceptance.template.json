@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "state": "pending",
+  "source_sha256": null,
+  "version": null,
+  "build_number": null,
+  "ipa_sha256": null,
+  "native_clerk_issuer": "https://clerk.waddlewars.io",
+  "native_runtime_environment": null,
+  "observed_at_utc": null,
+  "checks": {
+    "production_backend": {
+      "status": "pending",
+      "notes": "Retain read-only deployed Worker version, exact worker/module/schema identity, production Clerk binding names/readiness without secret values, and non-mutating route/configuration observations. Local prepared_not_deployed receipt alone is insufficient. Do not create synthetic production accounts or scores.",
+      "evidence": []
+    },
+    "native_signin_cancel_refresh_signout": {
+      "status": "pending",
+      "notes": "Observe the secure native production sign-in sheet and cancellation with the authorized existing session; record simulator/device, OS and source identity. Verify error/retry, token refresh and sign-out through isolated native-client integration. Label which steps were live UI versus isolated fixtures; do not create synthetic production accounts or claim a production identity flow that was not observed.",
+      "evidence": []
+    },
+    "scores_and_private_alias": {
+      "status": "pending",
+      "notes": "Against the exact frozen Worker/modules/schema in isolated real D1, verify score submission and explicit Post Local Best, board readback, chosen alias/default Penguin and private social-name/email separation. Pair with native-client/UI integration. No synthetic production scores or accounts.",
+      "evidence": []
+    },
+    "cloud_save_roundtrip": {
+      "status": "pending",
+      "notes": "Against the exact frozen Worker/modules/schema in isolated real D1, verify authenticated save upload/read/restore, revision handling, concurrent writes and account isolation. Pair with native-client transport/retry integration. Preserve real user saves; no synthetic production accounts or save writes.",
+      "evidence": []
+    },
+    "account_deletion_and_write_fence": {
+      "status": "pending",
+      "notes": "Against the exact frozen Worker/modules/schema in isolated real D1, verify profile/scores/save removal, old-write fence, retained receipt/status, interrupted-status recovery and account isolation. Pair with native-client integration proving local earned progress remains. Simulate identity-provider success/failure and label that evidence. No production account deletion; this check does not claim live provider deletion or retained-record cleanup complete.",
+      "evidence": []
+    },
+    "offline_guest_and_no_payments": {
+      "status": "pending",
+      "notes": "Verify guest startup/play/local save without account login, sign-out behavior, and absence of native purchase/restore entry points in this account-enabled iOS artifact.",
+      "evidence": []
+    },
+    "account_data_inventory": {
+      "status": "pending",
+      "notes": "Record actual production Clerk providers/scopes and identity fields, game payload fields, host/provider network/security processing, retention, public-name separation, and matching public policy scope. Do not mark the historical offline inventory current.",
+      "evidence": []
+    }
+  },
+  "published_policies": {
+    "privacy.html": {
+      "url": "https://waddlewars.io/native/privacy.html",
+      "status": null,
+      "observed_at_utc": null,
+      "body": {
+        "path": null,
+        "sha256": null
+      }
+    },
+    "support.html": {
+      "url": "https://waddlewars.io/native/support.html",
+      "status": null,
+      "observed_at_utc": null,
+      "body": {
+        "path": null,
+        "sha256": null
+      }
+    },
+    "delete-data.html": {
+      "url": "https://waddlewars.io/native/delete-data.html",
+      "status": null,
+      "observed_at_utc": null,
+      "body": {
+        "path": null,
+        "sha256": null
+      }
+    }
+  },
+  "validation_scope": {
+    "production": "Native production sign-in/cancel UI plus read-only deployment/configuration observations. No synthetic production accounts, scores, saves, or destructive account tests.",
+    "account_behavior": "Exact frozen Worker/modules/schema in isolated real D1, paired with native-client integration. Provider deletion responses are simulated and clearly labelled.",
+    "limits": "This acceptance does not observe live production deletion or prove complete provider/retained-record erasure. Permanent deletion of a real account requires explicit user action and confirmation."
+  }
+}

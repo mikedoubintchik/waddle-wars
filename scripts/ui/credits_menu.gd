@@ -503,7 +503,7 @@ static func _open_url(url: String) -> void:
 
 
 func _go_back() -> void:
-	SceneRouter.go_to(Game.SCENE_MAIN_MENU)
+	SceneRouter.go_back()
 
 
 func _unhandled_input(event: InputEvent) -> void:

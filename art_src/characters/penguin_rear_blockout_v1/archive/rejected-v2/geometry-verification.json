@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "glb_sha256": "39d8b1d41d9e49c51a4a0a497f325b8bfea6de02a732139d8e654351647e40c8",
+  "source_sha256": "07140c3cfc41ab1adf43632adebc857b1435702d5c26eb3420114c09f1769f77",
+  "passed": true,
+  "triangles": 7904,
+  "normals_verified": 3964,
+  "positions_verified": 3964,
+  "literal_linear_colors_verified": 3964,
+  "source_and_config_bound": true,
+  "torso_envelope_preserved": true,
+  "palette_preserved": true,
+  "rendered_frames": 0,
+  "visual_approval": "pending"
+}

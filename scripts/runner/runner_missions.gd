@@ -1,21 +1,12 @@
 class_name RunnerMissions
 extends RefCounted
-## Waddle Run's rolling missions: three goals that outlive any single run.
-##
-## An endless runner has no levels to beat, so on its own it is one activity
-## repeated until boredom — the score goes up, nothing else moves. Three
-## always-visible missions are the standard fix because they do three separate
-## jobs at once: they give a run a reason to exist beyond the score, they pay
-## out in the MIDDLE of a run rather than only at the tombstone screen, and
-## clearing all three grants a star, which is the one number in the mode that
-## can never go down. That is why a 300 m run that finishes a mission still
-## feels like it moved something, and it is the whole reason this file exists.
-##
-## Missions come in two kinds and the player is always told which is which. A
-## per-run mission reads "... in one run" and its progress is wiped every time
-## the countdown ends. A cumulative mission carries no qualifier and carries
-## across runs, quits and sessions. Mixing the two without saying so is the
-## fastest way to make a mission board feel broken.
+## Three persistent goals. New players start with plain cumulative distance,
+## fish and jumps; later boards introduce at most one single-run challenge.
+## Completed goals award immediately. A finished board stays visible through
+## Results, and its replacement starts at the next run, never mid-run.
+## "In total" goals carry across runs, quits and sessions. "In one run" goals
+## reset at the next countdown unless already completed. Saved active targets
+## and earned progress survive calibration changes.
 ##
 ## Ownership: this object draws nothing and touches no node. RunnerGame feeds
 ## it through the note_* calls and reads it back through rows(); everything it
@@ -24,7 +15,7 @@ extends RefCounted
 ## One mission finished. Carries the text the player was reading, so the banner
 ## can name what they just did rather than a generic "mission complete".
 signal completed(mission_text: String)
-## All three finished: a star was earned and a fresh set is already in place.
+## All three finished: a star was earned. The next set starts next run.
 signal set_cleared(star_count: int)
 
 ## --- Save keys --------------------------------------------------------------
@@ -34,6 +25,10 @@ signal set_cleared(star_count: int)
 const SAVE_KEY_SET: String = "runner_missions"
 const SAVE_KEY_STARS: String = "runner_mission_stars"
 const SAVE_KEY_CHANNELS: String = "runner_mission_channels"
+const SAVE_KEY_NEXT_SET: String = "runner_missions_next_run"
+const SAVE_KEY_PACING: String = "runner_progression_pacing_version"
+const PACING_VERSION: int = 2
+const PREVIOUS_BIOME_LENGTH: float = 600.0
 
 const SET_SIZE: int = 3
 
@@ -42,7 +37,7 @@ const SET_SIZE: int = 3
 ## earned, so mission three of the game is not "collect 600 fish" and mission
 ## three hundred is not "jump 8 times".
 const TIER_COUNT: int = 4
-const STARS_PER_TIER: int = 4
+const STARS_PER_TIER: int = 8
 
 ## --- Star reward ------------------------------------------------------------
 ## A star has to buy something or it is a sticker. Fish grow slightly with the
@@ -57,15 +52,16 @@ const STAR_XP: int = 120
 ## every frame would rebuild the save dictionary sixty times a second; writing
 ## only at death would lose a whole run's cumulative progress to a mid-run quit
 ## to the main menu. Thirty metres is around a second of running at speed, so
-## the worst case a hard quit can cost is a second of fish and jumps.
+## in-memory mission snapshot is refreshed this often. Disk durability still
+## follows SaveManager autosave/close, plus synchronous completion/end writes.
 const PERSIST_EVERY_METRES: float = 30.0
 
 ## --- Channels ---------------------------------------------------------------
 ## A channel is a note_* feed. A mission is only ever drawn on a channel that
 ## has been PROVEN to fire, because a mission nobody can make progress on locks
 ## the whole set forever — the set only rerolls when all three are done. The
-## three core channels are driven by note_distance and note_hit, which the mode
-## cannot run without; every other channel proves itself the first time its
+## distance/fish/clean/jump core channels have tested RunnerGame wiring;
+## every other channel proves itself the first time its
 ## note_* call arrives and is then remembered in the save. Wiring a new call up
 ## in RunnerGame therefore widens the pool on its own, and forgetting to wire
 ## one costs variety instead of breaking the mode.
@@ -78,7 +74,7 @@ const CH_LANE: String = "lane"
 const CH_NEAR_MISS: String = "near_miss"
 const CH_POWERUP: String = "powerup"
 const CH_RAMP: String = "ramp"
-const CORE_CHANNELS: PackedStringArray = [CH_DISTANCE, CH_FISH, CH_CLEAN]
+const CORE_CHANNELS: PackedStringArray = [CH_DISTANCE, CH_FISH, CH_CLEAN, CH_JUMP]
 
 ## What a mission counts. Kept as an int on the mission slot so the 60 fps path
 ## branches on an integer instead of comparing strings.
@@ -113,13 +109,13 @@ const TEMPLATES: Array[Dictionary] = [
 		"id": "dist_run", "kind": Kind.DISTANCE_RUN, "channel": CH_DISTANCE,
 		"per_run": true, "resets_on_hit": false,
 		"format": "Run %s m in one run",
-		"tiers": [700, 1200, 1800, 2600],
+		"tiers": [1500, 2400, 3200, 4500],
 	},
 	{
 		"id": "dist_total", "kind": Kind.DISTANCE_TOTAL, "channel": CH_DISTANCE,
 		"per_run": false, "resets_on_hit": false,
-		"format": "Run %s m",
-		"tiers": [3000, 6000, 12000, 20000],
+		"format": "Run %s m in total",
+		"tiers": [8000, 12000, 18000, 24000],
 	},
 	{
 		# The only mission that visibly falls back when the player is hit, which
@@ -127,7 +123,7 @@ const TEMPLATES: Array[Dictionary] = [
 		"id": "clean_run", "kind": Kind.CLEAN_RUN, "channel": CH_CLEAN,
 		"per_run": true, "resets_on_hit": true,
 		"format": "Dodge everything for %s m in one run",
-		"tiers": [400, 700, 1100, 1600],
+		"tiers": [800, 1200, 1800, 2500],
 	},
 	{
 		# A tally rather than a streak: metres banked at a high multiplier stay
@@ -135,79 +131,79 @@ const TEMPLATES: Array[Dictionary] = [
 		"id": "multi_run", "kind": Kind.MULTIPLIER_RUN, "channel": CH_CLEAN,
 		"per_run": true, "resets_on_hit": false,
 		"format": "Run %s m at x%d or better in one run",
-		"tiers": [250, 400, 600, 900], "tier_mults": [2, 3, 3, 4],
+		"tiers": [600, 900, 1200, 1600], "tier_mults": [2, 2, 3, 4],
 	},
 	{
 		"id": "fish_total", "kind": Kind.FISH_TOTAL, "channel": CH_FISH,
 		"per_run": false, "resets_on_hit": false,
-		"format": "Collect %s fish",
-		"tiers": [60, 140, 300, 600],
+		"format": "Collect %s fish in total",
+		"tiers": [300, 500, 750, 1000],
 	},
 	{
 		"id": "fish_run", "kind": Kind.FISH_RUN, "channel": CH_FISH,
 		"per_run": true, "resets_on_hit": false,
 		"format": "Collect %s fish in one run",
-		"tiers": [12, 22, 36, 55],
+		"tiers": [80, 120, 180, 240],
 	},
 	{
 		"id": "jump_total", "kind": Kind.JUMP_TOTAL, "channel": CH_JUMP,
 		"per_run": false, "resets_on_hit": false,
-		"format": "Jump %s times",
-		"tiers": [30, 70, 140, 260],
+		"format": "Jump %s times in total",
+		"tiers": [40, 60, 80, 100],
 	},
 	{
 		"id": "jump_run", "kind": Kind.JUMP_RUN, "channel": CH_JUMP,
 		"per_run": true, "resets_on_hit": false,
 		"format": "Jump %s times in one run",
-		"tiers": [8, 14, 22, 34],
+		"tiers": [10, 15, 20, 25],
 	},
 	{
 		"id": "slide_total", "kind": Kind.SLIDE_TOTAL, "channel": CH_SLIDE,
 		"per_run": false, "resets_on_hit": false,
-		"format": "Slide %s times",
-		"tiers": [25, 60, 120, 220],
+		"format": "Slide %s times in total",
+		"tiers": [30, 45, 60, 80],
 	},
 	{
 		"id": "slide_run", "kind": Kind.SLIDE_RUN, "channel": CH_SLIDE,
 		"per_run": true, "resets_on_hit": false,
 		"format": "Slide %s times in one run",
-		"tiers": [6, 11, 18, 28],
+		"tiers": [8, 12, 16, 20],
 	},
 	{
 		"id": "lane_total", "kind": Kind.LANE_TOTAL, "channel": CH_LANE,
 		"per_run": false, "resets_on_hit": false,
-		"format": "Change lanes %s times",
-		"tiers": [60, 140, 280, 500],
+		"format": "Change lanes %s times in total",
+		"tiers": [80, 120, 170, 220],
 	},
 	{
 		"id": "lane_run", "kind": Kind.LANE_RUN, "channel": CH_LANE,
 		"per_run": true, "resets_on_hit": false,
 		"format": "Change lanes %s times in one run",
-		"tiers": [15, 28, 45, 70],
+		"tiers": [25, 40, 55, 70],
 	},
 	{
 		"id": "near_total", "kind": Kind.NEAR_MISS_TOTAL, "channel": CH_NEAR_MISS,
 		"per_run": false, "resets_on_hit": false,
-		"format": "Squeeze past %s hazards",
-		"tiers": [10, 25, 50, 90],
+		"format": "Pass close to %s hazards in total",
+		"tiers": [10, 15, 20, 25],
 	},
 	{
 		"id": "near_run", "kind": Kind.NEAR_MISS_RUN, "channel": CH_NEAR_MISS,
 		"per_run": true, "resets_on_hit": false,
 		"format": "Squeeze past %s hazards in one run",
-		"tiers": [3, 6, 10, 16],
+		"tiers": [2, 3, 4, 5],
 	},
 	{
 		"id": "power_total", "kind": Kind.POWERUP_TOTAL, "channel": CH_POWERUP,
 		"per_run": false, "resets_on_hit": false,
-		"format": "Use %s power-ups",
-		"tiers": [5, 12, 25, 45],
+		"format": "Collect %s power-ups in total",
+		"tiers": [8, 12, 15, 18],
 	},
 	{
 		"id": "power_run", "kind": Kind.POWERUP_RUN, "channel": CH_POWERUP,
 		"per_run": true, "resets_on_hit": false,
 		"format": "Use %s power-ups in one run",
-		"tiers": [2, 3, 4, 6],
+		"tiers": [2, 3, 4, 5],
 	},
 	{
 		# Names one crate, which sends the player after a specific pickup
@@ -215,19 +211,19 @@ const TEMPLATES: Array[Dictionary] = [
 		"id": "power_specific", "kind": Kind.POWERUP_SPECIFIC, "channel": CH_POWERUP,
 		"per_run": false, "resets_on_hit": false,
 		"format": "Use %s %s times",
-		"tiers": [2, 4, 6, 9],
+		"tiers": [3, 4, 5, 6],
 	},
 	{
 		"id": "ramp_total", "kind": Kind.RAMP_TOTAL, "channel": CH_RAMP,
 		"per_run": false, "resets_on_hit": false,
-		"format": "Launch off %s ramps",
-		"tiers": [5, 12, 25, 45],
+		"format": "Use %s ramps in total",
+		"tiers": [8, 12, 15, 18],
 	},
 	{
 		"id": "ramp_run", "kind": Kind.RAMP_RUN, "channel": CH_RAMP,
 		"per_run": true, "resets_on_hit": false,
 		"format": "Launch off %s ramps in one run",
-		"tiers": [2, 3, 5, 8],
+		"tiers": [2, 3, 4, 5],
 	},
 ]
 
@@ -251,6 +247,8 @@ var _announced := PackedByteArray()
 
 var _stars: int = 0
 var _channels := PackedStringArray()
+var _next_set_pending := false
+var _completed_run := PackedStringArray()
 
 ## --- Run state --------------------------------------------------------------
 ## Total metres last reported, which is also the delta baseline.
@@ -263,6 +261,11 @@ var _persist_distance: float = 0.0
 ## fish/jump missions costs a single bool test per frame instead of a walk.
 var _watch_distance: bool = false
 var _pending: bool = false
+## `note_run_ended()` can enter `_resolve()` through both its defensive distance
+## replay and its final fish replay. Keep mission-clear durability everywhere
+## else, but coalesce those nested writes into the run-end transaction's one
+## final flush.
+var _flush_suppression_depth: int = 0
 
 var _rng := RandomNumberGenerator.new()
 ## Returned by rows() and mutated in place, so a HUD that polls every frame
@@ -292,19 +295,29 @@ func _init() -> void:
 
 ## Restores the live set and star count, drawing a fresh set when the save has
 ## none or holds something this build no longer understands.
-func load_state() -> void:
+func load_state(persist_after: bool = true) -> void:
+	_migrate_pacing()
 	_stars = maxi(int(SaveManager.get_value(SAVE_KEY_STARS, 0)), 0)
 	_channels = _read_channels()
 	var stored: Variant = SaveManager.get_value(SAVE_KEY_SET, null)
 	if not (stored is Array and (stored as Array).size() == SET_SIZE and _adopt(stored)):
 		_roll_set()
+	_next_set_pending = true
+	for done: int in _done:
+		if done == 0:
+			_next_set_pending = false
+			break
 	_refresh_watch()
-	_persist()
+	if persist_after:
+		_persist()
 
 
 ## Called when a run actually starts, including every retry. Per-run missions
 ## start from zero here; cumulative ones are untouched.
 func begin_run() -> void:
+	_completed_run.clear()
+	if _next_set_pending:
+		_roll_set()
 	_last_distance = 0.0
 	_clean_base = 0.0
 	_persist_distance = 0.0
@@ -335,20 +348,20 @@ func note_distance(total_metres: float) -> void:
 		# The base multiplier, deliberately without the Double Points doubling
 		# RunnerGame applies to scoring: the mission asks for clean running, not
 		# for holding a crate at the right moment.
-		var multiplier := RunnerConfig.multiplier_for(clean)
 		for i in SET_SIZE:
 			if _done[i] == 1:
 				continue
 			match _kind[i]:
 				Kind.DISTANCE_RUN:
-					_set_progress(i, total_metres)
+					_add_progress(i, gained)
 				Kind.DISTANCE_TOTAL:
 					_add_progress(i, gained)
 				Kind.CLEAN_RUN:
-					_set_progress(i, clean)
+					_add_progress(i, gained)
 				Kind.MULTIPLIER_RUN:
-					if multiplier >= _mult[i]:
-						_add_progress(i, gained)
+					var threshold := float(_mult[i] - 1) * RunnerConfig.MULTIPLIER_STEP_METRES
+					# Credit only the portion after crossing the required multiplier.
+					_add_progress(i, clampf(clean - threshold, 0.0, gained))
 		_resolve()
 	if total_metres - _persist_distance >= PERSIST_EVERY_METRES:
 		_persist()
@@ -405,24 +418,34 @@ func note_hit() -> void:
 	for i in SET_SIZE:
 		if _done[i] == 0 and _resets_on_hit[i] == 1:
 			_progress[i] = 0.0
+	_persist()
 
 
-## End of a run. The final numbers are re-applied defensively — a hit or a
-## pickup resolved in the same frame as death must not be dropped — and then
+## End of a run. Final distance is reconciled; pickup feeds are authoritative
+## deltas, so a newly assigned mission cannot inherit earlier fish. Then
 ## everything is flushed to disk rather than left to the autosave tick, because
-## the player may go straight to the menu and close the tab.
+## the player may go straight to the menu and close the tab. RunnerGame passes
+## `false` so it can first bank score/fish and build the result, then synchronously
+## flush the complete end state once. Existing standalone callers keep the
+## durable default.
 ## `_score` is accepted so a future "score N points in one run" template can be
 ## added without touching RunnerGame's call; nothing in the pool counts points
 ## today, because a score mission only moves at the tombstone screen and a
 ## mission the player cannot watch fill up is a mission they will not chase.
-func note_run_ended(distance: float, fish: int, _score: int) -> void:
+func note_run_ended(distance: float, _fish: int, _score: int,
+		flush_save: bool = true) -> void:
+	_flush_suppression_depth += 1
 	note_distance(distance)
-	for i in SET_SIZE:
-		if _done[i] == 0 and _kind[i] == Kind.FISH_RUN and float(fish) > _progress[i]:
-			_set_progress(i, float(fish))
 	_resolve()
 	_persist()
-	SaveManager.save_now()
+	_flush_suppression_depth -= 1
+	if flush_save:
+		SaveManager.save_now()
+
+
+## Leaving a living run preserves its current board without banking a score.
+func checkpoint() -> void:
+	_persist()
 
 
 ## --- Readouts ---------------------------------------------------------------
@@ -434,6 +457,15 @@ func rows() -> Array:
 		var row: Dictionary = _rows[i]
 		row["id"] = _ids[i]
 		row["text"] = _texts[i]
+		# Presentation metadata avoids deriving compact HUD labels from prose.
+		# Full mission-page wording, progress and persistence remain unchanged.
+		row["kind"] = _kind[i]
+		row["mult"] = _mult[i]
+		row["param"] = _param[i]
+		row["per_run"] = _per_run[i] == 1
+		row["scope"] = "One run" if _per_run[i] == 1 else "Across runs"
+		row["current"] = minf(_progress[i], _target[i])
+		row["target"] = _target[i]
 		row["done"] = _done[i] == 1
 		row["progress"] = 1.0 if _done[i] == 1 \
 			else clampf(_progress[i] / maxf(_target[i], 0.001), 0.0, 1.0)
@@ -442,6 +474,54 @@ func rows() -> Array:
 
 func stars() -> int:
 	return _stars
+
+
+func completed_this_run() -> PackedStringArray:
+	return _completed_run.duplicate()
+
+
+func next_set_pending() -> bool:
+	return _next_set_pending
+
+
+## Never revoke earned badges, stars or known discoveries. Saved active mission
+## targets/progress are grandfathered for their current board, then the next
+## board uses this calibration. Older distance-only saves keep their old map
+## unlocks without claiming they actually ran the new, longer distance.
+static func _migrate_pacing() -> void:
+	if int(SaveManager.get_value(SAVE_KEY_PACING, 0)) >= PACING_VERSION:
+		return
+	var best := Progression.runner_best_distance()
+	if not is_finite(best): best = 0.0
+	var old_region := clampi(floori(maxf(best, 0.0) / PREVIOUS_BIOME_LENGTH), 0, 3)
+	var earned := clampi(int(SaveManager.get_value("runner_biome_milestone", 0)), 0, 3)
+	SaveManager.set_value("runner_biome_milestone", maxi(earned, old_region))
+	SaveManager.set_value(SAVE_KEY_PACING, PACING_VERSION)
+
+
+## The map is a record of the farthest real run, not mission currency or the
+## destination selected for inspection. Existing milestone saves are retained
+## even when an older save has no best-distance statistic.
+static func map_progress() -> Dictionary:
+	_migrate_pacing()
+	var length := RunnerTrack.BIOME_LENGTH
+	var earned := clampi(int(SaveManager.get_value("runner_biome_milestone", 0)), 0, 3)
+	var best := Progression.runner_best_distance()
+	if not is_finite(best):
+		best = 0.0
+	var distance := maxf(best, 0.0)
+	var current := maxi(earned, clampi(floori(distance / length), 0, 3))
+	var names := ["DAY ICE", "TWILIGHT", "CAVES", "AURORA"]
+	var regions: Array[Dictionary] = []
+	for index: int in names.size():
+		regions.append({"index":index, "name":names[index],
+			"required_metres":float(index) * length,
+			"unlocked":index <= current, "current":index == current})
+	return {"distance":distance, "current_region":current,
+		"route_position":clampf(maxf(distance / length, float(earned)), 0.0, 3.0),
+		"legacy_discovery_retained":float(earned) * length > distance,
+		"next_metres":float(current + 1) * length if current < 3 else 0.0,
+		"regions":regions}
 
 
 ## --- Progress ---------------------------------------------------------------
@@ -474,12 +554,8 @@ func _set_progress(slot: int, value: float) -> void:
 		_pending = true
 
 
-## Announces finished missions and, when the board is empty, banks the star and
-## draws the next set.
-##
-## The reroll happens BEFORE the signals go out on purpose. RunnerGame refreshes
-## the HUD from rows() inside its `completed` handler, so rerolling afterwards
-## would leave three ticked-off missions on screen until the next run ended.
+## Award immediately, but retain the completed board until the next run. A long
+## first run can complete three goals, never chain through new mission boards.
 func _resolve() -> void:
 	if not _pending:
 		return
@@ -489,6 +565,7 @@ func _resolve() -> void:
 		if _done[i] == 1 and _announced[i] == 0:
 			_announced[i] = 1
 			announcements.append(_texts[i])
+			_completed_run.append(_texts[i])
 	if announcements.is_empty():
 		return
 	var cleared := true
@@ -499,13 +576,14 @@ func _resolve() -> void:
 	if cleared:
 		_stars += 1
 		_award_star()
-		_roll_set()
+		_next_set_pending = true
 	_refresh_watch()
 	_persist()
-	if cleared:
+	Progression.record_runner_event("runner_missions_done", announcements.size())
+	# Completion state, counters, trophies and rewards are one durable unit.
+	if _flush_suppression_depth == 0:
 		SaveManager.save_now()
 	for text in announcements:
-		Progression.increment_stat("runner_missions_done")
 		completed.emit(text)
 	if cleared:
 		set_cleared.emit(_stars)
@@ -514,7 +592,7 @@ func _resolve() -> void:
 ## A star pays out in the racing game's currencies on purpose: the runner is
 ## the same penguin and the same wardrobe, so time spent here has to buy hats.
 func _award_star() -> void:
-	Progression.add_fish(mini(STAR_FISH + (_stars - 1) * STAR_FISH_PER_STAR, STAR_FISH_CAP))
+	Progression.add_fish(mini(STAR_FISH + (_stars - 1) * STAR_FISH_PER_STAR, STAR_FISH_CAP), "runner_board:%d" % _stars)
 	Progression.add_xp(STAR_XP)
 
 
@@ -534,9 +612,19 @@ func _refresh_watch() -> void:
 ## Three missions, no two on the same channel, none repeating the set that just
 ## finished unless the live pool is too thin to avoid it.
 func _roll_set() -> void:
+	_next_set_pending = false
+	_pending = false
+	# Predictable onboarding: straightforward totals that survive short runs.
+	if _stars == 0:
+		for slot: int in SET_SIZE:
+			_fill_slot(slot, _template_index(["dist_total", "fish_total", "jump_total"][slot]), 0, "")
+			_progress[slot] = 0.0
+			_done[slot] = 0
+			_announced[slot] = 0
+		return
 	var pool: Array[int] = []
 	for i in TEMPLATES.size():
-		if _channel_live(String(TEMPLATES[i]["channel"])):
+		if _channel_live(String(TEMPLATES[i]["channel"])) and _template_unlocked(TEMPLATES[i]):
 			pool.append(i)
 	# Shuffled with the local generator rather than Array.shuffle, which draws
 	# from the global seed the rest of the game also perturbs.
@@ -549,6 +637,7 @@ func _roll_set() -> void:
 	var previous := _ids.duplicate()
 	var chosen: Array[int] = []
 	var used := PackedStringArray()
+	var has_run_goal := false
 	# Each pass drops one constraint, so a thin pool degrades to a duller set
 	# instead of an incomplete one.
 	for relaxation in 3:
@@ -558,25 +647,35 @@ func _roll_set() -> void:
 			if chosen.has(index):
 				continue
 			var tpl: Dictionary = TEMPLATES[index]
+			if bool(tpl["per_run"]) and has_run_goal:
+				continue
 			if relaxation < 2 and used.has(String(tpl["channel"])):
 				continue
 			if relaxation < 1 and previous.has(String(tpl["id"])):
 				continue
 			chosen.append(index)
 			used.append(String(tpl["channel"]))
+			has_run_goal = has_run_goal or bool(tpl["per_run"])
 		if chosen.size() >= SET_SIZE:
 			break
 
 	var base_tier := clampi(_stars / STARS_PER_TIER, 0, TIER_COUNT - 1)
 	for slot in SET_SIZE:
 		var index: int = chosen[slot] if slot < chosen.size() else 0
-		# The last slot always sits one rung higher: two missions the player
-		# will clear on the way, one they have to aim at.
-		var tier := clampi(base_tier + (1 if slot == SET_SIZE - 1 else 0), 0, TIER_COUNT - 1)
-		_fill_slot(slot, index, tier, _draw_param(TEMPLATES[index]))
+		_fill_slot(slot, index, base_tier, _draw_param(TEMPLATES[index]))
 		_progress[slot] = 0.0
 		_done[slot] = 0
 		_announced[slot] = 0
+
+
+func _template_unlocked(tpl: Dictionary) -> bool:
+	match int(tpl["kind"]):
+		Kind.MULTIPLIER_RUN, Kind.POWERUP_SPECIFIC: return _stars >= 12
+		Kind.NEAR_MISS_TOTAL, Kind.NEAR_MISS_RUN: return _stars >= 8
+		Kind.POWERUP_RUN, Kind.RAMP_RUN: return _stars >= 8
+		Kind.POWERUP_TOTAL, Kind.RAMP_TOTAL: return _stars >= 4
+		Kind.SLIDE_TOTAL, Kind.LANE_TOTAL: return _stars >= 1
+	return _stars >= 3 if bool(tpl["per_run"]) else true
 
 
 ## The extra noun a template needs, or "" for the ones that need none.
@@ -620,6 +719,7 @@ func _persist() -> void:
 		})
 	SaveManager.set_value(SAVE_KEY_SET, stored)
 	SaveManager.set_value(SAVE_KEY_STARS, _stars)
+	SaveManager.set_value(SAVE_KEY_NEXT_SET, _next_set_pending)
 	_persist_distance = _last_distance
 
 

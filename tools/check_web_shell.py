@@ -37,6 +37,7 @@ REQUIRED = [
     ("interactive-widget=resizes-content", "keyboard not resizing the canvas"),
     ("devicePixelRatio", "phone pixel budget"),
     ("webglcontextlost", "graphics-loss recovery screen"),
+    ("__wwGraphicsAdvice", "conservative graphics support advice after engine boot"),
 ]
 
 

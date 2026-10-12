@@ -6,6 +6,30 @@
     "assets": {
       "items": {
         "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "sampling_policy"
+              ]
+            },
+            "then": {
+              "properties": {
+                "groups": {
+                  "contains": {
+                    "const": "frontend"
+                  }
+                },
+                "kind": {
+                  "const": "texture"
+                },
+                "path": {
+                  "pattern": "^res://assets/art/ui/(?!.*\\.\\.)"
+                }
+              }
+            }
+          }
+        ],
         "properties": {
           "groups": {
             "items": {
@@ -26,7 +50,8 @@
               "material",
               "texture",
               "mesh",
-              "resource"
+              "resource",
+              "metadata"
             ]
           },
           "license_id": {
@@ -39,6 +64,10 @@
           },
           "production_ready": {
             "const": true
+          },
+          "sampling_policy": {
+            "const": "screen_space_no_mipmaps",
+            "description": "Explicit memory-conscious import policy for flat screen-space UI only; mipmaps/generate must be false."
           },
           "sha256": {
             "pattern": "^[0-9a-f]{64}$",

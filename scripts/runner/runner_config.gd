@@ -21,16 +21,21 @@ const CHUNK_LENGTH: float = 36.0
 ## Chunks kept live ahead of the player, and behind before recycling.
 const CHUNKS_AHEAD: int = 7
 const CHUNKS_BEHIND: int = 2
+## First destination takes about 99 seconds of uninterrupted running. Later
+## spans shorten as speed rises; hits lengthen them. See the pacing receipt.
+const BIOME_LENGTH: float = 1800.0
 
 ## --- Motion -----------------------------------------------------------------
 const START_SPEED: float = 15.0
-const MAX_SPEED: float = 38.0
+const MAX_SPEED: float = 27.0
 ## Metres per second gained per second of running.
-const SPEED_RAMP: float = 0.26
+const SPEED_RAMP: float = 0.065
 ## Time to slide fully from one lane to the next.
 const LANE_CHANGE_TIME: float = 0.16
 const JUMP_SPEED: float = 9.4
 const GRAVITY: float = 27.0
+## Minimum slide from a tap/swipe; another press refreshes this window. Holding
+## the keyboard/gamepad action keeps the slide active until release or jump.
 const SLIDE_TIME: float = 0.72
 ## Height of the collision probe when upright and when sliding; the slide value
 ## is what lets a slide pass under a bar.

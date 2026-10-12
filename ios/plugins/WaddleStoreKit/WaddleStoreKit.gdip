@@ -1,0 +1,13 @@
+[config]
+name="WaddleStoreKit"
+binary="WaddleStoreKit.a"
+initialization="init_waddle_storekit"
+deinitialization="deinit_waddle_storekit"
+
+[dependencies]
+system=["Foundation.framework", "StoreKit.framework", "AuthenticationServices.framework", "UIKit.framework"]
+linker_flags=["-ObjC", "-lc++"]
+
+[plist]
+MinimumOSVersion:string="15.0"
+CFBundleURLTypes:raw="<array><dict><key>CFBundleURLName</key><string>com.blubberandbyte.waddlewars.auth</string><key>CFBundleURLSchemes</key><array><string>com.blubberandbyte.waddlewars.auth</string></array></dict></array>"

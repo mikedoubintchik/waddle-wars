@@ -226,7 +226,19 @@ func build_course() -> void:
 	await stage()
 
 	# --- Moving platform crossing (section 3) -------------------------------
+	# 13m slabs sweep ±2.2m: their center remains traversable throughout the
+	# cycle, unlike AI's random outer line/pickup detours. Center before the
+	# first lip and keep that line until safely back on the far-side ribbon.
+	add_hint(_offset_near(Vector3(0, 8.8, -590)), "center_line",
+		_offset_near(Vector3(0, 8, -690)))
 	add_hint(_offset_near(Vector3(0, 8, -640)) - 2.0, "jump")
+	# The last slab's nominal far edge is -668.75, short of the ribbon that
+	# resumes around -672. All-phase traversal reached every slab but fell
+	# into that exit seam: the entry jump alone cannot bridge it. Aim the
+	# existing speed-led hint at -670, so takeoff remains on the last slab
+	# and the normal jump lands on the far-side ribbon. Do not subtract the
+	# entry hint's extra 2m here, which would spend the jump before the exit.
+	add_hint(_offset_near(Vector3(0, 8, -670)), "jump")
 	var plat_periods: Array[float] = [4.2, 5.2, 6.0]
 	var plat_phases: Array[float] = [0.0, 2.1, 4.2]
 	for i: int in 3:

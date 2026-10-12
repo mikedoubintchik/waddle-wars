@@ -57,6 +57,8 @@ content_type() {
     *.js)   echo "text/javascript; charset=utf-8" ;;
     *.wasm) echo "application/wasm" ;;
     *.png)  echo "image/png" ;;
+    *.webp) echo "image/webp" ;;
+    *.ico)  echo "image/x-icon" ;;
     *.webmanifest) echo "application/manifest+json" ;;
     *)      echo "application/octet-stream" ;;
   esac
@@ -66,9 +68,14 @@ content_type() {
 # The installable-app files ride along with the build: without the manifest
 # and its icons a phone can only ever open the game in a browser tab, where
 # the URL bar eats a chunk of the viewport and resizes it mid-session.
-cp web/manifest.webmanifest web/icon-192.png web/icon-512.png build/web/ 2>/dev/null || true
+cp web/manifest.webmanifest web/icon-192.png web/icon-512.png \
+  web/icon-maskable-512.png web/favicon-16.png web/favicon-32.png \
+  web/favicon-48.png web/favicon.ico web/apple-touch-icon.png build/web/ 2>/dev/null || true
+cp web/loader-*-v3.webp build/web/
 
-for f in build/web/index.* build/web/share.png build/web/manifest.webmanifest build/web/icon-*.png; do
+for f in build/web/index.* build/web/share.png build/web/manifest.webmanifest \
+  build/web/icon-*.png build/web/favicon-*.png build/web/favicon.ico \
+  build/web/apple-touch-icon.png build/web/loader-*-v3.webp; do
   b=$(basename "$f")
   echo "uploading $b"
   $WRANGLER r2 object put "waddle-wars-web/$b" --file "$f" \

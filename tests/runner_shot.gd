@@ -17,6 +17,7 @@ var _done: bool = false
 func _ready() -> void:
 	var width := 1600
 	var height := 900
+	var phone_preview := false
 	for arg: String in OS.get_cmdline_user_args():
 		var parts := arg.split("=")
 		if parts.size() != 2:
@@ -25,11 +26,23 @@ func _ready() -> void:
 			"out": _out_path = parts[1]
 			"w": width = int(parts[1])
 			"h": height = int(parts[1])
+			"phone_preview": phone_preview = parts[1] == "1"
 			"at":
 				var stamps := PackedFloat32Array()
 				for piece: String in parts[1].split(","):
 					stamps.append(float(piece))
 				_times = stamps
+	if phone_preview:
+		# Preview the free native edition at a phone-sized viewport. The
+		# autopilot only supplies player input; gameplay and art remain live.
+		GameConfig.force_touch = true
+		GameConfig.force_native_offline_mvp = true
+		LeaderboardClient.set_process(false)
+		var display: Dictionary = SettingsManager.settings.get("display", {}).duplicate(true)
+		display["window_mode"] = "windowed"
+		display["resolution"] = "%dx%d" % [width, height]
+		SettingsManager.settings["display"] = display
+		SettingsManager.apply_all()
 	DisplayServer.window_set_size(Vector2i(width, height))
 	DisplayServer.window_set_position(Vector2i(40, 60))
 	# An occluded window never draws, and a harness that waits on

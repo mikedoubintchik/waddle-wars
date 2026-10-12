@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "purpose": "Isolated QA candidate to move Godot's main loop off browser UI thread",
+  "godot": {
+    "version": "4.7.1.stable",
+    "source_url": "https://github.com/godotengine/godot.git",
+    "source_tag": "4.7.1-stable",
+    "source_commit": "a13da4feb8d8aefc283c3763d33a2f170a18d541"
+  },
+  "emsdk": {
+    "source_url": "https://github.com/emscripten-core/emsdk.git",
+    "source_tag": "4.0.11",
+    "source_commit": "d49219d03a41cd12f95a33ba84273c20d41fd350",
+    "release_hash": "7033fec38817ec01909b044ea0193ddd5057255c",
+    "compiler_source_commit": "d3432e7a2a6585331c94b041973fb16c9f332ce4",
+    "version": "4.0.11",
+    "reviewed_source_files": {
+      "upstream/emscripten/src/lib/libwebgl.js": "99d70e3ed68f7a6a0752ce3983092c173ca0d16b082575f5498cf2a23945a352"
+    }
+  },
+  "scons": {
+    "version": "4.11.1",
+    "wheel_sha256": "454cef364348053422696e3d2ecb4fa593c96a624f955842eaaea64f95c8d11d"
+  },
+  "required_options": {
+    "platform": "web",
+    "target": "template_release",
+    "threads": "yes",
+    "proxy_to_pthread": "yes",
+    "dlink_enabled": "no",
+    "disable_3d": "no",
+    "opengl3": "yes",
+    "debug_symbols": "no",
+    "lto": "thin"
+  },
+  "qa_variants": {
+    "eval_main_thread": {
+      "purpose": "Preserve JavaScriptBridge.eval browser context in proxy_to_pthread QA builds",
+      "source_file": "platform/web/js/libs/library_godot_javascript_singleton.js",
+      "before_sha256": "d65c74d148ca2f9bc33644cc6f6330c85f28c8803416951ac31865195f22296d",
+      "after_sha256": "3b9b74b0e089cfb0bc22e1cee1c9711fe39f34997dcf778806a0bdfeb5acaf3c",
+      "patch_file": "engine_patches/godot-4.7.1-eval-main-thread.patch",
+      "patch_sha256": "72850310dbb07e436b4ef9b1bd43a82ed3ba5e6d072859b92cda671d5975e6d8",
+      "changed_lines": 1,
+      "production_approved": false
+    }
+  },
+  "qa_sdk_variants": {
+    "scissor_is_enabled": {
+      "purpose": "QA-only native boolean capability check at offscreen presentation; no custom state cache",
+      "source_file": "upstream/emscripten/src/lib/libwebgl.js",
+      "before_sha256": "99d70e3ed68f7a6a0752ce3983092c173ca0d16b082575f5498cf2a23945a352",
+      "after_sha256": "9ddf411c9bc2dc88446aead3dcc079826682ee85efe2a42f2c4f53b81e64dce8",
+      "patch_file": "engine_patches/emscripten-4.0.11-scissor-is-enabled.patch",
+      "patch_sha256": "93113fa70ac0aaa4a5f4e8f71c29bc16aa1b243fe4210c698c1933690d07a792",
+      "replace_before": "      var prevScissorTest = gl.getParameter(0xC11 /*GL_SCISSOR_TEST*/);",
+      "replace_after": "      var prevScissorTest = gl.isEnabled(0xC11 /*GL_SCISSOR_TEST*/);",
+      "contract_test_file": "test_web_scissor_presentation.mjs",
+      "changed_lines": 1,
+      "production_approved": false
+    }
+  },
+  "qa_readback_variants": {
+    "current_context": {
+      "purpose": "QA-only WebGL readback uses browser GL.currentContext rather than caller-specific pthread TLS after sync proxying",
+      "source_file": "platform/web/js/libs/library_godot_webgl2.js",
+      "before_sha256": "415775619abf72f8768fdcd590d19a8ce9cbe59db162b5920bd33ded54f0330e",
+      "after_sha256": "a8c15b16852c6bc3af8eaa2a0b6649fe9d55ce5ba5fb31cf94341a4f3e8ad68f",
+      "patch_file": "engine_patches/godot-4.7.1-webgl-readback-current-context.patch",
+      "patch_sha256": "2b75800098620b582f299a3e07f9ec16fcf9f67c5e47bb0e86fb41756d0509ea",
+      "replace_before": "\t\tconst gl_context_handle = _emscripten_webgl_get_current_context();\n\t\tconst gl = GL.getContext(gl_context_handle);",
+      "replace_after": "\t\tconst gl = GL.currentContext;",
+      "contract_test_file": "test_web_readback_context.mjs",
+      "changed_lines": 3,
+      "production_approved": false
+    }
+  },
+  "status": "pinned_toolchain_qa_only",
+  "production_settings_changed": false,
+  "performance_passed": false
+}

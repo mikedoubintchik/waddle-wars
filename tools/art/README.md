@@ -65,3 +65,9 @@ Normal Godot builds neither invoke nor ship Node or this dependency.
 Export never marks work production-ready and never edits runtime manifest.
 Artist/reviewer must inspect output, add explicit runtime record/hash/license,
 then rerun validator.
+
+### Explicit flat-UI sampling policy
+
+A runtime texture may declare `sampling_policy: "screen_space_no_mipmaps"` only when its path is below `res://assets/art/ui/` and its groups include `frontend`. The validator then requires `mipmaps/generate=false`. Without this explicit policy, frontend textures still require mipmaps. Other kinds, world paths, unknown policy values and mismatching imports are rejected. Existing power-of-two compression and non-power-of-two lossless checks remain enforced. This records an asset's intentional screen-space sampling/memory contract; it does not grant production readiness or modify imports.
+
+Focused regression: `python3 -m unittest tests.test_art_tools.ArtToolTests.test_screen_space_sampling_policy_is_explicit_and_ui_only -v`. Full inventory gate: `python3 tools/art/validate_art.py --review-fragments`; review-only success reports unresolved readiness separately and does not approve those assets for release.

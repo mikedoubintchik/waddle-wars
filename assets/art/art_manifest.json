@@ -42,6 +42,394 @@
       "production_ready": true,
       "sha256": "45203a0cdfadc249ca292f2a27900e5cc70b092cd8be049fcffdb4a2907b6125",
       "source_export_id": "imagegen_title_expedition_portrait_v1"
+    },
+    {
+      "groups": [
+        "frontend",
+        "loading",
+        "title"
+      ],
+      "id": "frontend_wordmark_v2",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/waddle_wars_wordmark_v2.png",
+      "production_ready": true,
+      "sha256": "f3a2d37bb5c6182f0bed682112f23eaff3b272ddd36115170bb771bbffee43a8",
+      "source_export_id": "imagegen_waddle_wars_wordmark_v2"
+    },
+    {
+      "groups": [
+        "frontend",
+        "loading",
+        "title"
+      ],
+      "id": "frontend_wordmark_v3",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/waddle_wars_wordmark_v3.png",
+      "production_ready": true,
+      "sha256": "43cf8cca7fbbde50625378097fc296ef03d1bfc13679acfea50e6abe9d4343a0",
+      "source_export_id": "imagegen_waddle_wars_wordmark_v3"
+    },
+    {
+      "groups": [
+        "frontend",
+        "loading",
+        "title"
+      ],
+      "id": "frontend_wordmark_v4",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/waddle_wars_wordmark_v4.png",
+      "production_ready": true,
+      "sha256": "00bee74d004788987069751b35393bdc4752de1211e9e4be090e9913b2edc612",
+      "source_export_id": "imagegen_waddle_wars_wordmark_v4"
+    },
+    {
+      "groups": [
+        "menu",
+        "missions",
+        "ui"
+      ],
+      "id": "mission_penguin_marker_v7",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/mission_map_v7/mission_penguin_marker_v7.webp",
+      "production_ready": true,
+      "sha256": "e14aca5c9a94ed99460d92877157d844dcab423111172ef7f9a38fa8fbf74ad2",
+      "source_export_id": "imagegen_mission_penguin_marker_v7"
+    },
+    {
+      "groups": [
+        "menu",
+        "missions",
+        "ui"
+      ],
+      "id": "mission_route_markers_v7",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/mission_map_v7/mission_route_markers_v7.webp",
+      "production_ready": true,
+      "sha256": "53e541544383cf28a4ddca92b847e0983df600ecc796b115159f0761871ec1a5",
+      "source_export_id": "imagegen_mission_route_markers_v7"
+    },
+    {
+      "groups": [
+        "menu",
+        "missions",
+        "ui"
+      ],
+      "id": "missions_background_desktop_v7",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/mission_map_v7/missions_background_desktop_v7.webp",
+      "production_ready": true,
+      "sha256": "c25cbcf944d8f7cde9c2b2d62aee9fc22f63e03264f524a7983f088cacae5101",
+      "source_export_id": "imagegen_missions_background_desktop_v7"
+    },
+    {
+      "groups": [
+        "menu",
+        "missions",
+        "ui"
+      ],
+      "id": "missions_background_portrait_v7",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/mission_map_v7/missions_background_portrait_v7.webp",
+      "production_ready": true,
+      "sha256": "be64a24056d2e2959dc52d8733118aa3506ee9b9e303f6b49820851c5e4b23fe",
+      "source_export_id": "imagegen_missions_background_portrait_v7"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_deck_kerb_b_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_deck_kerb_b_v1.tscn",
+      "production_ready": true,
+      "sha256": "f21c9c56ca68783b7728c7f6ff0933d4bd2885850cf52a38db7f2941b1d78c30",
+      "source_export_id": "runner_day_deck_kerb_b_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_deck_kerb_b_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_deck_kerb_b_v1.glb",
+      "production_ready": true,
+      "sha256": "85597cfa45a790eabc8afcc579f7d43a7e7155d0b44a9588a8fc4f10d35468a5",
+      "source_export_id": "runner_day_deck_kerb_b_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_deck_kerb_c_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_deck_kerb_c_v1.tscn",
+      "production_ready": true,
+      "sha256": "9e225d61a8adec5dcfddc3bd0f03864f640b986939efb546be40c5810c70607e",
+      "source_export_id": "runner_day_deck_kerb_c_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_deck_kerb_c_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_deck_kerb_c_v1.glb",
+      "production_ready": true,
+      "sha256": "476329a841dec82df31f8a795b59c4f7847eb28b81fd4f9b482622a196e7f1e6",
+      "source_export_id": "runner_day_deck_kerb_c_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_deck_kerb_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_deck_kerb_v1.tscn",
+      "production_ready": true,
+      "sha256": "f11fb79e30ae5f48b8c05dcd733ce6f3e9821bf1528f38eb845856daaaffc81e",
+      "source_export_id": "runner_day_deck_kerb_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_deck_kerb_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_deck_kerb_v1.glb",
+      "production_ready": true,
+      "sha256": "505efa1f3e21a59559d8caea6be8ed7f4d799de67811066293b62e6fcd92209f",
+      "source_export_id": "runner_day_deck_kerb_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_iceberg_cluster_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_iceberg_cluster_v1.tscn",
+      "production_ready": true,
+      "sha256": "955eaa409907b7a0240b9b1efba76cb5a2f200d8ed59be5f5b8c4257087ce96c",
+      "source_export_id": "runner_day_iceberg_cluster_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_iceberg_cluster_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_iceberg_cluster_v1.glb",
+      "production_ready": true,
+      "sha256": "8598709411ce17ec956f0e915a4b9309c4eda0fe80a3896d6ae6c546e7b50268",
+      "source_export_id": "runner_day_iceberg_cluster_v1"
+    },
+    {
+      "groups": [
+        "material_family",
+        "runner",
+        "runner_day",
+        "runner_painted"
+      ],
+      "id": "runner_day_palette_v2",
+      "kind": "resource",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/materials/runner_day_palette_v2.gdshaderinc",
+      "production_ready": true,
+      "sha256": "592f179271646ecbe76018578a957bf651e5d917dfc1599b831b4d3747302f35",
+      "source_export_id": "runner_day_deck_kerb_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_research_lab_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_research_lab_v1.tscn",
+      "production_ready": true,
+      "sha256": "811aaedeedd50931c73fab41c4a9462c427f6fd90a2306e4e714e77c4a28b537",
+      "source_export_id": "runner_day_research_lab_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_research_lab_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_research_lab_v1.glb",
+      "production_ready": true,
+      "sha256": "c39c6c653f09771fedd34148ae08a2088c921e06747cc3ca99c4e70e9ce7b78a",
+      "source_export_id": "runner_day_research_lab_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_signal_pylon_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_signal_pylon_v1.tscn",
+      "production_ready": true,
+      "sha256": "535db5277c19d36e9c52c2afef4e543bf2b96ae249cfeafbfcdb331b66d91894",
+      "source_export_id": "runner_day_signal_pylon_v1"
+    },
+    {
+      "groups": [
+        "dressing",
+        "runner",
+        "runner_day",
+        "runner_golden_slice",
+        "runtime_mesh"
+      ],
+      "id": "runner_day_signal_pylon_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/runner_day_signal_pylon_v1.glb",
+      "production_ready": true,
+      "sha256": "a428779a854b68f52c6208cae4dbd56bf9f209047bb3fcb0de15ca02ce1cc1ae",
+      "source_export_id": "runner_day_signal_pylon_v1"
+    },
+    {
+      "groups": [
+        "material_family",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_surface_albedo_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/textures/runner_day_surface_albedo_v1.png",
+      "production_ready": true,
+      "sha256": "e32c6c1408d518f5b51d823e8ee91276adf3845fcb91634d2cf76967f9d3a435",
+      "source_export_id": "runner_day_deck_kerb_v1"
+    },
+    {
+      "groups": [
+        "material_family",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_surface_material_v1",
+      "kind": "material",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/materials/runner_day_surface_v1.tres",
+      "production_ready": true,
+      "sha256": "654c47a8dc158a43124945cd526b1b7d054afa274704dccc3c44d740e4bbb0cd",
+      "source_export_id": "runner_day_deck_kerb_v1"
+    },
+    {
+      "groups": [
+        "material_family",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_surface_normal_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/textures/runner_day_surface_normal_v1.png",
+      "production_ready": true,
+      "sha256": "6236dd2dd0641e39cc44050f641c90dc4b657b597235388e2d464489ca19d53c",
+      "source_export_id": "runner_day_deck_kerb_v1"
+    },
+    {
+      "groups": [
+        "material_family",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_surface_orm_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/textures/runner_day_surface_orm_v1.png",
+      "production_ready": true,
+      "sha256": "e7d476cff92b2d8349357432d1b444eaeed37b6057b8f1d4935b6a2b85080521",
+      "source_export_id": "runner_day_deck_kerb_v1"
+    },
+    {
+      "groups": [
+        "material_family",
+        "runner",
+        "runner_day",
+        "runner_golden_slice"
+      ],
+      "id": "runner_day_surface_shader_v1",
+      "kind": "resource",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/day/materials/runner_day_surface_v1.gdshader",
+      "production_ready": true,
+      "sha256": "8237afb4f17ff9a15e9f0499fb148d11aac863e81792cbca15863b63926834c9",
+      "source_export_id": "runner_day_deck_kerb_v1"
+    },
+    {
+      "groups": [
+        "frontend",
+        "menu",
+        "wardrobe"
+      ],
+      "id": "wardrobe_category_icons_v3",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/wardrobe_category_icons_v3.png",
+      "production_ready": true,
+      "sha256": "e7075b911b5c47bd1d3d4ade76b8e4f2cd14a2f47705c8c4cb7644f6cd3571df",
+      "source_export_id": "imagegen_wardrobe_category_icons_v3"
     }
   ],
   "budgets": {
@@ -80,6 +468,11 @@
     {
       "id": "project_original",
       "name": "Project-original Waddle Wars art",
+      "notice_path": "res://assets/art/LICENSES.md"
+    },
+    {
+      "id": "reference_unverified",
+      "name": "Source-only reference; rights unverified",
       "notice_path": "res://assets/art/LICENSES.md"
     }
   ],

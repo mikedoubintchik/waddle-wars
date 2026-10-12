@@ -1,0 +1,34 @@
+[
+  {
+    "name": "settings_controls_desktop_v6",
+    "source": "/Users/ninja/.codex/generated_images/01a114ca-398e-71d3-abf4-04f82bde0f5b/exec-d2a9494d-355d-4b92-b5fd-e7c14e8616d4.png",
+    "file": "art_src/ui/menu/reference_iteration_v6/settings_controls_desktop_v6.png",
+    "sha256": "6c033502609035296fe21a36dba701b02dedd223c3e971c7162a29b9a05ac56d",
+    "generator": "image_gen.imagegen",
+    "status": "generated reference; implementation alignment pending"
+  },
+  {
+    "name": "settings_account_desktop_v6",
+    "source": "/Users/ninja/.codex/generated_images/01a114ca-398e-71d3-abf4-04f82bde0f5b/exec-74ada220-55f0-49f9-8f78-79b5fef97854.png",
+    "file": "art_src/ui/menu/reference_iteration_v6/settings_account_desktop_v6.png",
+    "sha256": "59e55c407f3f8f1eb4c8754161cd75be976addadb9b8795ad27d556eeb76d0d5",
+    "generator": "image_gen.imagegen",
+    "status": "generated reference; implementation alignment pending"
+  },
+  {
+    "name": "settings_controls_mobile_v6",
+    "source": "/Users/ninja/.codex/generated_images/01a114ca-398e-71d3-abf4-04f82bde0f5b/exec-2dc727e8-3a26-436b-8bc2-2b2a436155ac.png",
+    "file": "art_src/ui/menu/reference_iteration_v6/settings_controls_mobile_v6.png",
+    "sha256": "3e9e36c113d539bd63be886821c2aba5c217a39515c1875007d35338a61820ad",
+    "generator": "image_gen.imagegen",
+    "status": "accepted design reference; current game comparison pending"
+  },
+  {
+    "name": "settings_account_mobile_v6",
+    "source": "/Users/ninja/.codex/generated_images/01a114ca-398e-71d3-abf4-04f82bde0f5b/exec-8d442957-f748-4a4f-b595-fbfe2d274a31.png",
+    "file": "art_src/ui/menu/reference_iteration_v6/settings_account_mobile_v6.png",
+    "sha256": "0c038bf1f3839bf0c75c7501a151308b58a42ebecec82859bded6ed45c462c80",
+    "generator": "image_gen.imagegen",
+    "status": "generated reference; implementation alignment pending"
+  }
+]

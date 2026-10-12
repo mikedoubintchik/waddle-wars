@@ -1,0 +1,42 @@
+{
+  "generator": "image_gen.imagegen",
+  "status": "visually_reviewed",
+  "references": [
+    {
+      "id": "settings_sound_desktop_v6",
+      "source_path": "art_src/ui/menu/reference_iteration_v6/settings_sound_desktop_v6.png",
+      "source_sha256": "b3efadad302186ff9fcfd1a018690c0b7610852f5d7ea41e611ddac44f00f205",
+      "reference": "/Users/ninja/Fun/waddle-wars/art_src/ui/menu/reference_iteration_v3/settings_desktop_v3.png",
+      "generated_source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-b0477c00-8cf5-459c-8813-60b5b56441eb.png",
+      "prompt_path": "art_src/ui/menu/reference_iteration_v6/settings_sound_desktop_v6.prompt.txt",
+      "review": "Accepted: exact Sound or Graphics control inventory, all five tabs, correct selected category, autosave/reset footer; coherent cabin/ivory/navy/coral style; all rows visible."
+    },
+    {
+      "id": "settings_sound_mobile_v6",
+      "source_path": "art_src/ui/menu/reference_iteration_v6/settings_sound_mobile_v6.png",
+      "source_sha256": "093af8f976d7d8bdd3aef020691430db42313c84b8d557a239444a43a1b1d753",
+      "reference": "/Users/ninja/Fun/waddle-wars/art_src/ui/menu/reference_iteration_v3/settings_portrait_v3.png",
+      "generated_source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-fa68e8d1-ed1f-4b94-8cb3-abe6b0d9b2f2.png",
+      "prompt_path": "art_src/ui/menu/reference_iteration_v6/settings_sound_mobile_v6.prompt.txt",
+      "review": "Accepted: exact Sound or Graphics control inventory, all five tabs, correct selected category, autosave/reset footer; coherent cabin/ivory/navy/coral style; all rows visible."
+    },
+    {
+      "id": "settings_graphics_desktop_v6",
+      "source_path": "art_src/ui/menu/reference_iteration_v6/settings_graphics_desktop_v6.png",
+      "source_sha256": "35b391bdfd2b0c0ddb3dbafca4ce280280d7bf74d34577605c1a446a67c25f68",
+      "reference": "/Users/ninja/Fun/waddle-wars/art_src/ui/menu/reference_iteration_v3/settings_desktop_v3.png",
+      "generated_source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-5ef8aa0c-7514-4851-b8f8-3c179f03e037.png",
+      "prompt_path": "art_src/ui/menu/reference_iteration_v6/settings_graphics_desktop_v6.prompt.txt",
+      "review": "Accepted: exact Sound or Graphics control inventory, all five tabs, correct selected category, autosave/reset footer; coherent cabin/ivory/navy/coral style; all rows visible."
+    },
+    {
+      "id": "settings_graphics_mobile_v6",
+      "source_path": "art_src/ui/menu/reference_iteration_v6/settings_graphics_mobile_v6.png",
+      "source_sha256": "a1c2fff1fb552048731fb260b0885be5c229ab82ca97639444936e5f6da530cc",
+      "reference": "/Users/ninja/Fun/waddle-wars/art_src/ui/menu/reference_iteration_v3/settings_portrait_v3.png",
+      "generated_source": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-1cda0b3d-7a3f-4138-8f30-9f9db3fda8c1.png",
+      "prompt_path": "art_src/ui/menu/reference_iteration_v6/settings_graphics_mobile_v6.prompt.txt",
+      "review": "Accepted: exact Sound or Graphics control inventory, all five tabs, correct selected category, autosave/reset footer; coherent cabin/ivory/navy/coral style; all rows visible."
+    }
+  ]
+}

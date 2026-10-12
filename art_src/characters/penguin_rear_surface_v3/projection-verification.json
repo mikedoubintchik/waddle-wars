@@ -1,0 +1,181 @@
+{
+  "candidate_sha256": "c895c19f310f71d8667cc871b1947d9a5d635653c99ee5acca4035fcb063c62c",
+  "source_sha256": "ba68b1f4f5e77f4712b4c80d16dfd7b4588b6624b0ac504b7a7e47e7ab5f97f2",
+  "scope": "Mathematical depth-tested source projection only; not actual game appearance",
+  "projection_dir": "qa_shots/penguin-tail-fan-flipper-match-20261012/projection/source-c895c19f",
+  "projection_json_sha256": "6d83e85002fc7b78361139232e57c6de7e70c33d76d55b551a9cff4d343e3f24",
+  "fixed_alignment": "qa_shots/penguin-tail-fan-flipper-match-20261012/baseline-7cc/projection/final-game/alignment.json",
+  "camera_policy": "Exact prior actual gameplay-detail camera, scale, seating and crown/sole alignment; no camera fit",
+  "parts": {
+    "flipper_L": {
+      "bbox": [
+        95,
+        148,
+        168,
+        290
+      ],
+      "visible_area_px": 4052,
+      "rows": {
+        "210": {
+          "min_x": 121,
+          "max_x": 156,
+          "width": 36
+        },
+        "220": {
+          "min_x": 116,
+          "max_x": 153,
+          "width": 38
+        },
+        "230": {
+          "min_x": 111,
+          "max_x": 148,
+          "width": 38
+        },
+        "240": {
+          "min_x": 106,
+          "max_x": 141,
+          "width": 36
+        },
+        "250": {
+          "min_x": 101,
+          "max_x": 134,
+          "width": 34
+        },
+        "260": {
+          "min_x": 97,
+          "max_x": 128,
+          "width": 32
+        },
+        "270": {
+          "min_x": 95,
+          "max_x": 121,
+          "width": 27
+        },
+        "280": {
+          "min_x": 96,
+          "max_x": 113,
+          "width": 18
+        },
+        "285": {
+          "min_x": 97,
+          "max_x": 108,
+          "width": 12
+        },
+        "290": {
+          "min_x": 100,
+          "max_x": 103,
+          "width": 4
+        }
+      }
+    },
+    "flipper_R": {
+      "bbox": [
+        284,
+        148,
+        357,
+        277
+      ],
+      "visible_area_px": 3663,
+      "rows": {
+        "210": {
+          "min_x": 296,
+          "max_x": 333,
+          "width": 38
+        },
+        "220": {
+          "min_x": 303,
+          "max_x": 339,
+          "width": 37
+        },
+        "230": {
+          "min_x": 310,
+          "max_x": 344,
+          "width": 35
+        },
+        "240": {
+          "min_x": 317,
+          "max_x": 351,
+          "width": 35
+        },
+        "250": {
+          "min_x": 325,
+          "max_x": 355,
+          "width": 31
+        },
+        "260": {
+          "min_x": 332,
+          "max_x": 357,
+          "width": 26
+        },
+        "270": {
+          "min_x": 341,
+          "max_x": 356,
+          "width": 16
+        }
+      }
+    },
+    "short_tail_fan": {
+      "bbox": [
+        199,
+        294,
+        253,
+        342
+      ],
+      "visible_area_px": 1943,
+      "rows": {
+        "295": {
+          "min_x": 216,
+          "max_x": 241,
+          "width": 9
+        },
+        "300": {
+          "min_x": 208,
+          "max_x": 244,
+          "width": 37
+        },
+        "307": {
+          "min_x": 205,
+          "max_x": 247,
+          "width": 43
+        },
+        "310": {
+          "min_x": 203,
+          "max_x": 249,
+          "width": 47
+        },
+        "315": {
+          "min_x": 200,
+          "max_x": 252,
+          "width": 53
+        },
+        "320": {
+          "min_x": 199,
+          "max_x": 253,
+          "width": 55
+        },
+        "325": {
+          "min_x": 199,
+          "max_x": 253,
+          "width": 55
+        },
+        "330": {
+          "min_x": 199,
+          "max_x": 253,
+          "width": 55
+        },
+        "335": {
+          "min_x": 210,
+          "max_x": 241,
+          "width": 32
+        },
+        "340": {
+          "min_x": 220,
+          "max_x": 232,
+          "width": 13
+        }
+      }
+    }
+  },
+  "repair": "Tail near-flush staggered emergence and continuous root shading; fixed fan X/Z lower envelope and exact flipper geometry",
+  "material_only_preservation_receipt": "tail-material-verification.json"
+}

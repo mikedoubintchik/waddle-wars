@@ -11,9 +11,15 @@ const GAME_VERSION: String = "1.0.0"
 ## stale cached build rather than the defect described, and there was no way to
 ## tell from a screenshot which code the player was actually running. Now there
 ## is.
-const BUILD_ID: String = "dev"
+const BUILD_ID: String = "local-20261007-fidelity-corrections-v6"
 const STUDIO_NAME: String = "Ninja Consulting"
 const SAVE_VERSION: int = 1
+## Keep race code/saves intact, but do not advertise unfinished race content in
+## the runner-first MVP. Flip only after race QA and store assets are ready.
+const RACE_VISIBLE_IN_MVP: bool = false
+## Published free-mobile-edition help pages. Open only from explicit user input.
+const NATIVE_PRIVACY_URL: String = "https://waddlewars.io/native/privacy.html"
+const NATIVE_SUPPORT_URL: String = "https://waddlewars.io/native/support.html"
 
 ## Physics layers (keep in sync with project.godot layer_names).
 const LAYER_WORLD: int = 1
@@ -41,6 +47,27 @@ static func is_headless() -> bool:
 
 static func is_mobile() -> bool:
 	return OS.has_feature("mobile")
+
+
+## Free offline-first mobile launch. Browser builds keep their existing
+## optional account/shop surface, including browsers on phones. A native shop
+## requires both native_commerce and native_accounts export features; ordinary
+## store builds remain free even when billing plugins are present in source.
+static var force_native_offline_mvp: bool = false
+
+
+static func native_offline_mvp() -> bool:
+	return not OS.has_feature("web") and (force_native_offline_mvp \
+		or ((OS.has_feature("android") or OS.has_feature("ios")) \
+			and (not OS.has_feature("native_commerce") \
+				or not OS.has_feature("native_accounts"))))
+
+
+## Explicit release capability: optional accounts do not enable native purchases.
+## Only signed iOS candidates carrying this feature may open production auth.
+static func native_accounts_enabled() -> bool:
+	return OS.has_feature("ios") and OS.has_feature("native_accounts") \
+		and not force_native_offline_mvp
 
 
 ## True only for a web export running in a browser that reports itself as

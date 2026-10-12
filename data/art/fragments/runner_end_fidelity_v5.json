@@ -1,0 +1,148 @@
+{
+  "concepts": [],
+  "generated_assets": [
+    {
+      "id": "imagegen_caught_background_desktop_v5",
+      "path": "art_src/ui/runner/inrun_v5/caught_background_desktop_v5.png",
+      "prompt_path": "art_src/ui/runner/inrun_v5/caught_background_desktop_v5.prompt.md",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "0c10ae583119c51fee70a2f868d69a7bff16a465a7f9281e1af559842ecf96d6",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "generated_on": "2026-10-07",
+      "license_id": "project_original",
+      "status": "production_source"
+    },
+    {
+      "id": "imagegen_caught_background_portrait_v5",
+      "path": "art_src/ui/runner/inrun_v5/caught_background_portrait_v5.png",
+      "prompt_path": "art_src/ui/runner/inrun_v5/caught_background_portrait_v5.prompt.md",
+      "dimensions": [
+        941,
+        1672
+      ],
+      "sha256": "72210fb72fd9bdd10f074709c26d94ff7e354b9aa86319f34d66dfcbcfd59c1d",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "generated_on": "2026-10-07",
+      "license_id": "project_original",
+      "status": "production_source"
+    },
+    {
+      "id": "imagegen_avalanche_wordmark_v5",
+      "path": "art_src/ui/runner/inrun_v5/avalanche_wordmark_v5.png",
+      "prompt_path": "art_src/ui/runner/inrun_v5/avalanche_wordmark_v5.prompt.md",
+      "dimensions": [
+        2172,
+        724
+      ],
+      "sha256": "fa8bbcba731402c358bca01bc01f51134025811d3ac4265091c3402fd5ef197c",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "generated_on": "2026-10-07",
+      "license_id": "project_original",
+      "status": "production_source"
+    },
+    {
+      "id": "imagegen_avalanche_wordmark_desktop_v5",
+      "path": "art_src/ui/runner/inrun_v5/avalanche_wordmark_desktop_v5.png",
+      "prompt_path": "art_src/ui/runner/inrun_v5/avalanche_wordmark_desktop_v5.prompt.md",
+      "dimensions": [
+        2172,
+        724
+      ],
+      "sha256": "5558e3b6b070b3b5e2bd77beca08bb5ed0bb21cc48c49b663f4ece7787f933df",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "generated_on": "2026-10-07",
+      "license_id": "project_original",
+      "status": "production_source"
+    },
+    {
+      "id": "imagegen_pause_blank_card_v5",
+      "path": "art_src/ui/runner/inrun_v5/pause_blank_card_v5.png",
+      "prompt_path": "art_src/ui/runner/inrun_v5/pause_blank_card_v5.prompt.md",
+      "dimensions": [
+        1115,
+        1410
+      ],
+      "sha256": "7f5c7e4a952c91a75485e4e102c2db1aa928f208286044d767df479e2287a349",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "generated_on": "2026-10-07",
+      "license_id": "project_original",
+      "status": "production_source"
+    }
+  ],
+  "runtime_assets": [
+    {
+      "id": "caught_background_desktop_v5",
+      "path": "res://assets/art/ui/runner/inrun_v5/caught_background_desktop_v5.webp",
+      "kind": "texture",
+      "groups": [
+        "frontend",
+        "runner",
+        "runner_hud"
+      ],
+      "source_export_id": "imagegen_caught_background_desktop_v5",
+      "sha256": "b347839af923bf4cf3ba846dc3c421976a032e981f7b3ed32e3b53b014f98b2b",
+      "license_id": "project_original",
+      "production_ready": false
+    },
+    {
+      "id": "caught_background_portrait_v5",
+      "path": "res://assets/art/ui/runner/inrun_v5/caught_background_portrait_v5.webp",
+      "kind": "texture",
+      "groups": [
+        "frontend",
+        "runner",
+        "runner_hud"
+      ],
+      "source_export_id": "imagegen_caught_background_portrait_v5",
+      "sha256": "86e8cbbbdee5ea0f2a81b235e125cb2538ac5a02eeae1ce39e63b8ad1e7112e9",
+      "license_id": "project_original",
+      "production_ready": false
+    },
+    {
+      "id": "avalanche_wordmark_v5",
+      "path": "res://assets/art/ui/runner/inrun_v5/avalanche_wordmark_v5.webp",
+      "kind": "texture",
+      "groups": [
+        "frontend",
+        "runner",
+        "runner_hud"
+      ],
+      "source_export_id": "imagegen_avalanche_wordmark_v5",
+      "sha256": "af52f3ab698ba67c8ce7f594f429b233534087572286b8cf08c5e32c17be639a",
+      "license_id": "project_original",
+      "production_ready": false
+    },
+    {
+      "id": "avalanche_wordmark_desktop_v5",
+      "path": "res://assets/art/ui/runner/inrun_v5/avalanche_wordmark_desktop_v5.webp",
+      "kind": "texture",
+      "groups": [
+        "frontend",
+        "runner",
+        "runner_hud"
+      ],
+      "source_export_id": "imagegen_avalanche_wordmark_desktop_v5",
+      "sha256": "55fef9c7ba4e1cdf11ca945b000ce7b06d3f54e200d8c14a3aa472294c31cbec",
+      "license_id": "project_original",
+      "production_ready": false
+    },
+    {
+      "id": "pause_blank_card_v5",
+      "path": "res://assets/art/ui/runner/inrun_v5/pause_blank_card_v5.webp",
+      "kind": "texture",
+      "groups": [
+        "frontend",
+        "runner",
+        "runner_hud"
+      ],
+      "source_export_id": "imagegen_pause_blank_card_v5",
+      "sha256": "7d09f83009784af1f9cab609bbd60d621e25512f75e09451bce4416c5cf7a427",
+      "license_id": "project_original",
+      "production_ready": false
+    }
+  ],
+  "source_exports": []
+}

@@ -13,6 +13,7 @@ const RICE := SurfacesDB.Surface.ICE_ROUGH
 static var run_seed: int = 0
 
 const SEGMENT_COUNT: int = 26
+const MOUNTAIN_MESH_VARIANTS: int = 16
 
 var _cursor: Vector3 = Vector3(0, 110, 30)
 var _heading: float = 0.0  # yaw; 0 = -Z
@@ -332,7 +333,7 @@ func _place_peak(mat: Material, lat_min: float, lat_max: float, w_min: float, w_
 		if float(main_guide.nearest(pos, -1)["distance"]) < width * 1.5 + 40.0:
 			continue
 		var peak := MeshInstance3D.new()
-		peak.mesh = VisualLibrary.berg_mesh(rng.randi())
+		peak.mesh = _mountain_mesh(rng.randi())
 		peak.material_override = mat
 		peak.scale = Vector3(width * rng.randf_range(0.9, 1.4), rng.randf_range(h_min, h_max), width)
 		# Footed on the ice sheet itself (berg_mesh starts at local y = 0),
@@ -342,6 +343,12 @@ func _place_peak(mat: Material, lat_min: float, lat_max: float, w_min: float, w_
 		peak.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(peak)
 		return
+
+
+## Decorative silhouettes use a fixed bank across runs. Preserve the caller's
+## one RNG draw, placement, scales and collision-free backdrop contract.
+static func _mountain_mesh(random_seed: int) -> ArrayMesh:
+	return VisualLibrary.berg_mesh(10_000 + posmod(random_seed, MOUNTAIN_MESH_VARIANTS))
 
 
 ## Per-biome horizon bands: the 26-segment expedition crosses three difficulty

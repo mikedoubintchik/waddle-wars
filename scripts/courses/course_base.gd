@@ -18,20 +18,21 @@ const CHECKPOINT_INTERVAL: float = 130.0
 ## number IS the worst-case visible hitch during a course build.
 const STAGE_BUDGET_MSEC: float = 8.0
 
-## Forces staged construction off web. Nothing in the game sets it; the timing
-## harness does, and WW_STAGED=1 does the same for any local run, so the web
-## construction path can be exercised (and screenshotted) without an export.
+## Forces staged construction in local timing harnesses. WW_STAGED=1 does the
+## same for any local run, without changing headless simulation behavior.
 static var force_staged_build: bool = false
 
 
-## True when scene construction should be spread across frames: the web export
-## only, unless forced. Shared with RaceManager, which staggers its racer
-## spawns on exactly the same condition.
+## Web and native phones both need the loading penguin to keep drawing while
+## course geometry and eight racers are created. Shared with RaceManager,
+## which staggers its racer spawns on exactly the same condition.
 static func staged_builds_enabled() -> bool:
+	if force_staged_build or OS.get_environment("WW_STAGED") != "":
+		return true
 	if GameConfig.is_headless():
 		return false
-	return force_staged_build or OS.get_environment("WW_STAGED") != "" \
-		or OS.has_feature("web")
+	return OS.has_feature("web") or OS.has_feature("android") \
+		or OS.has_feature("ios")
 
 var course_id: String = ""
 var main_guide: PathGuide = null
@@ -65,10 +66,9 @@ var _far_field_params: Dictionary = {}
 
 func _ready() -> void:
 	rng.seed = hash(course_id) if course_id != "" else 12345
-	# Staging is web-only by default. Native desktop builds a course in tens of
-	# milliseconds -- one dropped frame nobody sees -- and every headless sim
-	# and QA harness reads the course the instant add_child() returns, so they
-	# all keep the straight-through path.
+	# Native desktop and every headless sim still build synchronously, preserving
+	# harness assumptions. Native phone builds must not monopolize a frame under
+	# the loading overlay, even when a desktop build takes only milliseconds.
 	_staged = staged_builds_enabled()
 	_stage_debug = _staged and OS.get_environment("DBG_STAGE") != ""
 	_stage_mark = Time.get_ticks_usec()

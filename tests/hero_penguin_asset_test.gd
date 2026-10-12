@@ -13,6 +13,11 @@ var _failures: int = 0
 
 
 func _ready() -> void:
+	var previous_qa_backend := PenguinVisual.use_authored_backend_for_qa
+	_check(not previous_qa_backend, "production keeps unapproved authored backend disabled")
+	# This fixture verifies the retained authored candidate deliberately; enabling
+	# it here must never promote that model in gameplay or menu previews.
+	PenguinVisual.use_authored_backend_for_qa = true
 	for texture: Texture2D in FEATHER_MAPS:
 		_check(texture.get_width() == 1024 and texture.get_height() == 1024,
 				"sampled feather map is 1024x1024")
@@ -32,6 +37,7 @@ func _ready() -> void:
 	var hero := facade.find_child("AuthoredHeroPenguin", false, false) as HeroPenguinRig
 	_check(hero != null, "facade exposes authored rig child")
 	if hero == null:
+		PenguinVisual.use_authored_backend_for_qa = previous_qa_backend
 		get_tree().quit(1)
 		return
 	_check(hero.root_motion_disabled, "runtime explicitly disables root motion")
@@ -163,10 +169,14 @@ func _ready() -> void:
 	facade.setup({"species": "emperor"})
 	_check(not facade.is_authored_backend_active(), "legacy re-setup returns to safe fallback")
 
+	# Re-setup retires old branches with queue_free; finish their teardown.
+	await get_tree().process_frame
+	await get_tree().process_frame
 	if _failures == 0:
 		print("HERO PENGUIN ASSET: PASS")
 	else:
 		push_error("HERO PENGUIN ASSET: %d failure(s)" % _failures)
+	PenguinVisual.use_authored_backend_for_qa = previous_qa_backend
 	get_tree().quit(_failures)
 
 

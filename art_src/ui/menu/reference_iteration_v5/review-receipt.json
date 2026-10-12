@@ -1,0 +1,135 @@
+{
+  "generated_utc": "2026-10-08T17:56:14.792351+00:00",
+  "tool": "built-in image_gen.imagegen",
+  "reviewed": 8,
+  "originals_preserved": true,
+  "references_only": true,
+  "runtime_assets": 0,
+  "fragment": "data/art/fragments/menu_reference_iteration_v5.json",
+  "in_memory_merge": {
+    "runtime_assets": 0,
+    "source_exports": 0,
+    "generated_assets": 0,
+    "concepts": 6
+  },
+  "notes": {
+    "account": "Desktop and phone show three centered equal cells with values, full icon edges, CHANGE NAME below status and above sign-in. Existing illustration preserved.",
+    "achievements": "Desktop and phone show full selected Fish Finder rule, exclusions, next Silver target4000; unchanged Bronze750/50XP. Text readable, no clipped lines.",
+    "missions": "Both plaques read NEXT: TWILIGHT / 1,800 M \u00b7 ONE RUN. Existing red current marker and locked future regions retained.",
+    "account_name": "Full centered ivory modal, dim Account behind; exact title/description/helper, readable field and separate SAVE NAME/CANCEL controls. Input text left aligned in reference."
+  },
+  "assets": [
+    {
+      "id": "imagegen_reference_iteration_v5_account_desktop_v4",
+      "path": "art_src/ui/menu/reference_iteration_v5/account_desktop_v4.png",
+      "prompt_path": "art_src/ui/menu/reference_iteration_v5/achievement_account_prompts.json",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "8d9d19942715447d696b280815983dc8815b9265115b1ce0da62702c52c3bf7a",
+      "license_id": "project_original",
+      "generated_on": "2026-10-08",
+      "generator": "image_gen.imagegen (model/build identifier not exposed)",
+      "status": "art_direction_only"
+    },
+    {
+      "id": "imagegen_reference_iteration_v5_account_portrait_v3",
+      "path": "art_src/ui/menu/reference_iteration_v5/account_portrait_v3.png",
+      "prompt_path": "art_src/ui/menu/reference_iteration_v5/achievement_account_prompts.json",
+      "dimensions": [
+        941,
+        1672
+      ],
+      "sha256": "5c41fe4f42a5a582c70644562d94ce006eeff6f4722b490a7fc932d4fa90d41d",
+      "license_id": "project_original",
+      "generated_on": "2026-10-08",
+      "generator": "image_gen.imagegen (model/build identifier not exposed)",
+      "status": "art_direction_only"
+    },
+    {
+      "id": "imagegen_reference_iteration_v5_achievements_desktop_v4",
+      "path": "art_src/ui/menu/reference_iteration_v5/achievements_desktop_v4.png",
+      "prompt_path": "art_src/ui/menu/reference_iteration_v5/achievement_account_prompts.json",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "e042beadb4e6ab3e324ed2c75b12d96320719fe26d7a4fe1170c0d5bbcd3a794",
+      "license_id": "project_original",
+      "generated_on": "2026-10-08",
+      "generator": "image_gen.imagegen (model/build identifier not exposed)",
+      "status": "art_direction_only"
+    },
+    {
+      "id": "imagegen_reference_iteration_v5_achievements_portrait_v3",
+      "path": "art_src/ui/menu/reference_iteration_v5/achievements_portrait_v3.png",
+      "prompt_path": "art_src/ui/menu/reference_iteration_v5/achievement_mission_prompts.json",
+      "dimensions": [
+        941,
+        1672
+      ],
+      "sha256": "8b9a19f1bd53b861a86f2bfa2819f5ee13224d8a0609932aa3e7e44bda4c1677",
+      "license_id": "project_original",
+      "generated_on": "2026-10-08",
+      "generator": "image_gen.imagegen (model/build identifier not exposed)",
+      "status": "art_direction_only"
+    },
+    {
+      "id": "imagegen_reference_iteration_v5_missions_desktop_v4",
+      "path": "art_src/ui/menu/reference_iteration_v5/missions_desktop_v4.png",
+      "prompt_path": "art_src/ui/menu/reference_iteration_v5/achievement_mission_prompts.json",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "a7b975ba9e3a8a072d99d07e5776651e6e8d443f1447346893f04768485d5325",
+      "license_id": "project_original",
+      "generated_on": "2026-10-08",
+      "generator": "image_gen.imagegen (model/build identifier not exposed)",
+      "status": "art_direction_only"
+    },
+    {
+      "id": "imagegen_reference_iteration_v5_missions_portrait_v3",
+      "path": "art_src/ui/menu/reference_iteration_v5/missions_portrait_v3.png",
+      "prompt_path": "art_src/ui/menu/reference_iteration_v5/achievement_mission_prompts.json",
+      "dimensions": [
+        941,
+        1672
+      ],
+      "sha256": "93a20efb8ef2fc94801f0b9374214ac132f09f93c0780b95504be6a832477b32",
+      "license_id": "project_original",
+      "generated_on": "2026-10-08",
+      "generator": "image_gen.imagegen (model/build identifier not exposed)",
+      "status": "art_direction_only"
+    },
+    {
+      "id": "imagegen_reference_iteration_v5_account_name_desktop_v1",
+      "path": "art_src/ui/menu/reference_iteration_v5/account_name_desktop_v1.png",
+      "prompt_path": "art_src/ui/menu/reference_iteration_v5/account_name_prompts.json",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "274ac346cb9c90748d571f1b2a6df531964d14fa5ae8c350912cfcf93683e917",
+      "license_id": "project_original",
+      "generated_on": "2026-10-08",
+      "generator": "image_gen.imagegen (model/build identifier not exposed)",
+      "status": "art_direction_only"
+    },
+    {
+      "id": "imagegen_reference_iteration_v5_account_name_portrait_v1",
+      "path": "art_src/ui/menu/reference_iteration_v5/account_name_portrait_v1.png",
+      "prompt_path": "art_src/ui/menu/reference_iteration_v5/account_name_prompts.json",
+      "dimensions": [
+        941,
+        1672
+      ],
+      "sha256": "ab2e2977b4f4c1aca6e90eae79f3d75083250a9337f9393f13c71d07f8a3370f",
+      "license_id": "project_original",
+      "generated_on": "2026-10-08",
+      "generator": "image_gen.imagegen (model/build identifier not exposed)",
+      "status": "art_direction_only"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "glb_sha256": "83584fcb4e5d5509a871e5bc16453d6711d1f3fd094e2eb747bb546240526747",
+  "source_sha256": "d74423a302a182700da89c86c29ce8573440ad5bc63b009242594226a93dfe4e",
+  "passed": true,
+  "triangles": 7424,
+  "normals_verified": 3724,
+  "positions_verified": 3724,
+  "source_and_config_bound": true,
+  "rendered_frames": 0,
+  "visual_approval": "pending"
+}

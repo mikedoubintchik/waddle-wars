@@ -1,0 +1,36 @@
+{
+  "generated_assets": [
+    {
+      "id": "imagegen_twilight_landmark_v8",
+      "path": "art_src/ui/menu/mission_map_v8/twilight_landmark_v8.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "generated_on": "2026-10-08",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "license_id": "project_original",
+      "status": "production_source",
+      "prompt_path": "art_src/ui/menu/mission_map_v8/twilight_landmark_v8.prompt.md",
+      "sha256": "c29b05399e21fb29eb5abc6c45afba632655b9edb974875a809d8d1d4e607af1"
+    }
+  ],
+  "runtime_assets": [
+    {
+      "id": "twilight_landmark_v8",
+      "path": "res://assets/art/ui/menu/mission_map_v8/twilight_landmark_v8.webp",
+      "kind": "texture",
+      "groups": [
+        "menu",
+        "missions",
+        "ui"
+      ],
+      "license_id": "project_original",
+      "production_ready": true,
+      "source_export_id": "imagegen_twilight_landmark_v8",
+      "sha256": "c0c316e25b861887534fc6cf89b3a96184a8b33d4e81ba6685b8614a6a0c768b"
+    }
+  ],
+  "concepts": [],
+  "source_exports": []
+}

@@ -1,0 +1,43 @@
+{
+  "version": 7,
+  "created_at": "2026-10-08T19:25:52.874087+00:00",
+  "purpose": "Updated keyboard/controller page references for arrow-key primary movement; existing original references preserved. Source catalog used v3 standalone binding pages, not v6 Settings Controls tab.",
+  "entries": [
+    {
+      "id": "controls",
+      "orientation": "desktop",
+      "source": "art_src/ui/menu/reference_iteration_v7/controls_desktop_v7.png",
+      "sha256": "7de9677bed04f4243be1cd7088919dbb19f55f7259606036c6762f259fabe42b",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "edit_input": "art_src/ui/menu/reference_iteration_v3/controls_desktop_v2.png",
+      "edit_input_sha256": "6684d11a0b7ee965a53aa71b9d667b7dc0fd48375a0251d00e0255fe0be3424f",
+      "prompt": "art_src/ui/menu/reference_iteration_v7/controls_desktop_v7.prompt.txt",
+      "prompt_sha256": "738944944661f17560c32cef17c3c8cdf619bf46d984c3d62dc240b0f4f7bd02",
+      "generated_output": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-70422c56-97f9-401a-aa0a-f443d8177e74.png",
+      "tool": "built-in image_gen.imagegen",
+      "status": "visually_reviewed",
+      "review": "All seven action names retained. Keyboard primary bindings are left/right/up/down pictographic arrows, then E/Q/Esc. Controller bindings, cabin/penguin composition, reset and back footer retained. Mobile jump/slide keycaps became slightly narrower, without content loss. Reference only; no runtime asset substitution."
+    },
+    {
+      "id": "controls",
+      "orientation": "mobile",
+      "source": "art_src/ui/menu/reference_iteration_v7/controls_mobile_v7.png",
+      "sha256": "92b2ee8a8dfede8c62e37363729b178d296ba811a15d3cd0c7e142c4d9631f63",
+      "dimensions": [
+        941,
+        1672
+      ],
+      "edit_input": "art_src/ui/menu/reference_iteration_v3/controls_portrait_v3.png",
+      "edit_input_sha256": "2e6f55c474a697139ba3363cef225268bc7f7872a6d579eb13e5877c7184a851",
+      "prompt": "art_src/ui/menu/reference_iteration_v7/controls_mobile_v7.prompt.txt",
+      "prompt_sha256": "8ad2c267c96f75c40a6574ff1aef706880ca04810bbc41baee90b663d47cf5a2",
+      "generated_output": "/Users/ninja/.codex/generated_images/01a114e0-3e95-7b02-bc3e-8a7502089135/exec-20b8add1-de5e-44f9-aa8c-6eb7d2642fd5.png",
+      "tool": "built-in image_gen.imagegen",
+      "status": "visually_reviewed",
+      "review": "All seven action names retained. Keyboard primary bindings are left/right/up/down pictographic arrows, then E/Q/Esc. Controller bindings, cabin/penguin composition, reset and back footer retained. Mobile jump/slide keycaps became slightly narrower, without content loss. Reference only; no runtime asset substitution."
+    }
+  ]
+}

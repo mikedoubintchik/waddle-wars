@@ -30,7 +30,7 @@ func _on_view_class_changed(next: LayoutProfile) -> void:
 func _exit_tree() -> void:
 	# Never leave the tree paused if the menu is torn down mid-pause (e.g. the
 	# race scene is freed by a scene swap).
-	if _paused:
+	if _paused and not SceneRouter.is_busy():
 		get_tree().paused = false
 	if Input.joy_connection_changed.is_connected(_on_joy_connection_changed):
 		Input.joy_connection_changed.disconnect(_on_joy_connection_changed)
@@ -54,7 +54,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func toggle() -> void:
-	if _settings_panel != null:
+	if _settings_panel != null or SceneRouter.is_busy():
 		return
 	if _paused:
 		_close()
@@ -79,7 +79,7 @@ func _open(profile_override: LayoutProfile = null, scroll_fraction: float = 0.0,
 	add_child(_panel)
 
 	var dim := ColorRect.new()
-	dim.color = Color(0.012, 0.028, 0.060, 0.78)
+	dim.color = Color(0.012, 0.028, 0.060, 0.55)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_panel.add_child(dim)
 
@@ -107,15 +107,9 @@ func _open(profile_override: LayoutProfile = null, scroll_fraction: float = 0.0,
 	var box := PanelContainer.new()
 	box.name = &"PauseExpeditionCard"
 	box.custom_minimum_size.x = _pause_width()
-	var style := UITheme.make_panel_style(
-		Color(0.035, 0.075, 0.142, 0.975), Color(UITheme.COLOR_ACCENT, 0.62))
-	style.set_corner_radius_all(UITheme.RADIUS_CARD)
-	style.content_margin_left = _metric(28.0 if not _profile.is_portrait() else 20.0)
-	style.content_margin_right = _metric(28.0 if not _profile.is_portrait() else 20.0)
-	style.content_margin_top = _metric(24.0)
-	style.content_margin_bottom = _metric(24.0)
-	style.shadow_size = 18
-	style.shadow_offset = Vector2(0.0, 8.0)
+	var style := ExpeditionMenuStyle.material_card(
+		_metric(28.0 if not _profile.is_portrait() else 20.0),
+		_metric(24.0))
 	box.add_theme_stylebox_override("panel", style)
 	page_pad.add_child(box)
 	var vbox := VBoxContainer.new()
@@ -132,13 +126,19 @@ func _open(profile_override: LayoutProfile = null, scroll_fraction: float = 0.0,
 
 	var actions := _pause_section(body, "Race Control", UITheme.COLOR_GOLD)
 	var resume := _add_button(actions, "Resume Expedition", _close, UITheme.ICON_PLAY)
-	UITheme.style_primary(resume)
-	_add_button(actions, "Restart Race", func() -> void:
+	ExpeditionMenuStyle.style_button(resume, true, UITheme.scaled_font(24))
+	var restart_label := "Restart Expedition" if Game.mode == Game.Mode.ENDLESS \
+		else "Restart Waddle School" if Game.mode == Game.Mode.TUTORIAL else "Restart Race"
+	_add_button(actions, restart_label, func() -> void:
+		if SceneRouter.is_busy():
+			return
 		get_tree().paused = false
 		SceneRouter.go_to(Game.SCENE_RACE))
 	_add_button(actions, "Settings", _open_settings, UITheme.ICON_GEAR)
 	if Game.mode == Game.Mode.QUICK_RACE or Game.mode == Game.Mode.TIME_TRIAL:
 		_add_button(actions, "Change Course", func() -> void:
+			if SceneRouter.is_busy():
+				return
 			get_tree().paused = false
 			Game.setup_entry_step = "course"
 			Game.quit_race_to_setup())
@@ -148,14 +148,14 @@ func _open(profile_override: LayoutProfile = null, scroll_fraction: float = 0.0,
 		actions, "Quit to Menu", _on_quit_pressed, UITheme.ICON_DOOR)
 	if preserve_quit and _quit_armed:
 		_quit_button.text = "Really Quit? GP is lost"
-	_quit_button.add_theme_color_override("font_color", Color(0.98, 0.70, 0.64))
+	_quit_button.add_theme_color_override("font_color", Color("9e2c27"))
 
 	var field_guide := _pause_section(body, "Field Guide", UITheme.COLOR_ACCENT)
 	_build_quick_audio(field_guide)
 	field_guide.add_child(_section_rule())
 	var controls_label := UITheme.sub_label("LIVE CONTROLS", 16)
 	controls_label.add_theme_font_override("font", UITheme.caption_font())
-	controls_label.add_theme_color_override("font_color", UITheme.COLOR_TEXT_DIM)
+	controls_label.add_theme_color_override("font_color", ExpeditionMenuStyle.INK_MUTED)
 	controls_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	field_guide.add_child(controls_label)
 	var hud_scale := float(SettingsManager.get_setting("accessibility", "hud_scale"))
@@ -201,18 +201,19 @@ func _build_pause_header(parent: VBoxContainer) -> void:
 	eyebrow.text = "EXPEDITION PAUSED"
 	eyebrow.add_theme_font_override("font", UITheme.caption_font())
 	eyebrow.add_theme_font_size_override("font_size", UITheme.scaled_font(15))
-	eyebrow.add_theme_color_override("font_color", Color(UITheme.COLOR_GOLD, 0.90))
+	eyebrow.add_theme_color_override("font_color", ExpeditionMenuStyle.INK_MUTED)
 	titles.add_child(eyebrow)
-	var title := UITheme.heading("Take a Breather",
+	var title := UITheme.heading("RACE PAUSED",
 		UITheme.scaled_heading(34 if _profile.is_portrait() else 40))
+	title.add_theme_color_override("font_color", ExpeditionMenuStyle.INK)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	titles.add_child(title)
 	var chip := PanelContainer.new()
 	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var chip_style := StyleBoxFlat.new()
-	chip_style.bg_color = Color(UITheme.COLOR_ACCENT, 0.12)
-	chip_style.border_color = Color(UITheme.COLOR_ACCENT, 0.40)
+	chip_style.bg_color = Color("e0f2f8")
+	chip_style.border_color = Color("b8dce8")
 	chip_style.set_border_width_all(1)
 	chip_style.set_corner_radius_all(12)
 	chip_style.content_margin_left = _metric(12.0)
@@ -225,7 +226,7 @@ func _build_pause_header(parent: VBoxContainer) -> void:
 	chip_label.text = "SAFE" if UtilityScreenLayout.is_phone(_profile) else "RACE SAFE"
 	chip_label.add_theme_font_override("font", UITheme.caption_font())
 	chip_label.add_theme_font_size_override("font_size", UITheme.scaled_font(13))
-	chip_label.add_theme_color_override("font_color", UITheme.COLOR_ACCENT)
+	chip_label.add_theme_color_override("font_color", ExpeditionMenuStyle.INK)
 	chip.add_child(chip_label)
 	parent.add_child(UITheme.make_header_rule())
 
@@ -233,8 +234,7 @@ func _build_pause_header(parent: VBoxContainer) -> void:
 func _pause_section(parent: Control, title_text: String, accent: Color) -> VBoxContainer:
 	var card := PanelContainer.new()
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var style := UITheme.make_panel_style(
-		Color(0.055, 0.104, 0.185, 0.84), Color(accent, 0.30))
+	var style := ExpeditionMenuStyle.surface(Color("fffdf7"), 22, false)
 	style.content_margin_left = _metric(16.0)
 	style.content_margin_right = _metric(16.0)
 	style.content_margin_top = _metric(14.0)
@@ -258,7 +258,7 @@ func _pause_section(parent: Control, title_text: String, accent: Color) -> VBoxC
 	label.text = title_text.to_upper()
 	label.add_theme_font_override("font", UITheme.caption_font())
 	label.add_theme_font_size_override("font_size", UITheme.scaled_font(15))
-	label.add_theme_color_override("font_color", Color(0.76, 0.86, 0.96))
+	label.add_theme_color_override("font_color", ExpeditionMenuStyle.INK)
 	title_row.add_child(label)
 	body.add_child(_section_rule())
 	return body
@@ -286,7 +286,7 @@ func _build_quick_audio(parent: VBoxContainer) -> void:
 		label.custom_minimum_size.x = UITheme.scaled(76.0)
 		label.add_theme_font_override("font", UITheme.bold_font())
 		label.add_theme_font_size_override("font_size", UITheme.scaled_font(18))
-		label.add_theme_color_override("font_color", UITheme.COLOR_TEXT)
+		label.add_theme_color_override("font_color", ExpeditionMenuStyle.INK)
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		row.add_child(label)
 		var slider := HSlider.new()
@@ -323,6 +323,7 @@ func _add_button(parent: Control, text: String, action: Callable,
 		icon_svg: String = "") -> Button:
 	var button := UITheme.make_button(text,
 		UITheme.scaled_size(Vector2(0.0, 52.0)), UITheme.scaled_font(22))
+	ExpeditionMenuStyle.style_button(button, false, UITheme.scaled_font(22))
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UtilityScreenLayout.enforce_target(button)
 	if not icon_svg.is_empty():
@@ -340,6 +341,8 @@ func _add_button(parent: Control, text: String, action: Callable,
 
 
 func _on_quit_pressed() -> void:
+	if SceneRouter.is_busy():
+		return
 	# Quitting mid-Grand-Prix abandons all standings; require a second press.
 	if Game.mode == Game.Mode.GRAND_PRIX and not _quit_armed:
 		_quit_armed = true
@@ -360,7 +363,7 @@ func _on_quit_pressed() -> void:
 ## The pause panel is hidden rather than freed, so returning restores it with
 ## its quit-confirm state and focus intact.
 func _open_settings() -> void:
-	if _settings_panel != null:
+	if _settings_panel != null or SceneRouter.is_busy():
 		return
 	var packed: PackedScene = load(Game.SCENE_SETTINGS) as PackedScene
 	if packed == null:
@@ -379,6 +382,8 @@ func _open_settings() -> void:
 
 
 func _close_settings() -> void:
+	if SceneRouter.is_busy():
+		return
 	if _settings_panel != null:
 		_settings_panel.queue_free()
 		_settings_panel = null
@@ -410,6 +415,10 @@ func _rebuild_panel(profile_override: LayoutProfile = null,
 
 
 func _close() -> void:
+	# A failed scene transition can leave this old menu alive under recovery.
+	# Its Resume/Escape callbacks must not release the router's pause.
+	if SceneRouter.is_busy():
+		return
 	_paused = false
 	get_tree().paused = false
 	if _settings_panel != null:
@@ -426,8 +435,12 @@ func _close() -> void:
 func _notification(what: int) -> void:
 	# Auto-pause when focus is lost or a controller disconnects mid-race.
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and not _paused and is_inside_tree():
-		if not GameConfig.is_headless():
-			_open()
+		# A desktop window may lose focus while the race scene is still adding
+		# this menu. Opening a panel in that notification re-enters add_child and
+		# can leave the tree paused with an incomplete overlay.
+		if not GameConfig.is_headless() and is_node_ready() \
+				and SceneRouter.is_gameplay_ready(get_parent()):
+			_open.call_deferred()
 
 
 ## Mute button caption, with the M hotkey advertised on keyboard devices.

@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "passed": true,
+  "scope": "Source geometry and fixed-camera software silhouette; final actual-game visual approval pending",
+  "shape_revision": "v7 foot-only refinement: convex rear heel removes v6 ankle overhang; blunt forward toe lobes, modest left outward splay; fitted body/flippers/materials unchanged",
+  "glb_sha256": "1c3deac8a4999d3a9d31517f0255e631815254b05f4301331fcf91f2f64b138f",
+  "source_sha256": "88287b0c218de1e7fe304b5ceddaed94f96983407356bd0efc2f852109243667",
+  "config_sha256": "fb7202407e7aa49b2bf01b1cc03cebba014f42dfddf5a164c9810eac74a4f617",
+  "builder_sha256": "7bff43a77a4bef1cf2c9b5e50859e308664b854d6970b84abf75c66fcceb6896",
+  "triangles": 9920,
+  "positions_verified": 4972,
+  "normals_verified": 4972,
+  "literal_linear_colors_verified": 4972,
+  "source_and_config_bound": true,
+  "body_head_flippers_tail_positions_normals_colors_bit_identical_v6": [
+    "continuous_body_head",
+    "flipper_L",
+    "flipper_R",
+    "short_tail_fan"
+  ],
+  "palette_unchanged": true,
+  "bmesh_color_index_error_m": 0,
+  "foot_sole_vertices_exactly_grounded": {
+    "foot_L": 41,
+    "foot_R": 41
+  },
+  "ankle_caps_inside_final_posed_body": [
+    {
+      "part": "foot_L",
+      "ankle_cap_body_ellipse_ratio": 0.7718474956711996,
+      "sole_min_z_m": 0.0,
+      "ankle_cap_m": [
+        -0.2744775764604029,
+        -0.11467025236541308,
+        0.285
+      ]
+    },
+    {
+      "part": "foot_R",
+      "ankle_cap_body_ellipse_ratio": 0.3082516831260793,
+      "sole_min_z_m": 0.0,
+      "ankle_cap_m": [
+        0.1987436323395641,
+        0.13220512192768435,
+        0.285
+      ]
+    }
+  ],
+  "one_plain_matte_surface_no_maps_rig_or_animation": true,
+  "identity_root": true,
+  "convex_lower_rear_heel_checks": {
+    "L": {
+      "passed": true,
+      "slope_range": [
+        -9.945895965051236,
+        -0.03747024794728846
+      ],
+      "sole_preserved": true
+    },
+    "R": {
+      "passed": true,
+      "slope_range": [
+        -4.193489980516522,
+        -0.30802783244961984
+      ],
+      "sole_preserved": true
+    }
+  },
+  "independent_side_profile_audit": "qa_shots/penguin-silhouette-overlay-20261011/analysis-reference/foot-profile-audit.json",
+  "software_fit_directory": "qa_shots/penguin-silhouette-overlay-20261011/projection/source-foot-refine3",
+  "software_fit": {
+    "full": {
+      "intersection_over_union": 0.9506457852374118,
+      "symmetric_boundary_mean_px": 1.8853754138187129,
+      "symmetric_boundary_p95_px": 4.47213595499958,
+      "symmetric_boundary_max_px": 11.40175425099138
+    },
+    "feet": {
+      "intersection_over_union": 0.8305606900800986,
+      "symmetric_boundary_mean_px": 1.6521541267182254,
+      "symmetric_boundary_p95_px": 5.0,
+      "symmetric_boundary_max_px": 8.54400374531753
+    },
+    "per_foot": {
+      "left": {
+        "reference": {
+          "area": 1786,
+          "bbox": [
+            155,
+            320,
+            207,
+            366
+          ]
+        },
+        "candidate": {
+          "area": 1706,
+          "bbox": [
+            155,
+            319,
+            206,
+            366
+          ]
+        },
+        "metrics": {
+          "intersection_over_union": 0.8643886812600107,
+          "symmetric_boundary_mean_px": 1.4447930026807894,
+          "symmetric_boundary_p95_px": 4.158966144068143,
+          "symmetric_boundary_max_px": 5.385164807134504
+        }
+      },
+      "right": {
+        "reference": {
+          "area": 1229,
+          "bbox": [
+            246,
+            338,
+            303,
+            366
+          ]
+        },
+        "candidate": {
+          "area": 1221,
+          "bbox": [
+            247,
+            334,
+            304,
+            366
+          ]
+        },
+        "metrics": {
+          "intersection_over_union": 0.7844136926438456,
+          "symmetric_boundary_mean_px": 1.8888814215008478,
+          "symmetric_boundary_p95_px": 6.4031242374328485,
+          "symmetric_boundary_max_px": 8.54400374531753
+        }
+      }
+    }
+  },
+  "khronos_validator": {
+    "errors": 0,
+    "warnings": 0,
+    "infos": 0,
+    "hints": 0
+  },
+  "visual_approval": "pending actual-game dark-band/foot-form review and human Gate1 decision"
+}

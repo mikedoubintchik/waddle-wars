@@ -1,0 +1,194 @@
+# Local release entry points. Existing Python tools remain authoritative for
+# snapshot validation, export diagnostics, signing prerequisites and receipts.
+
+require "json"
+require "pathname"
+
+ENV["FASTLANE_OPT_OUT_USAGE"] = "1"
+ENV["FASTLANE_SKIP_UPDATE_CHECK"] = "1"
+ENV["FASTLANE_SKIP_DOCS"] = "1"
+
+fastlane_version "2.236.1"
+
+WADDLE_RELEASE_ROOT = File.expand_path("..", __dir__).freeze
+WADDLE_RELEASE_TOOLS = File.join(WADDLE_RELEASE_ROOT, "tools", "release").freeze
+WADDLE_RELEASE_CONFIG = JSON.parse(
+  File.read(File.join(WADDLE_RELEASE_TOOLS, "native_release.json"))
+).freeze
+
+def waddle_option(options, name, required: false, absolute: false)
+  value = options[name].to_s
+  if value.strip.empty?
+    UI.user_error!("Missing required option #{name}.") if required
+    return nil
+  end
+  if absolute && !Pathname.new(value).absolute?
+    UI.user_error!("Option #{name} must be an absolute path.")
+  end
+  value
+end
+
+def waddle_run_helper(name, arguments, python: "python3", environment: nil, isolated_python: false)
+  # Variadic arguments go directly to Open3; never concatenate a shell command.
+  command = []
+  command << environment if environment
+  command << python
+  command << "-I" if isolated_python
+  command += [File.join(WADDLE_RELEASE_TOOLS, name), *arguments]
+  sh(*command) do |status, output, _command|
+    # A failed launch gate is a normal user error, not a Fastlane crash that
+    # should initiate a GitHub issue search or suppress the helper's status.
+    UI.user_error!("Release helper #{name} failed (exit #{status.exitstatus}).") unless status.success?
+    output
+  end
+end
+
+def waddle_prepare(options, platform)
+  arguments = [
+    "prepare", platform,
+    waddle_option(options, :destination, required: true, absolute: true),
+    "--version", waddle_option(options, :version, required: true),
+    "--build-number", waddle_option(options, :build_number, required: true)
+  ]
+  if platform == "ios"
+    arguments += ["--team-id", waddle_option(options, :team_id, required: true)]
+  end
+  templates = waddle_option(options, :templates, absolute: true)
+  arguments += ["--templates", templates] if templates
+  waddle_run_helper("native_release.py", arguments)
+end
+
+def waddle_build(options, platform)
+  unless platform == "ios"
+    UI.user_error!("Prepared-candidate builds are iOS only; Android requires the fresh upload-signing lane.")
+  end
+  candidate = waddle_option(options, :candidate, required: true, absolute: true)
+  receipt_path = File.join(candidate, "receipt.json")
+  begin
+    receipt = JSON.parse(File.read(receipt_path))
+  rescue JSON::ParserError, SystemCallError
+    UI.user_error!("Candidate must contain a readable JSON receipt.json.")
+  end
+  if receipt.fetch("platform", nil) != platform
+    UI.user_error!("Candidate platform must match the #{platform} build lane.")
+  end
+  arguments = [candidate]
+  godot = waddle_option(options, :godot, absolute: true)
+  sdk = waddle_option(options, :android_sdk, absolute: true)
+  arguments += ["--godot", godot] if godot
+  arguments += ["--android-sdk", sdk] if sdk
+  waddle_run_helper("build_native.py", arguments)
+end
+
+def waddle_android_upload_build(options)
+  allowed = %w[candidate python jdk bundletool godot android_sdk version build_number]
+  unless (options.keys.map(&:to_s) - allowed).empty?
+    # Never echo an unrecognized key or value: they might contain credentials.
+    UI.user_error!("Android build accepts only public candidate/tool/version options; secret, legacy and unknown options are not allowed.")
+  end
+  candidate = waddle_option(options, :candidate, required: true, absolute: true)
+  path = Pathname.new(candidate)
+  normalized = path.cleanpath.to_s
+  if path.each_filename.include?("..") || normalized == WADDLE_RELEASE_ROOT || normalized.start_with?(WADDLE_RELEASE_ROOT + File::SEPARATOR)
+    UI.user_error!("Android build requires a fresh candidate outside the checkout without traversal.")
+  end
+  candidate = normalized
+  path = Pathname.new(candidate)
+  path.ascend do |component|
+    UI.user_error!("Android candidate paths must not contain symlinks.") if component.symlink?
+  end
+  if path.exist? || File.exist?(candidate + "-signing-launch.json") || File.symlink?(candidate + "-signing-launch.json")
+    UI.user_error!("Android candidate or signing launch state already exists; preserve it and choose a fresh destination.")
+  end
+  UI.user_error!("Android candidate parent must already exist.") unless path.parent.directory?
+  version = waddle_option(options, :version, required: true)
+  build = waddle_option(options, :build_number, required: true)
+  unless version.match?(/\A\d+\.\d+\.\d+\z/) && build.match?(/\A[1-9]\d*\z/) && build.to_i <= 2_100_000_000
+    UI.user_error!("Android build requires a numeric major.minor.patch version and an unused build number from 1 to 2100000000.")
+  end
+  python = waddle_option(options, :python, required: true, absolute: true)
+  arguments = ["build", candidate]
+  %i[jdk bundletool godot android_sdk].each do |name|
+    arguments += ["--" + name.to_s.tr("_", "-"), waddle_option(options, name, required: true, absolute: true)]
+  end
+  arguments += ["--python", python, "--version", version, "--build-number", build]
+  # Clear legacy Godot signing variables in this child without reading their
+  # parent values. The authoritative launcher further creates clean export/
+  # verification environments; only its app-specific helper retrieves the key.
+  environment = %w[GODOT_ANDROID_KEYSTORE_RELEASE_PATH GODOT_ANDROID_KEYSTORE_RELEASE_USER GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD].to_h { |name| [name, ""] }
+  waddle_run_helper("android_upload_signing.py", arguments, python: python,
+                    environment: environment, isolated_python: true)
+end
+
+desc "Read-only native host inventory and current launch evidence gaps"
+lane :inspect do |options|
+  arguments = ["inspect"]
+  sdk = waddle_option(options, :android_sdk, absolute: true)
+  templates = waddle_option(options, :templates, absolute: true)
+  arguments += ["--sdk", sdk] if sdk
+  arguments += ["--templates", templates] if templates
+  waddle_run_helper("native_release.py", arguments)
+end
+
+platform :ios do
+  desc "Prepare a new immutable iOS candidate outside the checkout"
+  lane :prepare do |options|
+    waddle_prepare(options, "ios")
+  end
+
+  desc "Import and export a prepared iOS candidate into an Xcode project"
+  lane :build do |options|
+    waddle_build(options, "ios")
+  end
+
+  desc "Verify an exact App Store profile with the pinned native CMS helper"
+  lane :verify_profile do |options|
+    arguments = [
+      "--mobileprovision", waddle_option(options, :profile, required: true, absolute: true),
+      "--cms-helper", waddle_option(options, :cms_helper, required: true, absolute: true),
+      "--cms-helper-sha256", waddle_option(options, :cms_helper_sha256, required: true),
+      "--team-id", waddle_option(options, :team_id, required: true),
+      "--app-id", WADDLE_RELEASE_CONFIG.fetch("bundle_id"),
+      "--certificate-sha1", waddle_option(options, :certificate_sha1, required: true),
+      "--profile-name", waddle_option(options, :profile_name, required: true)
+    ]
+    waddle_run_helper("verify_ios_profile.py", arguments)
+  end
+end
+
+platform :android do
+  desc "Snapshot-only Android preparation; not input to the fresh upload-signing build lane"
+  lane :prepare do |options|
+    waddle_prepare(options, "android")
+  end
+
+  desc "Build a fresh Android candidate through existing app-specific Keychain upload signing"
+  lane :build do |options|
+    waddle_android_upload_build(options)
+  end
+
+  desc "Check ARM64 ELF and packaging alignment of an existing Android artifact"
+  lane :verify_artifact do |options|
+    arguments = [waddle_option(options, :artifact, required: true, absolute: true)]
+    bundletool = waddle_option(options, :bundletool, absolute: true)
+    zipalign = waddle_option(options, :zipalign, absolute: true)
+    arguments += ["--bundletool", bundletool] if bundletool
+    arguments += ["--zipalign", zipalign] if zipalign
+    waddle_run_helper("check_android_artifact.py", arguments)
+  end
+
+  desc "Verify upload-signed AAB identity, signature coverage and 16-KB structure offline"
+  lane :verify_release do |options|
+    arguments = [
+      waddle_option(options, :artifact, required: true, absolute: true),
+      "--artifact-sha256", waddle_option(options, :artifact_sha256, required: true),
+      "--upload-certificate-sha256", waddle_option(options, :upload_certificate_sha256, required: true),
+      "--package", WADDLE_RELEASE_CONFIG.fetch("bundle_id"),
+      "--version", waddle_option(options, :version, required: true),
+      "--build-number", waddle_option(options, :build_number, required: true),
+      "--bundletool", waddle_option(options, :bundletool, required: true, absolute: true),
+      "--jdk", waddle_option(options, :jdk, required: true, absolute: true)
+    ]
+    waddle_run_helper("verify_android_release.py", arguments)
+  end
+end

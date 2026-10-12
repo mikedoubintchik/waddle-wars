@@ -1,4 +1,6 @@
 extends Control
+
+const UtilityArt := preload("res://scripts/ui/utility_reference_art.gd")
 ## Mode → course → difficulty setup flow, then starts the race.
 ##
 ## Built in the shared menu language established by results.gd and main_menu.gd:
@@ -119,13 +121,21 @@ var _boost: float = 1.0
 var _profile: LayoutProfile = null
 ## Gradient under the pinned footer. Held so a rotation can re-measure it.
 var _scrim: TextureRect = null
+var _mode_hero: Control = null
+const MODE_REFERENCE := "res://assets/art/ui/menu/race_mode_reference_v1.png"
+const MODE_PANELS := {
+	"Quick Race": Rect2(57, 823, 326, 147),
+	"Grand Prix": Rect2(57, 1018, 328, 149),
+	"Time Trial": Rect2(57, 1212, 330, 151),
+	"Endless Expedition": Rect2(56, 1409, 389, 152),
+}
 ## Rasterized SVG cache: menu steps rebuild on every navigation and a phone
 ## rasterizing the same poster three times is pure jank.
 static var _icon_cache: Dictionary = {}
 
 
 func _ready() -> void:
-	UITheme.make_background(self)
+	UtilityArt.bind_background(self, "res://assets/art/ui/menu/race_setup_background_v1.webp", "res://assets/art/ui/menu/race_setup_background_landscape_v3.webp")
 	UITheme.apply_ui_scale(self)
 	_profile = LayoutProfile.for_viewport(get_viewport())
 	_boost = _tall_boost()
@@ -227,6 +237,20 @@ func _reflow(profile: LayoutProfile) -> void:
 ## a rotation cannot drift apart.
 func _apply_frame() -> void:
 	var profile := _layout()
+	if _step == "mode":
+		var safe := profile.safe_rect
+		_scroll.offset_left = safe.position.x + safe.size.x * (0.04 if _is_portrait() else 0.515)
+		_scroll.offset_top = safe.position.y + safe.size.y * (0.48 if _is_portrait() else 0.065)
+		_scroll.offset_right = -(profile.safe_insets.z + safe.size.x * 0.03)
+		_scroll.offset_bottom = -(profile.safe_insets.w + safe.size.y * 0.03)
+		_card_width = safe.size.x * (0.92 if _is_portrait() else 0.455)
+		_content.custom_minimum_size.x = _card_width
+		_content.add_theme_constant_override("separation", 0)
+		_footer.hide()
+		_scrim.hide()
+		return
+	_footer.show()
+	_scrim.show()
 	_scroll.offset_left = profile.safe_insets.x
 	_scroll.offset_top = profile.safe_insets.y
 	_scroll.offset_right = -profile.safe_insets.z
@@ -348,6 +372,56 @@ func _hero(eyebrow: String, headline: String) -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", _gap(6))
 	_content.add_child(box)
+	if _step == "mode":
+		box.queue_free()
+		var safe := _profile.safe_rect
+		_mode_hero = Control.new()
+		_mode_hero.name = "RaceReferenceHero"
+		_mode_hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_mode_hero)
+		var logo := TextureRect.new()
+		logo.name = "WaddleRaceWordmark"
+		var title_crop := AtlasTexture.new()
+		title_crop.atlas = ExpeditionMenuStyle._material_texture("res://assets/art/ui/menu/race_wordmark_v4.webp")
+		title_crop.region = Rect2(20,20,1734,847)
+		title_crop.filter_clip = true
+		logo.texture = title_crop
+		logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var width := safe.size.x * (0.72 if _is_portrait() else 0.42)
+		logo.position = safe.position + Vector2(safe.size.x * (0.14 if _is_portrait() else 0.085), safe.size.y * (0.055 if _is_portrait() else 0.10))
+		logo.size = Vector2(width, width * 0.50)
+		_mode_hero.add_child(logo)
+		var plaque := TextureRect.new()
+		plaque.name = "ChooseModeWoodPlaque"
+		plaque.texture = _mode_region(Rect2(275, 408, 407, 94))
+		plaque.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		plaque.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		plaque.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		plaque.accessibility_name = headline
+		plaque.size = Vector2(width * 0.62, width * 0.143)
+		plaque.position = logo.position + Vector2(width * (0.19 if _is_portrait() else 0.19), logo.size.y - width * 0.02)
+		_mode_hero.add_child(plaque)
+		var flag_penguin := TextureRect.new()
+		flag_penguin.name = "RaceFlagPenguin"
+		flag_penguin.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		flag_penguin.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		flag_penguin.texture = ExpeditionMenuStyle._material_texture("res://assets/art/ui/menu/race_flag_penguin_v1.webp")
+		flag_penguin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		flag_penguin.size = Vector2(safe.size.x * (0.50 if _is_portrait() else 0.33), safe.size.y * (0.40 if _is_portrait() else 0.59))
+		flag_penguin.position = safe.position + Vector2(safe.size.x * -0.055, safe.size.y * (0.11 if _is_portrait() else 0.32))
+		_mode_hero.add_child(flag_penguin)
+		var back := ExpeditionMenuStyle.button("BASE CAMP", false, maxi(24, roundi(safe.size.y * (0.018 if _is_portrait() else 0.034))), safe.size.y * 0.055)
+		back.name = "RaceSetupBack"
+		back.position = safe.position + Vector2(safe.size.x * 0.035, safe.size.y * 0.018)
+		back.size = Vector2(safe.size.x * (0.29 if _is_portrait() else 0.17), safe.size.y * 0.055)
+		back.icon = ExpeditionMenuStyle.wardrobe_sprite("back")
+		back.expand_icon = true
+		back.add_theme_constant_override("icon_max_width", roundi(back.size.y * 0.65))
+		back.pressed.connect(_go_back_step)
+		_mode_hero.add_child(back)
+		return
 	_eyebrow(box, eyebrow, Color(UITheme.COLOR_ACCENT, 0.75))
 	var label := UITheme.heading(
 		headline, roundi(float(UITheme.scaled_heading(52)) * _boost))
@@ -404,9 +478,9 @@ func _body_text(parent: Control, text: String, size: int, lines: int) -> Label:
 func _stat_tile(parent: Control, value: String, caption: String, tint: Color,
 		highlight: bool) -> PanelContainer:
 	var tile := PanelContainer.new()
-	var style := UITheme.make_panel_style(
-		Color(tint.r, tint.g, tint.b, 0.14) if highlight else Color(0.086, 0.149, 0.251, 0.72),
-		Color(tint, 0.55 if highlight else 0.18))
+	var style := ExpeditionMenuStyle.surface(
+		Color("fff0d8") if highlight else ExpeditionMenuStyle.IVORY,
+		RADIUS_ROW)
 	style.set_corner_radius_all(RADIUS_ROW)
 	style.content_margin_left = _u(13.0)
 	style.content_margin_right = _u(13.0)
@@ -482,20 +556,13 @@ func _fit_cards(grid: GridContainer, columns: int, authored: float) -> void:
 func _make_card(parent: Control, min_size: Vector2, action: Callable,
 		primary: bool = false, pad: float = 18.0) -> MarginContainer:
 	var button := Button.new()
+	button.set_meta("premium_primary", primary)
 	button.custom_minimum_size = min_size
 	# Backstop for the same class of bug: whatever a future child does with its
 	# minimum size, a card cannot paint outside its own rounded rect.
 	button.clip_contents = true
 	button.focus_mode = Control.FOCUS_ALL
-	button.add_theme_stylebox_override("normal", _card_style(
-		PRIMARY_FILL if primary else Color(0.063, 0.114, 0.204, 0.90),
-		Color(UITheme.COLOR_ACCENT, 0.85 if primary else 0.22), 2 if primary else 1, 12))
-	button.add_theme_stylebox_override("hover", _card_style(
-		PRIMARY_FILL_HOVER if primary else Color(0.110, 0.192, 0.318, 0.96),
-		Color(0.90, 0.98, 1.0, 0.95), 2, 18))
-	button.add_theme_stylebox_override("pressed", _card_style(
-		(PRIMARY_FILL if primary else Color(0.063, 0.114, 0.204, 0.90)).darkened(0.35),
-		Color(UITheme.COLOR_GOLD, 0.9), 2, 4))
+	ExpeditionMenuStyle.style_button(button, primary, _f(24))
 	var focus := StyleBoxFlat.new()
 	focus.draw_center = false
 	focus.border_color = Color(0.72, 0.92, 1.0)
@@ -660,16 +727,17 @@ func _rail_pill(parent: Control, name_text: String, value_text: String,
 	var live := index == current
 	var can_jump := done and jump.is_valid()
 	var pill := PanelContainer.new()
+	pill.set_meta("premium_primary", live)
 	var style := StyleBoxFlat.new()
 	if live:
-		style.bg_color = Color(UITheme.COLOR_ACCENT.r, UITheme.COLOR_ACCENT.g, UITheme.COLOR_ACCENT.b, 0.14)
-		style.border_color = Color(UITheme.COLOR_ACCENT, 0.7)
+		style.bg_color = ExpeditionMenuStyle.CORAL
+		style.border_color = ExpeditionMenuStyle.GOLD
 	elif done:
-		style.bg_color = Color(0.086, 0.149, 0.251, 0.78)
-		style.border_color = Color(UITheme.COLOR_ACCENT, 0.22)
+		style.bg_color = ExpeditionMenuStyle.IVORY
+		style.border_color = ExpeditionMenuStyle.GOLD
 	else:
-		style.bg_color = Color(0.055, 0.098, 0.172, 0.55)
-		style.border_color = Color(0.55, 0.68, 0.82, 0.14)
+		style.bg_color = Color("edf5f8")
+		style.border_color = Color("d4e6ee")
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(roundi(_u(16.0)))
 	style.content_margin_left = _u(16.0)
@@ -723,13 +791,13 @@ func _rail_pill(parent: Control, name_text: String, value_text: String,
 func _show_mode_step() -> void:
 	_step = "mode"
 	_clear()
-	_hero("Waddle Wars · Setup", "Choose a Mode")
-	_build_rail()
+	_apply_frame()
+	_hero("WADDLE RACE", "CHOOSE A MODE")
 
 	var grid := GridContainer.new()
-	grid.columns = 1 if _is_portrait() else 2
+	grid.columns = 1
 	grid.add_theme_constant_override("h_separation", _gap(14))
-	grid.add_theme_constant_override("v_separation", _gap(14))
+	grid.add_theme_constant_override("v_separation", roundi(_profile.safe_rect.size.y * 0.009))
 	_content.add_child(grid)
 	var tile := _mode_tile_size(grid.columns)
 
@@ -764,10 +832,8 @@ func _show_mode_step() -> void:
 		"best score" if endless_best > 0 else "", false,
 		func() -> void:
 			Game.start_endless())
-	_fit_cards(grid, grid.columns, tile.y)
-
-	_build_back_row("Main Menu", func() -> void:
-		SceneRouter.go_to(Game.SCENE_MAIN_MENU))
+	# Four fixed reference rows occupy the visible selection area.
+	_buttons.append(_mode_hero.find_child("RaceSetupBack", true, false) as Button)
 	_focus_first()
 	_play_entrance()
 
@@ -780,55 +846,82 @@ func _show_mode_step() -> void:
 ## Measured on a 390x844 phone (canvas 800x1731, card 662 wide): content came
 ## to 307 units against a 271-unit card, and _make_card clips, so the blurb and
 ## the record were sliced off the bottom of three of the four cards.
-func _mode_tile_size(columns: int) -> Vector2:
-	var gaps := float(_gap(14)) * float(columns - 1)
-	var width := (_card_width - gaps) / float(columns)
-	return Vector2(width, _u(196.0) if columns == 1 else _u(154.0))
+func _mode_tile_size(_columns: int) -> Vector2:
+	return Vector2(_card_width, _profile.safe_rect.size.y * (0.112 if _is_portrait() else 0.22))
 
 
-func _mode_card(parent: Control, tile: Vector2, title: String, icon_svg: String,
-		tint: Color, blurb: String, meta: String, stat_value: String,
-		stat_caption: String, primary: bool, action: Callable) -> void:
-	var host := _make_card(parent, tile, action, primary, 18.0)
+func _mode_region(region: Rect2) -> AtlasTexture:
+	var atlas := AtlasTexture.new()
+	atlas.atlas = ExpeditionMenuStyle._material_texture(MODE_REFERENCE)
+	atlas.region = region
+	atlas.filter_clip = true
+	return atlas
+
+
+func _mode_card(parent: Control, tile: Vector2, title: String, _icon_svg: String,
+		_tint: Color, blurb: String, meta: String, stat_value: String,
+		stat_caption: String, _primary: bool, action: Callable) -> void:
+	var host := _make_card(parent, tile, action, false, 10.0)
+	var button := host.get_parent() as Button
+	button.name = "RaceMode_" + title.to_pascal_case()
+	button.accessibility_name = title
+	button.tooltip_text = "%s\n%s" % [blurb, meta]
+	if not stat_value.is_empty(): button.tooltip_text += "\n%s: %s" % [stat_caption, stat_value]
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", _gap(14))
+	row.add_theme_constant_override("separation", roundi(tile.x * 0.025))
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	host.add_child(row)
-	_icon_plate(row, icon_svg, tint, _u(64.0))
-
-	var text_box := VBoxContainer.new()
-	text_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	text_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	text_box.add_theme_constant_override("separation", _gap(4))
-	text_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(text_box)
-	var name_label := Label.new()
-	name_label.text = title
-	name_label.add_theme_font_override("font", UITheme.display_font())
-	name_label.add_theme_font_size_override("font_size", _f(29))
-	name_label.add_theme_color_override("font_color",
-		Color(0.98, 0.995, 1.0) if primary else UITheme.COLOR_TEXT)
-	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	text_box.add_child(name_label)
-	# Three lines in the single-column phone layout. The card is full width
-	# there and the blurbs are written long -- "the cup goes to th…" is not a
-	# sentence -- and the card sizes to its content now, so the extra line
-	# costs nothing but the height it uses.
-	_body_text(text_box, blurb, 17, 3 if _is_portrait() else 2) \
-		.add_theme_color_override("font_color",
-		Color(0.84, 0.92, 0.99) if primary else UITheme.COLOR_TEXT_DIM)
-	_caption(text_box, meta, 13,
-		Color(0.78, 0.90, 1.0, 0.85) if primary else Color(tint, 0.85))
-
-	if not stat_value.is_empty():
-		if _is_portrait():
-			# Portrait cards spend width on readable copy, not a fixed right rail.
-			# Record stays visible as one compact line under mode metadata.
-			_caption(text_box, "%s  ·  %s" % [stat_value, stat_caption], 14,
-				Color(tint, 0.98))
-		else:
-			_stat_tile(row, stat_value, stat_caption, tint, false)
+	var illustration := TextureRect.new()
+	illustration.name = "ModeIllustration_" + title.to_pascal_case()
+	illustration.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	illustration.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	illustration.texture = _mode_region(MODE_PANELS[title])
+	var mask := Shader.new()
+	mask.code = "shader_type canvas_item; uniform vec2 extent=vec2(300.0,150.0); varying vec2 local; void vertex(){local=VERTEX;} void fragment(){ vec4 ink=texture(TEXTURE,UV); vec2 p=local/max(extent.y,1.0); float edge=length(p-vec2(0.5,0.5))-0.5; float left=1.0-smoothstep(-0.012,0.012,edge); if(p.x>0.5) left=1.0; ink.a*=left*(1.0-smoothstep(0.87,1.0,local.x/max(extent.x,1.0))); COLOR=ink; }"
+	var material := ShaderMaterial.new()
+	material.shader = mask
+	material.set_shader_parameter("extent", Vector2(tile.x * 0.34, tile.y - _u(20)))
+	illustration.resized.connect(func() -> void: material.set_shader_parameter("extent", illustration.size))
+	illustration.material = material
+	var frame := MarginContainer.new()
+	frame.custom_minimum_size.x = tile.x * 0.37
+	frame.add_theme_constant_override("margin_top", roundi(tile.y * 0.06))
+	frame.add_theme_constant_override("margin_bottom", roundi(tile.y * 0.06))
+	frame.clip_contents = true
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(illustration)
+	illustration.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(frame)
+	var display_name := "ENDLESS\nEXPEDITION" if title == "Endless Expedition" else title.to_upper()
+	var font := ExpeditionMenuStyle.display_font()
+	var name_size := roundi(tile.x * 0.072)
+	var name_width := tile.x * 0.63 - tile.y * 0.62 - 2.0 * roundi(tile.x * 0.025) - 2.0 * roundi(_u(10.0)) - 2.0
+	# Reserve the illustration, arrow, gaps and card padding before choosing
+	# type size. Never split a mode name mid-word or let it escape the card.
+	for line: String in display_name.split("\n"):
+		while name_size > 16 and font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, name_size).x > name_width:
+			name_size -= 1
+	var label := ExpeditionMenuStyle.label(display_name, name_size, ExpeditionMenuStyle.INK)
+	label.name = "ModeName_" + title.to_pascal_case()
+	label.add_theme_font_override("font", font)
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(label)
+	var arrow := PanelContainer.new()
+	arrow.custom_minimum_size = Vector2.ONE * tile.y * 0.62
+	arrow.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	arrow.set_meta("premium_primary", true)
+	var face := ExpeditionMenuStyle.material_box(true, 0, 0)
+	arrow.add_theme_stylebox_override("panel", face)
+	row.add_child(arrow)
+	var glyph := ExpeditionMenuStyle.label("›", roundi(tile.y * 0.44), Color.WHITE)
+	glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	arrow.add_child(glyph)
 
 
 ## Fastest personal best across every course — the headline number for the
@@ -1203,8 +1296,8 @@ func _build_back_row(text: String, action: Callable) -> void:
 	var button := UITheme.make_button(
 		text, UITheme.scaled_size(Vector2(220.0, 52.0)), _f(20))
 	button.custom_minimum_size.y = _u(52.0)
-	button.add_theme_color_override("font_color", Color(0.78, 0.86, 0.95))
-	var icon := _cached_icon(UITheme.ICON_BACK)
+	ExpeditionMenuStyle.style_button(button, false, _f(20))
+	var icon := ExpeditionMenuStyle.wardrobe_sprite("back")
 	if icon != null:
 		button.icon = icon
 		button.expand_icon = true
@@ -1223,7 +1316,11 @@ func _build_back_row(text: String, action: Callable) -> void:
 
 
 func _clear() -> void:
+	if is_instance_valid(_mode_hero):
+		_mode_hero.free()
+		_mode_hero = null
 	_buttons.clear()
+	_apply_frame()
 	for child in _content.get_children():
 		_content.remove_child(child)
 		child.queue_free()
@@ -1241,6 +1338,7 @@ func _focus_first() -> void:
 ## Unified staggered fade+rise entrance whenever a step is rebuilt. Never gates
 ## input, and calmed screens skip it outright.
 func _play_entrance() -> void:
+	_recolor_premium(_content)
 	if UITheme.reduced_motion():
 		return
 	var items: Array[Control] = []
@@ -1248,6 +1346,17 @@ func _play_entrance() -> void:
 		if child is Control:
 			items.append(child as Control)
 	UITheme.play_entrance(self, items)
+
+
+func _recolor_premium(node: Node, coral: bool = false) -> void:
+	if node.has_meta("premium_primary"):
+		coral = bool(node.get_meta("premium_primary"))
+	if node is Label:
+		var label := node as Label
+		label.add_theme_color_override("font_color",
+			Color.WHITE if coral else ExpeditionMenuStyle.INK)
+	for child in node.get_children():
+		_recolor_premium(child, coral)
 
 
 ## --- Formatting -------------------------------------------------------------
@@ -1282,7 +1391,7 @@ static func _fmt_int(value: int) -> String:
 func _go_back_step() -> void:
 	match _step:
 		"mode":
-			SceneRouter.go_to(Game.SCENE_MAIN_MENU)
+			SceneRouter.go_back()
 		"course":
 			_show_mode_step()
 		"difficulty":

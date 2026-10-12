@@ -50,7 +50,7 @@ var _failures: int = 0
 
 
 func _ready() -> void:
-	var art_set := load("res://data/art/runner_art_set_foundation.tres") as RunnerArtSet
+	var art_set := load("res://tests/fixtures/art/runner_day_review_art_set.tres") as RunnerArtSet
 	var catalog := ArtCatalog.new()
 	catalog.manifest_path = "res://tests/fixtures/art/runner_day_kit_catalog.json"
 	_check("catalog_reload", catalog.reload_manifest() == OK, str(catalog.manifest_errors()))
@@ -73,6 +73,13 @@ func _ready() -> void:
 					"aabb_min_y=%.4f" % mesh.get_aabb().position.y)
 	var deck_mesh := _scene_mesh(catalog.load_now(
 			"runner_day_deck_kerb_v1") as PackedScene)
+	var ramp_mesh := _scene_mesh(catalog.load_now(
+			"runner_day_ramp_v1") as PackedScene)
+	var near_ramp_height := _ramp_end_height(ramp_mesh, true)
+	var far_ramp_height := _ramp_end_height(ramp_mesh, false)
+	_check("ramp_source_requires_visual_half_turn", near_ramp_height > far_ramp_height + 0.4,
+			"near_high_z=%.3f far_low_z=%.3f aabb=%s" % [
+				near_ramp_height, far_ramp_height, str(ramp_mesh.get_aabb())])
 	var lab_mesh := _scene_mesh(catalog.load_now(
 			"runner_day_research_lab_v1") as PackedScene)
 	var tunnel_mesh := _scene_mesh(catalog.load_now(
@@ -200,7 +207,13 @@ func _ready() -> void:
 	_check("kit_active", bool(status.get("active", false)), str(status))
 	_check("kit_count", int(status.get("loaded", -1)) == EXPECTED_IDS.size(), str(status))
 	var used := _authored_ids(visual_track)
-	_check("all_roles_instanced", used == EXPECTED_IDS, str(used))
+	var expected_used := EXPECTED_IDS.duplicate()
+	# Current reference course uses shared timber/ice meshes for these verbs;
+	# their imported review models remain validated above but are not drawn.
+	for replaced: String in ["runner_day_ramp_v1", "runner_day_barrier_v1", "runner_day_snowcat_v1"]:
+		expected_used.erase(replaced)
+	_check("review_kit_roles_except_reference_replaced_obstacles_instanced",
+			used == expected_used, str(used))
 	var authored_tunnels := visual_track.find_children(
 			"AuthoredTunnel", "MultiMeshInstance3D", true, false)
 	var tunnel_surface_only := authored_tunnels.size() == 1
@@ -228,7 +241,13 @@ func _ready() -> void:
 				"nodes=%d chunks=%d" % [family_nodes, RunnerTrack.GOLDEN_SLICE_CHUNKS])
 	var authored_obstacles := 0
 	var authored_obstacle_shadows_off := true
+	var ice_ramps := 0
+	var ice_ramps_face_forward := true
 	for value: Node in visual_track.find_children("*", "MeshInstance3D", true, false):
+		if bool(value.get_meta("ice_ramp", false)):
+			ice_ramps += 1
+			ice_ramps_face_forward = ice_ramps_face_forward \
+				and absf((value as Node3D).rotation.y) < 0.001
 		if not value.has_meta("authored_asset_id"):
 			continue
 		var obstacle_id := String(value.get_meta("authored_asset_id"))
@@ -242,6 +261,25 @@ func _ready() -> void:
 			authored_obstacles > 0 and authored_obstacle_shadows_off,
 			"obstacles=%d shadows_off=%s" % [
 				authored_obstacles, authored_obstacle_shadows_off])
+	_check("ice_ramps_face_launch_direction",
+			ice_ramps > 0 and ice_ramps_face_forward,
+			"ramps=%d face_forward=%s" % [ice_ramps, ice_ramps_face_forward])
+	var ice_skins := visual_track.find_children("GlacialIceSkin", "MeshInstance3D", true, false)
+	var ice_skin_materials := true
+	var ice_skin_covers_patches := true
+	for value: Node in ice_skins:
+		ice_skin_materials = ice_skin_materials \
+				and (value as MeshInstance3D).material_override is ShaderMaterial
+		# Source cassettes peak at 0.018 m; readable deck marks start at
+		# 0.024 m. Ice must sit between them, or square hatches bleed through.
+		ice_skin_covers_patches = ice_skin_covers_patches \
+			and (value as MeshInstance3D).position.y > 0.019 \
+			and (value as MeshInstance3D).position.y < 0.024
+	_check("continuous_day_ice_skin", ice_skins.size() == RunnerTrack.GOLDEN_SLICE_CHUNKS
+			and ice_skin_materials,
+			"ice_skins=%d expected=%d" % [ice_skins.size(), RunnerTrack.GOLDEN_SLICE_CHUNKS])
+	_check("ice_skin_covers_square_deck_repairs_without_hiding_marks",
+		ice_skin_covers_patches, "height must stay between authored patches and deck marks")
 	var contact_nodes := visual_track.find_children("Contact", "MultiMeshInstance3D", true, false)
 	var pooled_contacts := 0
 	for value: Node in contact_nodes:
@@ -308,13 +346,38 @@ func _ready() -> void:
 		"instances=%d grounded=%s first=%s" % [
 				pylon_count, pylon_grounded, pylon_grounding_detail])
 	for asset_id: String in EXPECTED_IDS:
+		var draw_mesh := visual_track._authored_day_mesh(asset_id)
+		var draw_material := visual_track._authored_day_draw_material(asset_id)
+		if asset_id == RunnerTrack.DAY_ICEBERG_ASSET:
+			draw_mesh = RunnerTrack.ReferenceIce.sea_mesh(draw_mesh)
+			draw_material = RunnerTrack.ReferenceIce.material()
 		_check("warmup_%s" % asset_id, ShaderWarmup.has_external_probe(
-				visual_track._authored_day_mesh(asset_id),
-				visual_track._authored_day_material(false)),
-				"exact imported mesh/material pair missing")
-	_check("warmup_bounded", ShaderWarmup.external_probe_count()
+				draw_mesh, draw_material, [], RunnerTrack.SHADER_WARMUP_SCOPE),
+				"exact current draw mesh/material pair missing")
+	# Inspect actual instantiated resources too, so a cache lookup that diverges
+	# from the rendered derivative cannot make warmup coverage falsely pass.
+	var live_pair_ids := PackedStringArray()
+	var all_live_pairs_warmed := true
+	for node: Node in visual_track.find_children("*", "GeometryInstance3D", true, false):
+		var asset_id := String(node.get_meta("authored_asset_id", ""))
+		if asset_id.is_empty():
+			continue
+		var live_mesh: Mesh = null
+		if node is MeshInstance3D:
+			live_mesh = (node as MeshInstance3D).mesh
+		elif node is MultiMeshInstance3D:
+			live_mesh = (node as MultiMeshInstance3D).multimesh.mesh
+		all_live_pairs_warmed = all_live_pairs_warmed and live_mesh != null \
+				and ShaderWarmup.has_external_probe(live_mesh,
+				(node as GeometryInstance3D).material_override, [], RunnerTrack.SHADER_WARMUP_SCOPE)
+		if asset_id not in live_pair_ids:
+			live_pair_ids.append(asset_id)
+	live_pair_ids.sort()
+	_check("every_live_authored_draw_pair_is_warmed", all_live_pairs_warmed
+			and live_pair_ids == expected_used, "covered=%s" % str(live_pair_ids))
+	_check("warmup_bounded", ShaderWarmup.external_probe_count(RunnerTrack.SHADER_WARMUP_SCOPE)
 			<= ShaderWarmup.MAX_EXTERNAL_PROBES,
-			"count=%d" % ShaderWarmup.external_probe_count())
+			"count=%d" % ShaderWarmup.external_probe_count(RunnerTrack.SHADER_WARMUP_SCOPE))
 
 	var logic_track := RunnerTrack.new()
 	logic_track.name = "LogicTrack"
@@ -430,6 +493,22 @@ func _mesh_white_area_ratio(mesh: Mesh) -> float:
 		if colour.get_luminance() > 0.90 and maximum - minimum < 0.10:
 			white_area += area
 	return white_area / maxf(total_area, 0.000001)
+
+
+func _ramp_end_height(mesh: Mesh, near_positive_z: bool) -> float:
+	if mesh == null or mesh.get_surface_count() == 0:
+		return -INF
+	var vertices: PackedVector3Array = mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	var bounds := mesh.get_aabb()
+	var highest := -INF
+	for vertex: Vector3 in vertices:
+		if absf(vertex.x) > 1.0:
+			continue
+		var at_end := vertex.z > bounds.end.z - 0.4 if near_positive_z \
+				else vertex.z < bounds.position.z + 0.4
+		if at_end:
+			highest = maxf(highest, vertex.y)
+	return highest
 
 
 func _has_warm_window_colour(mesh: Mesh) -> bool:

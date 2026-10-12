@@ -111,9 +111,9 @@ func _drop_blizzard(racer: Racer) -> void:
 	get_parent().add_child(cloud)
 	cloud.global_position = racer.global_position - (-racer.global_transform.basis.z) * 3.0
 	var lifetime := get_tree().create_timer(5.0)
-	lifetime.timeout.connect(func() -> void:
-		if is_instance_valid(cloud):
-			cloud.queue_free())
+	# SceneTreeTimer can outlive the race. A target-bound callback disconnects
+	# with the cloud instead of retaining a freed local lambda capture.
+	lifetime.timeout.connect(cloud.queue_free)
 
 
 func _physics_process(delta: float) -> void:

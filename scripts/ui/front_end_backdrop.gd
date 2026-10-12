@@ -18,6 +18,8 @@ const LANDSCAPE_PATH: String = \
 		"res://assets/art/ui/title_expedition_landscape_v1.png"
 const PORTRAIT_PATH: String = \
 		"res://assets/art/ui/title_expedition_portrait_v1.png"
+const LOADING_PATH := "res://assets/art/ui/menu/loader_background_v3.webp"
+const LOADING_PORTRAIT_PATH := "res://assets/art/ui/menu/loader_background_portrait_v3.webp"
 const MOTION_STEP: float = 1.0 / 30.0
 const MOTION_FOCAL_RANGE: Vector2 = Vector2(0.0045, 0.0030)
 const MOTION_ZOOM: float = 0.009
@@ -50,6 +52,8 @@ func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_reduced_motion = UITheme.reduced_motion()
 	preload_assets()
+	if not visibility_changed.is_connected(_on_visibility_changed):
+		visibility_changed.connect(_on_visibility_changed)
 	if not resized.is_connected(_on_resized):
 		resized.connect(_on_resized)
 	_update_processing()
@@ -88,6 +92,8 @@ func is_using_portrait_art() -> bool:
 
 
 func selected_texture_path() -> String:
+	if presentation_context == Context.LOADING:
+		return LOADING_PORTRAIT_PATH if is_using_portrait_art() else LOADING_PATH
 	return PORTRAIT_PATH if is_using_portrait_art() else LANDSCAPE_PATH
 
 
@@ -132,6 +138,8 @@ func _draw() -> void:
 		return
 	var portrait := _is_portrait(size)
 	var texture := _texture_for_orientation(portrait)
+	if presentation_context == Context.LOADING:
+		texture = ExpeditionMenuStyle._material_texture(selected_texture_path())
 	if texture == null:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0.025, 0.055, 0.105), true)
 		return
@@ -160,8 +168,30 @@ func _draw() -> void:
 
 
 func _update_processing() -> void:
-	set_process(is_inside_tree() and motion_enabled and not _reduced_motion \
-		and not GameConfig.is_headless())
+	set_process(_motion_requested() and _motion_capable())
+
+
+## Virtual capability seam: headless contract tests override only platform
+## capability while exercising normal visibility/process scheduling unchanged.
+func _motion_capable() -> bool:
+	return not GameConfig.is_headless()
+
+
+## Effective visibility matters: SceneRouter keeps one loading backdrop alive
+## between transitions and hides its parent ColorRect. Local `visible` stays
+## true in that state, so checking the whole tree prevents invisible 30 Hz
+## redraws without advancing the drift clock while covered.
+func _motion_requested() -> bool:
+	return is_inside_tree() and is_visible_in_tree() and motion_enabled \
+		and not _reduced_motion
+
+
+func _on_visibility_changed() -> void:
+	_update_processing()
+	if is_visible_in_tree():
+		# Redraw at the preserved drift position. Hidden time never enters `_elapsed`,
+		# so showing an ancestor cannot jump the crop to a later camera phase.
+		queue_redraw()
 
 
 func _on_resized() -> void:

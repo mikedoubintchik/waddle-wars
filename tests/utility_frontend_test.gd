@@ -9,11 +9,11 @@ const SCREEN_SCENES: Dictionary = {
 	"credits": "res://scenes/menus/credits.tscn",
 }
 const OWNED_SCRIPTS: PackedStringArray = [
-	"res://scripts/ui/achievements_menu.gd",
-	"res://scripts/ui/settings_menu.gd",
-	"res://scripts/ui/leaderboard_menu.gd",
+	"res://scripts/ui/achievements_premium.gd",
+	"res://scripts/ui/settings_premium.gd",
+	"res://scripts/ui/leaderboard_premium.gd",
 	"res://scripts/ui/controls_menu.gd",
-	"res://scripts/ui/credits_menu.gd",
+	"res://scripts/ui/credits_premium.gd",
 	"res://scripts/ui/pause_menu.gd",
 	"res://scripts/ui/utility_screen_layout.gd",
 ]
@@ -28,12 +28,56 @@ var _failures: int = 0
 func _ready() -> void:
 	_check_geometry_contract()
 	_check_source_contract()
+	await _check_retired_safe_rect_callback()
 	await _check_live_rotation_contract()
 	await _check_runtime_screens()
 	await _check_pause_overlay()
+	# Pause toggles and hover checks start real UI sounds even with Dummy audio.
+	# Let their playback references retire before the headless test quits.
+	for player: AudioStreamPlayer in AudioManager._sfx_pool:
+		player.stop()
+		player.stream = null
+	for player: AudioStreamPlayer in [AudioManager._music_a, AudioManager._music_b]:
+		player.stop()
+		player.stream = null
+	await get_tree().create_timer(0.1).timeout
 	print("[utility-frontend] DONE: %d/%d checks passed" % [
 		_checks - _failures, _checks])
 	get_tree().quit(1 if _failures > 0 else 0)
+
+
+func _check_retired_safe_rect_callback() -> void:
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(960, 540)
+	add_child(viewport)
+	var host := Control.new()
+	viewport.add_child(host)
+	var before := viewport.size_changed.get_connections().size()
+	var page := Control.new()
+	host.add_child(page)
+	UtilityScreenLayout.bind_safe_rect(host, page)
+	var listeners := viewport.size_changed.get_connections()
+	_check(listeners.size() == before + 1, "safe rectangle installs one resize listener")
+	var dispatched: Callable = listeners.back()["callable"]
+	page.free()
+	_check(viewport.size_changed.get_connections().size() == before,
+		"retired page disconnects resize listener immediately")
+	# Signal delivery may already have retained this Callable when another
+	# listener rebuilt the page. Calling it must remain safe after retirement.
+	dispatched.call()
+	host.free()
+	dispatched.call()
+	var replacement := Control.new()
+	viewport.add_child(replacement)
+	UtilityScreenLayout.bind_safe_rect(replacement, replacement)
+	viewport.size = Vector2i(540, 960)
+	await get_tree().process_frame
+	var profile := LayoutProfile.for_viewport(viewport)
+	_check(is_equal_approx(replacement.offset_left, profile.safe_insets.x)
+		and is_equal_approx(replacement.offset_bottom, -profile.safe_insets.w),
+		"replacement page continues receiving live safe insets")
+	viewport.queue_free()
+	await get_tree().process_frame
 
 
 func _check_geometry_contract() -> void:
@@ -108,10 +152,10 @@ func _check_source_contract() -> void:
 		if file == null:
 			continue
 		var source := file.get_as_text()
-		_check("UtilityScreenLayout" in source,
+		_check("UtilityScreenLayout" in source or "LayoutProfile" in source or "ExpeditionSubmenuShell" in source,
 			"%s consumes shared utility contract" % path.get_file())
 		if not path.ends_with("utility_screen_layout.gd"):
-			_check("bind_view_class" in source,
+			_check("bind_view_class" in source or "size_changed.connect" in source,
 				"%s rebuilds on live orientation class change" % path.get_file())
 		for token: String in FORBIDDEN_RENDER_NODES:
 			var executable := false
@@ -122,13 +166,13 @@ func _check_source_contract() -> void:
 					break
 			_check(not executable, "%s has no executable %s" % [path.get_file(), token])
 	var settings := FileAccess.get_file_as_string(
-		"res://scripts/ui/settings_menu.gd")
+		"res://scripts/ui/settings_premium.gd")
 	_check("canvas %d" not in settings and "3D %d%%" not in settings,
 		"settings omits renderer diagnostics from player UI")
 	var credits := FileAccess.get_file_as_string(
-		"res://scripts/ui/credits_menu.gd")
+		"res://scripts/ui/credits_premium.gd")
 	_check("OpenAI ImageGen" in credits and "Blender" in credits \
-		and "ATTRIBUTION.md" in credits \
+		and "_show_licenses" in credits \
 		and "All art, audio and code are original" not in credits,
 		"credits carries accurate authored/generated-art disclosure")
 
@@ -149,7 +193,7 @@ func _check_runtime_screens() -> void:
 		viewport.add_child(screen)
 		await get_tree().process_frame
 		await get_tree().process_frame
-		_check(_count_type(screen, "FrontEndBackdrop") == 1,
+		_check(_count_backdrops(screen) == 1,
 			"%s owns one authored backdrop" % label)
 		_check(_find_first_kind(screen, &"scroll") != null,
 			"%s owns scroll-safe content" % label)
@@ -168,10 +212,10 @@ func _check_runtime_screens() -> void:
 		await get_tree().process_frame
 		_check(_screen_composition(screen, label) == "stacked",
 			"%s reflows live to portrait stacked composition" % label)
-		_check(_count_type(screen, "FrontEndBackdrop") == 1,
+		_check(_count_backdrops(screen) == 1,
 			"%s rotation does not duplicate backdrop" % label)
 		_check(_first_short_button(screen) == null,
-			"%s portrait reflow keeps 44px buttons" % label)
+			"%s portrait reflow keeps 44px buttons%s" % [label, "" if _first_short_button(screen) == null else " (%s %.1fpx)" % [_first_short_button(screen).name,_first_short_button(screen).get_global_rect().size.y]])
 		viewport.size = Vector2i(1920, 1080)
 		await get_tree().process_frame
 		await get_tree().process_frame
@@ -222,23 +266,31 @@ func _check_pause_overlay() -> void:
 
 
 func _screen_composition(screen: Node, label: String) -> String:
-	var profile := screen.get("_profile") as LayoutProfile
-	if profile == null:
-		return "unknown"
 	match label:
-		"achievements", "leaderboard":
-			return "stacked" if bool(screen.get("_stacked")) else "split"
-		"settings", "controls":
-			return "stacked" if bool(screen.get("_compact")) else "split"
+		"achievements":
+			return "stacked" if bool(screen.get("_portrait_page")) else "split"
+		"leaderboard", "settings":
+			return "stacked" if bool(screen.get("_portrait")) else "split"
+		"controls":
+			var profile := screen.get("_profile") as LayoutProfile
+			return "unknown" if profile == null else ("stacked" if profile.is_portrait() else "split")
 		"credits":
-			return "stacked" if profile.is_portrait() else "split"
+			var journal := screen.find_child("CreditsJournal",true,false) as Control
+			if journal == null: return "unknown"
+			var view := screen.get_viewport().get_visible_rect().size
+			return "stacked" if absf(journal.get_global_rect().get_center().x/view.x-0.5) < 0.10 else "split"
 	return "unknown"
+
+func _count_backdrops(node: Node) -> int:
+	var count := 1 if node is TextureRect and node.name in ["ExpeditionMenuArt","SettingsCabin","ReferenceSceneArtwork"] and (node as TextureRect).texture != null else 0
+	for child: Node in node.get_children(): count += _count_backdrops(child)
+	return count
 
 
 func _first_short_button(node: Node) -> BaseButton:
 	if node is BaseButton:
 		var button := node as BaseButton
-		if button.is_visible_in_tree() and button.size.y + 0.5 \
+		if button.is_visible_in_tree() and button.get_global_rect().size.y + 0.5 \
 				< UtilityScreenLayout.MIN_TOUCH_TARGET:
 			return button
 	for child: Node in node.get_children():
@@ -252,8 +304,8 @@ func _visible_fullscreen_passes(node: Node) -> int:
 	var count := 0
 	if node is FrontEndBackdrop and (node as CanvasItem).is_visible_in_tree():
 		count += 1
-	elif node is ColorRect and (node as ColorRect).is_visible_in_tree():
-		var rect := node as ColorRect
+	elif (node is ColorRect or node is TextureRect) and (node as Control).is_visible_in_tree():
+		var rect := node as Control
 		var view := rect.get_viewport().get_visible_rect().size
 		if rect.size.x >= view.x * 0.95 and rect.size.y >= view.y * 0.95:
 			count += 1

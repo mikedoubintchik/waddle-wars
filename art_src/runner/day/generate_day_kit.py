@@ -50,6 +50,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", required=True)
     parser.add_argument("--texture-root", required=True)
+    parser.add_argument("--only", action="append", default=[], metavar="ASSET_ID",
+                        help="rebuild only these collections in the existing output .blend")
     return parser.parse_args(raw)
 
 
@@ -757,12 +759,13 @@ def build_ramp() -> bpy.types.Collection:
             z0 = 1.55 * (t0 ** 1.32) + 0.14
             z1 = 1.55 * (t1 ** 1.32) + 0.14
             beam(c, f"rail_{side}_{i}", (x, y0, z0), (x, y1, z1), 0.12, NAVY, 0.025)
-        for i in range(4):
-            t = (i + 1) / 5.0
-            y = 2.0 - 4.0 * t
-            z = 1.55 * (t ** 1.32) + 0.075
-            beam(c, f"green_chevron_l_{i}", (-0.86, y + 0.34, z), (0, y, z + 0.12), 0.14, GREEN, 0.02)
-            beam(c, f"green_chevron_r_{i}", (0, y, z + 0.12), (0.86, y + 0.34, z), 0.14, GREEN, 0.02)
+    # Track-center chevrons are shared by both rails, not repeated per side.
+    for i in range(4):
+        t = (i + 1) / 5.0
+        y = 2.0 - 4.0 * t
+        z = 1.55 * (t ** 1.32) + 0.075
+        beam(c, f"green_chevron_l_{i}", (-0.86, y + 0.34, z), (0, y, z + 0.12), 0.14, GREEN, 0.02)
+        beam(c, f"green_chevron_r_{i}", (0, y, z + 0.12), (0.86, y + 0.34, z), 0.14, GREEN, 0.02)
     box(c, "takeoff_lip", (0, -1.93, 1.60), (2.72, 0.25, 0.20), GREEN, 0.065, 3)
     for x in (-1.08, -0.54, 0, 0.54, 1.08):
         cylinder(c, f"lip_lamp_{x}", (x, -2.08, 1.66), 0.07, 0.06, GOLD, 10,
@@ -932,10 +935,11 @@ def build_icebreaker_landmark() -> bpy.types.Collection:
             sphere(c, f"hull_port_{side}_{y}",
                    (side * 5.83, y, 3.72), 0.16, GOLD, 12, 6,
                    (0.32, 1.0, 1.0))
-    for side in (-1, 1):
-        for i in range(8):
-            box(c, f"bridge_window_{side}_{i}", (-3.7 + i * 1.05, -1.98, 8.86 + side * 0.0),
-                (0.72, 0.08, 0.58), WARM_WINDOW, 0.07, 3)
+    # One forward-facing bridge window row. The former side loop placed a
+    # second copy at mathematically identical positions (side * 0.0).
+    for i in range(8):
+        box(c, f"bridge_window_{i}", (-3.7 + i * 1.05, -1.98, 8.86),
+            (0.72, 0.08, 0.58), WARM_WINDOW, 0.07, 3)
     cylinder(c, "funnel", (0, 4.0, 10.15), 1.0, 4.0, ORANGE_HI, 32, bevel=0.12)
     torus(c, "funnel_collar", (0, 4.0, 11.6), 1.05, 0.14, NAVY, 28, 8)
     cylinder(c, "mast", (0, -0.6, 12.15), 0.16, 6.2, NAVY, 16)
@@ -1162,7 +1166,7 @@ def main() -> int:
     if bpy.app.version[:3] != EXPECTED_VERSION:
         raise RuntimeError(f"expected Blender {EXPECTED_VERSION}, got {bpy.app.version[:3]}")
     args = parse_args()
-    reset(Path(args.texture_root).resolve())
+    output = Path(args.output).resolve()
     builders = [
         (build_deck, 300, 1500),
         (build_deck_b, 300, 1500),
@@ -1180,6 +1184,41 @@ def main() -> int:
         (build_hub_landmark, 10000, 30000),
         (build_icebreaker_landmark, 10000, 30000),
     ]
+    if args.only:
+        # Keep all unrelated source collections and packed inputs untouched.
+        # Select IDs by executing only the collection-name statement from each
+        # builder would be fragile; explicit mapping makes destructive targets
+        # and supported selective rebuilds unambiguous.
+        selected_builders = {
+            "runner_day_ramp_v1": (build_ramp, 1500, 5000),
+            "runner_day_icebreaker_landmark_v1": (build_icebreaker_landmark, 10000, 30000),
+        }
+        requested = sorted(set(args.only))
+        unknown = sorted(set(requested) - set(selected_builders))
+        if unknown:
+            raise RuntimeError(f"unsupported selective collection IDs: {unknown}")
+        if not output.is_file():
+            raise RuntimeError(f"selective rebuild requires existing source: {output}")
+        bpy.ops.wm.open_mainfile(filepath=str(output))
+        missing = [name for name in requested if bpy.data.collections.get(name) is None]
+        if missing:
+            raise RuntimeError(f"source collections missing: {missing}")
+        if bpy.data.materials.get("day_kit_vertex_paint") is None:
+            raise RuntimeError("selective source missing packed DAY material")
+        for name in requested:
+            old_collection = bpy.data.collections[name]
+            for obj in list(old_collection.all_objects):
+                if len(obj.users_collection) != 1:
+                    raise RuntimeError(f"cannot replace shared source object: {obj.name}")
+            for obj in list(old_collection.all_objects):
+                mesh = obj.data if obj.type == "MESH" else None
+                bpy.data.objects.remove(obj, do_unlink=True)
+                if mesh is not None and mesh.users == 0:
+                    bpy.data.meshes.remove(mesh)
+            bpy.data.collections.remove(old_collection)
+        builders = [selected_builders[name] for name in requested]
+    else:
+        reset(Path(args.texture_root).resolve())
     metrics = []
     for builder, minimum, maximum in builders:
         coll = builder()
@@ -1188,7 +1227,6 @@ def main() -> int:
         if triangles < minimum or triangles > maximum or surfaces != 1:
             raise RuntimeError(f"{coll.name}: triangles={triangles} surfaces={surfaces}")
         metrics.append((coll.name, triangles, surfaces, palette))
-    output = Path(args.output).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.wm.save_as_mainfile(filepath=str(output), compress=True, check_existing=False)
     for name, triangles, surfaces, palette in metrics:

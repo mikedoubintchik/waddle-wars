@@ -1,0 +1,68 @@
+{
+  "as_of": "2026-10-11",
+  "status": "local_implementation_not_launch_ready",
+  "live_sales_enabled": false,
+  "store_submission_ready": false,
+  "products": ["cozy_expedition", "research_crew", "aurora_celebration"],
+  "payment_routing": {"web": "Stripe Checkout", "ios": "StoreKit 2", "android": "Google Play Billing"},
+  "external_progress": {
+    "play_internal_build": "41 published to internal testers; signed AAB verified offline with Billing permission; production remains build 40",
+    "play_products": "Three catalog IDs registered with active backward-compatible Buy options and USD base prices 2.99, 3.99, 4.99",
+    "revenuecat_play": "Google service credentials valid and developer notifications connected; three Play products imported as non-consumables with matching entitlements; transaction acceptance pending",
+    "staging_database": "waddle-wars-commerce-staging, schema plus migrations 0001-0008 applied; isolated Worker ec4e2cd2 deployed with sales disabled; live health 200 and unauthorized commerce 401 verified; authenticated/provider acceptance pending",
+    "apple_products": "App Store Connect: Cozy Expedition draft non-consumable 6821736128, USD 2.99 base price, all-region availability and English (U.S.) localization saved; Research Crew draft non-consumable 6821736775 has no price, availability or localization; Aurora Celebration not created; none submitted for review. Offer strategy under reconsideration.",
+    "apple_paid_agreement": "App Store Connect showed Paid Apps Agreement Active through Apr 22, 2027, bank account Active, and U.S. W-9 Active on Oct 11, 2026",
+    "apple_sandbox_accounts": "Two existing US sandbox test accounts visible in App Store Connect; no Waddle Wars StoreKit transaction acceptance performed",
+    "live_sales": "Disabled"
+  },
+  "local_evidence": {
+    "node_command": "node --test tests/commerce_backend.test.mjs tests/commerce_native_auth.test.mjs tests/commerce_notifications.test.mjs tests/leaderboard_privacy.test.mjs",
+    "node_passed": 77,
+    "node_current_revision_status": "Passed 77 checks; actual SQLite migrations and cryptographic checks with mocked provider responses. Apple verifier passed 10 additional local tests. Native release suite passed 616 tests. Real store transactions remain unverified.",
+    "node_failed": 0,
+    "node_skipped": 0,
+    "provider_responses": "Mocked; real cryptographic functions and actual SQLite migrations tested",
+    "godot_contract_checks_last_reported": 99,
+    "godot_contract_clean_teardown_last_revision": true,
+    "godot_contract_current_revision_status": "Current full game runner included 99 passing commerce contract checks and 137 passing top-level cases; it skipped 9 real-window cases. Current native offline policy test passed 161 checks.",
+    "godot_contract_receipt": "qa_shots/tests/waddle-wars-tests-56248-20122",
+    "godot_contract_prior_receipt": "qa_shots/tests/waddle-wars-tests-42728-27141 (58 checks)",
+    "stripe_test_products": "Observed by root in test account; mappings in stripe_test_products.json",
+    "native_auth": "PKCE with verified Clerk session exchange; delayed refresh rechecks current durable grant before delivering a token; local iOS ASWebAuthenticationSession helper wiring and fixed credential-free callback, Android system-browser presentation preserved; production flow not accepted on device",
+    "public_names": "New score submissions use Penguin unless a public game handle was explicitly saved/submitted; server no longer fetches private Clerk names/email as fallback. Not deployed; existing published rows, UI prefill and moderation still require review.",
+    "refund_reversal": "Verified current Apple transaction snapshot and monotonic signedDate watermark; adversarial ordering/replay/account mismatch tests pass"
+  },
+  "required_migrations": ["0001_commerce.sql", "0002_native_auth.sql", "0003_store_notifications.sql", "0004_apple_snapshot_order.sql", "0005_native_auth_presentation.sql", "0006_account_retirement.sql", "0007_deletion_receipts.sql", "0008_native_auth_callback_code.sql"],
+  "sales_gates": {
+    "both_native": "COMMERCE_ENABLED plus explicit per-provider sales enablement; server /prepare-native-purchase must approve before opening native charge sheet",
+    "apple": ["COMMERCE_APPLE_SALES_ENABLED=true", "APPLE_SERVER_NOTIFICATIONS_ENABLED=true", "APPLE_BUNDLE_ID", "APPLE_RECEIPT_VERIFIER private binding"],
+    "google": ["COMMERCE_GOOGLE_SALES_ENABLED=true", "GOOGLE_PLAY_PACKAGE_ID", "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON secret", "GOOGLE_RTDN_AUDIENCE", "GOOGLE_RTDN_SERVICE_ACCOUNT_EMAIL", "GOOGLE_RTDN_SUBSCRIPTION"],
+    "reconciliation": "Receipt verification, entitlement refresh and native restore stay available when new native sales are disabled, provided real verification is configured"
+  },
+  "active_launch_blockers": [
+    "Hosted Clerk sign-in supports account creation. In-app account deletion and a public deletion-request URL are required now; sign-out is not deletion. Design retention/deletion of auth, leaderboard, cloud saves and legally retained purchase records before implementing live deletion.",
+    "iOS authentication now requires the compiled local ASWebAuthenticationSession helper with no default-browser fallback. Configured Clerk origin, native app linkage and real-device sign-in, completion, cancellation, expiry and account-switch acceptance remain required before iOS launch; passing PKCE server tests do not remove this blocker.",
+    "Real Stripe paid sandbox checkout, webhook fulfillment and refund/replay delivery have not passed end-to-end acceptance.",
+    "Real StoreKit and Play purchase, pending/cancel, restore/reinstall, server verification and refund/reversal notification delivery have not passed device acceptance.",
+    "Production Clerk instance/origin, hosted sign-in browser acceptance, native session expiry/account switch and privacy disclosures require verification.",
+    "Public-name moderation/reporting, account-specific name settings and UI prefill privacy require review. Existing production name rows have not been inspected or altered; safe fallback applies only after deploying the reviewed backend change.",
+    "Private Apple service, certificates/environment/API credentials and Google authenticated Pub/Sub subscription/IAM must be configured and delivery-tested.",
+    "Live Stripe activation and production store configuration still require access to the correct provider accounts, credentials and verified paid agreements. User authorization alone does not establish those provider prerequisites; no sale or deployment is claimed by this local receipt."
+  ],
+  "account_deletion_decisions": {
+    "ordinary_implementation": "Authenticated, confirmed deletion; coordinated Clerk/D1 cleanup; write suppression while deletion is pending; cancellation of cloud uploads/native sessions; removal of linked local caches; durable retries and completion notice; prominent in-app entry point and functional public deletion page.",
+    "owner_or_legal": "Choose lawful retention categories, purposes and durations for payment/fraud records, logs and backups, plus applicable fulfillment deadlines and an explicit post-deletion purchase-restoration policy. Do not invent retention periods or treat routine account-data cleanup as requiring an owner decision."
+  },
+  "primary_sources": [
+    "https://docs.stripe.com/checkout/fulfillment",
+    "https://docs.stripe.com/webhooks/signature",
+    "https://developer.apple.com/documentation/appstoreserverapi/get-transaction-info",
+    "https://developer.apple.com/documentation/appstoreservernotifications/notificationtype",
+    "https://developer.android.com/google/play/billing/rtdn-reference",
+    "https://docs.cloud.google.com/pubsub/docs/authenticate-push-subscriptions",
+    "https://clerk.com/docs/guides/secure/best-practices/csp-headers",
+    "https://developer.apple.com/app-store/review/guidelines/",
+    "https://developer.apple.com/support/offering-account-deletion-in-your-app/",
+    "https://support.google.com/googleplay/android-developer/answer/13327111?hl=en"
+  ]
+}

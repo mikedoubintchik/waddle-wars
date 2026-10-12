@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "status": "undeployed_template",
+  "worker_name": "REPLACE_WITH_NEW_DEDICATED_WORKER_NAME_ENDING_IN_SANDBOX",
+  "worker_origin": "REPLACE_WITH_DEDICATED_SANDBOX_WORKER_HTTPS_ORIGIN",
+  "database_name": "REPLACE_WITH_NEW_DEDICATED_DATABASE_NAME_ENDING_IN_SANDBOX",
+  "database_id": "REPLACE_WITH_NEW_SANDBOX_D1_ID",
+  "approved_web_origins": [],
+  "approved_success_urls": [],
+  "approved_cancel_urls": [],
+  "clerk_test_issuer": "REPLACE_WITH_APPROVED_TEST_CLERK_HTTPS_ISSUER",
+  "clerk_test_publishable_key": "REPLACE_WITH_PUBLIC_TEST_PUBLISHABLE_KEY",
+  "stripe_test_account_id": "acct_1ULn6IPRyv3Yftj5",
+  "stripe_credentials_mode": "test",
+  "stripe_webhook_url": "REPLACE_WITH_SANDBOX_WORKER_ORIGIN/api/commerce/stripe/webhook",
+  "stripe_webhook_events": [
+    "checkout.session.completed",
+    "checkout.session.async_payment_succeeded",
+    "charge.refunded",
+    "charge.dispute.created",
+    "charge.dispute.closed"
+  ],
+  "setup_assertions": {
+    "dedicated_database_confirmed": false,
+    "leaderboard_schema_and_commerce_migrations_applied": false,
+    "frontend_uses_sandbox_api_and_test_clerk": false,
+    "backend_jwks_and_frontend_sign_in_verified": false,
+    "two_distinct_test_accounts_available": false,
+    "stripe_test_credentials_account_confirmed": false,
+    "stripe_test_webhook_registration_confirmed": false
+  }
+}

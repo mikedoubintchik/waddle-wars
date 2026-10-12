@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Render V12 fused-sculpt static gate without Blender or Godot."""
+"""Legacy V12 blockout preview without Blender or Godot.
+
+The torso uses the shared field, but these simplified eyes/wings are not the
+current sculpt. Use render_hero_penguin_v12_source_proof.py for art review.
+"""
 
 from __future__ import annotations
 
@@ -13,9 +17,7 @@ import preview_hero_penguin_v11_static as render
 from hero_penguin_v12_design import (
     BILL_LOWER_SECTIONS,
     BILL_UPPER_SECTIONS,
-    BODY_SMOOTH_RADIUS,
-    BODY_VOLUMES,
-    CHEEK_VOLUMES,
+    sculpt_body_field,
     EYE_CENTER_X,
     EYE_CENTER_Y,
     EYE_CENTER_Z,
@@ -53,9 +55,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def body_sdf(points: np.ndarray) -> np.ndarray:
-    body = render.union_ellipsoids(points, BODY_VOLUMES, BODY_SMOOTH_RADIUS)
-    cheeks = render.union_ellipsoids(points, CHEEK_VOLUMES, 0.030)
-    body = render.smooth_min(body, cheeks, 0.032)
+    body = sculpt_body_field(points)
     for side in (-1.0, 1.0):
         socket = render.ellipsoid_sdf(
             points, (side * EYE_CENTER_X, SOCKET_CENTER_Y, EYE_CENTER_Z - 0.010), SOCKET_RADII,
@@ -221,7 +221,7 @@ def build_contact(output_dir: Path, views: list[Image.Image]) -> Path:
     height = header + render.RENDER_HEIGHT + footer
     contact = Image.new("RGB", (width, height), "#252c33")
     draw = ImageDraw.Draw(contact)
-    draw.text((margin, 18), "HERO PENGUIN V12 — FUSED SCULPT STATIC GATE", fill="#f0f3f5")
+    draw.text((margin, 18), "HERO PENGUIN V12 — LEGACY BLOCKOUT (NOT ART APPROVAL)", fill="#f0f3f5")
     draw.text((margin, 43), "PRE-BLENDER IMPLICIT FIELD · PRODUCTION_READY=FALSE", fill="#9eb0bc")
     for index, view in enumerate(views):
         contact.paste(view, (margin + index * (render.RENDER_WIDTH + margin), header))

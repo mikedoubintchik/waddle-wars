@@ -38,6 +38,7 @@ func build_course() -> void:
 		p(0, 6, -700, {"width": 18.0}),
 	]
 	await setup_main(pts)
+	_tint_school_track()
 	await stage()
 	finalize()
 	await stage()
@@ -89,8 +90,8 @@ func build_course() -> void:
 
 	# Ice sheet below the schoolyard ridge. Laid down before the dressing runs
 	# so every far-field prop can seat itself on it (see CourseBase.ground_plane_y).
-	add_ground_plane(-10.0, Color(0.9, 0.94, 0.99), 4000.0,
-		VisualLibrary.snow_material(Color(0.9, 0.94, 0.99), 0.4))
+	add_ground_plane(-10.0, Color(0.66, 0.76, 0.87), 4000.0,
+		VisualLibrary.snow_material(Color(0.66, 0.76, 0.87), 0.25))
 	await stage()
 
 	# Friendly scenery.
@@ -105,26 +106,48 @@ func build_course() -> void:
 			xform.origin, rng2)
 	await _decorate()
 	await stage()
-	# Warm, friendly schoolyard grade: brighter and gentler than the race
-	# courses — pastel morning sky, a soft golden sun, low contrast, light
-	# haze, cream clouds and a ring of pale bergs so the horizon isn't empty.
-	await build_environment({
+	await build_environment(environment_profile())
+
+
+## Give only this course a cooler, darker racing line. The shared snow shader
+## stays intact, and neither the guide nor any collision ribbon is touched.
+func _tint_school_track() -> void:
+	if main_track_result == null or main_track_result.visual_root == null:
+		return
+	var packed := VisualLibrary.track_surface_material(SNOW)
+	var deep := VisualLibrary.track_surface_material(DEEP)
+	var school_packed := VisualLibrary.snow_material(Color(0.70, 0.80, 0.91), 0.25, -1.0, 1.0)
+	var school_deep := VisualLibrary.snow_material(Color(0.78, 0.85, 0.93), 0.15, -1.0, 0.45)
+	for child: Node in main_track_result.visual_root.get_children():
+		if child is MeshInstance3D:
+			var floor_mesh := child as MeshInstance3D
+			if floor_mesh.material_override == packed:
+				floor_mesh.material_override = school_packed
+			elif floor_mesh.material_override == deep:
+				floor_mesh.material_override = school_deep
+
+
+## Retain a welcoming morning, but leave headroom for white snow and lesson
+## markers. Actual light energies provide contrast even in Compatibility,
+## where post-processing contrast/exposure adjustments are not available.
+static func environment_profile() -> Dictionary:
+	return {
 		"sky_top": Color(0.3, 0.62, 0.94),
-		"sky_horizon": Color(0.9, 0.95, 1.0),
-		"ground_color": Color(0.62, 0.75, 0.9),
+		"sky_horizon": Color(0.72, 0.83, 0.94),
+		"ground_color": Color(0.52, 0.67, 0.83),
 		"sun_angle_deg": -50.0,
 		"sun_yaw_deg": -30.0,
-		"sun_energy": 1.15,
+		"sun_energy": 0.74,
 		"sun_color": Color(1.0, 0.95, 0.84),
-		"sky_energy": 0.95,
-		"ambient_energy": 0.80,
-		"exposure": 0.90,
-		"contrast": 1.02,
+		"sky_energy": 0.74,
+		"ambient_energy": 0.32,
+		"exposure": 0.72,
+		"contrast": 1.10,
 		"saturation": 1.05,
 		# Deeper, more saturated haze than the sky, so distance reads as
 		# distance. The old near-white fog at this density left mid and far
 		# terrain sitting at the same value as the sky above them.
-		"fog_color": Color(0.55, 0.7, 0.88),
+		"fog_color": Color(0.45, 0.62, 0.82),
 		"fog_density": 0.0021,
 		"fog_aerial": 0.3,
 		"fog_sky_affect": 0.08,
@@ -134,13 +157,13 @@ func build_course() -> void:
 		"snow": false,
 		"clouds": true,
 		"shafts": true,
-		"shaft_strength": 0.38,
+		"shaft_strength": 0.15,
 		"cloud_color": Color(1.0, 0.98, 0.92, 0.8),
 		"distant_bergs": true,
 		"berg_color": Color(0.82, 0.9, 0.98),
 		"berg_count": 8,
 		"berg_distance": 700.0,
-	})
+	}
 
 
 func _offset_near(point: Vector3) -> float:

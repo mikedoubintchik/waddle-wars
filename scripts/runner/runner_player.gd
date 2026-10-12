@@ -11,11 +11,10 @@ extends Node3D
 ## modes; sharing only the ART (PenguinVisual) gets the look for free with no
 ## coupling at all.
 ##
-## Collision is an Area3D on collision_mask 1<<9 (the runner layer) that reads
-## its own overlaps once per frame rather than relying on signals: overlap
-## callbacks arrive on the physics tick, and a runner needs the hit resolved in
-## the same frame the player pressed jump, or a frame-perfect input reads as a
-## missed one.
+## Collision is an Area3D on collision_mask 1<<9 (the runner layer). Normally
+## its cached overlaps suffice; a changed stance uses the current capsule until
+## physics publishes the new shape's overlaps. A slide pressed this frame must
+## not take damage from the previous standing shape.
 
 signal hit_taken(hits_left: int)
 signal fish_collected(value: int)
@@ -52,6 +51,11 @@ const PRESENT_RAMP_LAUNCHED: StringName = &"ramp_launched"
 const PRESENT_SHIELD_SPENT: StringName = &"shield_spent"
 const PRESENT_HIT_TAKEN: StringName = &"hit_taken"
 const PRESENT_DIED: StringName = &"died"
+## Side brushes can miss by a quarter metre. Ordinary jumps and slides are
+## successful moves, not near misses; only a very tight vertical shave counts.
+const NEAR_MISS_SIDE_CLEARANCE: float = 0.25
+const NEAR_MISS_VERTICAL_CLEARANCE: float = 0.075
+const NEAR_MISS_COOLDOWN: float = 1.25
 
 enum State { RUN, JUMP, SLIDE, DEAD }
 
@@ -65,14 +69,21 @@ var distance: float = 0.0
 var speed: float = RunnerConfig.START_SPEED
 
 var _visual: PenguinVisual = null
+var _visual_floor_clock := 0.0
 var _area: Area3D = null
 var _shape: CollisionShape3D = null
 var _capsule: CapsuleShape3D = null
+var _shape_changed_physics_frame: int = -1
+var _stance_query: PhysicsShapeQueryParameters3D = null
 var _lane_from: float = 0.0
 var _lane_to: float = 0.0
 var _lane_t: float = 1.0
 var _vertical: float = 0.0
 var _slide_left: float = 0.0
+## A fresh keyboard/gamepad press may hold a slide until release. Jumping or
+## launching cancels that intent, so a held button cannot restart it on landing.
+var _slide_held: bool = false
+var _slide_on_land: bool = false
 var _height: float = RunnerConfig.STAND_HEIGHT
 var _input_enabled: bool = true
 ## Active power-ups: id -> seconds remaining.
@@ -85,14 +96,12 @@ var _roll: float = 0.0
 var _stumble: float = 0.0
 var _near_miss_cooldown: float = 0.0
 var _passed: Dictionary = {}
+var _near_miss_candidates: Dictionary = {}
 ## Ramps already used this run. An Area3D stays overlapped for as long as the
 ## penguin is inside it, so without this a single ramp re-launched every frame.
 var _used_ramps: Dictionary = {}
 var _trail: SnowTrail = null
-## Every burst in the mode, in one draw call. Built by runner_vfx.gd and wired
-## here: the world has to acknowledge a pickup, a landing, a hit and a launch,
-## or the mode reads as a slideshow with a score on top.
-var _vfx: RunnerVfx = null
+var _cosmetic_trail: TrailEffect = null
 ## Test hook: an autopilot that dodges what it can see, so a headless sim can
 ## run the mode end to end without a human.
 static var autopilot: bool = false
@@ -103,8 +112,9 @@ func setup(visual_config: Dictionary) -> void:
 	_visual = PenguinVisual.new()
 	var look := CharacterLook.from_legacy_config(
 			visual_config, CharacterLook.RenderRole.HERO)
-	_visual.setup_look(look)
+	_visual.setup_runner_look(look)
 	add_child(_visual)
+	_visual_floor_clock = 0.0
 	_area = Area3D.new()
 	_area.name = "Hitbox"
 	# The player detects; it is never detected. Hazards and pickups sit on the
@@ -126,20 +136,21 @@ func setup(visual_config: Dictionary) -> void:
 		_trail = SnowTrail.new()
 		add_child(_trail)
 		_trail.setup()
-		_vfx = RunnerVfx.new()
-		add_child(_vfx)
-		_vfx.setup()
-		# One subscriber on the existing bus rather than a call at each site:
-		# the rig, the camera and the world effects then all react to the same
-		# semantic event, and none of them can quietly fall out of step.
-		presentation_event.connect(_on_presentation_vfx)
+		_cosmetic_trail = TrailEffect.create(String(visual_config.get("trail", "")))
+		if _cosmetic_trail != null:
+			add_child(_cosmetic_trail)
 	position = Vector3(RunnerConfig.lane_x(lane), 0.0, 0.0)
+	# Countdown intentionally does not tick locomotion. Seat the neutral model
+	# before its first visible frame, using the same floor lookup as live play.
+	_sync_visual_floor()
 
 
 ## Input is disabled during the countdown and after death so a held key cannot
 ## queue a move into the game-over screen.
 func set_input_enabled(enabled: bool) -> void:
 	_input_enabled = enabled
+	if not enabled:
+		_clear_slide_input()
 
 
 func _emit_presentation(event_id: StringName, extra: Dictionary = {}) -> void:
@@ -184,18 +195,26 @@ func tick(delta: float, run_speed: float) -> void:
 	_advance_vertical(delta)
 	_advance_slide(delta)
 	_resolve_overlaps()
+	if state == State.DEAD:
+		# died banks the run synchronously. Finish only the visible fall, not
+		# magnet/near-miss gameplay after that saved boundary.
+		_drive_visual(delta)
+		return
 	_advance_magnet(delta)
 	_scan_near_miss(delta)
 	if _trail != null:
 		_trail.tick(global_position, Vector3.UP, position.y < 0.05,
 			state == State.SLIDE, speed)
-	_tick_vfx(delta)
+	if _cosmetic_trail != null:
+		_cosmetic_trail.set_motion(speed, RunnerConfig.MAX_SPEED, state != State.DEAD)
 	_drive_visual(delta)
 
 
 ## --- Input ------------------------------------------------------------------
 
 func _read_input() -> void:
+	if not Input.is_action_pressed(&"slide"):
+		_slide_held = false
 	if Input.is_action_just_pressed(&"steer_left"):
 		move_lane(-1)
 	if Input.is_action_just_pressed(&"steer_right"):
@@ -203,6 +222,7 @@ func _read_input() -> void:
 	if Input.is_action_just_pressed(&"jump"):
 		jump()
 	if Input.is_action_just_pressed(&"slide"):
+		_slide_held = Input.is_action_pressed(&"slide")
 		slide()
 
 
@@ -229,6 +249,7 @@ func jump() -> void:
 	# "cancel the slide early" move in every runner.
 	state = State.JUMP
 	_slide_left = 0.0
+	_clear_slide_input()
 	_vertical = RunnerConfig.JUMP_SPEED
 	_set_height(RunnerConfig.STAND_HEIGHT)
 	jumped.emit()
@@ -239,19 +260,36 @@ func jump() -> void:
 
 
 func slide() -> void:
+	if not _input_enabled or state == State.DEAD:
+		return
 	if state == State.SLIDE:
+		# Another swipe/press belongs to the next bar, even if the previous
+		# slide has not finished. Refresh in place: no upright collision frame
+		# or duplicate entry event/animation between consecutive obstacles.
+		_slide_left = RunnerConfig.SLIDE_TIME
 		return
 	# Sliding in mid-air is a fast-fall: it slams the penguin down and starts
 	# the slide on landing, which is what players expect when they press slide
 	# over an obstacle they mistimed.
 	if state == State.JUMP:
+		_slide_on_land = true
 		_vertical = minf(_vertical, -RunnerConfig.JUMP_SPEED * 0.55)
 		return
+	_begin_slide()
+
+
+func _begin_slide() -> void:
+	_slide_on_land = false
 	state = State.SLIDE
 	_slide_left = RunnerConfig.SLIDE_TIME
 	_set_height(RunnerConfig.SLIDE_HEIGHT)
 	slid.emit()
 	_emit_presentation(PRESENT_SLID)
+
+
+func _clear_slide_input() -> void:
+	_slide_held = false
+	_slide_on_land = false
 
 
 ## --- Motion -----------------------------------------------------------------
@@ -283,13 +321,15 @@ func _advance_vertical(delta: float) -> void:
 			"strength": 1.0 if was_launched else 0.55,
 			"launched": was_launched,
 		})
+		if _slide_on_land:
+			_begin_slide()
 
 
 func _advance_slide(delta: float) -> void:
 	if state != State.SLIDE:
 		return
-	_slide_left -= delta
-	if _slide_left <= 0.0:
+	_slide_left = maxf(0.0, _slide_left - delta)
+	if _slide_left <= 0.0 and not _slide_held:
 		state = State.RUN
 		_set_height(RunnerConfig.STAND_HEIGHT)
 		_emit_presentation(PRESENT_SLIDE_EXIT)
@@ -302,7 +342,10 @@ func _set_height(height: float) -> void:
 	# Capsule height includes the two hemispherical caps, so it can never be
 	# shorter than its own diameter; clamp rather than let Godot silently fix it
 	# and leave the shape taller than the bar the player is sliding under.
-	_capsule.height = maxf(height, _capsule.radius * 2.0 + 0.01)
+	var capsule_height := maxf(height, _capsule.radius * 2.0 + 0.01)
+	if not is_equal_approx(_capsule.height, capsule_height):
+		_capsule.height = capsule_height
+		_shape_changed_physics_frame = Engine.get_physics_frames()
 	_shape.position = Vector3(0.0, _capsule.height * 0.5, 0.0)
 
 
@@ -366,40 +409,87 @@ func _advance_magnet(delta: float) -> void:
 
 ## --- Near miss --------------------------------------------------------------
 
-## A hazard that passed the player's plane this frame, close in X, without a
-## hit. Tracked per-node so one obstacle cannot score twice.
+## Measure the real capsule against each hazard while passing, then award only
+## after its trailing edge clears the player. A centre-line/lane-width check
+## called almost every jump, slide and ramp a near miss.
 func _scan_near_miss(delta: float) -> void:
 	_near_miss_cooldown = maxf(0.0, _near_miss_cooldown - delta)
 	var tree := get_tree()
-	if tree == null or _near_miss_cooldown > 0.0:
+	if tree == null or state == State.DEAD:
 		return
 	for node: Node in tree.get_nodes_in_group(RunnerConfig.GROUP_HAZARD):
 		var hazard := node as Node3D
 		if hazard == null or not is_instance_valid(hazard):
 			continue
 		var id := hazard.get_instance_id()
-		if _passed.has(id):
+		if _passed.has(id) or String(hazard.get_meta("kind", "block")) == "ramp":
 			continue
-		var behind := hazard.global_position.z - global_position.z
-		if behind < 0.0 or behind > 1.6:
+		var bounds := _near_miss_bounds(hazard)
+		if not bounds.has_volume():
 			continue
+		var radius := _capsule.radius if _capsule != null else 0.42
+		if global_position.z - radius > bounds.end.z:
+			continue
+		var cleared_by := bounds.position.z - (global_position.z + radius)
+		if cleared_by > 3.0:
+			_near_miss_candidates.erase(id)
+			continue
+		if cleared_by <= 0.0:
+			var candidate: Dictionary = _near_miss_candidates.get(id,
+				{"ratio": INF, "blocked": false, "side": 0.0})
+			var clearance := _near_miss_clearance(bounds)
+			candidate["blocked"] = bool(candidate["blocked"]) \
+				or clearance.x <= 0.0 or invulnerable_for > 0.0
+			var ratio := clearance.x / clearance.y
+			if ratio < float(candidate["ratio"]):
+				candidate["ratio"] = ratio
+				candidate["side"] = hazard.global_position.x - global_position.x
+			_near_miss_candidates[id] = candidate
+			continue
+		# Consume passes during cooldown as well; no delayed chain of CLOSE!
 		_passed[id] = true
-		var offset_x := hazard.global_position.x - global_position.x
-		var side := absf(offset_x)
-		if side < RunnerConfig.LANE_WIDTH * 0.92 and invulnerable_for <= 0.0:
-			_near_miss_cooldown = 0.35
-			near_miss.emit()
-			_emit_presentation(PRESENT_NEAR_MISS, {
-				"side": offset_x,
-				"strength": 1.0 - side / (RunnerConfig.LANE_WIDTH * 0.92),
-			})
-			return
-	# The pass-list is only ever consulted for hazards within 1.6 m, so it can
-	# be dropped wholesale once it grows rather than reference-counted.
+		var candidate: Dictionary = _near_miss_candidates.get(id, {})
+		_near_miss_candidates.erase(id)
+		if candidate.is_empty() or bool(candidate["blocked"]) \
+				or float(candidate["ratio"]) > 1.0 \
+				or invulnerable_for > 0.0 or _near_miss_cooldown > 0.0:
+			continue
+		_near_miss_cooldown = NEAR_MISS_COOLDOWN
+		near_miss.emit()
+		_emit_presentation(PRESENT_NEAR_MISS, {
+			"side": float(candidate["side"]),
+			"strength": 1.0 - clampf(float(candidate["ratio"]), 0.0, 1.0),
+		})
 	if _passed.size() > 128:
 		_passed.clear()
+	if _near_miss_candidates.size() > 64:
+		_near_miss_candidates.clear()
 	if _used_ramps.size() > 64:
 		_used_ramps.clear()
+
+
+func _near_miss_bounds(hazard: Node3D) -> AABB:
+	for child: Node in hazard.get_children():
+		var collision := child as CollisionShape3D
+		if collision != null and not collision.disabled and collision.shape is BoxShape3D:
+			var box := collision.shape as BoxShape3D
+			return collision.global_transform * AABB(-box.size * 0.5, box.size)
+	return AABB()
+
+
+## Distance from the capsule's vertical centre segment to the hazard rectangle,
+## minus capsule radius: handles sides, jumps, slides and rounded corners.
+func _near_miss_clearance(bounds: AABB) -> Vector2:
+	var radius := _capsule.radius if _capsule != null else 0.42
+	var height := _capsule.height if _capsule != null else RunnerConfig.STAND_HEIGHT
+	var centre := _shape.global_position if _shape != null \
+		else global_position + Vector3.UP * height * 0.5
+	var half_segment := maxf(0.0, height * 0.5 - radius)
+	var dx := maxf(0.0, maxf(bounds.position.x - centre.x, centre.x - bounds.end.x))
+	var dy := maxf(0.0, maxf(bounds.position.y - (centre.y + half_segment),
+		(centre.y - half_segment) - bounds.end.y))
+	return Vector2(Vector2(dx, dy).length() - radius,
+		NEAR_MISS_VERTICAL_CLEARANCE if dy > dx else NEAR_MISS_SIDE_CLEARANCE)
 
 
 ## --- Ramps ------------------------------------------------------------------
@@ -409,6 +499,7 @@ func _scan_near_miss(delta: float) -> void:
 func launch(power: float) -> void:
 	state = State.JUMP
 	_slide_left = 0.0
+	_clear_slide_input()
 	_launched = true
 	_roll = 0.0
 	_vertical = maxf(_vertical, power)
@@ -422,10 +513,40 @@ func launch(power: float) -> void:
 
 ## --- Collision --------------------------------------------------------------
 
+func _overlapping_areas() -> Array[Area3D]:
+	if _shape_changed_physics_frame < Engine.get_physics_frames():
+		return _area.get_overlapping_areas()
+	# Area3D caches contacts at the physics tick. Re-query only during the tick
+	# in which the capsule changed, including every render frame before the
+	# next tick. This handles both shrinking under a bar and standing into one.
+	if _stance_query == null:
+		_stance_query = PhysicsShapeQueryParameters3D.new()
+		_stance_query.collide_with_areas = true
+		_stance_query.collide_with_bodies = false
+	_stance_query.shape = _capsule
+	_stance_query.transform = _shape.global_transform
+	_stance_query.collision_mask = _area.collision_mask
+	var space := get_world_3d().direct_space_state
+	var max_results := 32
+	var contacts := space.intersect_shape(_stance_query, max_results)
+	# The default query cap must never drop a hazard behind a dense pickup
+	# cluster. Grow until all contacts fit, then retain Area3D's unique-node
+	# semantics even when one collider has several shapes.
+	while contacts.size() == max_results:
+		max_results *= 2
+		contacts = space.intersect_shape(_stance_query, max_results)
+	var areas: Array[Area3D] = []
+	for contact: Dictionary in contacts:
+		var area := contact.get("collider") as Area3D
+		if is_instance_valid(area) and not area in areas:
+			areas.append(area)
+	return areas
+
+
 func _resolve_overlaps() -> void:
 	if _area == null:
 		return
-	for area: Area3D in _area.get_overlapping_areas():
+	for area: Area3D in _overlapping_areas():
 		if not is_instance_valid(area):
 			continue
 		if area.is_in_group(RunnerConfig.GROUP_PICKUP):
@@ -449,6 +570,10 @@ func _resolve_overlaps() -> void:
 					grant_powerup(id, powerup_at)
 			continue
 		if area.is_in_group(RunnerConfig.GROUP_HAZARD):
+			# A real contact (including shield/iframe contacts) cannot later become
+			# a near miss merely because protection expires behind the obstacle.
+			_passed[area.get_instance_id()] = true
+			_near_miss_candidates.erase(area.get_instance_id())
 			# A ramp is a hazard node so the track can place it with the same
 			# machinery, but hitting one is the good outcome.
 			if String(area.get_meta("kind", "block")) == "ramp":
@@ -459,6 +584,10 @@ func _resolve_overlaps() -> void:
 				continue
 			take_hit(area.global_position.x - global_position.x,
 					area.global_position)
+			if state == State.DEAD:
+				# Later contacts in this same query must not collect rewards or
+				# launch a ramp that replaces DEAD with JUMP during the catch.
+				return
 
 
 func take_hit(side: float = 0.0, presentation_position: Variant = null) -> void:
@@ -507,53 +636,32 @@ func kill() -> void:
 		return
 	state = State.DEAD
 	_input_enabled = false
+	_clear_slide_input()
+	if _cosmetic_trail != null:
+		_cosmetic_trail.emitting = false
 	died.emit()
 	_emit_presentation(PRESENT_DIED)
 
 
-## Discrete bursts, driven entirely by the presentation bus.
-func _on_presentation_vfx(event_id: StringName, context: Dictionary) -> void:
-	if _vfx == null:
-		return
-	var at: Vector3 = context.get("world_position", global_position)
-	match event_id:
-		PRESENT_FISH_COLLECTED:
-			_vfx.pickup(at)
-		PRESENT_POWERUP_GAINED:
-			_vfx.powerup(at)
-		PRESENT_LANDED:
-			_vfx.land(at, float(context.get("strength", 0.55)))
-		PRESENT_RAMP_LAUNCHED:
-			_vfx.launch(at)
-		PRESENT_SHIELD_SPENT:
-			_vfx.impact(at, true)
-		PRESENT_HIT_TAKEN:
-			_vfx.impact(at, false)
-		PRESENT_NEAR_MISS:
-			_vfx.whoosh(at, float(context.get("side", 0.0)))
-
-
-## Continuous effects: the spray under the feet, the streaks that thicken with
-## pace, and the trail that only exists while a ramp arc is in flight.
-func _tick_vfx(delta: float) -> void:
-	if _vfx == null:
-		return
-	var pace := clampf((speed - RunnerConfig.START_SPEED)
-		/ maxf(RunnerConfig.MAX_SPEED - RunnerConfig.START_SPEED, 0.001), 0.0, 1.0)
-	_vfx.set_cull_centre(global_position)
-	if position.y < 0.05:
-		_vfx.ground_spray(global_position, pace, delta, state == State.SLIDE)
-	if _launched:
-		_vfx.launch_trail(global_position, delta)
-	_vfx.speed_motes(global_position, pace, delta)
-	_vfx.tick(delta)
-
-
 ## --- Presentation -----------------------------------------------------------
+
+func _sync_visual_floor() -> void:
+	if _visual == null or not _visual.has_reviewed_runner_backend():
+		return
+	var game := get_parent() as RunnerGame
+	if game != null and game.track != null:
+		_visual.set_runner_floor_height(ReviewedRunnerPenguin.floor_height_at(game.track,
+				ReviewedRunnerPenguin.relative_transform(self).origin))
+
 
 func _drive_visual(delta: float) -> void:
 	if _visual == null:
 		return
+	if _visual.has_reviewed_runner_backend():
+		_visual_floor_clock -= delta
+		if _visual_floor_clock <= 0.0:
+			_visual_floor_clock = 0.10
+			_sync_visual_floor()
 	# Lean into the lane change: the penguin banks toward the direction it is
 	# moving, which is most of what sells a lane change as a decision rather
 	# than a teleport.
@@ -563,10 +671,13 @@ func _drive_visual(delta: float) -> void:
 	var grounded := state != State.JUMP
 	var speed_ratio := clampf(speed / RunnerConfig.MAX_SPEED, 0.35, 1.0)
 	_visual.drive_motion(speed_ratio, lean, 0.0, _vertical, grounded)
-	# setup_look starts at IDLE. Recover is the semantic transition into the
-	# running loop; drive_motion remains continuous intent, never root motion.
+	# A fresh start goes directly into locomotion. Recovery is for an actual
+	# stumble, not an extra crouch/stand-up animation after every countdown.
 	if state == State.RUN and _visual.pose != PenguinVisual.Pose.RUN:
-		_visual.trigger_event(&"recover", {"strength": 1.0})
+		if _visual.pose == PenguinVisual.Pose.IDLE:
+			_visual.set_pose(PenguinVisual.Pose.RUN)
+		else:
+			_visual.trigger_event(&"recover", {"strength": 1.0})
 	_stumble = maxf(0.0, _stumble - delta)
 	# A stumble adds a drunken wobble on top of everything else for a beat, so
 	# a hit is readable from the animation alone with the HUD covered.
@@ -583,9 +694,9 @@ func _drive_visual(delta: float) -> void:
 		_roll += delta * 7.4
 		pitch = -_roll
 	rotation.x = lerp_angle(rotation.x, pitch, minf(1.0, delta * (18.0 if _launched else 12.0)))
-	# Blink while invulnerable so a hit is unmistakable. Reduced flashing keeps
-	# the stumble pose and world-space impact burst, but never strobes the model.
-	_visual.visible = true if UITheme.reduced_motion() else (invulnerable_for <= 0.0 \
+	# Blink after surviving hits. DEAD freezes the invulnerability timer, so
+	# its fall must remain visible rather than freeze in a hidden blink phase.
+	_visual.visible = true if state == State.DEAD or UITheme.reduced_motion() else (invulnerable_for <= 0.0 \
 		or fmod(invulnerable_for, 0.18) > 0.09)
 	_visual.tick(delta, speed_ratio)
 

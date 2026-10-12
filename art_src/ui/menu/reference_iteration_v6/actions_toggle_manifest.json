@@ -1,0 +1,42 @@
+[
+  {
+    "name": "settings_controls_mobile_v6",
+    "source": "/Users/ninja/.codex/generated_images/01a114ca-398e-71d3-abf4-04f82bde0f5b/exec-2dc727e8-3a26-436b-8bc2-2b2a436155ac.png",
+    "file": "art_src/ui/menu/reference_iteration_v6/settings_controls_mobile_v6.png",
+    "sha256": "3e9e36c113d539bd63be886821c2aba5c217a39515c1875007d35338a61820ad",
+    "generator": "image_gen.imagegen",
+    "status": "accepted design reference; current game comparison pending"
+  },
+  {
+    "name": "runner_jump_mobile_v6",
+    "source": "/Users/ninja/.codex/generated_images/01a114ca-398e-71d3-abf4-04f82bde0f5b/exec-78401e01-3144-4612-bae9-6c102ff30fdb.png",
+    "file": "art_src/ui/menu/reference_iteration_v6/runner_jump_mobile_v6.png",
+    "sha256": "d89cf82e16e185738803d963b93931a3fb95c04696bfdc3c8695f086535ae665",
+    "generator": "image_gen.imagegen",
+    "status": "accepted design reference; current game comparison pending"
+  },
+  {
+    "name": "runner_slide_desktop_v6",
+    "source": "/Users/ninja/.codex/generated_images/01a114ca-398e-71d3-abf4-04f82bde0f5b/exec-e86e547e-e6b1-41cf-97f2-fbaeaeea5b8a.png",
+    "file": "art_src/ui/menu/reference_iteration_v6/runner_slide_desktop_v6.png",
+    "sha256": "5013bf3959ca90c469d7e5e51afcdb5109829a2b2677525288c7fdf16c9540bd",
+    "generator": "image_gen.imagegen",
+    "status": "accepted design reference; current game comparison pending"
+  },
+  {
+    "name": "runner_jump_desktop_v6",
+    "source": "/Users/ninja/.codex/generated_images/01a114ca-398e-71d3-abf4-04f82bde0f5b/exec-a6d688cd-3c30-4501-9490-b673728a137a.png",
+    "file": "art_src/ui/menu/reference_iteration_v6/runner_jump_desktop_v6.png",
+    "sha256": "aeeadf234f068ee2d7437378cd6186839ecf67ecb58fa0e5b00e8b30a17f6787",
+    "generator": "image_gen.imagegen",
+    "status": "accepted design reference; current game comparison pending"
+  },
+  {
+    "name": "runner_slide_mobile_v6",
+    "source": "/Users/ninja/.codex/generated_images/01a114ca-398e-71d3-abf4-04f82bde0f5b/exec-9c597c53-ac17-4b7b-acf9-7cc431af1ad0.png",
+    "file": "art_src/ui/menu/reference_iteration_v6/runner_slide_mobile_v6.png",
+    "sha256": "bbbe4888a88881532929e1116260d91bfeb4d11e17edfbdf1b67cb24edbd3444",
+    "generator": "image_gen.imagegen",
+    "status": "accepted design reference; current game comparison pending"
+  }
+]

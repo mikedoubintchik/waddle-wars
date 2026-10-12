@@ -1,0 +1,116 @@
+{
+  "status": "draft_unsubmitted",
+  "app_name": "Waddle Wars: Penguin Panic",
+  "store_urls": {
+    "apple": "https://apps.apple.com/app/id6818416048",
+    "google_play": "https://play.google.com/store/apps/details?id=com.blubberandbyte.waddlewars",
+    "availability": "both_unpublished_http_404_2026-10-05;_homepage_badges_disabled_until_live"
+  },
+  "ios_subtitle": "Avalanche chase & penguin runs",
+  "play_short_description": "Outrun avalanches, collect fish, and customize your penguin offline",
+  "description": "Outrun a chasing avalanche in Waddle Run. Change lanes, jump obstacles, slide under hazards, collect fish, and see how far your penguin can go. The opening gives new players room to learn before the pace builds.\n\nPlay again to chase your best score and complete missions. Spend fish earned through play on hats, scarves, goggles, and trails. Waddle School teaches the basics.\n\nPlay in portrait or landscape with touch or gamepad controls. Adjust HUD size and camera shake. Core gameplay and local progress work offline. Waddle Wars is free with no in-app purchases.",
+  "keywords": [
+    "avalanche",
+    "penguin",
+    "runner",
+    "Antarctica",
+    "arcade",
+    "offline"
+  ],
+  "categories": {
+    "ios_primary": "Games",
+    "ios_game_subcategories": [
+      "Action",
+      "Casual"
+    ],
+    "play": "GAME_ARCADE"
+  },
+  "privacy_url": "https://waddlewars.io/native/privacy.html",
+  "privacy_choices_url": "https://waddlewars.io/native/delete-data.html",
+  "support_url": "https://waddlewars.io/native/support.html",
+  "support_email": "support@waddlewars.io",
+  "account_deletion_url": "https://waddlewars.io/native/delete-data.html",
+  "copyright_owner": "Ninja Consulting LLC",
+  "age_rating_questionnaire": "apple_saved_13_plus_and_play_iarc_completed_readback_2026_10_04",
+  "target_audience": "play_saved_13_to_15_16_to_17_and_18_plus_draft_2026_10_04",
+  "privacy_declarations": "play_saved_draft_approximate_location_app_interactions_optional_app_functionality_security_plus_optional_feedback_email_and_other_user_generated_content_app_functionality_2026-10-08;_apple_published_four_types_email_address_customer_support_coarse_location_product_interaction_linked_app_functionality_no_tracking_2026-10-08;_reconcile_both_to_final_native_candidate",
+  "review_notes_status": "apple_saved_2026-10-08_pending_final_native_candidate_smoke",
+  "review_notes": "Free, offline-first game. No account or login is required for core gameplay. Native account/cloud and real-money purchase flows are disabled. From the title, choose BEGIN EXPEDITION, then WADDLE RUN for the avalanche chase. Swipe left/right to change lanes, up to jump, and down to slide; tap also jumps. Pause during play for Resume and Main Menu. After a run, Run Again retries. Waddle School teaches the controls. Customize lets players spend fish earned through play on cosmetics. Settings includes quality, camera shake, reduced flashing, and HUD scale. Public Leaderboard requires internet; local progress and core modes work offline. Waddle Race is not available in this release.",
+  "prepared_web_pages": {
+    "state": "published_verified",
+    "privacy": {
+      "path": "web/native/privacy.html",
+      "proposed_url": "https://waddlewars.io/native/privacy.html"
+    },
+    "support": {
+      "path": "web/native/support.html",
+      "proposed_url": "https://waddlewars.io/native/support.html"
+    },
+    "deletion": {
+      "path": "web/native/delete-data.html",
+      "proposed_url": "https://waddlewars.io/native/delete-data.html"
+    },
+    "stylesheet": "web/native/policy.css"
+  },
+  "kids_category": "not_selected",
+  "screenshots": [
+    "tools/release/store_assets/desktop-phone-current-20261008/avalanche-catch-chrome-941x1672.jpg",
+    "tools/release/store_assets/desktop-phone-current-20261008/menu.png",
+    "tools/release/store_assets/desktop-phone-current-20261008/missions.png",
+    "tools/release/store_assets/desktop-phone-current-20261008/customize.png",
+    "tools/release/store_assets/desktop-phone-current-20261008/play-phone-results-1080x1920.png",
+    "tools/release/store_assets/desktop-phone-current-20261008/play-phone-achievements-1080x1920.png"
+  ],
+  "screenshot_draft_receipt": "tools/release/store_assets/desktop-phone-current-20261008/receipt.json",
+  "apple_screenshot_prepared_receipt": "tools/release/store_assets/desktop-phone-current-20261008/apple-prepared-receipt.json",
+  "app_store_1024_icon": "tools/release/store_assets/icon-1024-v4.png",
+  "play_512_icon": "tools/release/store_assets/icon-512-v4.png",
+  "icon_receipt": "tools/release/store_assets/icon_v4_receipt.json",
+  "play_1024x500_feature_graphic": "tools/release/store_assets/feature-graphic-1024x500-v2.png",
+  "portal_progress": {
+    "receipt": "qa_shots/native/store-privacy-url-20261003.receipt.json",
+    "play": {
+      "app_id": "4974838896609027403",
+      "developer_id": "9132521315692749104",
+      "default_listing_text": "waddle_run_only_copy_saved_draft_reload_verified_2026-10-05",
+      "icon": "attached_saved_draft_verified_2026-10-04",
+      "feature_graphic": "attached_saved_draft_verified_2026-10-04",
+      "support_website": "waddlewars_io_saved_readback_2026-10-05",
+      "privacy_url": "waddlewars_io_change_saved_pending_review_2026-10-05",
+      "data_safety": "saved_draft_with_waddlewars_io_deletion_url_and_optional_feedback_email_other_user_generated_content_reload_verified_2026-10-08",
+      "screenshots": "six_current_game_captures_saved_draft_reload_verified_2026-10-08_pending_final_native_candidate",
+      "ai_asset_declaration": "app_icon_feature_graphic_and_six_phone_screenshots_labelled_created_or_edited_with_AI_saved_and_readback_verified_2026-10-08",
+      "production_countries": "united_states_targeted_saved_readback_verified_2026-10-08;_track_inactive_until_release",
+      "google_play_games_on_pc": "opted_out_in_advanced_settings_readback_verified_2026-10-08;_mobile_release_only",
+      "uploaded_screenshot_sources": [
+        "qa_shots/menu-reference-review-20261008-iteration10/originals/mobile/avalanche_catch.jpg",
+        "tools/release/store_assets/desktop-phone-current-20261008/menu.png",
+        "tools/release/store_assets/desktop-phone-current-20261008/missions.png",
+        "tools/release/store_assets/desktop-phone-current-20261008/customize.png",
+        "tools/release/store_assets/desktop-phone-current-20261008/play-phone-results-1080x1920.png",
+        "tools/release/store_assets/desktop-phone-current-20261008/play-phone-achievements-1080x1920.png"
+      ],
+      "pricing": "free_at_app_creation",
+      "declarations": "setup_11_of_11_complete_draft_pending_final_build_review"
+    },
+    "apple": {
+      "app_id": "6818416048",
+      "current_pass": "signed_in_apple_version_and_metadata_saved_2026-10-08",
+      "sign_in_availability_receipt": "qa_shots/native/apple-autofill-availability-20261003.receipt.json",
+      "listing_text": "waddle_run_version_copy_keywords_and_review_notes_saved_reload_verified_2026-10-05",
+      "screenshots": "five_iphone_1206x2622_and_five_ipad_2048x2732_current_godot_captures_uploaded_reload_verified_2026-10-08;_pending_final_native_candidate_comparison",
+      "manual_release": "saved_readback_2026_10_04",
+      "support_and_privacy_urls": "app_privacy_policy_and_choices_urls_saved;_version_support_and_marketing_urls_saved_reload_verified_2026-10-05",
+      "review_contact": "mike_doubintchik_mobile_phone_and_confirmed_support_email_saved_reload_verified_2026-10-05",
+      "pricing": "free_us_only_saved_readback_2026_10_04",
+      "age_rating": "13_plus_saved_readback_2026_10_04",
+      "content_rights": "yes_necessary_rights_saved_reload_verified_2026-10-05",
+      "app_privacy": "published_by_mike_doubintchik_four_types_email_address_customer_support_coarse_location_product_interaction_all_linked_app_functionality_no_tracking_2026-10-08;_reconcile_final_candidate",
+      "source_receipt": "qa_shots/native/apple-draft-scope-20261004.md",
+      "listing_proof": "tools/release/store_assets/apple-waddle-run-version-saved-20261005.jpg"
+    },
+    "build_uploads": "none",
+    "review_submission": "apple_add_for_review_attempt_2026-10-08_before_privacy_publication_blocked_by_missing_build_and_unpublished_app_privacy;_privacy_now_published;_play_blocked_by_missing_production_release",
+    "public_release": "none"
+  }
+}

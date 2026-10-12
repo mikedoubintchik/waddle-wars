@@ -99,15 +99,15 @@ static func safe_insets_for_viewport(viewport: Viewport) -> Vector4:
 	if view_size.x <= 0.0 or view_size.y <= 0.0 or window == null \
 			or window.size.x <= 0 or window.size.y <= 0:
 		return Vector4.ZERO
-	var logical_per_physical := Vector2(
-		view_size.x / float(window.size.x), view_size.y / float(window.size.y))
-	var physical := _web_safe_insets() if OS.has_feature("web") \
-		else _native_safe_insets()
-	var logical := Vector4(
-		physical.x * logical_per_physical.x,
-		physical.y * logical_per_physical.y,
-		physical.z * logical_per_physical.x,
-		physical.w * logical_per_physical.y)
+	var physical := _native_safe_insets() if not OS.has_feature("web") else Vector4.ZERO
+	var source_size := Vector2(DisplayServer.screen_get_size()) if GameConfig.is_mobile() \
+		and not OS.has_feature("web") else Vector2(window.size)
+	var logical := scale_safe_insets(physical, source_size, view_size)
+	if OS.has_feature("web"):
+		# CSS env() insets and the browser viewport share CSS-pixel units. The
+		# WebGL drawing buffer may cap DPR, so multiplying by devicePixelRatio
+		# then dividing by buffer size incorrectly doubles notches on phones.
+		logical = _web_safe_insets(view_size)
 	if GameConfig.has_touchscreen() or GameConfig.is_mobile():
 		logical = Vector4(
 			maxf(logical.x, TOUCH_SAFE_FLOOR),
@@ -115,6 +115,15 @@ static func safe_insets_for_viewport(viewport: Viewport) -> Vector4:
 			maxf(logical.z, TOUCH_SAFE_FLOOR),
 			maxf(logical.w, TOUCH_SAFE_FLOOR))
 	return logical
+
+
+static func scale_safe_insets(insets: Vector4, source_size: Vector2,
+		logical_size: Vector2) -> Vector4:
+	if source_size.x <= 0.0 or source_size.y <= 0.0:
+		return Vector4.ZERO
+	var ratio := logical_size / source_size
+	return Vector4(insets.x * ratio.x, insets.y * ratio.y,
+		insets.z * ratio.x, insets.w * ratio.y)
 
 
 static func classify(size: Vector2) -> ViewClass:
@@ -231,6 +240,12 @@ func _apply_contract() -> void:
 
 
 static func _native_safe_insets() -> Vector4:
+	# A decorated desktop window already sits inside the usable desktop.
+	# Screen notch/menu-bar insets belong to fullscreen content, not every
+	# window; applying them twice pushed all HUDs far below their reference.
+	if not GameConfig.is_mobile() and DisplayServer.window_get_mode() \
+			not in [DisplayServer.WINDOW_MODE_FULLSCREEN, DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN]:
+		return Vector4.ZERO
 	var safe := DisplayServer.get_display_safe_area()
 	var screen := DisplayServer.screen_get_size()
 	var origin := DisplayServer.screen_get_position()
@@ -243,7 +258,7 @@ static func _native_safe_insets() -> Vector4:
 		maxf(float(origin.y + screen.y - safe.end.y), 0.0))
 
 
-static func _web_safe_insets() -> Vector4:
+static func _web_safe_insets(view_size: Vector2) -> Vector4:
 	var raw: Variant = JavaScriptBridge.eval("""
 		(function () {
 			var d = document.createElement('div');
@@ -254,18 +269,19 @@ static func _web_safe_insets() -> Vector4:
 				'padding-bottom:env(safe-area-inset-bottom);';
 			document.body.appendChild(d);
 			var cs = getComputedStyle(d);
-			var dpr = window.devicePixelRatio || 1;
 			var values = [cs.paddingLeft, cs.paddingTop,
 				cs.paddingRight, cs.paddingBottom].map(function (value) {
-					return (parseFloat(value) || 0) * dpr;
+					return parseFloat(value) || 0;
 				});
+			values.push(window.innerWidth, window.innerHeight);
 			d.remove();
 			return values.join(',');
 		})()
 	""", true)
 	var parts := String(raw).split(",") if raw != null else PackedStringArray()
-	if parts.size() != 4:
+	if parts.size() != 6:
 		return Vector4.ZERO
-	return Vector4(
+	return scale_safe_insets(Vector4(
 		maxf(float(parts[0]), 0.0), maxf(float(parts[1]), 0.0),
-		maxf(float(parts[2]), 0.0), maxf(float(parts[3]), 0.0))
+		maxf(float(parts[2]), 0.0), maxf(float(parts[3]), 0.0)),
+		Vector2(float(parts[4]), float(parts[5])), view_size)

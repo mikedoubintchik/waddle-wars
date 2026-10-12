@@ -86,7 +86,7 @@ var _profile: LayoutProfile = null
 
 
 func _ready() -> void:
-	UITheme.make_background(self)
+	ExpeditionMenuStyle.add_backdrop(self, "race_results")
 	UITheme.apply_ui_scale(self)
 	_profile = LayoutProfile.for_viewport(get_viewport())
 	_boost = _tall_boost()
@@ -113,7 +113,7 @@ func _ready() -> void:
 	add_child(_safe_scroll)
 	_center = CenterContainer.new()
 	_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_center.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_safe_scroll.add_child(_center)
 	var viewport := get_viewport()
 	if viewport != null and not viewport.size_changed.is_connected(_apply_safe_area):
@@ -155,6 +155,9 @@ func _build_column() -> void:
 	vbox.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
 	vbox.custom_minimum_size.x = _card_width
 	_center.add_child(vbox)
+	var top_gap := Control.new()
+	top_gap.custom_minimum_size.y = _u(32.0)
+	vbox.add_child(top_gap)
 
 	match Game.mode:
 		Game.Mode.ENDLESS:
@@ -171,6 +174,7 @@ func _build_column() -> void:
 
 	_build_rewards(vbox)
 	_build_buttons(vbox)
+	_recolor_premium(vbox)
 	var entrance_items: Array[Control] = []
 	for child in vbox.get_children():
 		if child is Control:
@@ -393,11 +397,11 @@ func _stat_strip(parent: Control, stats: Array[Dictionary], accent: Color) -> vo
 		if stats.size() > 1:
 			tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		else:
-			tile.custom_minimum_size.x = _u(190.0)
+			tile.custom_minimum_size.x = _u(290.0)
 		var highlight := bool(stat.get("highlight", false))
-		var style := UITheme.make_panel_style(
-			Color(0.086, 0.149, 0.251, 0.72) if not highlight else Color(accent.r, accent.g, accent.b, 0.14),
-			Color(accent, 0.55 if highlight else 0.18))
+		var style := ExpeditionMenuStyle.surface(
+			Color("fff0d8") if highlight else ExpeditionMenuStyle.IVORY,
+			RADIUS_CARD)
 		style.set_corner_radius_all(RADIUS_CARD)
 		style.content_margin_left = _u(16.0)
 		style.content_margin_right = _u(16.0)
@@ -412,7 +416,7 @@ func _stat_strip(parent: Control, stats: Array[Dictionary], accent: Color) -> vo
 		var value := Label.new()
 		value.text = String(stat.get("value", ""))
 		value.add_theme_font_override("font", UITheme.display_font())
-		value.add_theme_font_size_override("font_size", _f(32))
+		value.add_theme_font_size_override("font_size", _f(48))
 		value.add_theme_color_override("font_color", accent if highlight else UITheme.COLOR_TEXT)
 		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		stack.add_child(value)
@@ -430,8 +434,8 @@ func _stat_strip(parent: Control, stats: Array[Dictionary], accent: Color) -> vo
 func _make_panel(parent: Control) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size.x = _card_width
-	var style := UITheme.make_panel_style(
-		Color(0.063, 0.114, 0.204, 0.90), Color(UITheme.COLOR_ACCENT, 0.22))
+	var style := ExpeditionMenuStyle.surface(ExpeditionMenuStyle.IVORY,
+		RADIUS_CARD)
 	style.set_corner_radius_all(RADIUS_CARD)
 	style.content_margin_left = _u(20.0)
 	style.content_margin_right = _u(20.0)
@@ -744,8 +748,20 @@ func _build_race_results(parent: Control) -> void:
 	elif pos <= 3:
 		headline = "Podium Finish!"
 		tint = PODIUM_TINTS[maxi(pos - 1, 0)]
+	if headline == "Race Complete!":
+		var logo := TextureRect.new()
+		logo.name = "RaceCompleteWordmark"
+		logo.texture = ExpeditionMenuStyle._material_texture(
+			"res://assets/art/ui/menu/race_complete_wordmark_v1.webp")
+		logo.custom_minimum_size.y = _u(340.0)
+		logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		parent.add_child(logo)
 	var eyebrow := "%s · %s" % [_mode_name(), CoursesDB.display_name(Game.course_id)]
-	var hero := _hero(parent, eyebrow, headline, 58, tint)
+	var hero := _hero(parent, eyebrow,
+		"FINISH SUMMARY" if headline == "Race Complete!" else headline,
+		34 if headline == "Race Complete!" else 58, tint)
 
 	# Player-facing summary: where they finished, what it took, and the margin
 	# to the racer that matters (2nd when they won, the leader otherwise).
@@ -780,6 +796,11 @@ func _build_race_results(parent: Control) -> void:
 	_card_title(list, "Final Standings")
 	_standings_header(list)
 	var shown_rows: Array[Dictionary] = _visible_race_rows()
+	if shown_rows.is_empty():
+		var empty_state := ExpeditionMenuStyle.label(
+			"No finish data available", _f(20), ExpeditionMenuStyle.INK_MUTED)
+		empty_state.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		list.add_child(empty_state)
 	for row: Dictionary in shown_rows:
 		var is_player := bool(row.get("is_player", false))
 		var place := int(row.get("position", 0))
@@ -1290,28 +1311,33 @@ func _build_buttons(parent: Control) -> void:
 	# Flow, not a fixed row: on a phone three actions do not fit across, and a
 	# button you cannot see is a button you cannot press. This lays them out in
 	# one row where there is room and wraps to a second where there is not.
-	var hbox := HFlowContainer.new()
-	hbox.add_theme_constant_override("h_separation", _gap(UITheme.SPACE_S))
-	hbox.add_theme_constant_override("v_separation", _gap(UITheme.SPACE_S))
-	hbox.alignment = FlowContainer.ALIGNMENT_CENTER
-	parent.add_child(hbox)
+	var portrait := _profile != null and _profile.is_portrait()
+	var actions: Container = VBoxContainer.new() if portrait else HFlowContainer.new()
+	actions.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
+	if actions is HFlowContainer:
+		(actions as HFlowContainer).add_theme_constant_override(
+			"h_separation", _gap(UITheme.SPACE_S))
+		(actions as HFlowContainer).add_theme_constant_override(
+			"v_separation", _gap(UITheme.SPACE_S))
+		(actions as HFlowContainer).alignment = FlowContainer.ALIGNMENT_CENTER
+	parent.add_child(actions)
 	if Game.mode == Game.Mode.GRAND_PRIX and Game.gp_round < CoursesDB.GRAND_PRIX_ORDER.size() - 1:
-		_add_button(hbox, "Next Race", func() -> void:
+		_add_button(actions, "Next Race", func() -> void:
 			Game.advance_grand_prix(), true)
 	elif Game.mode == Game.Mode.GRAND_PRIX:
-		_add_button(hbox, "Finish Cup", func() -> void:
+		_add_button(actions, "Finish Cup", func() -> void:
 			SceneRouter.go_to(Game.SCENE_MAIN_MENU), true)
 	else:
-		_add_button(hbox, "Race Again", func() -> void:
+		_add_button(actions, "Race Again", func() -> void:
 			SceneRouter.go_to(Game.SCENE_RACE), true)
 		# "Race Again" repeats the same course, and the only other exit was the
 		# main menu -- so trying a different one meant walking the whole setup
 		# flow from the top. This drops straight onto the course list.
-		_add_button(hbox, "Change Course", func() -> void:
+		_add_button(actions, "Change Course", func() -> void:
 			Game.setup_entry_step = "course"
 			SceneRouter.go_to(Game.SCENE_MODE_SELECT), false)
-	_add_share_button(hbox)
-	_add_button(hbox, "Main Menu", func() -> void:
+	_add_share_button(actions)
+	_add_button(actions, "Main Menu", func() -> void:
 		SceneRouter.go_to(Game.SCENE_MAIN_MENU), false)
 
 
@@ -1369,7 +1395,10 @@ func _add_share_button(parent: Control) -> void:
 	if text.is_empty():
 		return
 	var button := ShareManager.make_share_button(
-		"Share", UITheme.scaled_size(Vector2(210.0, 56.0)), _f(24))
+		"Share", UITheme.scaled_size(Vector2(210.0, 56.0)),
+		maxi(_f(24), 16) if _profile != null and _profile.is_portrait() else _f(24))
+	ExpeditionMenuStyle.style_button(button, false,
+		maxi(_f(24), 16) if _profile != null and _profile.is_portrait() else _f(24))
 	UITheme.hook_sounds(button)
 	button.pressed.connect(func() -> void:
 		ShareManager.share_with_toast(self, text))
@@ -1384,15 +1413,25 @@ func _add_button(parent: Control, text: String, action: Callable, primary: bool)
 	# Width through the same fit as everything else. At full touch scale these
 	# three buttons demanded 1026 units on a canvas 771 wide -- on their own
 	# they were the single widest thing on the screen.
+	var font_size := _f(28 if primary else 24)
+	if not landscape:
+		font_size = maxi(font_size, 16)
 	var button := UITheme.make_button(text,
-		Vector2(_u(size.x), UITheme.scaled_size(size).y), _f(28 if primary else 24))
+		Vector2(_u(size.x), UITheme.scaled_size(size).y), font_size)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	if primary:
-		_style_primary(button)
+	ExpeditionMenuStyle.style_button(button, primary, font_size)
 	UITheme.hook_sounds(button)
 	button.pressed.connect(action)
 	parent.add_child(button)
 	_buttons.append(button)
+
+
+func _recolor_premium(node: Node) -> void:
+	if node is Label:
+		(node as Label).add_theme_color_override("font_color",
+			ExpeditionMenuStyle.INK)
+	for child in node.get_children():
+		_recolor_premium(child)
 
 
 ## Filled ice-blue treatment for the one action the player most likely wants

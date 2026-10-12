@@ -1,0 +1,46 @@
+[gd_resource type="Resource" script_class="RunnerArtSet" load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/art/runner_art_set.gd" id="1_set"]
+[ext_resource type="Script" path="res://scripts/art/character_look.gd" id="2_look_script"]
+[ext_resource type="Script" path="res://scripts/art/course_visual_profile.gd" id="3_profile_type"]
+[ext_resource type="Resource" path="res://data/art/course_profiles/runner_day.tres" id="4_day"]
+[ext_resource type="Resource" path="res://data/art/course_profiles/runner_dusk.tres" id="5_dusk"]
+[ext_resource type="Resource" path="res://data/art/course_profiles/runner_cave.tres" id="6_cave"]
+[ext_resource type="Resource" path="res://data/art/course_profiles/runner_night.tres" id="7_night"]
+
+[sub_resource type="Resource" id="CharacterLook_contract"]
+script = ExtResource("2_look_script")
+look_id = "contract_only"
+display_name = "Character Look Contract (No Authored Asset)"
+species_id = "emperor"
+notes = "Schema fixture only. No authored model or animation library is registered."
+production_ready = false
+
+[resource]
+script = ExtResource("1_set")
+set_id = "runner_foundation"
+display_name = "Runner Art Foundation + DAY Review Kit"
+notes = "Runner DAY kit registered through ArtCatalog and exercised by the 360 m golden slice before normal DAY activation. Other biomes, shared character, seal and pickups retain procedural fallback until their authored milestones pass."
+production_ready = false
+allow_procedural_fallback = true
+character_look = SubResource("CharacterLook_contract")
+course_profiles = Array[ExtResource("3_profile_type")]([ExtResource("4_day"), ExtResource("5_dusk"), ExtResource("6_cave"), ExtResource("7_night")])
+deck_scene_ids = {
+"day": "runner_day_deck_kerb_v1"
+}
+obstacle_scene_ids = {
+"bar": "runner_day_gantry_v1",
+"block": "runner_day_snowcat_v1",
+"low": "runner_day_barrier_v1",
+"ramp": "runner_day_ramp_v1"
+}
+dressing_scene_ids = {
+"day": ["runner_day_cargo_stack_v1", "runner_day_iceberg_cluster_v1", "runner_day_research_lab_v1", "runner_day_signal_pylon_v1"]
+}
+landmark_scene_ids = {
+"day": ["runner_day_icebreaker_landmark_v1", "runner_day_radar_landmark_v1", "runner_day_research_hub_landmark_v1"]
+}
+biome_preload_ids = {
+"day": ["runner_day_deck_kerb_b_v1", "runner_day_deck_kerb_c_v1", "runner_day_tunnel_shell_v1"]
+}
+common_preload_ids = PackedStringArray("runner_day_shell_material_v1", "runner_day_surface_material_v1")

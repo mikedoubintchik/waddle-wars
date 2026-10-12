@@ -169,10 +169,18 @@ func _test_presentation_events() -> void:
 
 	player.powerups[RunnerConfig.POWERUP_MAGNET] = 0.001
 	player._advance_powerups(0.01)
-	var near := Node3D.new()
+	var near := Area3D.new()
 	near.add_to_group(RunnerConfig.GROUP_HAZARD)
 	add_child(near)
-	near.global_position = player.global_position + Vector3(1.5, 0.0, 0.8)
+	var near_shape := CollisionShape3D.new()
+	var near_box := BoxShape3D.new()
+	near_box.size = Vector3(2.3, 2.0, 1.6)
+	near_shape.shape = near_box
+	near_shape.position.y = 1.0
+	near.add_child(near_shape)
+	near.global_position = player.global_position + Vector3(1.7, 0.0, 0.0)
+	player._scan_near_miss(0.01)
+	player.position.z -= 1.4
 	player._scan_near_miss(0.01)
 	player.launch(RunnerConfig.RAMP_LAUNCH)
 	player.position.y = 0.01
@@ -256,15 +264,19 @@ func _test_layout_and_retry() -> void:
 	game.camera = Camera3D.new()
 	game.add_child(game.camera)
 	game._layout = LayoutProfile.for_view_size(Vector2(960.0, 540.0))
+	var authored_height := game._camera_hero_height
+	game._camera_hero_height = 0.0
 	game._intro_t = 0.0
 	game.player.position = Vector3.ZERO
 	game.player.speed = RunnerConfig.START_SPEED
 	game._place_camera(0.0, true)
-	_check("camera_uses_profile_chase",
-			is_equal_approx(game.camera.position.y, game._layout.runner_chase_height)
-			and game.camera.position.z > game._layout.runner_chase_distance * 0.5
-			and game.camera.position.z <= game._layout.runner_chase_distance
-			and is_equal_approx(game.camera.fov, game._layout.runner_base_fov))
+	var reference_fov := RunnerCameraComposition.reference_fov(0.0)
+	var reference_fit := RunnerCameraComposition.reference_fit(1.2, reference_fov, false)
+	_check("camera_uses_reference_framing",
+			is_equal_approx(game.camera.position.y, maxf(reference_fit.y, 2.95))
+			and is_equal_approx(game.camera.position.z, reference_fit.x)
+			and is_equal_approx(game.camera.fov, reference_fov)
+			and is_equal_approx(game.camera.rotation_degrees.x, -reference_fit.z))
 	var ground_y := game.camera.position.y
 	game.player.position.y = 2.0
 	game._place_camera(0.0, true)
@@ -275,6 +287,28 @@ func _test_layout_and_retry() -> void:
 	_check("camera_preserves_intro_move",
 			game.camera.position.y > game._layout.runner_chase_height
 			and game.camera.position.z > game._layout.runner_chase_distance)
+	# Both backends use the reference composition. The authored path measures
+	# the selected model instead of inheriting the procedural body height.
+	game._camera_hero_height = authored_height
+	game._intro_t = 0.0
+	game._place_camera(0.0, true)
+	var actual_size := game.camera.get_viewport().get_visible_rect().size
+	var sole := game.camera.unproject_position(Vector3.ZERO) / actual_size
+	var crown := game.camera.unproject_position(Vector3.UP * authored_height) / actual_size
+	# Current rear-view reference targets are 11.5% portrait / 12.5% landscape;
+	# 15.5% belonged to the retired high-angle camera composition.
+	var expected_fraction := 0.115 if actual_size.y >= actual_size.x else 0.125
+	_check("camera_matches_active_hero_backend",
+		(authored_height > 0.0 and absf(sole.y - crown.y - expected_fraction) < 0.005)
+		or (authored_height == 0.0 and not game.player._visual.is_authored_backend_active()
+			and not game.player._visual.is_reviewed_runner_visible()),
+		"height=%.6f frame=%.6f" % [authored_height, sole.y - crown.y])
+	_check("authored_camera_preserves_tunnel_clearance", game.camera.position.y >= 2.95)
+	var authored_ground := game.camera.position
+	game._intro_t = 1.0
+	game._place_camera(0.0, true)
+	_check("authored_camera_preserves_intro_move", game.camera.position.y > authored_ground.y
+		and game.camera.position.z > authored_ground.z)
 	for size: Vector2 in [Vector2(540, 960), Vector2(960, 540), Vector2(1600, 1200)]:
 		var profile := LayoutProfile.for_view_size(size)
 		_check("hero_target_%dx%d" % [int(size.x), int(size.y)],
@@ -287,9 +321,12 @@ func _test_layout_and_retry() -> void:
 	game.restart()
 	_check("retry_replaces_player", game.player != old_player
 			and game.player.state == RunnerPlayer.State.RUN)
-	_check("retry_resets_run_state", not game._dead and not game.running
-			and game.fish == 0 and game.hits_taken == 0)
+	_check("retry_resets_run_state", not game._dead and game.running
+		and game.player._input_enabled
+		and game.fish == 0 and game.hits_taken == 0)
 	_check("retry_reconnects_presentation", game.player.presentation_event.is_connected(
 			game._on_presentation_event))
+	_check("retry_refreshes_camera_height", is_equal_approx(game._camera_hero_height,
+		RunnerCameraComposition.authored_height(game.player._visual)))
 	game.queue_free()
 	await get_tree().process_frame

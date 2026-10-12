@@ -25,7 +25,7 @@ const DEVICES: Array[Vector2i] = [
 
 ## Touch scales a player can pick, so the check covers the extremes of the
 ## setting rather than only its default.
-const TOUCH_SCALES: PackedFloat32Array = [0.5, 1.0, 2.0]
+const TOUCH_SCALES: PackedFloat32Array = [0.5, 1.0, 1.4, 2.0]
 
 ## A couple of pixels of overlap is a rounding artefact, not a collision.
 const TOLERANCE: float = 2.0
@@ -58,6 +58,7 @@ func _ready() -> void:
 		return
 	GameConfig.force_touch = true
 	LayoutProfile.forced_insets = Vector4.ZERO
+	SettingsManager.set_setting("accessibility", "hud_scale", 1.0)
 	DisplayServer.window_set_position(Vector2i(40, 60))
 	DisplayServer.window_move_to_foreground()
 
@@ -77,6 +78,7 @@ func _check_device(size: Vector2i) -> void:
 	var viewport := get_viewport()
 	var profile := LayoutProfile.for_viewport(viewport)
 	var canvas := viewport.get_visible_rect().size
+	var manager := _inert_race_state()
 	for scale: float in TOUCH_SCALES:
 		# Both sides read the same setting: the buttons size themselves from
 		# it, and the HUD's rail stops short of where they land. Building the
@@ -84,9 +86,12 @@ func _check_device(size: Vector2i) -> void:
 		# two disagree.
 		SettingsManager.set_setting("gameplay", "touch_scale", scale)
 		var hud := RaceHUD.new()
+		hud.manager = manager
+		hud.player = manager.player
 		add_child(hud)
-		# The HUD builds its chrome from the viewport alone; a manager is only
-		# needed for live values, which this does not read.
+		hud.set_process(false)
+		# Chrome seeds the position card and builds the real minimap from race
+		# state. Keep these genuine inputs inert; no gameplay simulation runs.
 		hud.build_chrome_for_test()
 		for _i: int in 3:
 			await get_tree().process_frame
@@ -94,10 +99,25 @@ func _check_device(size: Vector2i) -> void:
 		var label := "%dx%d s%.1f" % [size.x, size.y, scale]
 		if buttons.is_empty():
 			_check("%s buttons_placed" % label, false, "no rects")
+			hud.queue_free()
+			await get_tree().process_frame
 			continue
 		var cluster := TouchControls.action_cluster_rect(profile, scale)
 		_check("%s cluster_measured" % label, cluster.size.x > 0.0,
 			"cluster footprint was empty")
+		if profile.is_portrait():
+			# Endless' score/storm caption changes the clock card's width. The
+			# real Android build showed that it grazed the touch pause target.
+			hud.set_endless_status(999999, 12345.0, 9999.0)
+			for _i: int in 2:
+				await get_tree().process_frame
+			var time_card := hud.time_card_rect_for_test()
+			var pause := buttons["pause"] as Rect2
+			var top_overlap := time_card.intersection(pause)
+			_check("%s endless_clock_clear_of_pause" % label,
+				top_overlap.size.x <= TOLERANCE or top_overlap.size.y <= TOLERANCE,
+				"overlap %.0fx%.0f at %s" % [top_overlap.size.x,
+					top_overlap.size.y, top_overlap.position])
 
 		for entry: Dictionary in hud.bottom_rail_rects_for_test():
 			var rect := entry["rect"] as Rect2
@@ -130,6 +150,30 @@ func _check_device(size: Vector2i) -> void:
 
 		hud.queue_free()
 		await get_tree().process_frame
+	manager.free()
+
+
+func _inert_race_state() -> RaceManager:
+	# Keep the whole state outside SceneTree: CourseBase._ready would create
+	# VFX pools, and RaceManager.setup would spawn and start actual racers.
+	var manager := RaceManager.new()
+	var course := CourseBase.new()
+	var curve := Curve3D.new()
+	curve.add_point(Vector3.ZERO)
+	curve.add_point(Vector3(0.0, 0.0, -100.0))
+	curve.add_point(Vector3(20.0, 0.0, -200.0))
+	course.main_guide = PathGuide.new(curve)
+	course.finish_offset = course.main_guide.length
+	manager.course = course
+	manager.add_child(course)
+	for index: int in 8:
+		var racer := Racer.new()
+		racer.course = course
+		racer.is_player = index == 0
+		manager.racers.append(racer)
+		manager.add_child(racer)
+	manager.player = manager.racers[0]
+	return manager
 
 
 func _check(check_name: String, ok: bool, detail: String = "") -> void:

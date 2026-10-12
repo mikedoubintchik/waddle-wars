@@ -51,6 +51,10 @@ var _finale_burst: CPUParticles3D = null
 var _step_satisfied: bool = false
 var _shoves_landed: int = 0
 var _finished: bool = false
+## Deferred actor setup and loading presentation finish independently. Neither
+## the first lesson nor actor physics may start until both are complete.
+var _spawn_ready: bool = false
+var _presentation_started: bool = false
 
 
 func setup_tutorial(p_course: CourseTutorial, p_powerups: PowerupSystem) -> void:
@@ -60,11 +64,16 @@ func setup_tutorial(p_course: CourseTutorial, p_powerups: PowerupSystem) -> void
 	course.racer_crossed_finish.connect(_on_finish)
 
 	player = Racer.new()
+	player.set_physics_process(false)
+	# Entering the tree enables scripted physics callbacks again. Reapply the
+	# hold after Racer._ready(), synchronously before any physics frame runs.
+	player.ready.connect(player.set_physics_process.bind(false), CONNECT_ONE_SHOT)
 	var controller: RacerController
 	if RaceManager.autopilot_player:
 		controller = AIController.new()
 	else:
 		controller = PlayerController.new()
+		(controller as PlayerController).input_enabled = false
 	get_parent().add_child.call_deferred(player)
 	var equipped := Progression.equipped()
 	var body_info := CosmeticsDB.get_item(String(equipped.get("body", "body_classic")))
@@ -86,6 +95,8 @@ func setup_tutorial(p_course: CourseTutorial, p_powerups: PowerupSystem) -> void
 	# Practice buddy: a patient AI penguin that waddles slowly near the shove
 	# zone so the player has someone to (gently) practice on.
 	buddy = Racer.new()
+	buddy.set_physics_process(false)
+	buddy.ready.connect(buddy.set_physics_process.bind(false), CONNECT_ONE_SHOT)
 	var buddy_controller := RacerController.new()
 	get_parent().add_child.call_deferred(buddy)
 	buddy.setup.call_deferred("buddy", "Coach Wobbles", false, {
@@ -128,7 +139,14 @@ func _after_spawn() -> void:
 	_build_celebration_fx()
 	_define_steps()
 	AudioManager.play_music("music_title")
-	_advance_step()
+	# This deferred boundary includes both actors and the tutorial's camera,
+	# prompts and celebration resources; race.gd runs before they exist.
+	_start_visual_warmup()
+	_spawn_ready = true
+
+
+func _start_visual_warmup() -> void:
+	ShaderWarmup.warm(get_parent())
 
 
 ## Lesson card (top center): accent-tinted themed panel holding the lesson
@@ -395,7 +413,29 @@ func _on_player_state(_new_state: Racer.State) -> void:
 
 
 func _physics_process(_delta: float) -> void:
-	if _finished or _step_index < 0 or _step_index >= _steps.size() or player == null or not is_instance_valid(player):
+	if _finished:
+		return
+	if not _presentation_started:
+		if not _spawn_ready or not SceneRouter.is_gameplay_ready(get_parent()):
+			return
+		if not is_instance_valid(player) or not is_instance_valid(buddy) \
+				or player.controller == null or buddy.controller == null:
+			return
+		_presentation_started = true
+		for racer: Racer in [player, buddy]:
+			if racer.controller is PlayerController:
+				var human := racer.controller as PlayerController
+				human.clear_pending_actions()
+				human.input_enabled = true
+			else:
+				racer.controller.consume_jump()
+				racer.controller.consume_edges()
+			racer.set_physics_process(true)
+		_advance_step()
+		# This first eligible tick may include time spent behind the loader.
+		# Show lesson one without applying that delta or progressing a lesson.
+		return
+	if _step_index < 0 or _step_index >= _steps.size() or player == null or not is_instance_valid(player):
 		return
 	var step := _steps[_step_index]
 	if step.has("until_progress") and player.progress >= float(step["until_progress"]):

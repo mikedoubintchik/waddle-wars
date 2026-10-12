@@ -1,0 +1,24 @@
+; Tangent normal data only. Never reuse this profile for ORM or RGBA masks.
+[remap]
+importer="texture"
+type="CompressedTexture2D"
+
+[params]
+compress/mode=2
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/normal_map=1
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+process/channel_remap/red=0
+process/channel_remap/green=1
+process/channel_remap/blue=2
+process/channel_remap/alpha=3
+process/fix_alpha_border=false
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/size_limit=0
+detect_3d/compress_to=0

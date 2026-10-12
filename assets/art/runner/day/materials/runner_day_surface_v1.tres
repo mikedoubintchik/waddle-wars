@@ -11,5 +11,5 @@ shader = ExtResource("4_shader")
 shader_parameter/painted_albedo = ExtResource("1_albedo")
 shader_parameter/painted_normal = ExtResource("2_normal")
 shader_parameter/packed_orm = ExtResource("3_orm")
-shader_parameter/normal_strength = 0.82
+shader_parameter/normal_strength = 0.76
 shader_parameter/emission_lift = 0.065

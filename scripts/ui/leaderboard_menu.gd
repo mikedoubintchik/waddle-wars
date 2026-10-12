@@ -14,7 +14,7 @@ extends Control
 ## uppercase letter-spaced caption, and one promoted primary action in solid
 ## glacier blue (Challenge Friends) with every secondary kept quieter.
 
-## Board tabs: one per race course, plus Endless.
+## Separate boards for Waddle Run points, each race's best time, and Expedition.
 ##
 ## Built from CoursesDB rather than hand-listed. The hand-listed version named
 ## three courses, so the two added after it had no board at all -- a course you
@@ -22,6 +22,9 @@ extends Control
 ## Anything added to the roster from here on gets a tab for free.
 static func tabs() -> Array[Dictionary]:
 	var list: Array[Dictionary] = []
+	list.append({"mode": "runner", "course": "runner", "label": "Waddle Run"})
+	if not GameConfig.RACE_VISIBLE_IN_MVP:
+		return list
 	for id: String in CoursesDB.ORDER:
 		var info := CoursesDB.get_item(id)
 		# First word of the course name: "Glacier Gauntlet" -> "Glacier". Tabs
@@ -30,8 +33,23 @@ static func tabs() -> Array[Dictionary]:
 		var space := full.find(" ")
 		list.append({"mode": "time", "course": id,
 			"label": full.substr(0, space) if space > 0 else full})
-	list.append({"mode": "endless", "course": "endless", "label": "Endless"})
+	list.append({"mode": "endless", "course": "endless", "label": "Expedition"})
 	return list
+
+
+static func initial_tab_index() -> int:
+	var list := tabs()
+	var course := Game.course_id
+	if Game.mode == Game.Mode.RUNNER:
+		course = "runner"
+	elif Game.mode == Game.Mode.ENDLESS:
+		course = "endless"
+	elif Progression.runner_high_score() > 0 and Progression.best_time(course) <= 0.0:
+		course = "runner"
+	for i: int in list.size():
+		if String(list[i]["course"]) == course:
+			return i
+	return 0
 
 ## Authored width of the board column on the 1920x1080 desktop canvas.
 const CARD_WIDTH: float = 880.0
@@ -99,6 +117,8 @@ var _list_box: VBoxContainer
 var _state_box: VBoxContainer
 var _header_row: Control
 var _board_caption: Label
+var _board_hint: Label
+var _own_rank_label: Label
 var _value_caption: Label
 var _records_box: VBoxContainer
 var _status_label: Label
@@ -111,6 +131,10 @@ var _auth_card: PanelContainer = null
 var _name_row: HBoxContainer = null
 var _name_edit: LineEdit = null
 var _name_status: Label = null
+var _post_button: Button = null
+var _post_status: Label = null
+var _post_busy: bool = false
+var _post_text: String = ""
 var _fetch_serial: int = 0
 ## Extra enlargement for tall/narrow (portrait) viewports — see _tall_boost().
 var _boost: float = 1.0
@@ -126,7 +150,7 @@ func _ready() -> void:
 	UITheme.make_background(self)
 	UITheme.apply_ui_scale(self)
 	var initial := UtilityScreenLayout.bind_view_class(self, _on_view_class_changed)
-	_build_layout(initial, true, 0.0, 0)
+	_build_layout(initial, true, 0.0, initial_tab_index())
 	UITheme.attach_swipe_back(self, _go_back)
 	LeaderboardClient.auth_changed.connect(_on_auth_changed)
 	AudioManager.play_music("music_title")
@@ -148,6 +172,8 @@ func _build_layout(next: LayoutProfile, animate: bool, scroll_fraction: float,
 	_state_box = null
 	_header_row = null
 	_board_caption = null
+	_board_hint = null
+	_own_rank_label = null
 	_value_caption = null
 	_records_box = null
 	_status_label = null
@@ -160,6 +186,8 @@ func _build_layout(next: LayoutProfile, animate: bool, scroll_fraction: float,
 	_name_row = null
 	_name_edit = null
 	_name_status = null
+	_post_button = null
+	_post_status = null
 	_boost = _tall_boost()
 	_card_width = _measure_card_width()
 	_fit = clampf(_card_width / maxf(UITheme.scaled(CARD_WIDTH), 1.0), 0.42, 1.0)
@@ -291,7 +319,7 @@ func _build_layout(next: LayoutProfile, animate: bool, scroll_fraction: float,
 	_select_tab(clampi(selected_tab, 0, maxi(tabs().size() - 1, 0)))
 	UtilityScreenLayout.restore_scroll_fraction(self, _scroll, scroll_fraction)
 	if animate and not _tab_buttons.is_empty():
-		_tab_buttons[0].grab_focus()
+		_tab_buttons[_tab_index].grab_focus()
 
 
 ## Staggered opacity-only cascade for the card stack. Never touches position,
@@ -558,6 +586,13 @@ func _build_board_card(parent: Control) -> PanelContainer:
 	# an error block does not resize the page under the player's finger.
 	(box.get_parent() as PanelContainer).custom_minimum_size.y = _u(300.0)
 	_board_caption = _card_title(box, "Glacier Gauntlet · Best Times")
+	_board_hint = UITheme.sub_label("", _f(17))
+	_board_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(_board_hint)
+	_own_rank_label = UITheme.sub_label("", _f(18))
+	_own_rank_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_own_rank_label.add_theme_color_override("font_color", UITheme.COLOR_GOLD)
+	box.add_child(_own_rank_label)
 
 	# Column captions sit on the same fixed widths as the data cells, indented to
 	# match the row content margins so headings sit over their columns.
@@ -770,7 +805,8 @@ func _clear_board() -> void:
 func _show_loading(tab: Dictionary) -> void:
 	_clear_board()
 	_header_row.visible = true
-	_status_label.text = "Fetching %s times…" % String(tab["label"])
+	_status_label.text = "Fetching %s %s…" % [String(tab["label"]),
+		"times" if String(tab["mode"]) == "time" else "scores"]
 	for i: int in SKELETON_ROWS:
 		_list_box.add_child(_skeleton_row(i))
 	var block := VBoxContainer.new()
@@ -895,6 +931,10 @@ func _refresh_records() -> void:
 		child.free()
 	var active_course := String(tabs()[_tab_index]["course"])
 	var index := 0
+	var runner_best := Progression.runner_high_score()
+	_records_box.add_child(_record_row("Waddle Run",
+		"—" if runner_best <= 0 else _fmt_int(runner_best), active_course == "runner", index))
+	index += 1
 	for course_id: String in CoursesDB.ORDER:
 		var best := Progression.best_time(course_id)
 		_records_box.add_child(_record_row(
@@ -963,12 +1003,7 @@ func _build_auth_card(parent: Control) -> void:
 		_auth_button.add_theme_color_override("font_color", UITheme.COLOR_ACCENT)
 		_auth_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		UITheme.hook_sounds(_auth_button)
-		_auth_button.pressed.connect(func() -> void:
-			if LeaderboardClient.signed_in:
-				LeaderboardClient.sign_out()
-			else:
-				_auth_button.text = "Opening…"
-				LeaderboardClient.sign_in())
+		_auth_button.pressed.connect(AccountAuthPresentation.activate)
 		row.add_child(_auth_button)
 
 	# Signed-in players pick the name shown on the boards.
@@ -1031,6 +1066,16 @@ func _build_auth_card(parent: Control) -> void:
 	_name_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_name_status.visible = false
 	box.add_child(_name_status)
+	_post_button = UITheme.make_button("Post local best", _row_size(Vector2(0, 48)), _f(20))
+	_post_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_post_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_post_button.clip_text = true
+	UITheme.hook_sounds(_post_button)
+	_post_button.pressed.connect(_post_local_best)
+	box.add_child(_post_button)
+	_post_status = UITheme.sub_label(_post_text, _f(17))
+	_post_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(_post_status)
 	_refresh_auth_row()
 
 
@@ -1047,25 +1092,69 @@ func _refresh_auth_row() -> void:
 	if LeaderboardClient.can_sign_in():
 		if LeaderboardClient.signed_in:
 			_auth_title.text = "ACCOUNT"
-			_auth_label.text = "Signed in as %s. Your times post automatically and your progress backs up to the cloud." % LeaderboardClient.display_name
+			_auth_label.text = "Signed in as %s. New completed signed-in runs post automatically. Older local records need Post local best. Choose a public board name below; otherwise you appear as Penguin." % LeaderboardClient.display_name
 			_auth_button.text = "Sign Out"
 			_auth_button.add_theme_color_override("font_color", UITheme.COLOR_TEXT_DIM)
 		else:
-			_auth_title.text = "POST YOUR TIMES"
-			_auth_label.text = "Sign in to put your runs on the global board and back your progress up to the cloud."
-			_auth_button.text = "Opening…" if LeaderboardClient.sign_in_pending else "Sign In"
+			_auth_title.text = "POST YOUR RECORDS"
+			_auth_label.text = "Guest records stay on this device, not the global board. Sign in to save online and post a local best. Race times, Waddle Run and Expedition have separate boards."
+			_auth_label.text = AccountAuthPresentation.message(_auth_label.text)
 			_auth_button.add_theme_color_override("font_color", UITheme.COLOR_ACCENT)
+		AccountAuthPresentation.update_button(_auth_button, "Sign In")
 	else:
-		_auth_title.text = "POST YOUR TIMES"
-		_auth_label.text = "Browsing works everywhere, but posting needs the web version — play at %s to claim a spot on these boards." % \
+		_auth_title.text = "BROWSE GLOBAL RECORDS"
+		_auth_label.text = "This build keeps your records offline. Posting needs sign-in on the web version — play at %s to claim a spot." % \
 			ShareManager.SHARE_URL.trim_prefix("https://")
+		if GameConfig.native_offline_mvp():
+			_auth_label.text += " Native boards use Penguin rank aliases."
 	if _name_row != null:
 		_name_row.visible = LeaderboardClient.can_sign_in() and LeaderboardClient.signed_in
 		if _name_row.visible and _name_edit.text.is_empty():
 			var stored := String(SettingsManager.get_setting("online", "display_name"))
-			_name_edit.text = stored if not stored.is_empty() else LeaderboardClient.display_name
+			# Never prefill a private sign-in name into a public-name editor.
+			_name_edit.text = stored
 		if not _name_row.visible and _name_status != null:
 			_name_status.visible = false
+	_refresh_post_action()
+
+
+func _refresh_post_action() -> void:
+	if _post_button == null:
+		return
+	var tab: Dictionary = tabs()[_tab_index]
+	var value := LeaderboardClient.local_board_value(String(tab["mode"]), String(tab["course"]))
+	_post_button.visible = AccountAuthPresentation.account_surface_enabled() \
+		and LeaderboardClient.can_sign_in() and LeaderboardClient.signed_in and value > 0
+	_post_button.disabled = _post_busy
+	_post_button.text = "Posting…" if _post_busy else "Post local best · %s" % \
+		LeaderboardClient.format_value(String(tab["mode"]), value)
+	_post_button.tooltip_text = "%s · %s" % [_board_name(tab), _post_button.text]
+	_post_button.accessibility_name = _post_button.tooltip_text
+	_post_status.text = _post_text
+	_post_status.visible = not _post_text.is_empty() and AccountAuthPresentation.account_surface_enabled()
+
+
+func _post_local_best() -> void:
+	if _post_busy or not LeaderboardClient.signed_in or not AccountAuthPresentation.account_surface_enabled():
+		return
+	var tab: Dictionary = tabs()[_tab_index]
+	var mode := String(tab["mode"])
+	var course := String(tab["course"])
+	var value := LeaderboardClient.local_board_value(mode, course)
+	if value <= 0:
+		return
+	_post_busy = true
+	_post_text = "Posting your saved %s record…" % _board_name(tab)
+	_refresh_post_action()
+	LeaderboardClient.submit_score(mode, course, value, func(ok: bool, data: Dictionary) -> void:
+		_post_busy = false
+		_post_text = "%s · Your global rank #%d" % [_board_name(tab), int(data.get("rank", 0))] \
+			if ok else "Could not post %s. Your local record is safe; retry when signed in and online." % _board_name(tab)
+		if not is_inside_tree():
+			return
+		_refresh_post_action()
+		if tabs()[_tab_index] == tab:
+			_select_tab(_tab_index))
 
 
 ## --- Call to action ---------------------------------------------------------
@@ -1137,7 +1226,12 @@ func _select_tab(index: int) -> void:
 	_board_caption.text = ("%s · %s" % [
 		_board_name(tab), "Best Times" if mode == "time" else "High Scores"]).to_upper()
 	_value_caption.text = "TIME" if mode == "time" else "SCORE"
+	_board_hint.text = "Time Trial · fastest completed time wins." if mode == "time" \
+		else ("Waddle Run · avalanche chase points. Higher score wins." if mode == "runner" \
+		else "Endless Expedition · race-course survival points. Separate from Waddle Run.")
+	_own_rank_label.text = ""
 	_refresh_records()
+	_refresh_post_action()
 	_set_busy(true)
 	_show_loading(tab)
 	_fetch_serial += 1
@@ -1161,33 +1255,50 @@ func _receive_board(ok: bool, data: Dictionary, tab: Dictionary, serial: int) ->
 func _populate(ok: bool, data: Dictionary, tab: Dictionary) -> void:
 	_set_busy(false)
 	if not ok:
-		_show_message(ICON_OFFLINE, "Board unreachable",
-			"We couldn't reach the global leaderboard. Check your connection — your local records below are always available.",
-			"Try Again", func() -> void: _select_tab(_tab_index))
+		_own_rank_label.text = "Global rank unavailable. Local records are not lost."
+		var problem := String(data.get("error", ""))
+		if problem == "bad params" or problem.begins_with("http 400"):
+			_show_message(ICON_OFFLINE, "Run board updating",
+				"The live server has not enabled Waddle Run scores yet. Your local record is safe; this is not your connection.",
+				"Try Again", func() -> void: _select_tab(_tab_index))
+		else:
+			_show_message(ICON_OFFLINE, "Board unreachable",
+				"We couldn't reach the global leaderboard. Your local record below is safe.",
+				"Try Again", func() -> void: _select_tab(_tab_index))
 		return
 	var entries: Array = data.get("entries", [])
+	var mode := String(tab["mode"])
+	var me: Variant = data.get("me")
+	var my_rank := int((me as Dictionary).get("rank", -1)) if me is Dictionary else -1
+	_own_rank_label.text = "Your global rank #%d · %s" % [my_rank,
+		LeaderboardClient.format_value(mode, int(me.get("value", 0)))] if my_rank > 0 \
+		else ("No posted record on this board. Post your local best below." if LeaderboardClient.signed_in \
+		else "Sign in on web to post and see your own global rank.")
 	if entries.is_empty():
-		_show_message(UITheme.ICON_PODIUM, "No times posted yet",
-			"Nobody has claimed %s. Set a run and the top of this board is yours." % _board_name(tab),
+		_show_message(UITheme.ICON_PODIUM, "No %s posted yet" % ("times" if mode == "time" else "scores"),
+			"No public records for %s yet. Guest/local records do not appear until posted while signed in." % _board_name(tab),
 			"", Callable())
 		return
 	_clear_board()
 	_header_row.visible = true
-	var mode := String(tab["mode"])
-	var me: Variant = data.get("me")
-	var my_rank := int((me as Dictionary).get("rank", -1)) if me is Dictionary else -1
 	var index := 0
+	var own_row_shown := false
 	for entry: Variant in entries:
 		if not (entry is Dictionary):
 			continue
 		var row := entry as Dictionary
 		var rank := int(row.get("rank", 0))
+		# Equal scores/ranks/names do not identify an account. New responses
+		# carry an authenticated is_me flag; older backends get a separate You row.
+		var owns_row: Variant = row.get("is_me", false)
+		var is_me := owns_row is bool and bool(owns_row) and LeaderboardClient.signed_in
+		own_row_shown = own_row_shown or is_me
 		_list_box.add_child(_make_row(
 			rank, String(row.get("name", "?")),
 			LeaderboardClient.format_value(mode, int(row.get("value", 0))),
-			rank == my_rank and LeaderboardClient.signed_in, index))
+			is_me, index))
 		index += 1
-	if me is Dictionary and my_rank > entries.size():
+	if me is Dictionary and my_rank > 0 and not own_row_shown and LeaderboardClient.signed_in:
 		_list_box.add_child(_gap_marker())
 		_list_box.add_child(_make_row(
 			my_rank, "You",
@@ -1201,6 +1312,8 @@ func _populate(ok: bool, data: Dictionary, tab: Dictionary) -> void:
 static func _board_name(tab: Dictionary) -> String:
 	if String(tab["mode"]) == "time":
 		return CoursesDB.display_name(String(tab["course"]))
+	if String(tab["mode"]) == "runner":
+		return "Waddle Run"
 	return "Endless Expedition"
 
 
@@ -1228,7 +1341,7 @@ func _gap_marker() -> Control:
 
 
 func _go_back() -> void:
-	SceneRouter.go_to(Game.SCENE_MAIN_MENU)
+	SceneRouter.go_back()
 
 
 func _unhandled_input(event: InputEvent) -> void:
