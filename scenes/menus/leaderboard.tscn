@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://scripts/ui/leaderboard_menu.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/ui/leaderboard_premium.gd" id="1"]
 
 [node name="Leaderboard" type="Control"]
 layout_mode = 3

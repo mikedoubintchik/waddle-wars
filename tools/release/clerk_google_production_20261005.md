@@ -1,0 +1,25 @@
+# Clerk Production Google login checkpoint — 2026-10-05 EDT
+
+- Google Cloud project `waddle-wars-penguin-panic` (number `824411325688`) was accessed through the selected `mike.doubintchik@gmail.com` account. OAuth branding was created for Waddle Wars with external audience, Mike's support/developer contact, `https://waddlewars.ninjaconsulting.ai/` home, and published privacy URL.
+- Web OAuth client `Waddle Wars Clerk Production` was created with only `https://clerk.waddlewars.ninjaconsulting.ai/v1/oauth_callback` as redirect. Its client ID and secret were saved to the correct Waddle Wars **Production** Clerk instance `ins_3KDgVIIHNQctHw6mIy8yKJXZ3No`; secret is intentionally absent from this receipt. Clerk reload reports Google OAuth **Enabled** and “Users can authenticate with this provider.”
+- Google Auth Platform Audience reload reports **In production**, External. No app logo or sensitive/restricted Google scopes were added. Clerk scopes remain `openid`, `userinfo.email`, `userinfo.profile`.
+- Live hosted account portal `https://accounts.waddlewars.ninjaconsulting.ai/sign-in` offered “Continue with Google.” The flow reached Google's account chooser for the same client ID and exact Clerk callback, then the Mike account consent with name/profile picture and email. After consent, Clerk callback displayed Cloudflare “Verify you are human.” End-to-end Clerk session **not yet verified**.
+- Published `web/oauth-home.html` and `web/oauth-privacy.html` to the live R2 web bucket at `https://waddlewars.ninjaconsulting.ai/oauth-home.html` and `/oauth-privacy.html`, respectively. Google branding URLs were updated to these public pages. Automated brand review still rejected the home page, claiming it could not confirm app purpose/compliance and citing the general AI NCII prohibition. The page explicitly describes the penguin racing game; do not treat this rejection as evidence that the game uses such content. A new `waddlewars.io` homepage is planned before requesting another review.
+- Google consent's displayed destination remains the `ninjaconsulting.ai` Clerk callback. Clerk's production domain must move to `waddlewars.io` and the Google OAuth redirect must be updated after the new domain is live; changing Clerk's domain also rotates its publishable key and can cause downtime, per Clerk's change-domain documentation.
+- Current game and Worker still use development Clerk issuer/key. No frontend/backend cutover, save migration, or native build was performed here. The one legacy development save remains in place.
+
+## New domain update, October 5 late evening EDT
+
+- Owner purchased `waddlewars.io`; Cloudflare zone and Worker routes now exist. Google Search Console verified ownership under Mike's account, and Google Auth Platform saved `waddlewars.io` as an authorized domain.
+- OAuth client redirect list now includes `https://clerk.waddlewars.io/v1/oauth_callback` alongside the prior callback during cutover. Clerk Production primary domain changed to `waddlewars.io`. New Frontend API, Account portal, and all three new email DNS records were verified in Clerk. Clerk SSL certificates now report **Issued**.
+- Google branding home is `https://waddlewars.io/`; privacy is `https://waddlewars.io/oauth-privacy.html`. Re-verification succeeded, and Google reports the verified branding is being shown to users.
+- Cloudflare reports active DNSSEC and public resolvers serve the matching DS. The Mac's Surfshark resolver temporarily cached the prior DS; that expired before the verified cutover below. Game and leaderboard Worker still use the development Clerk pair.
+
+## Verified cutover, October 6 UTC
+
+- Surfshark's stale DS cache expired; local DNS and HTTPS resolve normally. Chrome's Google chooser displayed “continue to Waddle Wars” and used `https://clerk.waddlewars.io/v1/oauth_callback`. Choosing `mike.doubintchik@gmail.com` returned to the new apex. The Clerk sign-in URL subsequently redirected to the apex, consistent with an active account session.
+- Removed the legacy `ninjaconsulting.ai` callback from the Google OAuth client. Google confirmed “OAuth client saved”; readback showed only `https://clerk.waddlewars.io/v1/oauth_callback`. The former authorized domain remains in Branding because its removal is unnecessary for the new callback and may trigger another brand review.
+- The `play.waddlewars.io` Godot page rendered its title screen. It and the leaderboard Worker still use the development Clerk pair; production Google sign-in is verified at the hosted account portal, but production account identity is **not yet integrated into the game**. Pair that cutover after the active Release chat freezes its web candidate and save continuity is checked.
+
+Evidence: `tools/release/store_assets/google-oauth-production-20261005.png`, `tools/release/store_assets/clerk-google-enabled-20261005.png`, `tools/release/store_assets/clerk-google-human-check-20261005.png`.
+New-domain proof: `tools/release/store_assets/clerk-waddlewars-io-verified-20261005.png`, `tools/release/store_assets/google-waddlewars-branding-verified-20261005.png`.

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="How to request deletion of Waddle Wars: Penguin Panic mobile data.">
+  <link rel="canonical" href="https://waddlewars.io/native/delete-data.html">
+  <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png">
+  <title>Mobile Data Deletion — Waddle Wars: Penguin Panic</title>
+  <style>
+:root { color-scheme: dark; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #edf4ff; background: #081829; line-height: 1.65; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+a { color: #a6dcff; text-underline-offset: .2em; }
+a:hover { color: #fff; }
+a:focus-visible { outline: 3px solid #ffd56d; outline-offset: 5px; }
+.skip { position: absolute; left: 1rem; top: -8rem; }
+.skip:focus { top: 1rem; background: #081829; padding: .7rem; z-index: 1; }
+.page { max-width: 880px; margin: auto; padding: 32px 24px 56px; }
+header { border-bottom: 1px solid #344e65; padding-bottom: 24px; }
+.brand { color: #a6dcff; font-size: .82rem; letter-spacing: .15em; text-transform: uppercase; }
+h1 { margin: .3rem 0 .5rem; font-size: clamp(2.2rem, 8vw, 3.7rem); line-height: 1.1; letter-spacing: -.04em; }
+.lead { max-width: 660px; font-size: 1.12rem; color: #c4d6e7; }
+nav { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-top: 22px; }
+.contact { border: 1px solid #344e65; background: #10283e; border-radius: 12px; padding: 16px 20px; margin: 26px 0; }
+.contact p { margin: .4rem 0; }
+section { margin: 32px 0; }
+h2 { font-size: 1.35rem; line-height: 1.3; margin-bottom: .6rem; }
+p { margin: .6rem 0; }
+ol { padding-left: 1.5rem; }
+li { margin: .5rem 0; }
+.warning { border-left: 3px solid #ffd56d; padding-left: 16px; }
+footer { color: #c4d6e7; font-size: .9rem; border-top: 1px solid #344e65; margin-top: 40px; padding-top: 20px; }
+@media (max-width: 480px) { .page { padding: 24px 18px 40px; } }
+@media print { :root { color-scheme: light; color: #111; background: #fff; } a, .brand, .lead, footer { color: #111; } .contact { background: #fff; border-color: #666; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <div class="page">
+    <header>
+      <div class="brand">Waddle Wars: Penguin Panic · Ninja Consulting LLC</div>
+      <h1>Request mobile data deletion</h1>
+      <p class="lead">Supported iOS builds offer optional accounts. Android and earlier iOS builds keep progress local. Choose the instructions for the data you want to remove.</p>
+      <nav aria-label="Information pages"><a href="privacy.html">Mobile privacy policy</a><a href="support.html">Mobile support</a></nav>
+    </header>
+    <main id="main">
+      <section class="contact" aria-labelledby="request"><h2 id="request">Delete a supported iOS account</h2>
+        <ol>
+          <li>On an iOS build with Sign In (starting with build 41), open Account → Privacy &amp; Data → Delete Account while connected to the account you want to delete.</li>
+          <li>Review the confirmation and confirm deletion. The server removes your game profile, leaderboard scores, cloud save, and native game-session records, and requests removal of the Clerk identity.</li>
+          <li>Use Check status if the request is interrupted or identity deletion is pending. Do not submit repeated requests after a connection error; the server may already have accepted the first request.</li>
+        </ol>
+        <p>Account deletion keeps earned offline progress on this device. It also keeps a local deletion-status receipt so you can check an unresolved request without exposing account credentials. Removing the app can remove that receipt.</p>
+        <p>Minimal account-retirement markers, hashed recovery receipts, and deletion-status records are retained to block delayed uploads from recreating deleted data and to report the request's status. Identity-provider cleanup and provider-held security records or backups may remain pending. The status does not claim every retained record has been erased. Contact support for questions about retained information; no fixed deletion deadline is promised for those records.</p>
+      </section>
+      <section aria-labelledby="support-request"><h2 id="support-request">Support and other privacy requests</h2>
+        <ol>
+          <li>Email <a href="mailto:support@waddlewars.io?subject=Waddle%20Wars%20mobile%20data%20deletion%20request">support@waddlewars.io</a> with the subject “Waddle Wars mobile data deletion request.” The in-app account deletion flow above does not require an email to support.</li>
+          <li>Say whether your request concerns an iOS account, a separate browser account, a support message, or a leaderboard request. Include only details needed to locate it, such as an approximate date and game mode. Do not send passwords, account tokens, deletion recovery receipts, or unrelated personal information.</li>
+          <li>We will review the request, ask for enough information to verify it where needed, and explain what we can delete or cannot locate.</li>
+        </ol>
+      </section>
+      <section aria-labelledby="local"><h2 id="local">Local game data</h2>
+        <p>Scores, fish, cosmetics, settings, missions and time-trial ghosts are stored locally. Supported signed-in iOS builds also synchronize earned progress and best results; settings and ghost files remain local. You can erase them by deleting the app or clearing its app storage on your device. This can permanently erase progress. Device backups may keep a separate copy under your operating-system backup settings.</p>
+      </section>
+      <section aria-labelledby="online"><h2 id="online">Online and support data</h2>
+        <p>Signed-in supported iOS builds upload earned progress and results as described in the <a href="privacy.html">privacy policy</a>. Android, earlier iOS builds, and signed-out play do not upload scores or local saves. When you open the Leaderboard, our Cloudflare-hosted service receives a request for public results. Cloudflare may process IP addresses and network/security information. We disabled our Workers Logs and Traces, but cannot promise that every provider-held routing or security record can be found or erased. We will pass applicable requests to Cloudflare where possible.</p>
+        <p>If you emailed support, we can delete routine correspondence from the publisher’s active mailbox. We retain it while the issue is open and normally delete it within 90 days after resolution. Limited records may be kept longer for legal, fraud or security reasons. Gmail backups and Cloudflare records follow provider practices; we do not promise a fixed deletion deadline for those copies.</p>
+        <p class="warning">The separate browser game may have a Clerk account and cloud data. Deleting mobile app data does not delete that browser account; identify it separately in your email if your request also concerns browser data.</p>
+      </section>
+    </main>
+    <footer>Waddle Wars: Penguin Panic · Ninja Consulting LLC · October 9, 2026.</footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,13 @@
+# Canonical art sources: binary, large, never needed by normal game builds.
+art_src/**/*.blend filter=lfs diff=lfs merge=lfs -text
+art_src/**/*.kra filter=lfs diff=lfs merge=lfs -text
+art_src/**/*.psd filter=lfs diff=lfs merge=lfs -text
+art_src/**/*.exr filter=lfs diff=lfs merge=lfs -text
+art_src/**/*.png filter=lfs diff=lfs merge=lfs -text
+
+# Unified-diff context prefixes are part of the patch format. Preserve exact
+# patch bytes used by pinned engine-build receipts.
+tools/release/engine_patches/*.patch whitespace=-blank-at-eol,-space-before-tab
+tools/release/review_patches/*.patch whitespace=-blank-at-eol,-space-before-tab
+# Original CSV delivery inventory uses CRLF record separators.
+art_src/ui/drive_archive_20261007/ASSET_INDEX.csv whitespace=cr-at-eol

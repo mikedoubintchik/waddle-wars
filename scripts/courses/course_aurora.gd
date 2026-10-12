@@ -132,7 +132,8 @@ func build_course() -> void:
 		p(-34, -9, -997, {"width": 18.0}),
 		p(-72, -9, -999, {"width": 18.0}),
 	]
-	setup_main(pts)
+	await setup_main(pts)
+	await stage()
 
 	# 5) Narrow ridge shortcut: width 7, NO walls, skips the switchback
 	# descent along an exposed spine right of the safe route (~110m saved).
@@ -147,9 +148,11 @@ func build_course() -> void:
 		p(56, 47.6, -858, {"width": 9.0, "surface": RICE, "wall_l": false, "wall_r": false}),
 		p(48, 46.4, -880, {"width": 9.0, "surface": RICE, "wall_l": false, "wall_r": false}),
 	]
-	var shortcut := add_branch(branch_pts, 0.7, "ridge_shortcut")
+	var shortcut := await add_branch(branch_pts, 0.7, "ridge_shortcut")
+	await stage()
 
 	finalize()
+	await stage()
 	_main_cum = _cum_lengths(main_guide)
 	_short_cum = _cum_lengths(shortcut)
 	# Convert the branch's entry/exit (index-space from add_branch) to true
@@ -157,6 +160,7 @@ func build_course() -> void:
 	var branch_info: Dictionary = branches[0]
 	branch_info["entry"] = _main_cum[clampi(int(float(branch_info["entry"]) / PathGuide.SAMPLE_SPACING), 0, _main_cum.size() - 1)]
 	branch_info["exit"] = _main_cum[clampi(int(float(branch_info["exit"]) / PathGuide.SAMPLE_SPACING), 0, _main_cum.size() - 1)]
+	await stage()
 
 	# --- Geometry-derived offsets (true arc space) --------------------------
 	var ridge_arc := _arc_near(Vector3(60, 80.6, -340))
@@ -171,6 +175,7 @@ func build_course() -> void:
 	var spiral_mid_arc := _arc_near(Vector3(80, 21.0, -1075))
 	var spiral_late_arc := _arc_near(Vector3(125, 7.0, -1030))
 	var spiral_end_arc := _arc_near(Vector3(80, -7.0, -985))
+	await stage()
 
 	# --- Windy ridge: three alternating crosswind zones --------------------
 	# Wind moves racers positionally (it bypasses velocity), so each zone is
@@ -197,6 +202,7 @@ func build_course() -> void:
 	_add_ridge_berms(ridge_arc - 20.0, cavern_arc + 6.0)
 	_ridge_clamp_start = ridge_arc - 16.0
 	_ridge_clamp_end = cavern_arc + 2.0
+	await stage()
 
 	# --- Icicle cavern: 9 icicles, weaving safe line -----------------------
 	var icicle_laterals: Array = [-4.0, 3.0, -2.0, 4.0, -3.0, 2.0, -4.0, 3.0, -2.0]
@@ -211,6 +217,7 @@ func build_course() -> void:
 	var cavern_mid_arc := (cavern_arc + cavern_end_arc) * 0.5
 	add_hint(cavern_arc - 25.0, "danger_left", cavern_mid_arc)
 	add_hint(cavern_mid_arc, "danger_right", cavern_end_arc)
+	await stage()
 
 	# --- Geyser field: 6 staggered geysers on the wide downhill ------------
 	# Kept well upstream of the corkscrew so launches land on the wide
@@ -223,6 +230,7 @@ func build_course() -> void:
 		geyser.phase_offset = float(geyser_phases[i])
 		geyser.position = main_guide.point_at(offset, float(geyser_laterals[i]), 0.0)
 		add_child(geyser)
+	await stage()
 
 	# --- Slide hints + boost pads for the descent finale -------------------
 	add_hint(geyser_arc - 25.0, "slide", spiral_end_arc)
@@ -231,6 +239,7 @@ func build_course() -> void:
 	add_hint(spiral_late_arc, "slide", spiral_end_arc)
 	TrackBuilder.add_boost_pad(self, main_guide, spiral_arc + 45.0, -2.5)
 	TrackBuilder.add_boost_pad(self, main_guide, spiral_arc + 125.0, 2.5)
+	await stage()
 
 	# More acceleration pads, each on a straight AFTER its corner fully
 	# completes (playtest: pads directly on hairpin exits boosted AI while
@@ -252,12 +261,14 @@ func build_course() -> void:
 	# left unhinted — racers are still building speed off the grid; the
 	# corkscrew-approach ice sits inside the geyser->spiral slide hint).
 	add_hint(_arc_near(Vector3(4, 50.8, -808)) - 8.0, "slide", _arc_near(Vector3(44, 47.8, -840)))
+	await stage()
 
 	# Shortcut: slide its steep tail. Branch hint offsets are main-line
 	# equivalents: lerp(entry, exit) by branch arc fraction (see get_guide).
 	var b_entry := float(branch_info["entry"])
 	var b_exit := float(branch_info["exit"])
 	add_hint(b_entry + (150.0 / shortcut.length) * (b_exit - b_entry), "slide", b_exit + 30.0, 0)
+	await stage()
 
 	# --- Pickups (arc offsets: placement space) ----------------------------
 	add_item_row(120.0)
@@ -280,6 +291,7 @@ func build_course() -> void:
 	add_fish_line(_arc_near(Vector3(40, 42.0, -938)), 10, 5.0, 5.0)
 	add_fish_line(spiral_arc + 35.0, 12, 6.0, 0.0)
 	add_fish_line(_arc_near(Vector3(80, -7.0, -985)) + 12.0, 8, 5.0, 0.0)
+	await stage()
 
 	# Twilight snowfield first: the peak rings, crystal spires, rock mesas and
 	# berg ring all seat themselves on it, so it must exist before the dressing
@@ -289,7 +301,8 @@ func build_course() -> void:
 	add_ground_plane(-32.0, Color(0.06, 0.08, 0.16), 4000.0,
 		VisualLibrary.snow_material(Color(0.36, 0.42, 0.74), 0.95))
 
-	_decorate()
+	await _decorate()
+	await stage()
 	_build_aurora()
 	_build_stars()
 	_build_moon()
@@ -303,7 +316,7 @@ func build_course() -> void:
 	# the moon visibly lights the snow: cool shading, ice speculars, and
 	# shadow direction all match the disc, and the small procedural-sky "sun"
 	# halo lands directly behind the moon billboard as its atmospheric glow.
-	build_environment({
+	await build_environment({
 		"sky_top": Color(0.02, 0.04, 0.12),
 		"sky_horizon": Color(0.3, 0.21, 0.43),
 		"ground_color": Color(0.05, 0.07, 0.16),
@@ -324,6 +337,16 @@ func build_course() -> void:
 		"shadow_distance": 120.0,
 		"ambient_energy": 1.6,
 		"snow": true,
+		# Moonlight through the ridge: cold, thin, fewer blades than a sun.
+		"shafts": true,
+		"shaft_strength": 0.30,
+		# Night wind off the ridge, dimmer and slower than daylight drift.
+		"spindrift": true,
+		"spindrift_dir": Vector2(-0.62, 0.78),
+		"spindrift_speed": 6.0,
+		"spindrift_color": Color(0.80, 0.87, 1.0, 0.22),
+		"shaft_blades": 9,
+		"shaft_color": Color(0.72, 0.84, 1.0),
 		"distant_bergs": true,
 		"berg_color": Color(0.34, 0.42, 0.66),
 		"berg_count": 12,
@@ -534,6 +557,7 @@ static func _sample_point(guide: PathGuide, idx: int, lateral: float) -> Vector3
 func _decorate() -> void:
 	if GameConfig.is_headless():
 		return
+	await stage()
 
 	# Course-side flags in aurora colors, alternating sides.
 	var offset := 60.0
@@ -545,6 +569,7 @@ func _decorate() -> void:
 			Color(0.3, 0.95, 0.6) if side > 0 else Color(0.7, 0.45, 1.0))
 		side = -side
 		offset += 120.0
+	await stage()
 
 	# Warm research-station lamps dotted along the whole route. Emissive
 	# meshes only — the sparse real OmniLight3Ds go to key landmarks below.
@@ -558,25 +583,31 @@ func _decorate() -> void:
 	# Start plateau: one lamp casting a real warm pool over the grid.
 	var start_xform := main_guide.transform_at(14.0)
 	_add_station_light(start_xform.origin + start_xform.basis.x * 10.0, true)
+	await stage()
 	# Dense pole rows framing the finish straight; the nearest row casts
 	# real light so the finish reads warm against the twilight.
 	for i: int in 3:
 		var xform := main_guide.transform_at(finish_offset - 15.0 - float(i) * 25.0)
 		for s: float in [-1.0, 1.0]:
 			_add_station_light(xform.origin + xform.basis.x * (10.5 * s), i == 0)
+	await stage()
 
 	# Two research huts with glowing windows (each brings one real lamp).
 	var hut_a := main_guide.transform_at(_arc_near(Vector3(60, 80.6, -340)))
 	_add_research_hut(hut_a.origin + hut_a.basis.x * 14.0, hut_a.origin)
+	await stage()
 	var hut_b := main_guide.transform_at(_arc_near(Vector3(40, 42.0, -938)))
 	_add_research_hut(hut_b.origin + hut_b.basis.x * -15.0, hut_b.origin)
+	await stage()
 
 	# Research outpost on a mesa below hairpin 2: warm-lit dome tents and
 	# antenna masts the racers look down on through the whole zigzag climb.
 	_add_research_station(Vector3(-150.0, 44.0, -252.0), Vector3(-87.0, 69.1, -230.0))
+	await stage()
 	# Cable-car line strung between two rock spurs east of the climb — its
 	# sagging silhouette and lit gondolas cross the sky above the switchbacks.
 	_add_cable_car_line(Vector3(168.0, 74.0, -152.0), Vector3(96.0, 98.0, -348.0))
+	await stage()
 
 	# Windy ridge: softly glowing crystal fins flanking the traverse in
 	# alternating aurora green / violet.
@@ -592,11 +623,13 @@ func _decorate() -> void:
 				rng.randf_range(2.0, 4.5), tint)
 			tint_flip = not tint_flip
 		crystal_offset += 26.0
+	await stage()
 
 	# Dramatic cliff dropoffs falling away from both ridge edges, plus
 	# wind-torn snow streamers blowing off the lips into the valley below.
 	var cliff_end := _arc_near(Vector3(48, 76.8, -502)) + 8.0
 	_add_ridge_cliffs(ridge_start - 14.0, cliff_end)
+	await stage()
 	var streamer_arc := ridge_start + 8.0
 	var streamer_side := 1.0
 	while streamer_arc < ridge_end:
@@ -611,6 +644,7 @@ func _decorate() -> void:
 		_add_edge_streamer(main_guide.transform_at(streamer_arc), streamer_side, exposure)
 		streamer_side = -streamer_side
 		streamer_arc += 34.0
+	await stage()
 
 	# Icicle cavern: crystalline ice arches + glow shards lining the walls.
 	var cavern_start := _arc_near(Vector3(48, 76.8, -502))
@@ -648,6 +682,7 @@ func _decorate() -> void:
 			_add_glow_crystal(xform.origin + xform.basis.x * (8.0 * s) + Vector3.DOWN * 0.6,
 				rng.randf_range(2.2, 4.8), Color(0.55, 0.8, 1.0))
 		cave_offset += 20.0
+	await stage()
 
 	# Spectator penguins near start and finish.
 	for i: int in 10:
@@ -658,6 +693,7 @@ func _decorate() -> void:
 		var near_finish := main_guide.transform_at(finish_offset - rng.randf_range(5.0, 70.0))
 		var lateral := (11.5 + rng.randf_range(0.0, 4.0)) * (1.0 if i % 2 == 0 else -1.0)
 		TrackBuilder.add_spectator(self, near_finish.origin + near_finish.basis.x * lateral, near_finish.origin, rng)
+	await stage()
 
 	# Distant twilight peaks: jagged low-poly berg silhouettes ringing the
 	# course. Baked vertex colors give dark faceted walls + paler snow caps.
@@ -692,6 +728,7 @@ func _decorate() -> void:
 		peak.rotation.y = rng.randf() * TAU
 		peak.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(peak)
+	await stage()
 
 	# Snowdrift mounds fill the course flanks so the slopes never read empty.
 	# Each candidate is checked against every racing line, not just the one it
@@ -722,6 +759,7 @@ func _decorate() -> void:
 		drift.rotation.y = rng.randf() * TAU
 		drift.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(drift)
+	await stage()
 
 	# Rocks and glow crystals scattered along the route, out on the flanks past
 	# the track walls. Laterals stay where they were on purpose: everything
@@ -741,17 +779,20 @@ func _decorate() -> void:
 			_add_glow_crystal(flank_pos, glow_h,
 				Color(0.55, 0.8, 1.0) if rng.randf() > 0.5 else Color(0.7, 0.5, 1.0))
 			_add_flank_contact_patch(flank_pos, glow_h * 0.26)
+	await stage()
 
 	# Dense filler crystal field: small static shards in aurora green/violet
 	# catching the sky light along the whole route (the pulsing hero crystals
 	# above stay individual; this field is pure density at two draw calls).
 	_add_crystal_field()
+	await stage()
 
 	# Distant lit-from-within crystal spires ringing the valley floor below
 	# the mountain — mid-distance landmarks between the track and the peak
 	# silhouettes, so the world reads inhabited by the same crystal light the
 	# trackside shards carry.
 	_add_crystal_spires()
+	await stage()
 
 	# Landmark crystal monoliths: one on the outside of each hairpin apex
 	# (all three apexes bulge away from x=0 and run -Z, so the outward side
@@ -763,6 +804,7 @@ func _decorate() -> void:
 		_add_glow_crystal(apex_xform.origin + apex_xform.basis.x * (13.0 * out_side) + Vector3.DOWN * 2.0,
 			rng.randf_range(7.0, 10.0), Color(0.45, 1.0, 0.7))
 	_add_glow_crystal(Vector3(80.0, -18.0, -1030.0), 30.0, Color(0.5, 1.0, 0.75))
+	await stage()
 
 	# Baked contact shadows, flushed last so every pass above has had its chance
 	# to register one. Moonlight this weak casts almost no readable shadow of
@@ -1603,8 +1645,16 @@ func _build_twinklers(center: Vector3) -> void:
 func _build_moon() -> void:
 	if GameConfig.is_headless():
 		return
-	var center := Vector3(20.0, 20.0, -520.0)
-	var pos := center + MOON_DIR * 1080.0
+	# Camera-anchored, not world-placed. Parked in the world at 1080 m the moon
+	# swung right across the sky over a 1.5 km course and drifted away from the
+	# bearing its own key light comes from; the disc and the crepuscular rays
+	# ended up in two different places. Held at a fixed BEARING it behaves like
+	# a body at astronomical distance, which is what it is.
+	var anchor := SkyAnchor.new()
+	anchor.name = "MoonAnchor"
+	add_child(anchor)
+	anchor.configure(MOON_DIR, 1080.0)
+	var pos := Vector3.ZERO
 	# Crisp-edged disc texture: full-bright core, quick soft falloff at the rim.
 	var moon_gradient := Gradient.new()
 	moon_gradient.set_color(0, Color(1.0, 1.0, 1.0, 1.0))
@@ -1623,7 +1673,7 @@ func _build_moon() -> void:
 		{"size": 360.0, "color": Color(0.5, 0.6, 1.0, 0.1), "back": 14.0},
 		{"size": 190.0, "color": Color(0.62, 0.72, 1.0, 0.24), "back": 7.0},
 	]
-	var away := (pos - center).normalized()
+	var away := MOON_DIR
 	for spec: Dictionary in halo_specs:
 		var halo := MeshInstance3D.new()
 		var halo_mesh := QuadMesh.new()
@@ -1642,7 +1692,7 @@ func _build_moon() -> void:
 		halo.mesh = halo_mesh
 		halo.position = pos + away * float(spec["back"])
 		halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(halo)
+		anchor.add_child(halo)
 	var disc := MeshInstance3D.new()
 	var disc_mesh := QuadMesh.new()
 	disc_mesh.size = Vector2(86.0, 86.0)
@@ -1658,7 +1708,7 @@ func _build_moon() -> void:
 	disc.mesh = disc_mesh
 	disc.position = pos
 	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(disc)
+	anchor.add_child(disc)
 
 
 ## Horizon realism: a warm light-pollution dome low over the research-camp

@@ -1,0 +1,36 @@
+{
+  "concepts": [],
+  "generated_assets": [
+    {
+      "dimensions": [
+        1536,
+        1024
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_feedback_penguin_v1",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/feedback_penguin_v1.png",
+      "prompt_path": "art_src/ui/menu/feedback_penguin_v1.prompt.md",
+      "sha256": "456a09ee1f8b68d3e77a4e1a1c594c03988481fb795c902ed358e5b038a87ad5",
+      "status": "production_source"
+    }
+  ],
+  "runtime_assets": [
+    {
+      "groups": [
+        "feedback",
+        "frontend",
+        "menu"
+      ],
+      "id": "feedback_penguin_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/feedback_penguin_v1.png",
+      "production_ready": false,
+      "sha256": "456a09ee1f8b68d3e77a4e1a1c594c03988481fb795c902ed358e5b038a87ad5",
+      "source_export_id": "imagegen_feedback_penguin_v1"
+    }
+  ],
+  "source_exports": []
+}

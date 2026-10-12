@@ -45,9 +45,9 @@ Every finding below was confirmed by reading the code; fix and mark FIXED with e
    `scripts/ui/pause_menu.gd:121`. Focus-loss pause during the finish/results handoff pauses a tree
    that results flow never unpauses. Fix: gate auto-pause on race state RACING only.
 
-5. **[OPEN] Silent glacier fallback for missing course scripts.**
-   `scripts/gameplay/race.gd:74`. Unknown course id falls back to Glacier silently → wrong records
-   written under wrong course key; misroutes Endless/Tutorial. Fix: push_error + abort to menu instead.
+5. **[FIXED @android-round — race.gd refuses an id with no CoursesDB entry: push_error + SceneRouter.go_to(SCENE_MAIN_MENU) before any course is built] Silent glacier fallback for missing course scripts.**
+   `scripts/gameplay/race.gd:74`. Unknown course id fell back to Glacier silently → wrong records
+   written under wrong course key. A wrong record is worse than no race, so the race is refused.
 
 ## MEDIUM
 
@@ -62,8 +62,12 @@ Every finding below was confirmed by reading the code; fix and mark FIXED with e
    uphill indefinitely at half waddle speed; AI opportunistic ice-slide can lock into slow crawl.
    Fix: disable the floor when slope is uphill, or raise stall threshold above floor on uphill.
 
-8. **[OPEN] Endless/Tutorial fallback races finish through `finish_race` while results renders by
-   Game.mode.** `scripts/gameplay/race_manager.gd:248`. Mode/flow mismatch on fallback path.
+8. **[FIXED @android-round — race.gd now checks the course exposes run_endless/run_tutorial and
+   aborts to the menu when it does not, so the standard-race fallback for those modes is unreachable]
+   Endless/Tutorial fallback races finish through `finish_race` while results renders by
+   Game.mode.** `scripts/gameplay/race_manager.gd:248`. Fixed at the source rather than at the
+   finish: those modes own their own manager, finish call and results panels, and a course that
+   cannot run them has nothing to hand the results screen.
 
 9. **[FIXED @prod-round — main_menu Quit calls SaveManager.save_now() before quit(); Quit also hidden on web where quit() freezes the canvas] Quit button bypasses SaveManager flush.** `scripts/ui/main_menu.gd:42`. Dirty save data
    silently lost on desktop quit. Fix: flush save before `get_tree().quit()` (and on NOTIFICATION_WM_CLOSE_REQUEST).
@@ -79,15 +83,20 @@ Every finding below was confirmed by reading the code; fix and mark FIXED with e
 
 12. **[FIXED @prod-round — gp_times accumulated per racer; standings sort points desc -> total time asc -> name] GP standings sort has no tiebreaker** — cup winner nondeterministic on point ties.
     `scripts/gameplay/game.gd:88`. Add total-time (or best-finish) tiebreak.
-13. **[OPEN] `get_setting` allocates full defaults dict per missing-key call, hit per frame.**
-    `scripts/save/settings_manager.gd:66`. Cache defaults.
+13. **[FIXED @android-round — SettingsManager.frozen_defaults() builds the nested dictionary once
+    and marks it (and every section) read-only; get_setting and apply_all read that copy while
+    default_settings() still returns a fresh mutable one for callers that edit it]
+    `get_setting` allocates full defaults dict per missing-key call, hit per frame.**
+    `scripts/save/settings_manager.gd:66`.
 14. **[FIXED @prod-round — loop_end computed from wav.format + wav.stereo] WAV `loop_end` formula assumes 16-bit stereo.** `scripts/utilities/audio_manager.gd:90`.
     Breaks looping for mono/ADPCM streams.
 15. **[FIXED @prod-round — redundant early decay deleted; single 6/s decay remains, root.scale still chases _squash] Squash-and-stretch decays via two competing lerps per frame** — jump/land squash nearly
     invisible. `scripts/characters/penguin_visual.gd:294`.
 16. **[FIXED @prod-round — final beep pitch 1.25] Countdown pitch ternary dead code (both branches 1.0).** `scripts/gameplay/race_manager.gd:128`.
-17. **[OPEN] GP round mutation + record submission runs inside results UI construction.**
-    `scripts/ui/results.gd:124`. Move to game-flow layer (spec: no gameplay logic in UI scripts).
+17. **[FIXED @android-round — Game.award_grand_prix_round()/_settle_cup() score the round and close
+    the cup from the race flow; results.gd only draws the ceremony off Game.gp_cup_complete and
+    plays the fanfare once. Covered by 7 new unit checks (gp_cup_*)] GP round mutation + record
+    submission runs inside results UI construction.** `scripts/ui/results.gd:124`.
 
 ## Environment notes (supervisor-verified)
 

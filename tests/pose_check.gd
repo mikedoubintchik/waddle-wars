@@ -35,6 +35,11 @@ func _ready() -> void:
 			"impulse": _impulse = parts[1]
 			"view": _view = parts[1]
 	DisplayServer.window_set_size(Vector2i(1280, 720))
+	# Put the window somewhere on-screen. Left where the OS happened to place
+	# it, this harness could open occluded, and an occluded window never draws:
+	# the await on frame_post_draw then never resumes and the run hangs forever
+	# with no output, which is exactly how it failed.
+	DisplayServer.window_set_position(Vector2i(40, 60))
 
 	var env := WorldEnvironment.new()
 	var e := Environment.new()
@@ -92,6 +97,11 @@ func _process(delta: float) -> void:
 	if _done:
 		return
 	_elapsed += delta
+	# Watchdog: fail loudly instead of hanging if no frame is ever presented.
+	if _elapsed > 20.0:
+		push_error("pose_check: no frame drawn after 20s (window occluded?)")
+		get_tree().quit(1)
+		return
 	_penguin.tick(delta, 1.0)
 	if _impulse != "":
 		await _tick_impulse(delta)

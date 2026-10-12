@@ -1,0 +1,37 @@
+{
+	"background": "#2a6fc9",
+	"generator": {
+		"godot_version": "4.7.1-stable (official)",
+		"mode": "--store-icons",
+		"path": "tools/make_pwa_icons.gd",
+		"sha256": "13d7a715be987c85f952158fb16332467c085079edcb1fa6c8245899412b3140"
+	},
+	"outputs": [
+		{
+			"alpha": true,
+			"format": "RGBA8",
+			"height": 512,
+			"opaque": true,
+			"path": "tools/release/store_assets/icon-512.png",
+			"sha256": "401f674c873166536ef787678f5715c80da633d5fb67693840bc9709eba2c30c",
+			"width": 512
+		},
+		{
+			"alpha": false,
+			"format": "RGB8",
+			"height": 1024,
+			"opaque": true,
+			"path": "tools/release/store_assets/icon-1024.png",
+			"sha256": "bc7d96b1a70976e366a8e8afb792ade701a7b1b3f632f5d67debddb5f6a4a7a2",
+			"width": 1024
+		}
+	],
+	"rasterization": "vector_at_output_resolution",
+	"schema_version": 1,
+	"source": {
+		"path": "assets/icons/icon.svg",
+		"sha256": "64d15cfe4dbead6fcd3252d9c501136ad38730caa5bf53188216f314ccb69513"
+	},
+	"state": "generated_unsubmitted",
+	"store_ready": false
+}

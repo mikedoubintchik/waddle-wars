@@ -52,14 +52,19 @@ var _gesture_sliding: bool = false  ## Swipe-down slide currently held.
 var _buttons: Array[Dictionary] = []
 var _ui_scale: float = 1.0
 var _opacity: float = 0.55
+var _layout_override: LayoutProfile = null
 
 
 func _ready() -> void:
 	layer = 10  # Above the HUD (default 1), below the pause menu (50).
+	var viewport := get_viewport()
+	if viewport != null and not viewport.size_changed.is_connected(_on_viewport_size_changed):
+		viewport.size_changed.connect(_on_viewport_size_changed)
 
 
-func setup(p_controller: PlayerController) -> void:
+func setup(p_controller: PlayerController, layout_override: LayoutProfile = null) -> void:
 	controller = p_controller
+	_layout_override = layout_override
 	_build()
 	_maybe_show_gesture_hint()
 	if not SettingsManager.setting_changed.is_connected(_on_setting_changed):
@@ -88,60 +93,149 @@ func _build() -> void:
 	# and steering are full-screen gestures, so only shove and item remain.
 	# Buttons win over gestures for touches that start inside their (padded)
 	# rects.
-	var s := _ui_scale
-	_add_button("SHOVE", Vector2(-220, -80) * s, BUTTON_SIZE_PX * s, false,
+	var layout := _resolved_layout()
+	var rects := button_rects_for_profile(layout, _ui_scale)
+	_add_button("SHOVE", rects["shove"],
 		func() -> void: controller.touch_shove(), Callable())
-	_add_button("ITEM", Vector2(-80, -80) * s, BUTTON_SIZE_PX * s, false,
+	_add_button("ITEM", rects["item"],
 		func() -> void: controller.touch_item(), Callable())
 	# Touch has no modifier to hold, so the over-the-shoulder throw gets its own
 	# button. Smaller and set above ITEM: it is the rarer of the two and the
 	# corner is already crowded, but it stays clear of ITEM's padded rect.
-	_add_button("BACK", Vector2(-80, -80 - BUTTON_SIZE_PX * 0.82) * s,
-		BUTTON_SIZE_PX * 0.62 * s, false,
+	_add_button("BACK", rects["back"],
 		func() -> void: controller.touch_item_back(), Callable())
 
 	# Pause: small, top-right, kept left of the RaceHUD item panel (which spans
 	# offsets -170..-24 from the right edge and does not scale with touch
 	# scale) so both stay fully visible.
-	_add_button("II", Vector2(-194.0 - PAUSE_SIZE_PX * 0.5 * s, 60.0 * s), PAUSE_SIZE_PX * s, true,
+	_add_button("II", rects["pause"],
 		_press_pause, Callable())
 
 
-func _add_button(text: String, center: Vector2, size: float, top_anchor: bool,
+func _add_button(text: String, rect: Rect2,
 		on_press: Callable, on_hold: Callable) -> void:
 	var panel := Panel.new()
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.07, 0.10, 0.17, 0.85)
-	style.set_corner_radius_all(int(size * 0.5))
+	style.set_corner_radius_all(roundi(minf(rect.size.x, rect.size.y) * 0.5))
 	style.set_border_width_all(3)
 	style.border_color = Color(1.0, 1.0, 1.0, 0.55)
 	panel.add_theme_stylebox_override("panel", style)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var anchor_y := 0.0 if top_anchor else 1.0
-	panel.anchor_left = 1.0
-	panel.anchor_right = 1.0
-	panel.anchor_top = anchor_y
-	panel.anchor_bottom = anchor_y
-	panel.offset_left = center.x - size * 0.5
-	panel.offset_right = center.x + size * 0.5
-	panel.offset_top = center.y - size * 0.5
-	panel.offset_bottom = center.y + size * 0.5
+	panel.position = rect.position
+	panel.size = rect.size
 	panel.modulate = Color(1.0, 1.0, 1.0, _opacity)
 	var label := Label.new()
 	label.text = text
 	label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", maxi(20, int(size * 0.22)))
+	label.add_theme_font_size_override("font_size", maxi(20, roundi(rect.size.y * 0.22)))
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(label)
 	_root.add_child(panel)
 	_buttons.append({
+		"id": "pause" if text == "II" else text.to_lower(),
 		"panel": panel,
 		"on_press": on_press,
 		"on_hold": on_hold,
 		"pressed_by": -1,
 	})
+
+
+## Deterministic geometry shared by runtime construction and headless tests.
+## With zero insets and ordinary landscape sizes this reproduces the original
+## authored offsets exactly. Narrow safe areas cap the requested scale before
+## clamping, keeping every hit target reachable instead of pushing one under a
+## cutout or off the left edge.
+static func button_rects_for_profile(profile: LayoutProfile,
+		requested_scale: float = 1.0) -> Dictionary:
+	if profile == null:
+		return {}
+	var safe := profile.safe_rect
+	var scale_cap := minf(
+		safe.size.x / 280.0,
+		safe.size.y / (BUTTON_SIZE_PX * 1.80))
+	var s := minf(clampf(requested_scale, 0.5, 2.0), maxf(scale_cap, 0.01))
+	var action_size := BUTTON_SIZE_PX * s
+	var back_size := BUTTON_SIZE_PX * 0.62 * s
+	var pause_size := PAUSE_SIZE_PX * s
+	var shove_center := safe.end + Vector2(-220.0, -80.0) * s
+	var item_center := safe.end + Vector2(-80.0, -80.0) * s
+	var back_center := safe.end + Vector2(
+		-80.0, -80.0 - BUTTON_SIZE_PX * 0.82) * s
+	# Keep the old horizontal HUD clearance: the unscaled 194 px rail is the
+	# RaceHUD item-card reservation; only the circular button scales.
+	var pause_center := Vector2(
+		safe.end.x - 194.0 - PAUSE_SIZE_PX * 0.5 * s,
+		safe.position.y + 60.0 * s)
+	return {
+		"shove": _fit_rect(_centered_rect(shove_center, action_size), safe),
+		"item": _fit_rect(_centered_rect(item_center, action_size), safe),
+		"back": _fit_rect(_centered_rect(back_center, back_size), safe),
+		"pause": _fit_rect(_centered_rect(pause_center, pause_size), safe),
+	}
+
+
+## Left edge of the bottom-right action cluster (SHOVE / ITEM / BACK), in the
+## same logical space the HUD lays out in. The HUD's bottom rail runs across
+## the screen and these buttons sit on top of it, so the rail has to know
+## where they begin -- on a portrait phone the course gauge's right end ran
+## straight under SHOVE and the percentage was unreadable. Shared rather than
+## re-derived so the two can never drift apart.
+static func action_cluster_rect(profile: LayoutProfile,
+		requested_scale: float = 1.0) -> Rect2:
+	var rects := button_rects_for_profile(profile, requested_scale)
+	if rects.is_empty():
+		return Rect2()
+	var bounds := Rect2()
+	var started := false
+	for id: String in ["shove", "item", "back"]:
+		var rect := rects.get(id, Rect2()) as Rect2
+		if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+			continue
+		bounds = rect if not started else bounds.merge(rect)
+		started = true
+	return bounds if started else Rect2()
+
+
+## The cluster's footprint for the live viewport and the player's touch scale.
+static func action_cluster_rect_for_viewport(viewport: Viewport) -> Rect2:
+	var scale := clampf(
+		float(SettingsManager.get_setting("gameplay", "touch_scale")), 0.5, 2.0)
+	return action_cluster_rect(LayoutProfile.for_viewport(viewport), scale)
+
+
+func button_rects() -> Dictionary:
+	var result: Dictionary = {}
+	for button: Dictionary in _buttons:
+		var panel := button["panel"] as Panel
+		result[String(button["id"])] = panel.get_rect()
+	return result
+
+
+func _resolved_layout() -> LayoutProfile:
+	return _layout_override if _layout_override != null \
+		else LayoutProfile.for_viewport(get_viewport())
+
+
+func _on_viewport_size_changed() -> void:
+	if _layout_override == null and controller != null:
+		_build()
+
+
+static func _centered_rect(center: Vector2, extent: float) -> Rect2:
+	var size := Vector2(extent, extent)
+	return Rect2(center - size * 0.5, size)
+
+
+static func _fit_rect(rect: Rect2, bounds: Rect2) -> Rect2:
+	var size := Vector2(
+		minf(rect.size.x, bounds.size.x), minf(rect.size.y, bounds.size.y))
+	var max_position := bounds.end - size
+	return Rect2(Vector2(
+		clampf(rect.position.x, bounds.position.x, max_position.x),
+		clampf(rect.position.y, bounds.position.y, max_position.y)), size)
 
 
 ## One-time translucent overlay teaching the touch gestures. Gated on the

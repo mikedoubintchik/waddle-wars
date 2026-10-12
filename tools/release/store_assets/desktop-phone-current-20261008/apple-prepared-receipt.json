@@ -1,0 +1,96 @@
+{
+  "date": "2026-10-08",
+  "status": "uploaded_to_apple_draft_reload_verified_5_each_2026-10-08",
+  "source": "current local Godot real UI/gameplay scenes rendered through offscreen SubViewport at Apple slot sizes",
+  "portal_proof": [
+    "tools/release/store_assets/desktop-phone-current-20261008/apple-iphone-portal-verified-5-20261008.png",
+    "tools/release/store_assets/desktop-phone-current-20261008/apple-ipad-portal-verified-5-20261008.png"
+  ],
+  "sets": {
+    "iphone_1206x2622": [
+      {
+        "file": "tools/release/store_assets/desktop-phone-current-20261008/apple-iphone-runner_1.png",
+        "sha256": "5c13e677fe031d1ec2732622072335b0c4a4ef64e81a2e2daf4d9c09f1beedaa",
+        "width": 1206,
+        "height": 2622,
+        "bytes": 2740166
+      },
+      {
+        "file": "tools/release/store_assets/desktop-phone-current-20261008/apple-iphone-menu-1206x2622.png",
+        "sha256": "97471bd77a09e39e585d6f122c15205b9fea13b331c196a547d28962e5e05434",
+        "width": 1206,
+        "height": 2622,
+        "bytes": 3667657
+      },
+      {
+        "file": "tools/release/store_assets/desktop-phone-current-20261008/apple-iphone-customize-1206x2622.png",
+        "sha256": "d17f38d6ed9b180de1386073143d97d8df1e3f2c3c83afce05583e3d628a4b5e",
+        "width": 1206,
+        "height": 2622,
+        "bytes": 3305608
+      },
+      {
+        "file": "tools/release/store_assets/desktop-phone-current-20261008/apple-iphone-results-v2-1206x2622.png",
+        "sha256": "9338906b96a1c8dd97c7e9e28c10f38a03d5bb22dadcb261a89d56c8e5048f49",
+        "width": 1206,
+        "height": 2622,
+        "bytes": 3283637,
+        "source_kind": "godot_runner_results_hud_sample_fixture"
+      },
+      {
+        "file": "tools/release/store_assets/desktop-phone-current-20261008/apple-iphone-achievements-1206x2622.png",
+        "sha256": "2104ebf6b21be81556deab4d249e4eabbb47e14b7a1c71346ac02b6b37cea4b6",
+        "width": 1206,
+        "height": 2622,
+        "bytes": 2699118,
+        "source_kind": "godot_achievements_ui"
+      }
+    ],
+    "ipad_2048x2732": [
+      {
+        "file": "tools/release/store_assets/desktop-phone-current-20261008/apple-ipad-runner_0.png",
+        "sha256": "c4e5a84eb38de155850e7a899b36f95f5f7066293106ef0955f3d3d2ce975221",
+        "width": 2048,
+        "height": 2732,
+        "bytes": 4516377
+      },
+      {
+        "file": "tools/release/store_assets/desktop-phone-current-20261008/apple-ipad-store_menu-2048x2732.png",
+        "sha256": "490e48a7283022965c8ca128d360395bf0898817e91ccc4f8eda296d9e34f7e0",
+        "width": 2048,
+        "height": 2732,
+        "bytes": 5483616
+      },
+      {
+        "file": "tools/release/store_assets/desktop-phone-current-20261008/apple-ipad-customize-2048x2732.png",
+        "sha256": "7473360653f0e700d5995a7d9c4e738079e4e7bb3ee0f8f2ecbc3d1d905003f6",
+        "width": 2048,
+        "height": 2732,
+        "bytes": 5353095
+      },
+      {
+        "file": "tools/release/store_assets/desktop-phone-current-20261008/apple-ipad-results-2048x2732.png",
+        "sha256": "6760a0f5a4fd26ddd7f2b7085888fa0df46533eb797a625d48378cc3ae7c574f",
+        "width": 2048,
+        "height": 2732,
+        "bytes": 4465954,
+        "source_kind": "godot_runner_results_hud_sample_fixture"
+      },
+      {
+        "file": "tools/release/store_assets/desktop-phone-current-20261008/apple-ipad-achievements-2048x2732.png",
+        "sha256": "ee66f422b696c8657c22d82606439cd006260036b274085a6348acf5474051b5",
+        "width": 2048,
+        "height": 2732,
+        "bytes": 4153299,
+        "source_kind": "godot_achievements_ui"
+      }
+    ]
+  },
+  "limitations": [
+    "Desktop Godot capture, not verified on a signed iOS build; final native safe-area and privacy checks remain.",
+    "Runner capture logged missing optional avalanche-surround textures and DAY art preview warning; selected live frame had no visible missing texture.",
+    "Missions capture was excluded after a missing source art resource error.",
+    "App Store Connect showed 5 of 10 screenshots in each iPhone Dynamic Island medium and iPad 13-inch slot after a fresh page reload; final native comparison remains.",
+    "Results screenshot uses coherent representative score, distance, fish, and mission data in the real current RunnerHUD UI; it was not captured after a complete live run."
+  ]
+}

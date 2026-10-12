@@ -1,0 +1,6 @@
+# Account landscape background v2
+
+Built-in ImageGen,2026-10-07. Actual1672×941. Reference: art_src/ui/menu/account_background_portrait_v1.png. Runtime same-size WebP quality94 conversion only.
+
+## Prompt
+Use case: style-transfer. Landscape adaptation of the approved Account page background for the same live game UI. Reference is the supplied portrait background: preserve EXACT two penguins' identity, adult coral scarf with leather expedition journal and small child in blue knit hat, the snowy timber village, mountain lake sunset, navy-blue/coral/ivory palette and detailed painterly 3D finish. Create 1672x941 landscape image. Composition: both penguins together in the LEFT 43% of frame, their faces fully visible around x360,y390; adult full bust and journal through y880, child's face beside adult. Reserve left top y0..180 as calm blue sky for live ACCOUNT title. RIGHT 55% must be calm softly lit snowy courtyard and distant mountain/wooden-cabin background, with NO characters or important foreground objects, to sit behind large live UI cards. Keep warm sunset, snow and family expedition mood. No text, labels, panels, buttons, icons, borders, UI, or logos. Do not recreate the original page UI, only a functional landscape scene background.

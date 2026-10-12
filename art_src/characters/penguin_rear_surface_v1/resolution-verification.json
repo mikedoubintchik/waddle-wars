@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "candidate_sha256": "b21ca5327a7798b31b1b5b7aa098a4452c623db2c95044244aa490fb72fc7484",
+  "rejected_surface_sha256": "df954e3cf67b700fc1f0742aba26ac220cb34a4413b36bfd3ac3b66cb863555b",
+  "scope": "Current1024 atlas, exact previous UV and geometry; authored feather recipe intentionally changed",
+  "indices_bit_identical": true,
+  "vertex_attributes_bit_identical": {
+    "POSITION": true,
+    "NORMAL": true,
+    "TEXCOORD_0": true,
+    "TANGENT": true
+  },
+  "atlas_size": 1024,
+  "padding_pixels": 8,
+  "normalized_rectangles_and_padding_identical_to_rejected_1024": true,
+  "normal_material_scale_unchanged": true,
+  "prior_2048_to_1024_pixel_equivalence_does_not_apply_to_current_recipe": true,
+  "passed": true
+}

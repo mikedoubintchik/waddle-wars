@@ -8,12 +8,10 @@ const THROW_RANGE: float = 25.0
 const THROW_CONE_DOT: float = 0.94  # ~20 degree cone ahead
 const PICKUP_SCAN_AHEAD: float = 30.0
 
-## Gap detection. The AI used to jump ONLY where a course had authored a "jump"
-## hint, so any gap whose hint was missing was simply a wall it walked into --
-## for the rest of the race. Iceberg Bay's floe runs are laid out with "gap"
-## points but carry hints at three of them, and the field piled up at the first
-## edge without one. Probing for missing ground fixes every course at once,
-## including ones written after this.
+## Reserved gap probe. This helper is not part of the driving policy: probing
+## far across a narrow landing can request a jump too early, and a raised
+## platform face still has ground behind it. Moving-platform recovery below
+## instead requires an actual low forward contact while grounded.
 ##
 ## Probed along the racer's ACTUAL heading, because "will I fall" is a question
 ## about where it is going, not where the track goes.
@@ -21,8 +19,8 @@ const GAP_LOOKAHEAD_MIN: float = 4.0
 const GAP_LOOKAHEAD_PER_SPEED: float = 0.40
 ## Ground missing this far below the probe counts as a gap rather than a step.
 const GAP_DROP: float = 3.0
-## Seconds between gap jumps, so a long run of open water is a sequence of
-## hops rather than a stuck jump button.
+## Minimum seconds between authored/recovery jumps. Airborne requests cannot
+## buffer repeated hops on the same platform face.
 const GAP_JUMP_COOLDOWN: float = 0.55
 
 var racer: Racer = null
@@ -48,6 +46,7 @@ var _progress_watch_timer: float = 12.0
 var _progress_watch_last: float = -1.0
 var _slide_zone_until: float = -1.0
 var _gap_jump_cooldown: float = 0.0
+var _center_line_active: bool = false
 var _shove_eval_timer: float = 0.0
 var _throw_eval_timer: float = 0.0
 
@@ -75,8 +74,9 @@ func tick(delta: float) -> void:
 	_throw_eval_timer -= delta
 	_item_hold_timer -= delta
 	_stuck_check_timer -= delta
+	_update_center_line()
 
-	if _lateral_timer <= 0.0:
+	if _lateral_timer <= 0.0 and not _center_line_active:
 		_lateral_timer = rng.randf_range(2.5, 5.0)
 		var spread := 4.2 * (1.0 - float(personality.get("consistency", 0.5)) * 0.5)
 		_lateral_offset = rng.randf_range(-spread, spread)
@@ -94,6 +94,30 @@ func tick(delta: float) -> void:
 	_update_actions()
 	_check_stuck()
 	_check_progress_watchdog(delta)
+
+
+## An authored, bounded hint keeps the AI inside a traversable corridor where
+## platform motion can sweep the usual random racing line off an open edge.
+## Outside the window, personality line choice and pickup attraction remain.
+func _update_center_line() -> void:
+	var branch_id := int(racer.guide_cache.get("path", -1))
+	var progress := racer.progress
+	if branch_id >= 0:
+		progress = float(racer.guide_cache.get("branch_idx_%d" % branch_id, 0)) \
+			* PathGuide.SAMPLE_SPACING
+	var active := false
+	for hint: Dictionary in course.hints:
+		if String(hint["type"]) == "center_line" \
+				and int(hint["branch_id"]) == branch_id \
+				and progress >= float(hint["offset"]) \
+				and progress <= float(hint["end_offset"]):
+			active = true
+			break
+	if active != _center_line_active:
+		_retarget_timer = 0.0
+	_center_line_active = active
+	if active:
+		_lateral_offset = 0.0
 
 
 func _update_target() -> void:
@@ -163,7 +187,7 @@ func _steer_toward_target(delta: float) -> void:
 			_mistake_timer = rng.randf_range(0.3, 0.7)
 		else:
 			_mistake_steer = 0.0
-	if racer.boost_mult <= 1.05:
+	if racer.boost_mult <= 1.05 and not _center_line_active:
 		# Wobble pulses are suppressed while boosted: at boost speed a pulse
 		# is enough to overshoot a corner straight into the walls.
 		raw_steer += _mistake_steer
@@ -193,6 +217,28 @@ func _gap_ahead() -> bool:
 	return true
 
 
+## A heaving slab can expose a small vertical leading face even when the
+## center corridor has continuous floor. Jump only after physics reports that
+## face in front of the grounded racer, not from platform proximity or speed.
+func _platform_step_blocked() -> bool:
+	if not racer.is_on_floor() or _gap_jump_cooldown > 0.0:
+		return false
+	var yaw := racer.get_heading_yaw()
+	var forward := Vector3(-sin(yaw), 0.0, -cos(yaw))
+	for index: int in racer.get_slide_collision_count():
+		var contact := racer.get_slide_collision(index)
+		if not (contact.get_collider() is HazardPlatform):
+			continue
+		var normal := contact.get_normal()
+		var height := contact.get_position().y - racer.global_position.y
+		if absf(normal.y) < 0.35 and normal.dot(forward) < -0.4 \
+				and height >= -0.1 and height <= Racer.JUMPABLE_HEIGHT:
+			# Reuse the racer's actual standing-clearance query, so a slide
+			# bar cannot turn this into an attempted jump into the ceiling.
+			return not racer._ceiling_blocked()
+	return false
+
+
 func _update_actions() -> void:
 	var progress := racer.progress
 	var speed := maxf(racer.current_speed, 6.0)
@@ -211,8 +257,13 @@ func _update_actions() -> void:
 		var dist := float(hint["offset"]) - progress
 		match kind:
 			"jump":
-				if dist < speed * 0.35 and rng.randf() > float(difficulty.get("mistake_rate", 0.15)) * 0.5:
+				if dist < speed * 0.35 \
+						and (not _center_line_active or (racer.is_on_floor() \
+							and _gap_jump_cooldown <= 0.0 and not racer._ceiling_blocked())) \
+						and rng.randf() > float(difficulty.get("mistake_rate", 0.15)) * 0.5:
 					jump_pressed = true
+					if _center_line_active:
+						_gap_jump_cooldown = GAP_JUMP_COOLDOWN
 			"slide":
 				_slide_zone_until = float(hint["end_offset"])
 			"danger_left":
@@ -221,6 +272,9 @@ func _update_actions() -> void:
 				_lateral_offset = minf(_lateral_offset, -2.0)
 	if progress < _slide_zone_until:
 		slide_held = true
+	if _platform_step_blocked():
+		jump_pressed = true
+		_gap_jump_cooldown = GAP_JUMP_COOLDOWN
 
 	# Opportunistic downhill slide.
 	if not slide_held and racer.is_on_floor():
@@ -300,7 +354,7 @@ func _throw_chance() -> float:
 ## offset toward the nearest available pickup a bit ahead — never a hard
 ## turn, so the racing line and hint avoidance stay in charge.
 func _consider_snowball_pickups() -> void:
-	if racer.snowball_ammo >= Racer.MAX_SNOWBALL_AMMO:
+	if _center_line_active or racer.snowball_ammo >= Racer.MAX_SNOWBALL_AMMO:
 		return
 	var forward := -racer.global_transform.basis.z
 	var right := racer.global_transform.basis.x

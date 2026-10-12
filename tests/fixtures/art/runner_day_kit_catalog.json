@@ -1,0 +1,23 @@
+{
+  "assets": [
+    {"groups": ["runner_day"], "id": "runner_day_barrier_v1", "kind": "scene", "path": "res://assets/art/runner/day/runner_day_barrier_v1.tscn"},
+    {"groups": ["runner_day"], "id": "runner_day_cargo_stack_v1", "kind": "scene", "path": "res://assets/art/runner/day/runner_day_cargo_stack_v1.tscn"},
+    {"groups": ["runner_day"], "id": "runner_day_deck_kerb_v1", "kind": "scene", "path": "res://assets/art/runner/day/runner_day_deck_kerb_v1.tscn"},
+    {"groups": ["runner_day"], "id": "runner_day_deck_kerb_b_v1", "kind": "scene", "path": "res://assets/art/runner/day/runner_day_deck_kerb_b_v1.tscn"},
+    {"groups": ["runner_day"], "id": "runner_day_deck_kerb_c_v1", "kind": "scene", "path": "res://assets/art/runner/day/runner_day_deck_kerb_c_v1.tscn"},
+    {"groups": ["runner_day"], "id": "runner_day_gantry_v1", "kind": "scene", "path": "res://assets/art/runner/day/runner_day_gantry_v1.tscn"},
+    {"groups": ["runner_day"], "id": "runner_day_iceberg_cluster_v1", "kind": "scene", "path": "res://assets/art/runner/day/runner_day_iceberg_cluster_v1.tscn"},
+    {"groups": ["runner_day"], "id": "runner_day_icebreaker_landmark_v1", "kind": "scene", "path": "res://assets/art/runner/day/runner_day_icebreaker_landmark_v1.tscn"},
+    {"groups": ["runner_day"], "id": "runner_day_radar_landmark_v1", "kind": "scene", "path": "res://assets/art/runner/day/runner_day_radar_landmark_v1.tscn"},
+    {"groups": ["runner_day"], "id": "runner_day_ramp_v1", "kind": "scene", "path": "res://assets/art/runner/day/runner_day_ramp_v1.tscn"},
+    {"groups": ["runner_day"], "id": "runner_day_research_hub_landmark_v1", "kind": "scene", "path": "res://assets/art/runner/day/runner_day_research_hub_landmark_v1.tscn"},
+    {"groups": ["runner_day"], "id": "runner_day_research_lab_v1", "kind": "scene", "path": "res://assets/art/runner/day/runner_day_research_lab_v1.tscn"},
+    {"groups": ["runner_day"], "id": "runner_day_shell_material_v1", "kind": "material", "path": "res://assets/art/runner/day/materials/runner_day_shell_v1.tres"},
+    {"groups": ["runner_day"], "id": "runner_day_signal_pylon_v1", "kind": "scene", "path": "res://assets/art/runner/day/runner_day_signal_pylon_v1.tscn"},
+    {"groups": ["runner_day"], "id": "runner_day_snowcat_v1", "kind": "scene", "path": "res://assets/art/runner/day/runner_day_snowcat_v1.tscn"},
+    {"groups": ["runner_day"], "id": "runner_day_surface_material_v1", "kind": "material", "path": "res://assets/art/runner/day/materials/runner_day_surface_v1.tres"},
+    {"groups": ["runner_day"], "id": "runner_day_tunnel_shell_v1", "kind": "scene", "path": "res://assets/art/runner/day/runner_day_tunnel_shell_v1.tscn"}
+  ],
+  "catalog_id": "runner_day_kit_test",
+  "schema_version": 1
+}

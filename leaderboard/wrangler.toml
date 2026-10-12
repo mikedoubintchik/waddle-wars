@@ -11,3 +11,7 @@ database_id = "2be032bd-7d5b-4958-a310-7f48607fa2d7"
 
 [vars]
 CLERK_ISSUER = "https://stunning-hen-13.clerk.accounts.dev"
+COMMERCE_ENABLED = "false"
+COMMERCE_APPLE_SALES_ENABLED = "false"
+COMMERCE_GOOGLE_SALES_ENABLED = "false"
+APPLE_SERVER_NOTIFICATIONS_ENABLED = "false"

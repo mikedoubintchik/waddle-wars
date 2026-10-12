@@ -1,0 +1,12 @@
+extends RunnerGame
+## Isolated browser probe: real runner, fixed route seed, normal autopilot verbs.
+## No invulnerability, speed/time override, power grants or distance teleports.
+
+func _ready() -> void:
+	generation_seed = 20260818
+	RunnerPlayer.autopilot = true
+	super._ready()
+
+func _exit_tree() -> void:
+	RunnerPlayer.autopilot = false
+	super._exit_tree()

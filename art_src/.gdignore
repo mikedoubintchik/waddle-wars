@@ -1,0 +1,1 @@
+# Authoring sources live in Git, but never enter Godot import/export scans.

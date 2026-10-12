@@ -1,0 +1,77 @@
+{
+  "app_name": "Waddle Wars: Penguin Panic",
+  "inputs_sha256": {
+    "assets/fonts/AtkinsonHyperlegibleNext-OFL.txt": "aca6a428580965d2297d1b718042dd427c2a9443ece3b0d02d758e161e0c4030",
+    "assets/fonts/AtkinsonHyperlegibleNext-wght.ttf": "5a455d1cfa099b601ab70751bb9673e8fe1854dc4500c80e1a220d0d75e31745",
+    "assets/icons/icon.svg": "64d15cfe4dbead6fcd3252d9c501136ad38730caa5bf53188216f314ccb69513",
+    "scripts/ui/main_menu.gd": "07dec2995c531c83c775d1c7c4d6f1d2382471fd93d2394502e692dd30c73da2",
+    "tools/release/store_assets/feature_graphic.template.svg": "43b339396aba6064c3450433cd876610fa5646d0d1f6ce44747fad5be3114c0a",
+    "tools/release/store_assets/make_feature_graphic.py": "85e5014fb2bd09715f5685372006638c8085a5d145719dd6e78831652b125e21",
+    "tools/release/store_assets/raster_feature_graphic.gd": "3d6dd76ce73d44f645c639c45485653dd7d12819e3c09e06867031aba6a28a98"
+  },
+  "output": {
+    "alpha": false,
+    "format": "RGB8",
+    "height": 500,
+    "opaque": true,
+    "path": "tools/release/store_assets/feature-graphic-1024x500.png",
+    "sha256": "5eb7a134fe669e597917d3bd2891d863b00fa478cd6364af79c9f2c19df3bf01",
+    "width": 1024
+  },
+  "renderer": {
+    "godot_version": "4.7.1-stable (official)",
+    "pillow_version": "12.3.0",
+    "vector_raster_sha256": "e54f3939bab26b2f16400ca7b969cf780b6aa6d5ca0dbeb43c86b6d3bd307467"
+  },
+  "schema_version": 1,
+  "scope": "existing_vector_mark_and_glyph_with_shipped_font_lettering",
+  "state": "generated_unsubmitted",
+  "store_ready": false,
+  "typography": [
+    {
+      "baseline": [
+        72,
+        176
+      ],
+      "bounds": [
+        71,
+        123,
+        536,
+        178
+      ],
+      "font_size": 72,
+      "text": "Waddle Wars:",
+      "weight": "Bold"
+    },
+    {
+      "baseline": [
+        72,
+        255
+      ],
+      "bounds": [
+        71,
+        214,
+        426,
+        267
+      ],
+      "font_size": 53,
+      "text": "Penguin Panic",
+      "weight": "Bold"
+    },
+    {
+      "baseline": [
+        72,
+        347
+      ],
+      "bounds": [
+        71,
+        326,
+        447,
+        348
+      ],
+      "font_size": 30,
+      "text": "OUTRUN THE AVALANCHE",
+      "weight": "SemiBold"
+    }
+  ]
+}

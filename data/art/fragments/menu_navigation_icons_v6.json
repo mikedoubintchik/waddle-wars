@@ -1,0 +1,36 @@
+{
+  "runtime_assets": [
+    {
+      "id": "basecamp_home_icons_complete_v1",
+      "path": "res://assets/art/ui/menu/basecamp_home_icons_complete_v1.webp",
+      "kind": "texture",
+      "source_export_id": "imagegen_basecamp_home_icons_complete_v1",
+      "sha256": "71e03492dca14e4bc25ec8e5af96050571bbdcbe77efb03b221bf445969f1ccf",
+      "license_id": "project_original",
+      "production_ready": false,
+      "groups": [
+        "frontend",
+        "menu",
+        "navigation_icons"
+      ]
+    }
+  ],
+  "source_exports": [],
+  "generated_assets": [
+    {
+      "id": "imagegen_basecamp_home_icons_complete_v1",
+      "path": "art_src/ui/menu/alignment_v6/basecamp_home_icons_complete_v1.png",
+      "prompt_path": "art_src/ui/menu/alignment_v6/basecamp_home_icons_complete_v1.prompt.md",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "sha256": "8ef1a7f5dcb609b179b60887e9c652fb96f65ecd0b57fdba2875f21cf00e746b",
+      "license_id": "project_original",
+      "generated_on": "2026-10-08",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "status": "production_source"
+    }
+  ],
+  "concepts": []
+}

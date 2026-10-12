@@ -1,0 +1,49 @@
+{
+  "concepts": [
+    {
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_emperor_winter_v1",
+      "license_id": "project_original",
+      "path": "art_src/ui/wardrobe_concepts/emperor_winter_v1.png",
+      "prompt_path": "art_src/ui/wardrobe_concepts/emperor_winter_v1.prompt.md",
+      "sha256": "f207f853dde4f413f4a6e17aaf4bdf6d865ecebbf6aa17c4e22a18e99a41771f",
+      "status": "art_direction_only"
+    },
+    {
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_little_blue_explorer_v1",
+      "license_id": "project_original",
+      "path": "art_src/ui/wardrobe_concepts/little_blue_explorer_v1.png",
+      "prompt_path": "art_src/ui/wardrobe_concepts/little_blue_explorer_v1.prompt.md",
+      "sha256": "84b370ef0999689c3fa6e6204fe1133adccd185386c2747faa706924de104101",
+      "status": "art_direction_only"
+    },
+    {
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_rockhopper_royal_v1",
+      "license_id": "project_original",
+      "path": "art_src/ui/wardrobe_concepts/rockhopper_royal_v1.png",
+      "prompt_path": "art_src/ui/wardrobe_concepts/rockhopper_royal_v1.prompt.md",
+      "sha256": "6d4a57b1f6b39ca90580c0fc6fa28ceb6cdfc1b443a57415c71bd052c628b5d7",
+      "status": "art_direction_only"
+    }
+  ],
+  "generated_assets": [],
+  "runtime_assets": [],
+  "source_exports": []
+}

@@ -4,6 +4,50 @@ compatibility_date = "2026-01-01"
 account_id = "592217b354c4f0813d17c0818429ef93"
 workers_dev = true
 
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[[analytics_engine_datasets]]
+binding = "GAME_EVENTS"
+dataset = "waddle_wars_game_events"
+
 [[r2_buckets]]
 binding = "SITE"
 bucket_name = "waddle-wars-web"
+
+[[analytics_engine_datasets]]
+binding = "CTA_CLICKS"
+dataset = "waddle_wars_cta_clicks"
+
+[vars]
+AWS_REGION = "us-east-1"
+SES_FROM_EMAIL = "support@waddlewars.io"
+FEEDBACK_TO_EMAIL = "support@waddlewars.io"
+
+[[ratelimits]]
+name = "FEEDBACK_LIMITER"
+namespace_id = "2719081"
+
+  [ratelimits.simple]
+  limit = 5
+  period = 60
+
+[[ratelimits]]
+name = "TELEMETRY_LIMITER"
+namespace_id = "2719082"
+
+  [ratelimits.simple]
+  limit = 30
+  period = 60
+
+[[ratelimits]]
+name = "CTA_LIMITER"
+namespace_id = "2719083"
+
+  [ratelimits.simple]
+  limit = 30
+  period = 60

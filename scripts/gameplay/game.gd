@@ -2,14 +2,19 @@ extends Node
 ## Global game-flow context: selected mode/course/difficulty, Grand Prix
 ## state, and race-result handoff between gameplay and menu scenes.
 
-enum Mode { QUICK_RACE, GRAND_PRIX, ENDLESS, TIME_TRIAL, TUTORIAL }
+enum Mode { QUICK_RACE, GRAND_PRIX, ENDLESS, TIME_TRIAL, TUTORIAL, RUNNER }
 
 const SCENE_TITLE: String = "res://scenes/ui/title.tscn"
 const SCENE_MAIN_MENU: String = "res://scenes/menus/main_menu.tscn"
 const SCENE_MODE_SELECT: String = "res://scenes/menus/mode_select.tscn"
 const SCENE_RACE: String = "res://scenes/gameplay/race.tscn"
+## Waddle Run, the endless-runner mode. Its own scene rather than a race
+## variant: it shares the art and the save file with the racing game and
+## nothing else, so the two can never destabilise each other.
+const SCENE_RUNNER: String = "res://scenes/gameplay/runner.tscn"
 const SCENE_RESULTS: String = "res://scenes/menus/results.tscn"
 const SCENE_CUSTOMIZE: String = "res://scenes/menus/customize.tscn"
+const SCENE_COSMETIC_SHOP: String = "res://scenes/menus/cosmetic_shop.tscn"
 const SCENE_ACHIEVEMENTS: String = "res://scenes/menus/achievements.tscn"
 const SCENE_LEADERBOARD: String = "res://scenes/menus/leaderboard.tscn"
 const SCENE_SETTINGS: String = "res://scenes/menus/settings.tscn"
@@ -25,6 +30,14 @@ var difficulty_id: String = "competitive"
 var gp_round: int = 0
 var gp_points: Dictionary = {}  # racer_key ("player" or personality id) -> points
 var gp_times: Dictionary = {}  # racer_key -> accumulated race seconds (standings tiebreak)
+## True once the cup has been settled: points are final, the record is written
+## and the ceremony may be drawn. Awarding the cup used to happen inside the
+## results screen's panel construction, which made the record depend on which
+## panels a given layout built and put a mutation on a path a rotation
+## re-enters. The race flow settles it; the screen only reports it.
+var gp_cup_complete: bool = false
+## Player's finishing place in the cup, valid once gp_cup_complete.
+var gp_cup_place: int = 1
 
 ## Result handoff. Race scene fills this, results scene reads it.
 ## Array of {key, name, is_player, position, time, fish, dnf}
@@ -70,6 +83,8 @@ func start_grand_prix(p_difficulty: String) -> void:
 	gp_round = 0
 	gp_points = {}
 	gp_times = {}
+	gp_cup_complete = false
+	gp_cup_place = 1
 	course_id = CoursesDB.GRAND_PRIX_ORDER[0]
 	SceneRouter.go_to(SCENE_RACE)
 
@@ -95,6 +110,14 @@ func start_endless() -> void:
 	mode = Mode.ENDLESS
 	course_id = "endless"
 	SceneRouter.go_to(SCENE_RACE)
+
+
+## Waddle Run. There is no course or difficulty to pick: the run is the run,
+## and the whole point of the mode is that it starts the instant it is chosen.
+func start_runner() -> void:
+	mode = Mode.RUNNER
+	course_id = "runner"
+	SceneRouter.go_to(SCENE_RUNNER)
 
 
 func start_time_trial(p_course: String) -> void:
@@ -127,6 +150,39 @@ func gp_standings() -> Array[Dictionary]:
 	return rows
 
 
+## Scores one Grand Prix round into the running standings, and closes the cup
+## out when that round was the last one. Split from finish_race so the scoring
+## rules can be exercised without navigating to the results scene.
+func award_grand_prix_round(results: Array[Dictionary]) -> void:
+	for row: Dictionary in results:
+		var key := String(row.get("key", ""))
+		var pos := int(row.get("position", 8))
+		var pts := GP_POINTS[clampi(pos - 1, 0, GP_POINTS.size() - 1)]
+		gp_points[key] = int(gp_points.get(key, 0)) + pts
+		gp_times[key] = float(gp_times.get(key, 0.0)) + float(row.get("time", 0.0))
+	if is_final_gp_round():
+		_settle_cup()
+
+
+## Closes out a Grand Prix: freezes the round counter past the last course,
+## records the player's placement and marks the cup ready for its ceremony.
+## Idempotent, so a repeated finish cannot write the record twice.
+func _settle_cup() -> void:
+	if gp_cup_complete:
+		return
+	var standings := gp_standings()
+	if standings.is_empty():
+		return
+	var place := 1
+	for i: int in standings.size():
+		if String(standings[i].get("key", "")) == "player":
+			place = i + 1
+	gp_cup_complete = true
+	gp_cup_place = place
+	gp_round = CoursesDB.GRAND_PRIX_ORDER.size()
+	Progression.submit_gp_result(difficulty_id, place, int(standings[place - 1]["points"]))
+
+
 ## Called by the race scene when a standard race completes.
 func finish_race(results: Array[Dictionary]) -> void:
 	last_race_results = results
@@ -137,12 +193,7 @@ func finish_race(results: Array[Dictionary]) -> void:
 			break
 
 	if mode == Mode.GRAND_PRIX:
-		for row: Dictionary in results:
-			var key := String(row.get("key", ""))
-			var pos := int(row.get("position", 8))
-			var pts := GP_POINTS[clampi(pos - 1, 0, GP_POINTS.size() - 1)]
-			gp_points[key] = int(gp_points.get(key, 0)) + pts
-			gp_times[key] = float(gp_times.get(key, 0.0)) + float(row.get("time", 0.0))
+		award_grand_prix_round(results)
 
 	if daily_active:
 		daily_active = false

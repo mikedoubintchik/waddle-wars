@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/art/interactives/item_cache/item_cache_lod0_v1.glb" id="1_lod0"]
+[ext_resource type="PackedScene" path="res://assets/art/interactives/item_cache/item_cache_lod1_v1.glb" id="2_lod1"]
+
+[node name="ItemCacheV1" type="Node3D"]
+metadata/asset_id = "item_cache_v1"
+metadata/production_ready = false
+metadata/semantic_color = "violet_powerup"
+metadata/shape_cue = "three_lobed_pod_four_point_aperture"
+metadata/visual_only = true
+
+[node name="LOD0" parent="." instance=ExtResource("1_lod0")]
+
+[node name="LOD1" parent="." instance=ExtResource("2_lod1")]

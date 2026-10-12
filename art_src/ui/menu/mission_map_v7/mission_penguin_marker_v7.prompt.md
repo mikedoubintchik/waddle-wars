@@ -1,0 +1,3 @@
+Use case: background-extraction. Extract/recreate only the tiny cheerful red-scarf penguin standing on the Twilight route point in this Missions reference as a complete production character cutout. Preserve its identical friendly face, fluffy ivory belly, glossy dark flippers, orange feet, windswept red scarf and three-quarter-facing-right standing pose. Full penguin visible head to toe. No stone platform, map, backdrop, icons, text, frame, ground plane, extra objects, halo or fake checkerboard. True transparent background, ample transparent margin. The exact map character is the identity reference, not the running button penguin.
+
+Built-in ImageGen. Reference: /Users/ninja/Fun/waddle-wars/art_src/ui/menu/missions_v1.png

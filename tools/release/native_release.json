@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "app_name": "Waddle Wars: Penguin Panic",
+  "project_name": "Waddle Wars",
+  "bundle_id": "com.blubberandbyte.waddlewars",
+  "godot_version": "4.7.1.stable",
+  "launch_edition": "free_offline_mvp",
+  "android": {
+    "preset_name": "Android Play Release",
+    "min_sdk": 24,
+    "target_sdk": 36,
+    "build_tools": "36.1.0",
+    "ndk_version": "29.0.14206865",
+    "architectures": [
+      "arm64-v8a"
+    ],
+    "billing_provider": "google_play_billing"
+  },
+  "ios": {
+    "display_name": "Waddle Wars",
+    "preset_name": "iOS App Store",
+    "min_ios_version": "15.0",
+    "minimum_xcode_major": 26,
+    "minimum_sdk_major": 26,
+    "disk_capacity_disabled_template_sha256": "de4e035c66485ec8526ef6d90ce97bd041e217b771614c3569ff0a54c9ac8ba5",
+    "billing_provider": "storekit",
+    "accounts_enabled": true,
+    "clerk_issuer": "https://clerk.waddlewars.io"
+  },
+  "products": [
+    "com.blubberandbyte.waddlewars.cozy_expedition",
+    "com.blubberandbyte.waddlewars.research_crew",
+    "com.blubberandbyte.waddlewars.aurora_celebration"
+  ],
+  "launch_evidence": {
+    "foreground_browser_performance": null,
+    "native_device_performance_and_lifecycle": null,
+    "portrait_landscape_safe_areas": null,
+    "native_billing_receipt_verification_restore_refund": null,
+    "public_privacy_support_and_deletion_urls": null,
+    "store_data_and_age_rating_disclosures": null,
+    "signed_play_bundle_internal_test": null,
+    "signed_ios_archive_testflight": null,
+    "android_16kb_device_test": null
+  }
+}

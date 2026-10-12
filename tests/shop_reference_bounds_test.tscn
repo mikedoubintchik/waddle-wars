@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3]
+[ext_resource type="Script" path="res://tests/shop_reference_bounds_test.gd" id="1"]
+[node name="ShopReferenceBoundsTest" type="Node"]
+script = ExtResource("1")

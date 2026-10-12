@@ -112,7 +112,8 @@ func build_course() -> void:
 		p(0, 1.5, -1404, {"width": 18.0}),
 		p(0, 1.5, -1460, {"width": 18.0}),
 	]
-	setup_main(pts)
+	await setup_main(pts)
+	await stage()
 
 	# Moulin ledge: a narrow no-wall shelf spiralling down the inside of an old
 	# meltwater shaft. It cuts the draught bend — and skips both wind zones —
@@ -124,9 +125,11 @@ func build_course() -> void:
 		p(2, 25.6, -586, {"width": 9.0, "surface": RICE, "wall_l": false, "wall_r": false}),
 		p(-8, 24.6, -626, {"width": 10.0, "surface": RICE, "wall_l": false, "wall_r": false}),
 	]
-	var shortcut := add_branch(branch_pts, 0.7, "moulin_ledge")
+	var shortcut := await add_branch(branch_pts, 0.7, "moulin_ledge")
+	await stage()
 
 	finalize()
+	await stage()
 
 	# --- Geometry-derived offsets ------------------------------------------
 	var slot_start := _offset_near(Vector3(-16, 41.5, -132))
@@ -143,6 +146,7 @@ func build_course() -> void:
 	var cathedral := _offset_near(Vector3(16, 23.4, -1052))
 	var chute_start := _offset_near(Vector3(14, 20.0, -1162))
 	var chute_end := _offset_near(Vector3(-8, 3.5, -1346))
+	await stage()
 
 	# --- Subglacial lake ----------------------------------------------------
 	# Water is separate geometry laid under the gap span: the swim volume, the
@@ -156,6 +160,7 @@ func build_course() -> void:
 	var lake := TrackBuilder.build_water(lake_pts, "SubglacialLake")
 	add_child(lake)
 	_restyle_lake(lake)
+	await stage()
 
 	# --- Icicle gallery: ten spikes on a weaving safe line ------------------
 	var icicle_laterals: Array = [-3.5, 3.0, -2.0, 3.5, -3.0, 2.0, -3.5, 3.0, -2.5, 3.5]
@@ -170,6 +175,7 @@ func build_course() -> void:
 	var gallery_mid := (gallery_start + gallery_end) * 0.5
 	add_hint(gallery_start - 25.0, "danger_left", gallery_mid)
 	add_hint(gallery_mid, "danger_right", gallery_end)
+	await stage()
 
 	# --- The draught: two crosswinds, opposed ------------------------------
 	# Opposed directions so the bend cannot be taken with one held line, and
@@ -188,6 +194,7 @@ func build_course() -> void:
 		add_child(wind)
 		var kind := "danger_right" if float(spec["dir"]) > 0.0 else "danger_left"
 		add_hint(offset - 32.0, kind, offset + 22.0)
+	await stage()
 
 	# --- Boulder run: two rolling ice masses in fixed lanes -----------------
 	var boulder_a := HazardSnowball.new()
@@ -198,6 +205,7 @@ func build_course() -> void:
 	add_child(boulder_b)
 	add_hint(boulder_start - 30.0, "danger_left", boulder_start + 40.0)
 	add_hint(boulder_start + 40.0, "danger_right", boulder_end)
+	await stage()
 
 	# --- Slide hints --------------------------------------------------------
 	# Only the authored ice runs: the lake run-in, the ramp out of the water
@@ -216,6 +224,7 @@ func build_course() -> void:
 	var branch_entry := float(branches[0]["entry"])
 	var branch_exit := float(branches[0]["exit"])
 	add_hint(branch_entry + 20.0, "slide", branch_exit - 12.0, 0)
+	await stage()
 
 	# --- Boost pads ---------------------------------------------------------
 	# Every pad sits on a straight pointing down-track and well clear of the
@@ -229,6 +238,7 @@ func build_course() -> void:
 	TrackBuilder.add_boost_pad(self, main_guide, lake_out + 8.0)
 	TrackBuilder.add_boost_pad(self, main_guide, chute_start + 34.0, -3.0)
 	TrackBuilder.add_boost_pad(self, main_guide, chute_start + 84.0, 3.0)
+	await stage()
 
 	# --- Pickups ------------------------------------------------------------
 	add_item_row(120.0)
@@ -249,13 +259,15 @@ func build_course() -> void:
 	add_fish_line(_offset_near(Vector3(-4, 20.0, -890)) - 14.0, 8, 5.5, 0.0)  # across the lake
 	add_fish_line(cathedral - 20.0, 10, 5.0, -4.0)
 	add_fish_line(chute_start + 40.0, 12, 5.5, 0.0)
+	await stage()
 
 	# The hollow floor goes down before anything else: the wall footings, the
 	# far-field skyline and every seated prop measure themselves against it.
 	add_ground_plane(HOLLOW_FLOOR_Y, Color(0.02, 0.06, 0.1), 4000.0,
 		VisualLibrary.rock_material(Color(0.03, 0.08, 0.13), 1.0))
 	_retint_track()
-	_decorate()
+	await _decorate()
+	await stage()
 	# Deep inside the ice: a near-black roof, a thin band of daylight where the
 	# slot opens overhead, a steep cold key light falling almost straight down
 	# it, and strong ambient because blue ice bounces light around a cavern far
@@ -263,7 +275,7 @@ func build_course() -> void:
 	# an enclosed, humid, meltwater-fed space looks like — but stays honest
 	# enough that the next corner always reads. Glow threshold is low so the
 	# crystal veins bloom; nothing else on the course is bright enough to.
-	build_environment({
+	await build_environment({
 		"sky_top": Color(0.02, 0.05, 0.10),
 		"sky_horizon": Color(0.05, 0.16, 0.25),
 		"ground_color": Color(0.02, 0.07, 0.12),
@@ -416,17 +428,29 @@ func _decorate() -> void:
 	var crystals: Array[Transform3D] = []
 	var icicles: Array[Transform3D] = []
 	_decorate_walls(density)
+	await stage()
 	_decorate_vaults(icicles)
+	await stage()
 	_decorate_pillars(density)
+	await stage()
 	_decorate_crystals(density, crystals)
+	await stage()
 	_decorate_wall_icicles(density, icicles)
+	await stage()
 	_decorate_moraine(density)
+	await stage()
 	_decorate_snow_cones(density)
+	await stage()
 	_decorate_markers()
+	await stage()
 	_decorate_lake_shore(density)
+	await stage()
 	_decorate_glints(density)
+	await stage()
 	_decorate_spectators(density)
+	await stage()
 	_decorate_mist(density)
+	await stage()
 
 	# One shared multimesh for every glowing crystal cluster in the hollow, and
 	# a second for hanging icicles (the same cluster mesh flipped in the
@@ -434,8 +458,10 @@ func _decorate() -> void:
 	# are veins in the ice catching the sky slot, not floodlights.
 	var crystal_mat := VisualLibrary.emissive_material(CRYSTAL_ALBEDO, CRYSTAL_GLOW, 1.9, 0.15)
 	_add_multimesh(VisualLibrary.ice_crystal_mesh(), crystals, crystal_mat, "GlowCrystals", false)
+	await stage()
 	var icicle_mat := VisualLibrary.rock_material(Color(0.62, 0.8, 0.98), 0.12, 0.05)
 	_add_multimesh(VisualLibrary.ice_crystal_mesh(), icicles, icicle_mat, "HangingIcicles", false)
+	await stage()
 
 	# Baked contact shadows, flushed last so every pass above has had its chance
 	# to register one. Nothing in the hollow casts a real shadow (the sun never

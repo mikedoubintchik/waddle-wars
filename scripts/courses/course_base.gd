@@ -5,11 +5,39 @@ extends Node3D
 ## Course geometry lives in world space (course node stays at origin).
 
 signal racer_crossed_finish(racer: Racer)
+## Emitted once build_course() and the VFX pools are done. On the synchronous
+## path that is before add_child() returns; a staged build finishes some frames
+## later, so anything that needs a finished course awaits build_ready().
+signal build_completed
 
 const CHECKPOINT_INTERVAL: float = 130.0
 
+## How long a staged build may hold the main thread before handing the renderer
+## a frame. The web export is single-threaded WASM: every millisecond spent
+## inside one frame is a millisecond the loading penguin stands still, so this
+## number IS the worst-case visible hitch during a course build.
+const STAGE_BUDGET_MSEC: float = 8.0
+
+## Forces staged construction in local timing harnesses. WW_STAGED=1 does the
+## same for any local run, without changing headless simulation behavior.
+static var force_staged_build: bool = false
+
+
+## Web and native phones both need the loading penguin to keep drawing while
+## course geometry and eight racers are created. Shared with RaceManager,
+## which staggers its racer spawns on exactly the same condition.
+static func staged_builds_enabled() -> bool:
+	if force_staged_build or OS.get_environment("WW_STAGED") != "":
+		return true
+	if GameConfig.is_headless():
+		return false
+	return OS.has_feature("web") or OS.has_feature("android") \
+		or OS.has_feature("ios")
+
 var course_id: String = ""
 var main_guide: PathGuide = null
+var main_track_result: TrackBuildResult = null
+var branch_track_results: Array[TrackBuildResult] = []
 var branches: Array[Dictionary] = []  # {id, guide, entry, exit, risk}
 var checkpoint_transforms: Array[Transform3D] = []
 var hints: Array[Dictionary] = []  # {offset, end_offset, type, branch_id}
@@ -25,10 +53,35 @@ var _splash_pool: Array[GPUParticles3D] = []
 var _splash_next: int = 0
 
 
+## True once the course is fully built. Read it before build_ready() to skip
+## the await entirely on the synchronous path.
+var build_finished: bool = false
+var _staged: bool = false
+var _stage_mark: int = 0
+var _stage_debug: bool = false
+var _stage_index: int = 0
+## build_environment's params, held for the far-field pass _ready runs last.
+var _far_field_params: Dictionary = {}
+
+
 func _ready() -> void:
 	rng.seed = hash(course_id) if course_id != "" else 12345
-	build_course()
+	# Native desktop and every headless sim still build synchronously, preserving
+	# harness assumptions. Native phone builds must not monopolize a frame under
+	# the loading overlay, even when a desktop build takes only milliseconds.
+	_staged = staged_builds_enabled()
+	_stage_debug = _staged and OS.get_environment("DBG_STAGE") != ""
+	_stage_mark = Time.get_ticks_usec()
+	@warning_ignore("redundant_await")
+	await build_course()
+	# Skyline last: it seats itself on whatever ground the course finally laid
+	# down (see build_environment).
+	if not _far_field_params.is_empty():
+		await _build_far_field(_far_field_params)
+	await stage()
 	_build_vfx_pools()
+	build_finished = true
+	build_completed.emit()
 
 
 ## Overridden by concrete courses. Must call setup_main(), then optionally
@@ -37,24 +90,75 @@ func build_course() -> void:
 	pass
 
 
+## --- Staged construction ---------------------------------------------------
+
+## A yield point inside a course build. Courses sprinkle `await stage()`
+## between construction steps; it only actually suspends once the frame budget
+## above is spent, so a build that fits in one frame still costs no extra
+## frames and the sync path never suspends at all.
+##
+## `await` on a call that did not suspend resumes immediately in the same
+## frame, which is what keeps the non-staged path (headless sims, desktop,
+## every windowed QA harness) byte-for-byte synchronous.
+func stage() -> void:
+	if not _staged:
+		return
+	if _stage_debug:
+		# Profiling aid (DBG_STAGE=1): the cost of the segment that just ran,
+		# in build order. Anything far above the budget is a single step too
+		# fat to split by yielding around it, and needs yields put inside it.
+		_stage_index += 1
+		var spent := float(Time.get_ticks_usec() - _stage_mark) / 1000.0
+		if spent > 1.0:
+			# Caller line, so a fat segment names the step that produced it.
+			var stack := get_stack()
+			var site := "?"
+			if stack.size() > 1:
+				var frame: Dictionary = stack[1]
+				site = "%s:%d %s" % [String(frame.get("source", "?")).get_file(),
+					int(frame.get("line", 0)), frame.get("function", "?")]
+			print("[stage] %s #%d %.1f ms  <- %s" % [course_id, _stage_index, spent, site])
+	if Time.get_ticks_usec() - _stage_mark < int(STAGE_BUDGET_MSEC * 1000.0):
+		return
+	var tree := get_tree()
+	if tree == null:
+		return
+	await tree.process_frame
+	_stage_mark = Time.get_ticks_usec()
+
+
+## Awaits construction. Returns without suspending when the course is already
+## built, so callers can `await course.build_ready()` unconditionally.
+func build_ready() -> void:
+	if build_finished:
+		return
+	await build_completed
+
+
 ## --- Construction ----------------------------------------------------------
 
 func setup_main(points: Array) -> void:
-	var track := TrackBuilder.build_ribbon(points, "MainTrack")
-	add_child(track)
-	main_guide = track.get_meta("guide") as PathGuide
+	# Handing the ribbon `self` lets it yield between its own mesh phases; it
+	# is the single fattest step in a build (20-50 ms of the 30-130 ms total).
+	main_track_result = await TrackBuilder.build_ribbon_result(
+		points, "MainTrack", self if _staged else null)
+	main_track_result.attach_to(self)
+	main_guide = main_track_result.guide
 	finish_offset = main_guide.length - 18.0
 
 
 func add_branch(points: Array, risk: float = 0.5, id_hint: String = "") -> PathGuide:
-	var track := TrackBuilder.build_ribbon(points, "Branch_%s" % id_hint)
-	add_child(track)
-	var guide := track.get_meta("guide") as PathGuide
+	var track_result := await TrackBuilder.build_ribbon_result(points, "Branch_%s" % id_hint,
+		self if _staged else null)
+	track_result.attach_to(self)
+	branch_track_results.append(track_result)
+	var guide := track_result.guide
 	var entry := float(main_guide.nearest(guide.position_at(0.0), -1)["offset"])
 	var exit_offset := float(main_guide.nearest(guide.position_at(guide.length), -1)["offset"])
 	branches.append({
 		"id": branches.size(), "guide": guide,
 		"entry": entry, "exit": exit_offset, "risk": risk, "name": id_hint,
+		"track_result": track_result,
 		# Precomputed guide_cache key: get_guide/ai_target run per racer per
 		# frame, and formatting this string there allocated every call.
 		"cache_key": "branch_idx_%d" % branches.size(),
@@ -702,6 +806,22 @@ func build_environment(params: Dictionary) -> void:
 			sun.directional_shadow_blend_splits = true
 	add_child(sun)
 
+	# Crepuscular rays around the key light. Opt-in per course, off on the low
+	# quality preset and headless. Colour defaults to the light's own hue pulled
+	# most of the way to white: a shaft is sunlight scattered by air, so it is
+	# always paler and less saturated than the light that casts it.
+	if bool(params.get("shafts", false)) and not GameConfig.is_headless() \
+			and String(SettingsManager.get_setting("display", "quality_preset")) != "low":
+		var shafts := SunShafts.new()
+		shafts.name = "SunShafts"
+		add_child(shafts)
+		var light_color: Color = params.get("sun_color", Color(1.0, 0.965, 0.91))
+		shafts.configure(sun,
+			params.get("shaft_color", light_color.lerp(Color.WHITE, 0.55)),
+			float(params.get("shaft_strength", 0.5)),
+			int(params.get("shaft_blades", 13)),
+			hash(course_id))
+
 	# Cool sky-fill from the anti-sun direction: polar shadow sides are lit by
 	# blue sky bounce, never black — one unshadowed directional models that
 	# for near-zero cost. Specular zeroed so ice and water keep a single sun
@@ -721,16 +841,29 @@ func build_environment(params: Dictionary) -> void:
 
 	if bool(params.get("snow", false)) and not GameConfig.is_headless():
 		_add_snowfall()
+		await stage()
+		_add_near_snow(params)
+		await stage()
+	if bool(params.get("spindrift", false)) and not GameConfig.is_headless():
+		_add_spindrift(params)
+		await stage()
 	if bool(params.get("clouds", false)) and not GameConfig.is_headless():
-		_add_clouds(params.get("cloud_color", Color(1.0, 1.0, 1.0, 0.75)))
-	# The skyline runs one frame late on purpose: several courses lay their
-	# ocean / ice sheet down AFTER build_environment (iceberg does), and every
-	# silhouette seats itself on that surface. Deferring means the far field
-	# reads the real ground on every course instead of the "lowest track point
-	# - 24" fallback, which on iceberg would have sunk the whole skyline 18m
-	# under the sea.
+		await _add_clouds(params.get("cloud_color", Color(1.0, 1.0, 1.0, 0.75)),
+			params.get("sky_horizon", Color(0.75, 0.88, 0.98)))
+		await stage()
+	# The skyline runs LAST, after the whole course build has returned: several
+	# courses lay their ocean / ice sheet down AFTER build_environment (iceberg
+	# does), and every silhouette seats itself on that surface. Running it at
+	# the end means the far field reads the real ground on every course instead
+	# of the "lowest track point - 24" fallback, which on iceberg would have
+	# sunk the whole skyline 18 m under the sea.
+	#
+	# It used to be a call_deferred, which put the single heaviest piece of
+	# geometry in the game (three tessellated massif bands, ~130 ms) one frame
+	# PAST the end of the build — outside the staging, and landing right as the
+	# loading overlay lifted. _ready awaits it instead.
 	if not GameConfig.is_headless():
-		_build_far_field.call_deferred(params)
+		_far_field_params = params
 
 
 ## Cumulus clusters: a wide flat base of big soft puffs with a smaller domed
@@ -739,7 +872,10 @@ func build_environment(params: Dictionary) -> void:
 ## fifteen MeshInstance3Ds for a fifth of the puffs) and two cached materials.
 ## The fine structure of the sky is the panorama in the sky material; these are
 ## the near, parallaxing clouds in front of it.
-func _add_clouds(color: Color) -> void:
+## `horizon` is the sky's horizon tint; the far band is mixed toward it, which
+## is what makes distant cloud read as distant rather than as more of the same
+## cloud drawn smaller.
+func _add_clouds(color: Color, horizon: Color = Color(0.75, 0.88, 0.98)) -> void:
 	var puff_mesh := QuadMesh.new()
 	puff_mesh.size = Vector2(1.0, 0.62)
 	# Base puffs read cooler and heavier than the sunlit crown: a cumulus with
@@ -747,6 +883,14 @@ func _add_clouds(color: Color) -> void:
 	var shade := Color(color.r * 0.82, color.g * 0.86, color.b * 0.96, color.a * 0.92)
 	var crown_mat := VisualLibrary.billboard_puff_material(color, 64, 0.85, true)
 	var base_mat := VisualLibrary.billboard_puff_material(shade, 64, 0.8, true)
+	# Far band: big, hazy, high cumulus parked well outside the course, mixed
+	# most of the way to the horizon tint. The near clusters alone left the
+	# middle of the sky empty between the horizon and the zenith, and an empty
+	# sky is the fastest way to make a big outdoor scene feel small.
+	var far_col := color.lerp(horizon, 0.62)
+	far_col.a = color.a * 0.42
+	var far_mat := VisualLibrary.billboard_puff_material(far_col, 64, 0.9, true)
+	var far_puffs: Array[Transform3D] = []
 	var crown: Array[Transform3D] = []
 	var base: Array[Transform3D] = []
 	var clusters := 7
@@ -754,11 +898,16 @@ func _add_clouds(color: Color) -> void:
 		var anchor := Vector3.ZERO
 		if main_guide != null:
 			anchor = main_guide.position_at(main_guide.length * (float(i) + 0.5) / float(clusters))
-		var spread := rng.randf_range(85.0, 165.0)
+		# Altitude and size raised together. At 115-225 m over the deck these
+		# clusters were closer than the mountains, and from a camera looking
+		# even slightly up each puff resolved into its own flat ellipse -- a row
+		# of blurry ovals hanging over the track. Cumulus belong several hundred
+		# metres up; at that distance the same puffs fuse into a mass.
+		var spread := rng.randf_range(190.0, 330.0)
 		var center := anchor + Vector3(
-			rng.randf_range(-340.0, 340.0),
-			rng.randf_range(115.0, 225.0),
-			rng.randf_range(-260.0, 260.0))
+			rng.randf_range(-620.0, 620.0),
+			rng.randf_range(430.0, 780.0),
+			rng.randf_range(-520.0, 520.0))
 		# Flat base line, domed crown: puff centres are laid out on an ellipse
 		# for the base and a tighter, higher ellipse for the crown, with size
 		# falling off from the middle of the cluster outward.
@@ -779,7 +928,35 @@ func _add_clouds(color: Color) -> void:
 				center + Vector3(t * spread * stretch * 0.4,
 					spread * rng.randf_range(0.22, 0.5) * (1.0 - absf(t) * 0.5),
 					rng.randf_range(-spread * 0.25, spread * 0.25))))
+	# Every puff of a band rides one MultiMesh, so the far band costs one extra
+	# draw call for the whole sky however many puffs it holds.
+	var far_clusters := 9 if String(SettingsManager.get_setting("display", "quality_preset")) != "low" else 5
+	for i: int in far_clusters:
+		var bearing := TAU * (float(i) + rng.randf_range(0.0, 0.55)) / float(far_clusters)
+		# Far means FAR. At 800-1500 m these were big enough that each puff read
+		# as its own flat ellipse -- a row of blurry ovals rather than a cloud
+		# mass. Pushed out past the skyline bands they subtend a small enough
+		# angle to fuse.
+		var away := rng.randf_range(2300.0, 3900.0)
+		var anchor := Vector3.ZERO
+		if main_guide != null:
+			anchor = main_guide.position_at(main_guide.length * rng.randf())
+		var center := Vector3(anchor.x + cos(bearing) * away,
+			rng.randf_range(150.0, 380.0),
+			anchor.z + sin(bearing) * away)
+		var spread := rng.randf_range(260.0, 520.0)
+		var stretch2 := rng.randf_range(1.6, 2.8)
+		for j: int in 7:
+			var t := (float(j) / 6.0 - 0.5) * 2.0
+			var size := spread * (1.0 - absf(t) * 0.42) * rng.randf_range(0.8, 1.2)
+			far_puffs.append(Transform3D(
+				Basis.IDENTITY.scaled(Vector3(size, size, 1.0)),
+				center + Vector3(t * spread * stretch2 * 0.45,
+					rng.randf_range(-spread * 0.12, spread * 0.2),
+					rng.randf_range(-spread * 0.25, spread * 0.25))))
+	_add_puff_layer("CloudFar", puff_mesh, far_mat, far_puffs)
 	_add_puff_layer("CloudBase", puff_mesh, base_mat, base)
+	await stage()
 	_add_puff_layer("CloudCrown", puff_mesh, crown_mat, crown)
 
 
@@ -889,7 +1066,8 @@ func _build_far_field(params: Dictionary) -> void:
 			"mix": ["peak", "peak", "peak", "tabular", "dome"], "cull": 0.0},
 	]
 	for band: Dictionary in bands:
-		_build_skyline_band(band, look, plane_y, density)
+		await _build_skyline_band(band, look, plane_y, density)
+		await stage()
 
 
 func _build_skyline_band(band: Dictionary, look: Dictionary, plane_y: float, density: float) -> void:
@@ -964,6 +1142,7 @@ func _build_skyline_band(band: Dictionary, look: Dictionary, plane_y: float, den
 				_bake_form(chunks[key], kind, pos, footprint, height, form, 0)
 		station += 1
 		offset += step
+		await stage()
 	# Terrain shader, not a flat rock material.
 	#
 	# The skyline is the largest mass in most frames and every one of its faces
@@ -1393,6 +1572,152 @@ static func _sky_cover_texture(seed_value: int, coverage: float, streaks: float)
 	var texture := ImageTexture.create_from_image(image)
 	_sky_cover_cache[key] = texture
 	return texture
+
+
+## Ground spindrift: loose snow torn off the surface and driven downwind in
+## low, fast streaks.
+##
+## This is the layer that was missing from every snow frame in the game. Falling
+## snow reads as weather happening around the racer; spindrift reads as WIND
+## moving across the ground the racer is standing on, and it is the cue that
+## sells a polar surface as a place with air over it rather than a white plane.
+## It is also the only near-ground motion on a course where nothing else moves,
+## so a static camera at the start line stops looking like a screenshot.
+##
+## One emitter, moved to the camera on a timer rather than parented to it: the
+## particles live in global space, so relocating where NEW ones spawn never
+## jerks the ones already in flight.
+func _add_spindrift(params: Dictionary) -> void:
+	var quality := String(SettingsManager.get_setting("display", "particle_quality"))
+	# QA switch: lets a capture isolate whether an on-screen artifact belongs to
+	# this layer or to the surface under it.
+	if quality == "low" or OS.get_environment("DBG_NO_SPINDRIFT") != "":
+		return
+	var wind: Vector2 = params.get("spindrift_dir", Vector2(0.85, 0.53))
+	var wind_dir := Vector3(wind.x, 0.0, wind.y).normalized()
+	var drift := GPUParticles3D.new()
+	drift.name = "Spindrift"
+	var mat := ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	# Wide and very flat: this is snow scraped along a surface, not a snow cloud.
+	# Tight to the deck, not a 40 m cube of sky: streaks that spawn out over the
+	# surrounding terrain hang in mid-air like smoke puffs. This is snow being
+	# scraped along the surface the racer is on, so it lives within a track
+	# width or so of the racing line and within half a metre of the surface.
+	mat.emission_box_extents = Vector3(15.0, 0.35, 15.0)
+	mat.direction = wind_dir
+	mat.spread = 14.0
+	mat.initial_velocity_min = float(params.get("spindrift_speed", 9.0))
+	mat.initial_velocity_max = float(params.get("spindrift_speed", 9.0)) * 2.1
+	# A whisper of lift and gravity: streaks rise slightly, then settle, which
+	# is what keeps them hugging the ground instead of flying flat forever.
+	mat.gravity = Vector3(wind_dir.x * 0.6, -0.55, wind_dir.z * 0.6)
+	mat.scale_min = 0.5
+	mat.scale_max = 1.3
+	mat.damping_min = 0.4
+	mat.damping_max = 1.6
+	drift.process_material = mat
+	# Long thin quad: with camera billboarding its long axis lies across the
+	# screen, which is how a wind streak reads at a level camera.
+	var streak := QuadMesh.new()
+	# Small on purpose. A big soft veil looks better in isolation, but these
+	# spawn within a couple of metres of the lens: at 4 m across, one drifting
+	# through the near plane became a flat pale band with a hard straight edge
+	# across the whole frame (caught by capturing the same view with the layer
+	# switched off). A streak this size cannot cover the screen no matter where
+	# it drifts, so density does the work instead of size.
+	streak.size = Vector2(float(params.get("spindrift_length", 2.0)), 0.18)
+	var streak_mat := StandardMaterial3D.new()
+	streak_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	streak_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	streak_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	streak_mat.billboard_keep_scale = true
+	streak_mat.albedo_texture = VisualLibrary.soft_radial_texture(32, 0.9)
+	# Alpha, never additive: additive white over sunlit snow just blows out to a
+	# flat glare, and the streaks disappear into it.
+	# Cool, not white. Blowing snow over a sunlit deck is a translucent veil
+	# that shades what is under it; pure white at any alpha is invisible against
+	# the surface it is supposed to be moving over.
+	streak_mat.albedo_color = params.get("spindrift_color", Color(0.80, 0.87, 0.99, 0.42))
+	streak_mat.disable_receive_shadows = true
+	streak.material = streak_mat
+	drift.draw_pass_1 = streak
+	drift.amount = 190 if quality == "high" else 95
+	drift.lifetime = 1.8
+	drift.preprocess = 2.0
+	drift.visibility_aabb = AABB(Vector3(-40, -8, -40), Vector3(80, 20, 80))
+	add_child(drift)
+	# Seated on the SURFACE under the camera rather than at camera height: the
+	# chase camera rides metres above the deck, and a box centred on it put the
+	# streaks out in the air over the valley either side of the track.
+	var follower := Timer.new()
+	follower.wait_time = 0.2
+	follower.autostart = true
+	follower.timeout.connect(func() -> void:
+		var cam := get_viewport().get_camera_3d()
+		if cam == null:
+			return
+		var here := cam.global_position
+		drift.global_position = Vector3(here.x, ground_height_at(here) + 0.45, here.z))
+	drift.add_child(follower)
+
+
+## Near-camera flakes: a second, much smaller snow volume right around the
+## lens, with flakes big enough to read as individual crystals.
+##
+## The main snowfall layer spreads its budget over a 90 m box, which means the
+## flakes that land near the camera are both sparse and sub-pixel — accurate,
+## and worth almost nothing on screen. Depth in a snow scene comes from a few
+## LARGE out-of-focus flakes crossing close to the lens against far geometry;
+## that parallax is what separates foreground from background and it is the
+## cheapest sense of depth available to a renderer with no depth of field.
+##
+## Kept faint and slightly cool so it reads as out-of-focus rather than as
+## confetti, and skipped on the low particle preset.
+func _add_near_snow(params: Dictionary) -> void:
+	var quality := String(SettingsManager.get_setting("display", "particle_quality"))
+	if quality == "low":
+		return
+	var near := GPUParticles3D.new()
+	near.name = "NearSnow"
+	var mat := ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	mat.emission_box_extents = Vector3(7.0, 3.5, 7.0)
+	mat.direction = Vector3(0.25, -1.0, 0.1)
+	mat.spread = 22.0
+	mat.initial_velocity_min = 1.6
+	mat.initial_velocity_max = 3.4
+	mat.gravity = Vector3(float(params.get("near_snow_drift", 0.9)), -2.4, 0.35)
+	# Wide size spread: a few flakes much closer to the lens than the rest is
+	# the whole point, and uniform sizes read as a printed pattern.
+	# Capped: past ~0.7 m across at a metre from the lens a flake stops reading
+	# as out-of-focus snow and starts reading as a smudge on the camera.
+	mat.scale_min = 0.6
+	mat.scale_max = 2.2
+	mat.angular_velocity_min = -40.0
+	mat.angular_velocity_max = 40.0
+	near.process_material = mat
+	var flake := QuadMesh.new()
+	flake.size = Vector2(0.30, 0.30)
+	flake.material = VisualLibrary.billboard_puff_material(
+		params.get("near_snow_color", Color(0.97, 0.99, 1.0, 0.45)), 32, 0.85)
+	near.draw_pass_1 = flake
+	near.amount = 60 if quality == "high" else 30
+	near.lifetime = 3.2
+	near.preprocess = 2.5
+	near.visibility_aabb = AABB(Vector3(-16, -14, -16), Vector3(32, 28, 32))
+	add_child(near)
+	var follower := Timer.new()
+	follower.wait_time = 0.12
+	follower.autostart = true
+	follower.timeout.connect(func() -> void:
+		var cam := get_viewport().get_camera_3d()
+		if cam != null:
+			# Slightly ahead of and above the camera, so flakes fall THROUGH the
+			# view rather than spawning behind it.
+			near.global_position = cam.global_position \
+				- cam.global_transform.basis.z * 3.0 + Vector3.UP * 2.5)
+	near.add_child(follower)
 
 
 func _add_snowfall() -> void:

@@ -1,0 +1,14 @@
+{
+  "status": "rejected visual proof v1",
+  "reason": "narrow crown; short pointed flippers; renderer color-transfer diagnosis pending",
+  "files": {
+    "candidate.glb": "83584fcb4e5d5509a871e5bc16453d6711d1f3fd094e2eb747bb546240526747",
+    "source.blend": "d74423a302a182700da89c86c29ce8573440ad5bc63b009242594226a93dfe4e",
+    "build_penguin_rear_blockout.py": "c4269559cfb32d2d29ed10e8de563a15ccbb3bf7c1e022c8dde28064ae9f15ce",
+    "config.json": "737d953927f414e69b2a4d7460484e2aa6d58321ccab246ddc6ed8aa3c349dd1",
+    "metadata.json": "b8866e585e7cc32046f2a2eed49769ba560f0b0583ea09a36becc4e367961989",
+    "gltf-validation.log": "6380ac0e31153067a60f023bc7809a30b4df9b2910918d4e523c539ef5e224a2",
+    "geometry-verification.json": "5452f2b1e556f59d3fa9e5aa35e9af54d3cd3c50b89b5d5533f4fd5f05407f27",
+    "build.log": "370fa676b28c19e50a27e09688dece4f692f93db68fa8a8c5f027374a559d9cf"
+  }
+}

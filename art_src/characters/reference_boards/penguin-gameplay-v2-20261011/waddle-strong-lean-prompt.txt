@@ -1,0 +1,16 @@
+Use case: stylized-concept.
+Asset: eight-pose animation reference sheet, a correction of the attached rear-view waddle sequence.
+Input 1 is the edit target: current rear waddle is too upright. Input 2 is the identity reference. Preserve the same cute charcoal/ivory/gold penguin, rounded body and head, feather texture, orange webbed feet and tapered flippers.
+PRIMARY CHANGE: make a MUCH MORE PRONOUNCED SIDE-TO-SIDE WADDLE. Real penguin weight transfer with a rocking pear-shaped torso. At the two extremes the whole torso and neck lean approximately 22 DEGREES sideways toward the planted support foot, producing an unmistakably diagonal body axis and a large sideways crown displacement, about one quarter of torso width. This must be obvious even at thumbnail size. Not just raising a foot under an otherwise vertical body. Head follows the torso lean with only a small counter-tilt. Roll in the image plane, not turning or yawing.
+STRICT layout: four columns by two rows, eight equal square cells on a 2:1 landscape canvas. No labels, numbers, lines, borders or gutters. Consecutive poses left to right top row, then left to right bottom row. All penguin parts and shadow fully inside each cell with generous side/head room; maximum silhouette height 70% of cell.
+Locked camera directly BEHIND, slightly elevated 20 degrees, facing upscreen away. No face, eye or bill visible. Locked framing, scale, lighting and pale ice-blue floor/background across every frame. No horizon, scenery or particles. Floor must stay level. Never rotate the whole image, floor or shadow to fake lean.
+Eight poses:
+1. Strong LEFT lean, about 22 degrees. Left foot planted flat; body mass shifted decisively above it. Right foot lifted clear, beginning short forward recovery. Right flipper lifted outward for counterbalance.
+2. LEFT lean about 18 degrees. Same left foot grounded; right foot swings a short step forward. Free foot and body visibly in motion.
+3. LEFT lean reduced to about 8 degrees. Right foot reaching down; weight starts passing through center.
+4. RIGHT lean about 8 degrees, weight arriving over right foot, left heel lifts.
+5. Strong RIGHT lean about 22 degrees, mirror of frame 1. Right foot planted flat, left foot fully lifted clear, left flipper counterbalances.
+6. RIGHT lean about 18 degrees, mirror frame 2. Left foot swings through; right foot planted.
+7. RIGHT lean reduced to about 8 degrees, left foot reaches down, weight crossing.
+8. LEFT lean about 8 degrees, weight arrives over left foot, right heel lifts, naturally leads into frame 1.
+This is a low, short-stepped comical WADDLE with emphatic lateral sway, not a run or hop. One foot always grounded; no airborne gait; no human knees, exaggerated forward pitch, marching high knees, slipping feet, or static upright torso. Do not redesign the character. Preserve ground anchor rather than re-centering every torso: the alternating visible side displacement is essential. Eight distinct poses with deliberate phase progression. Clean polished stylized realtime-3D reference rendering.

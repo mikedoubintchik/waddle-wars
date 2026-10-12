@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/art/courses/glacier/glacier_rescue_sled_v1.glb" id="1_art"]
+
+[node name="GlacierRescueSledV1" type="Node3D"]
+
+[node name="Art" parent="." instance=ExtResource("1_art")]

@@ -1,0 +1,512 @@
+{
+  "authored_packages": [
+    {
+      "asset_class": "runner_character",
+      "binding": "assets/art/characters/runner_penguin_v1.json",
+      "binding_sha256": "e4bc51071f6725b2e89e7c6c9354cf090a76133c54e033375394a5ce8cd36dd1",
+      "builder": "tools/art/build_penguin_motion_v1.py",
+      "builder_sha256": "ae7f7d2e41e9c383133861faf6403703489034d7abe1b34ad1d481c62f809d9f",
+      "expected": {
+        "deform_bones_max": 15,
+        "required_animations": [
+          "jump",
+          "slide",
+          "waddle"
+        ],
+        "skin_influences_max": 4,
+        "surfaces_max": 1,
+        "triangles_max": 15000
+      },
+      "front_ready": false,
+      "id": "runner_penguin_v1",
+      "license_id": "project_original",
+      "output": "assets/art/characters/runner_penguin_v1.glb",
+      "output_sha256": "206632fc655b49dc590caa621b01f2ce83ccd3108ff4a4c82787e0e8a016eef2",
+      "scope": "rear_runner_only",
+      "source": "art_src/characters/penguin_motion_v1/source.blend",
+      "source_sha256": "7d45d18f3dfdb1852f94dffc9bc33f7c13225584abd2032793d99e686d9ca1c5"
+    }
+  ],
+  "blender_version": "5.2.0",
+  "concepts": [
+    {
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "generated_on": "2026-08-18",
+      "generator": "built-in image_gen.imagegen",
+      "id": "runner_day_keyart_v1",
+      "license_id": "project_original",
+      "path": "art_src/runner/style/concepts/runner_day_keyart_v1.png",
+      "prompt_path": "art_src/runner/style/concepts/runner_day_keyart_v1.prompt.md",
+      "sha256": "4567688130ca91620948904f0e5aefd0100dc5e9f938d2dd6357127d91ffcad6",
+      "status": "art_direction_only"
+    }
+  ],
+  "exports": [
+    {
+      "asset_class": "repeated_prop",
+      "collection": "runner_day_deck_kerb_b_v1",
+      "expected": {
+        "bounds_meters_max": [
+          12.25,
+          6.5,
+          1.6
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_deck_kerb_b_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_deck_kerb_b_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "4707f9abba8d22cf9212b18ff059d8a250b6ba9d4169a3bd53d9824520dbfe43"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "runner_day_deck_kerb_c_v1",
+      "expected": {
+        "bounds_meters_max": [
+          12.25,
+          6.5,
+          1.6
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_deck_kerb_c_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_deck_kerb_c_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "4707f9abba8d22cf9212b18ff059d8a250b6ba9d4169a3bd53d9824520dbfe43"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "runner_day_deck_kerb_v1",
+      "expected": {
+        "bounds_meters_max": [
+          12.25,
+          6.5,
+          1.6
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_deck_kerb_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_deck_kerb_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "4707f9abba8d22cf9212b18ff059d8a250b6ba9d4169a3bd53d9824520dbfe43"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "runner_day_iceberg_cluster_v1",
+      "expected": {
+        "bounds_meters_max": [
+          18.0,
+          10.0,
+          11.0
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_iceberg_cluster_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_iceberg_cluster_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "4707f9abba8d22cf9212b18ff059d8a250b6ba9d4169a3bd53d9824520dbfe43"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "runner_day_research_lab_v1",
+      "expected": {
+        "bounds_meters_max": [
+          11.0,
+          6.0,
+          5.5
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_research_lab_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_research_lab_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "4707f9abba8d22cf9212b18ff059d8a250b6ba9d4169a3bd53d9824520dbfe43"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "runner_day_signal_pylon_v1",
+      "expected": {
+        "bounds_meters_max": [
+          2.5,
+          3.0,
+          4.2
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "runner_day_signal_pylon_v1",
+      "license_id": "project_original",
+      "output": "assets/art/runner/day/runner_day_signal_pylon_v1.glb",
+      "source": "art_src/runner/day/runner_day_kit_v1.blend",
+      "source_sha256": "4707f9abba8d22cf9212b18ff059d8a250b6ba9d4169a3bd53d9824520dbfe43"
+    }
+  ],
+  "generated_assets": [
+    {
+      "dimensions": [
+        1146,
+        1372
+      ],
+      "generated_on": "2026-08-18",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_loader_penguin_v1",
+      "license_id": "project_original",
+      "path": "art_src/ui/title/loader_penguin_expedition_v1.png",
+      "prompt_path": "art_src/ui/title/title_expedition_v1.prompt.md",
+      "sha256": "c3d78dd0ef1c86bbdeb9b44621a04968fbec0c24c4f72b8ea73ee8f882e80af6",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1234,
+        1274
+      ],
+      "generated_on": "2026-10-08",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_mission_penguin_marker_v7",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/mission_map_v7/mission_penguin_marker_v7.png",
+      "prompt_path": "art_src/ui/menu/mission_map_v7/mission_penguin_marker_v7.prompt.md",
+      "sha256": "70447cbd45197215600903fa42a9c309a975b9e36d937d1b6e7e2b375dda603e",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        2172,
+        724
+      ],
+      "generated_on": "2026-10-08",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_mission_route_markers_v7",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/mission_map_v7/mission_route_markers_v7.png",
+      "prompt_path": "art_src/ui/menu/mission_map_v7/mission_route_markers_v7.prompt.md",
+      "sha256": "e37b3b7ba95ce3c9553afae0d24ae80fd166472f3c1b802f13d0d172e76b6be2",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1672,
+        941
+      ],
+      "generated_on": "2026-10-08",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_missions_background_desktop_v7",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/mission_map_v7/missions_background_desktop_v7.png",
+      "prompt_path": "art_src/ui/menu/mission_map_v7/missions_background_desktop_v7.prompt.md",
+      "sha256": "6bf718e8a1bd103a8de5a2a3aec3098a8a5188d38ca23dffc873f84ae1f2af47",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        941,
+        1672
+      ],
+      "generated_on": "2026-10-08",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_missions_background_portrait_v7",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/mission_map_v7/missions_background_portrait_v7.png",
+      "prompt_path": "art_src/ui/menu/mission_map_v7/missions_background_portrait_v7.prompt.md",
+      "sha256": "9760f488951baf9bc66b42b63dcd4dbc1538f8caa19fb45f77591d715f38d266",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1672,
+        941
+      ],
+      "generated_on": "2026-08-18",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_title_expedition_landscape_v1",
+      "license_id": "project_original",
+      "path": "art_src/ui/title/title_expedition_landscape_v1.png",
+      "prompt_path": "art_src/ui/title/title_expedition_v1.prompt.md",
+      "sha256": "9b7c4ee5341f1f8a25052062aa99e1355009c7f8d63c60803d671178b871b5b3",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        941,
+        1672
+      ],
+      "generated_on": "2026-08-18",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_title_expedition_portrait_v1",
+      "license_id": "project_original",
+      "path": "art_src/ui/title/title_expedition_portrait_v1.png",
+      "prompt_path": "art_src/ui/title/title_expedition_v1.prompt.md",
+      "sha256": "45203a0cdfadc249ca292f2a27900e5cc70b092cd8be049fcffdb4a2907b6125",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "generated_on": "2026-10-04",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_waddle_wars_app_icon_v2",
+      "license_id": "project_original",
+      "path": "art_src/ui/icon/waddle_wars_app_icon_v2_source.png",
+      "prompt_path": "art_src/ui/icon/waddle_wars_app_icon_v2.prompt.md",
+      "sha256": "3b973488ae22662462a83efc77e111451871e1ddae044856093dec352a1f0195",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "generated_on": "2026-10-04",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_waddle_wars_app_icon_v3",
+      "license_id": "project_original",
+      "path": "art_src/ui/icon/waddle_wars_app_icon_v3_source.png",
+      "prompt_path": "art_src/ui/icon/waddle_wars_app_icon_v3.prompt.md",
+      "sha256": "8c13801c266bec6332a807920b4ef49c11e4156a3103ae2339c8466b5e421c9b",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "generated_on": "2026-10-04",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_waddle_wars_app_icon_v4",
+      "license_id": "project_original",
+      "path": "art_src/ui/icon/waddle_wars_app_icon_v4_source.png",
+      "prompt_path": "art_src/ui/icon/waddle_wars_app_icon_v4.prompt.md",
+      "sha256": "6f86d25a6984ac9b045f76dc67fec0d19d4e82adb174c81d250bec71c531c639",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1774,
+        887
+      ],
+      "generated_on": "2026-10-04",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_waddle_wars_feature_v2",
+      "license_id": "project_original",
+      "path": "art_src/ui/feature/waddle_wars_feature_v2_source.png",
+      "prompt_path": "art_src/ui/feature/waddle_wars_feature_v2.prompt.md",
+      "sha256": "dddaf3256443cda1ead52e197cb4dd651baacfb840e07d125b5717c1b771fa6a",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1774,
+        887
+      ],
+      "generated_on": "2026-10-04",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_waddle_wars_wordmark_v2",
+      "license_id": "project_original",
+      "path": "art_src/ui/title/waddle_wars_wordmark_v2_source.png",
+      "prompt_path": "art_src/ui/title/waddle_wars_wordmark_v2.prompt.md",
+      "sha256": "816f9321432d17d109e27c4dc28f26a262e5f4fa86f90476da8adab5cd055f1b",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1536,
+        1024
+      ],
+      "generated_on": "2026-10-04",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_waddle_wars_wordmark_v3",
+      "license_id": "project_original",
+      "path": "art_src/ui/title/waddle_wars_wordmark_v3_source.png",
+      "prompt_path": "art_src/ui/title/waddle_wars_wordmark_v3.prompt.md",
+      "sha256": "6cbb0c6f9259740c9aba27357de632de5b38e377b59de6bd7ea67ceb706e452b",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1774,
+        887
+      ],
+      "generated_on": "2026-10-04",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_waddle_wars_wordmark_v4",
+      "license_id": "project_original",
+      "path": "art_src/ui/title/waddle_wars_wordmark_v4_source.png",
+      "prompt_path": "art_src/ui/title/waddle_wars_wordmark_v4.prompt.md",
+      "sha256": "e3f58da0cfceec8d319db12ddfe561088d9840db175740b6ba956e4909023432",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        2172,
+        724
+      ],
+      "generated_on": "2026-10-08",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_wardrobe_category_icons_v3",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/wardrobe_category_icons_v3.png",
+      "prompt_path": "art_src/ui/menu/wardrobe_category_icons_v3.prompt.md",
+      "sha256": "e7075b911b5c47bd1d3d4ade76b8e4f2cd14a2f47705c8c4cb7644f6cd3571df",
+      "status": "production_source"
+    }
+  ],
+  "schema_version": 1,
+  "study_sources": [
+    {
+      "id": "characters_penguin_rear_blockout_v1",
+      "license_id": "project_original",
+      "path": "art_src/characters/penguin_rear_blockout_v1/source.blend",
+      "production_ready": false,
+      "sha256": "d6606c43e4f1bf7cd592f33827fe2f79bc232b88a7ae37f2b9d35368b46ce681",
+      "status": "source_study"
+    },
+    {
+      "id": "characters_penguin_rear_blockout_v1_archive_human_rejected_v5",
+      "license_id": "project_original",
+      "path": "art_src/characters/penguin_rear_blockout_v1/archive/human-rejected-v5/source.blend",
+      "production_ready": false,
+      "sha256": "ba27bb0b6c3018c7cbb3cb98f4e4c3b026a05ff87ee6802e2508fc0358166b75",
+      "status": "archived_study"
+    },
+    {
+      "id": "characters_penguin_rear_blockout_v1_archive_human_rejected_v7_blobs",
+      "license_id": "project_original",
+      "path": "art_src/characters/penguin_rear_blockout_v1/archive/human-rejected-v7-blobs/source.blend",
+      "production_ready": false,
+      "sha256": "88287b0c218de1e7fe304b5ceddaed94f96983407356bd0efc2f852109243667",
+      "status": "archived_study"
+    },
+    {
+      "id": "characters_penguin_rear_blockout_v1_archive_human_reviewed_v3",
+      "license_id": "project_original",
+      "path": "art_src/characters/penguin_rear_blockout_v1/archive/human-reviewed-v3/source.blend",
+      "production_ready": false,
+      "sha256": "212d298fe01013bd6e9ea4e5c9dde43d9235519aabd86d82ad19a54a371d31a5",
+      "status": "archived_study"
+    },
+    {
+      "id": "characters_penguin_rear_blockout_v1_archive_numerical_fit8",
+      "license_id": "project_original",
+      "path": "art_src/characters/penguin_rear_blockout_v1/archive/numerical-fit8/source.blend",
+      "production_ready": false,
+      "sha256": "270d3d0eec7f4cd9bf6339c45d47fa5efc9c41ca51f7517bd4f05b8e6b2da8cb",
+      "status": "archived_study"
+    },
+    {
+      "id": "characters_penguin_rear_blockout_v1_archive_rejected_v1",
+      "license_id": "project_original",
+      "path": "art_src/characters/penguin_rear_blockout_v1/archive/rejected-v1/source.blend",
+      "production_ready": false,
+      "sha256": "d74423a302a182700da89c86c29ce8573440ad5bc63b009242594226a93dfe4e",
+      "status": "archived_study"
+    },
+    {
+      "id": "characters_penguin_rear_blockout_v1_archive_rejected_v2",
+      "license_id": "project_original",
+      "path": "art_src/characters/penguin_rear_blockout_v1/archive/rejected-v2/source.blend",
+      "production_ready": false,
+      "sha256": "07140c3cfc41ab1adf43632adebc857b1435702d5c26eb3420114c09f1769f77",
+      "status": "archived_study"
+    },
+    {
+      "id": "characters_penguin_rear_blockout_v1_archive_rejected_v4",
+      "license_id": "project_original",
+      "path": "art_src/characters/penguin_rear_blockout_v1/archive/rejected-v4/source.blend",
+      "production_ready": false,
+      "sha256": "b538ce6c8c406f22ccb5d5591234ebc8f0920a314aa4cf2d1e5b0ac5af2e76a2",
+      "status": "archived_study"
+    },
+    {
+      "id": "characters_penguin_rear_blockout_v1_archive_rejected_v6_foot_undercut",
+      "license_id": "project_original",
+      "path": "art_src/characters/penguin_rear_blockout_v1/archive/rejected-v6-foot-undercut/source.blend",
+      "production_ready": false,
+      "sha256": "bbbde3d83321c8876a6db29d5bb25442d2c402ae08ac650d4747058d6ffdc2af",
+      "status": "archived_study"
+    },
+    {
+      "id": "characters_penguin_rear_surface_v1",
+      "license_id": "project_original",
+      "path": "art_src/characters/penguin_rear_surface_v1/source.blend",
+      "production_ready": false,
+      "sha256": "7253e147302eb8476524d9694cb6f8eb0032cac7a37ca58bd730e7723fde98b2",
+      "status": "source_study"
+    },
+    {
+      "id": "characters_penguin_rear_surface_v1_archive_initial_atlas",
+      "license_id": "project_original",
+      "path": "art_src/characters/penguin_rear_surface_v1/archive/initial-atlas/source.blend",
+      "production_ready": false,
+      "sha256": "4a3d8e94c16374cbdf0db707ea333a4d8107c5e3d1295d33673224852bc9d1a1",
+      "status": "archived_study"
+    },
+    {
+      "id": "characters_penguin_rear_surface_v2",
+      "license_id": "project_original",
+      "path": "art_src/characters/penguin_rear_surface_v2/source.blend",
+      "production_ready": false,
+      "sha256": "b658f5235e7a014cd4f5bc20840c1fb9b40564324e6684c1a9269b5064736aa1",
+      "status": "source_study"
+    },
+    {
+      "id": "characters_penguin_rear_surface_v3",
+      "license_id": "project_original",
+      "path": "art_src/characters/penguin_rear_surface_v3/source.blend",
+      "production_ready": false,
+      "sha256": "ba68b1f4f5e77f4712b4c80d16dfd7b4588b6624b0ac504b7a7e47e7ab5f97f2",
+      "status": "source_study"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "name": "GodotGooglePlayBilling",
+  "version": "3.3.0",
+  "sha256": "20d75623d6f337f08d8283c83098b73678d5f575e39247af5a8eb80588b18568",
+  "source_commit": "e494f370ee591fa11823ad2749a070ed1149de99",
+  "billing_library": "9.1.0",
+  "license": "MIT"
+}

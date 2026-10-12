@@ -1,0 +1,1650 @@
+{
+  "source_height_m": 1.6931614875793457,
+  "gameplay_height_m": 1.05,
+  "gameplay_scale": 0.6201416744371788,
+  "author_axes": "Blender +Z up, +Y forward; exporter converts to glTF/Godot +Y up, -Z forward",
+  "bounds_author_m": {
+    "min": [
+      -0.7124186158180237,
+      -0.3670448362827301,
+      0.0
+    ],
+    "max": [
+      0.7117675542831421,
+      0.5318607687950134,
+      1.6931614875793457
+    ]
+  },
+  "root_transform": "identity",
+  "pose": {
+    "body_forward_pitch_degrees": 11,
+    "right_hip_settle_m": 0.04,
+    "integrated_lower_hem": {
+      "depth_m": 0.024,
+      "rear_overlap_m": 0.065,
+      "spacing_m": 0.105,
+      "fade_start_z_m": 0.23,
+      "fade_end_z_m": 0.31,
+      "rear_base_weight": 0.4,
+      "rear_scallop_weight": 0.2
+    },
+    "pose_scope": "Static reference stance; shared anatomical foot loft, upper ankle lean and right lower-rump settle. No rig or animation.",
+    "author_hip_pivot_yz_m": [
+      0.045,
+      0.28
+    ],
+    "leaned_parts": [
+      "continuous_body_head",
+      "flipper_L",
+      "flipper_R",
+      "short_tail_fan"
+    ],
+    "feet_rotated_with_body": false,
+    "crown_forward_direction": "author +Y; exported Godot -Z",
+    "static_reference_foot_poses": {
+      "L": {
+        "forward_offset_m": 0,
+        "height_scale": 1,
+        "width_scale": 0.94,
+        "yaw_offset_degrees": -6,
+        "center_x_offset_m": 0.0215,
+        "upper_lean_y_m": -0.18,
+        "upper_lean_x_m": 0,
+        "upper_bulge_y_m": -0.08,
+        "upper_lean_full_z_m": 0.225,
+        "upper_lean_start_z_m": 0.055
+      },
+      "R": {
+        "forward_offset_m": 0,
+        "height_scale": 1,
+        "width_scale": 1,
+        "yaw_offset_degrees": 0,
+        "center_x_offset_m": 0.04,
+        "upper_lean_y_m": -0.045,
+        "upper_lean_x_m": -0.04,
+        "upper_bulge_y_m": 0,
+        "upper_lean_full_z_m": 0.18,
+        "upper_lean_start_z_m": 0.09,
+        "heel_width_scale": 0.7,
+        "rear_pad_detail_enabled": false
+      }
+    },
+    "static_reference_flipper_poses": {
+      "L": {
+        "length_scale": 1.08
+      },
+      "R": {
+        "length_scale": 0.975
+      }
+    },
+    "attachment_checks": [
+      {
+        "part": "foot_L",
+        "ankle_cap_body_ellipse_ratio": 0.7718474956711996,
+        "sole_min_z_m": 0.0,
+        "ankle_cap_m": [
+          -0.2744775764604029,
+          -0.11467025236541308,
+          0.285
+        ]
+      },
+      {
+        "part": "foot_R",
+        "ankle_cap_body_ellipse_ratio": 0.32910195374389956,
+        "sole_min_z_m": 0.0,
+        "ankle_cap_m": [
+          0.2558070233172733,
+          0.0286641022651875,
+          0.285
+        ]
+      }
+    ]
+  },
+  "parts_vertex_ranges": {
+    "continuous_body_head": [
+      0,
+      2258
+    ],
+    "flipper_L": [
+      2258,
+      2740
+    ],
+    "flipper_R": [
+      2740,
+      3222
+    ],
+    "foot_L": [
+      3222,
+      5144
+    ],
+    "foot_R": [
+      5144,
+      7066
+    ],
+    "short_tail_fan": [
+      7066,
+      7372
+    ]
+  },
+  "anatomical_foot_direction": {
+    "left": {
+      "outward_splay_degrees": 12.000000000000002,
+      "heel_width_scale": 1.0,
+      "rear_pad_detail_enabled": true,
+      "rear_heel": [
+        -0.20656071603298187,
+        0.009594304487109184,
+        0.06666464358568192
+      ],
+      "forward_middle_toe": [
+        -0.27205291390419006,
+        0.0,
+        -0.22226324677467346
+      ],
+      "ankle_cap": [
+        -0.2744775712490082,
+        0.2849999964237213,
+        0.11467025429010391
+      ],
+      "anatomical_forward_direction_godot": [
+        -0.2079116851091385,
+        0.0,
+        -0.9781476259231567
+      ],
+      "ankle_to_toe_forward_m": 0.3290665960521437,
+      "ankle_to_heel_forward_m": 0.03283586446195841,
+      "forward_toe_axis_dot_body_forward": 0.9781476259231567
+    },
+    "right": {
+      "outward_splay_degrees": 18.0,
+      "heel_width_scale": 0.7,
+      "rear_pad_detail_enabled": false,
+      "rear_heel": [
+        0.2105015516281128,
+        0.0,
+        0.08195213973522186
+      ],
+      "forward_middle_toe": [
+        0.3078418970108032,
+        0.0,
+        -0.21763066947460175
+      ],
+      "ankle_cap": [
+        0.2558070123195648,
+        0.2849999964237213,
+        -0.028664102777838707
+      ],
+      "anatomical_forward_direction_godot": [
+        0.30901700258255005,
+        0.0,
+        -0.9510565400123596
+      ],
+      "ankle_to_toe_forward_m": 0.19579756259918213,
+      "ankle_to_heel_forward_m": -0.1192024601623416,
+      "forward_toe_axis_dot_body_forward": 0.9510565400123596
+    }
+  },
+  "schema_version": 1,
+  "gate": "rear-surface-v2",
+  "geometry_contract": "tail-flippers-only-v1",
+  "material_contract": "rear-surface-pbr-v1",
+  "unrigged": true,
+  "production_ready": false,
+  "animation_ready": false,
+  "visual_approval": "pending actual-game surface review",
+  "glb_sha256": "c895c19f310f71d8667cc871b1947d9a5d635653c99ee5acca4035fcb063c62c",
+  "source_sha256": "ba68b1f4f5e77f4712b4c80d16dfd7b4588b6624b0ac504b7a7e47e7ab5f97f2",
+  "builder_sha256": "fe93978e494a7762ee1d742388c780a6daeeec576f7acd66d79bf585f745d3e9",
+  "reference_file": "art_src/characters/reference_boards/penguin-gameplay-v2-20261011/animatics-strong-lean/waddle-frame-04.png",
+  "geometry_reference": {
+    "path": "art_src/characters/penguin_rear_surface_v1/candidate.glb",
+    "glb_sha256": "b21ca5327a7798b31b1b5b7aa098a4452c623db2c95044244aa490fb72fc7484"
+  },
+  "geometry_identity": {
+    "method": "Scoped exact oriented POSITION+NORMAL triangles; body/feet protected, tail/flippers allowed",
+    "sha256": "c2162e0dc25222da3a7d23b0a4b49c65c1635c5cf1c82b8f92d378e2ebfa0936",
+    "source_sha256": "10b230ec9f0dfd6ea563af6186b3ea450bf9d0b2ebf2b4f66da019e0d305de9e",
+    "passed": true
+  },
+  "scoped_geometry_identity": {
+    "protected": [
+      "continuous_body_head",
+      "foot_L",
+      "foot_R"
+    ],
+    "allowed": [
+      "flipper_L",
+      "flipper_R",
+      "short_tail_fan"
+    ],
+    "baseline": {
+      "flipper_L": {
+        "unique_positions": 482,
+        "triangles": 960,
+        "position_normal_sha256": "ba502acc69b7bafe566981dd47ff6f3e748da70bb30ad401bb9ad820cfc2a5b7",
+        "uv_triangles_sha256": "40a92a6fe27cc07181479ea03154c18f2ac89e80b144e7558183cbbbe7534af3"
+      },
+      "foot_L": {
+        "unique_positions": 1922,
+        "triangles": 3840,
+        "position_normal_sha256": "2db979e8e240fb30e9e88ee5af586d68c14e9b303519edf8f496e3369130f2c3",
+        "uv_triangles_sha256": "9bb75e6b67774cd235cacb9c8cd0c37c8e860b0dc89c748445b8e1f87558ff19"
+      },
+      "short_tail_fan": {
+        "unique_positions": 306,
+        "triangles": 608,
+        "position_normal_sha256": "824fab0a86896097ce6e656904f7a110349a0d6fc7a1cca3e3ab26a1a38e7491",
+        "uv_triangles_sha256": "203fb0d8fc38487705037835fb6a9008edb1e05f92eed9021c477c398cd0c134"
+      },
+      "continuous_body_head": {
+        "unique_positions": 2258,
+        "triangles": 4512,
+        "position_normal_sha256": "e5e13c43a0f35c0f83773966ee9b6e2f210472d193557fe0317e2b5f9fb29ef7",
+        "uv_triangles_sha256": "22f9bf4eef044c7587ef47f90be99bb37843044f555b4ce675d3c0b2d43b4d38"
+      },
+      "foot_R": {
+        "unique_positions": 1922,
+        "triangles": 3840,
+        "position_normal_sha256": "ed8fa93fa6a08ad559905d01fae3376de5ecf4af9b723d921078e84b3aba5c35",
+        "uv_triangles_sha256": "0cffd782bd1da254faeaef02953b6a0506c231e742da269f5c7075ba5ea1fd1c"
+      },
+      "flipper_R": {
+        "unique_positions": 482,
+        "triangles": 960,
+        "position_normal_sha256": "27e7fba6c5bcf4bfb7081123773b729dc95fe9c4b518c016efb4728347596f4b",
+        "uv_triangles_sha256": "3459fc4795fd6ef2d744579ebeb2106c21d4a673121aa239c77d43f3b7887a7c"
+      }
+    },
+    "candidate": {
+      "flipper_L": {
+        "unique_positions": 482,
+        "triangles": 960,
+        "position_normal_sha256": "a2b3e4f58c46668b02177215eed59a6901398e483c812749b2b72c9c78db95f4",
+        "uv_triangles_sha256": "40a92a6fe27cc07181479ea03154c18f2ac89e80b144e7558183cbbbe7534af3"
+      },
+      "foot_L": {
+        "unique_positions": 1922,
+        "triangles": 3840,
+        "position_normal_sha256": "2db979e8e240fb30e9e88ee5af586d68c14e9b303519edf8f496e3369130f2c3",
+        "uv_triangles_sha256": "9bb75e6b67774cd235cacb9c8cd0c37c8e860b0dc89c748445b8e1f87558ff19"
+      },
+      "short_tail_fan": {
+        "unique_positions": 306,
+        "triangles": 608,
+        "position_normal_sha256": "bf8ec58c78a6e98d99d8e63dfe08004a4d5258ede0aed690d387ab1cadb2a119",
+        "uv_triangles_sha256": "203fb0d8fc38487705037835fb6a9008edb1e05f92eed9021c477c398cd0c134"
+      },
+      "continuous_body_head": {
+        "unique_positions": 2258,
+        "triangles": 4512,
+        "position_normal_sha256": "e5e13c43a0f35c0f83773966ee9b6e2f210472d193557fe0317e2b5f9fb29ef7",
+        "uv_triangles_sha256": "22f9bf4eef044c7587ef47f90be99bb37843044f555b4ce675d3c0b2d43b4d38"
+      },
+      "foot_R": {
+        "unique_positions": 1922,
+        "triangles": 3840,
+        "position_normal_sha256": "ed8fa93fa6a08ad559905d01fae3376de5ecf4af9b723d921078e84b3aba5c35",
+        "uv_triangles_sha256": "0cffd782bd1da254faeaef02953b6a0506c231e742da269f5c7075ba5ea1fd1c"
+      },
+      "flipper_R": {
+        "unique_positions": 482,
+        "triangles": 960,
+        "position_normal_sha256": "d09d3ccc57d066284b2ae153820e319e6d1163648cfa7495f56a35a783aead97",
+        "uv_triangles_sha256": "3459fc4795fd6ef2d744579ebeb2106c21d4a673121aa239c77d43f3b7887a7c"
+      }
+    },
+    "passed": true
+  },
+  "refinement": {
+    "scope": "Rounded lower fan retained; staggered near-flush root develops gradually into lower volume, closest-body root normals and barycentric artwork phase; reference-fitted flipper geometry retained.",
+    "changes": [
+      {
+        "part": "flipper_L",
+        "max_displacement_m": 0.06383891933684879
+      },
+      {
+        "part": "flipper_R",
+        "max_displacement_m": 0.05749063961061256
+      },
+      {
+        "part": "short_tail_fan",
+        "max_displacement_m": 0.31912432326734325
+      }
+    ],
+    "tail_source_join_samples": [
+      {
+        "row": 0,
+        "column": 0,
+        "body_rear_y": -0.2983876584574685,
+        "surface_y": -0.2929876584574685,
+        "outward_m": -0.005400000000000016
+      },
+      {
+        "row": 0,
+        "column": 1,
+        "body_rear_y": -0.29851464613251916,
+        "surface_y": -0.2870146973622425,
+        "outward_m": -0.011499948770276658
+      },
+      {
+        "row": 0,
+        "column": 2,
+        "body_rear_y": -0.2981767407824501,
+        "surface_y": -0.28444262415259663,
+        "outward_m": -0.013734116629853466
+      },
+      {
+        "row": 0,
+        "column": 3,
+        "body_rear_y": -0.29776115711814216,
+        "surface_y": -0.28252528527066467,
+        "outward_m": -0.015235871847477489
+      },
+      {
+        "row": 0,
+        "column": 4,
+        "body_rear_y": -0.29749537287557437,
+        "surface_y": -0.2811834527878905,
+        "outward_m": -0.016311920087683895
+      },
+      {
+        "row": 0,
+        "column": 5,
+        "body_rear_y": -0.2973755180183102,
+        "surface_y": -0.2802950054011345,
+        "outward_m": -0.01708051261717569
+      },
+      {
+        "row": 0,
+        "column": 6,
+        "body_rear_y": -0.2974116791885614,
+        "surface_y": -0.279811781648008,
+        "outward_m": -0.017599897540553355
+      },
+      {
+        "row": 0,
+        "column": 7,
+        "body_rear_y": -0.297603856386328,
+        "surface_y": -0.27970268144154786,
+        "outward_m": -0.017901174944780163
+      },
+      {
+        "row": 0,
+        "column": 8,
+        "body_rear_y": -0.29795204961161004,
+        "surface_y": -0.27995204961161,
+        "outward_m": -0.018000000000000016
+      },
+      {
+        "row": 0,
+        "column": 9,
+        "body_rear_y": -0.29760114493347867,
+        "surface_y": -0.2796999699886985,
+        "outward_m": -0.017901174944780163
+      },
+      {
+        "row": 0,
+        "column": 10,
+        "body_rear_y": -0.29742052306074446,
+        "surface_y": -0.2798206255201911,
+        "outward_m": -0.017599897540553355
+      },
+      {
+        "row": 0,
+        "column": 11,
+        "body_rear_y": -0.29740225424732947,
+        "surface_y": -0.2803217416301538,
+        "outward_m": -0.01708051261717569
+      },
+      {
+        "row": 0,
+        "column": 12,
+        "body_rear_y": -0.2975365581480667,
+        "surface_y": -0.2812246380603828,
+        "outward_m": -0.016311920087683895
+      },
+      {
+        "row": 0,
+        "column": 13,
+        "body_rear_y": -0.29782343476295625,
+        "surface_y": -0.28258756291547876,
+        "outward_m": -0.015235871847477489
+      },
+      {
+        "row": 0,
+        "column": 14,
+        "body_rear_y": -0.298262884091998,
+        "surface_y": -0.28452876746214456,
+        "outward_m": -0.013734116629853466
+      },
+      {
+        "row": 0,
+        "column": 15,
+        "body_rear_y": -0.2986089592515404,
+        "surface_y": -0.28710901048126375,
+        "outward_m": -0.011499948770276658
+      },
+      {
+        "row": 0,
+        "column": 16,
+        "body_rear_y": -0.29845039852844857,
+        "surface_y": -0.29305039852844855,
+        "outward_m": -0.005400000000000016
+      },
+      {
+        "row": 1,
+        "column": 0,
+        "body_rear_y": -0.2832092562874736,
+        "surface_y": -0.2817092562874736,
+        "outward_m": -0.0015000000000000013
+      },
+      {
+        "row": 1,
+        "column": 1,
+        "body_rear_y": -0.28328162725141526,
+        "surface_y": -0.2800871970374495,
+        "outward_m": -0.00319443021396576
+      },
+      {
+        "row": 1,
+        "column": 2,
+        "body_rear_y": -0.2829532669960456,
+        "surface_y": -0.2791382345988641,
+        "outward_m": -0.003815032397181506
+      },
+      {
+        "row": 1,
+        "column": 3,
+        "body_rear_y": -0.2823979336754923,
+        "surface_y": -0.278165747051193,
+        "outward_m": -0.004232186624299306
+      },
+      {
+        "row": 1,
+        "column": 4,
+        "body_rear_y": -0.2820190080683397,
+        "surface_y": -0.27748791915509413,
+        "outward_m": -0.004531088913245551
+      },
+      {
+        "row": 1,
+        "column": 5,
+        "body_rear_y": -0.28181649017458765,
+        "surface_y": -0.2770719033364833,
+        "outward_m": -0.004744586838104359
+      },
+      {
+        "row": 1,
+        "column": 6,
+        "body_rear_y": -0.28179037999423623,
+        "surface_y": -0.27690151956630477,
+        "outward_m": -0.004888860427931463
+      },
+      {
+        "row": 1,
+        "column": 7,
+        "body_rear_y": -0.28192967177926403,
+        "surface_y": -0.27695712318349175,
+        "outward_m": -0.004972548595772286
+      },
+      {
+        "row": 1,
+        "column": 8,
+        "body_rear_y": -0.28224367852049315,
+        "surface_y": -0.27724367852049314,
+        "outward_m": -0.0050000000000000044
+      },
+      {
+        "row": 1,
+        "column": 9,
+        "body_rear_y": -0.281992374110128,
+        "surface_y": -0.2770198255143557,
+        "outward_m": -0.004972548595772286
+      },
+      {
+        "row": 1,
+        "column": 10,
+        "body_rear_y": -0.2819187210966486,
+        "surface_y": -0.27702986066871715,
+        "outward_m": -0.004888860427931463
+      },
+      {
+        "row": 1,
+        "column": 11,
+        "body_rear_y": -0.28202271948005503,
+        "surface_y": -0.27727813264195067,
+        "outward_m": -0.004744586838104359
+      },
+      {
+        "row": 1,
+        "column": 12,
+        "body_rear_y": -0.2823043692603472,
+        "surface_y": -0.27777328034710164,
+        "outward_m": -0.004531088913245551
+      },
+      {
+        "row": 1,
+        "column": 13,
+        "body_rear_y": -0.28276367043752515,
+        "surface_y": -0.27853148381322584,
+        "outward_m": -0.004232186624299306
+      },
+      {
+        "row": 1,
+        "column": 14,
+        "body_rear_y": -0.283366291548662,
+        "surface_y": -0.2795512591514805,
+        "outward_m": -0.003815032397181506
+      },
+      {
+        "row": 1,
+        "column": 15,
+        "body_rear_y": -0.2837108944122981,
+        "surface_y": -0.2805164641983323,
+        "outward_m": -0.00319443021396576
+      },
+      {
+        "row": 1,
+        "column": 16,
+        "body_rear_y": -0.28365194399802207,
+        "surface_y": -0.28215194399802207,
+        "outward_m": -0.0015000000000000013
+      },
+      {
+        "row": 2,
+        "column": 0,
+        "body_rear_y": -0.2652088682683838,
+        "surface_y": -0.2645555879583918,
+        "outward_m": -0.0006532803099920104
+      },
+      {
+        "row": 2,
+        "column": 1,
+        "body_rear_y": -0.2650661812396487,
+        "surface_y": -0.26312540123571937,
+        "outward_m": -0.0019407800039293321
+      },
+      {
+        "row": 2,
+        "column": 2,
+        "body_rear_y": -0.2650966429307666,
+        "surface_y": -0.26386269754365954,
+        "outward_m": -0.0012339453871070827
+      },
+      {
+        "row": 2,
+        "column": 3,
+        "body_rear_y": -0.2644869324298825,
+        "surface_y": -0.2648523510781308,
+        "outward_m": 0.0003654186482482946
+      },
+      {
+        "row": 2,
+        "column": 4,
+        "body_rear_y": -0.26406719727362565,
+        "surface_y": -0.2648658495594597,
+        "outward_m": 0.0007986522858340339
+      },
+      {
+        "row": 2,
+        "column": 5,
+        "body_rear_y": -0.26382621167041664,
+        "surface_y": -0.26330081907759845,
+        "outward_m": -0.0005253925928181968
+      },
+      {
+        "row": 2,
+        "column": 6,
+        "body_rear_y": -0.2637718065358404,
+        "surface_y": -0.2617606321981047,
+        "outward_m": -0.0020111743377357327
+      },
+      {
+        "row": 2,
+        "column": 7,
+        "body_rear_y": -0.26390836556944836,
+        "surface_y": -0.2620579210531213,
+        "outward_m": -0.0018504445163270433
+      },
+      {
+        "row": 2,
+        "column": 8,
+        "body_rear_y": -0.2642358887712406,
+        "surface_y": -0.2639791690812326,
+        "outward_m": -0.00025671969000801154
+      },
+      {
+        "row": 2,
+        "column": 9,
+        "body_rear_y": -0.2640580223670089,
+        "surface_y": -0.26485542533757495,
+        "outward_m": 0.000797402970566019
+      },
+      {
+        "row": 2,
+        "column": 10,
+        "body_rear_y": -0.2640717491891679,
+        "surface_y": -0.2640871495807592,
+        "outward_m": 1.5400391591258167e-05
+      },
+      {
+        "row": 2,
+        "column": 11,
+        "body_rear_y": -0.2643209371390893,
+        "surface_y": -0.2626987702061045,
+        "outward_m": -0.001622166932984781
+      },
+      {
+        "row": 2,
+        "column": 12,
+        "body_rear_y": -0.264755866312832,
+        "surface_y": -0.2626885091312892,
+        "outward_m": -0.0020673571815427727
+      },
+      {
+        "row": 2,
+        "column": 13,
+        "body_rear_y": -0.265376536710396,
+        "surface_y": -0.26464518101847767,
+        "outward_m": -0.000731355691918345
+      },
+      {
+        "row": 2,
+        "column": 14,
+        "body_rear_y": -0.26618294833178135,
+        "surface_y": -0.26697557767400126,
+        "outward_m": 0.0007926293422199082
+      },
+      {
+        "row": 2,
+        "column": 15,
+        "body_rear_y": -0.2664453619689805,
+        "surface_y": -0.2671524294519442,
+        "outward_m": 0.0007070674829636747
+      },
+      {
+        "row": 2,
+        "column": 16,
+        "body_rear_y": -0.26687977458635,
+        "surface_y": -0.266226494276358,
+        "outward_m": -0.0006532803099920104
+      },
+      {
+        "row": 3,
+        "column": 0,
+        "body_rear_y": -0.23768559233611755,
+        "surface_y": -0.23994231202612554,
+        "outward_m": 0.0022567196900079856
+      },
+      {
+        "row": 3,
+        "column": 1,
+        "body_rear_y": -0.2376744997596227,
+        "surface_y": -0.24193091437078693,
+        "outward_m": 0.0042564146111642165
+      },
+      {
+        "row": 3,
+        "column": 2,
+        "body_rear_y": -0.2381735473694272,
+        "surface_y": -0.24434076483285225,
+        "outward_m": 0.006167217463425051
+      },
+      {
+        "row": 3,
+        "column": 3,
+        "body_rear_y": -0.23918827129018,
+        "surface_y": -0.24776413198956893,
+        "outward_m": 0.008575860699388926
+      },
+      {
+        "row": 3,
+        "column": 4,
+        "body_rear_y": -0.23822654008748453,
+        "surface_y": -0.2478155048650149,
+        "outward_m": 0.009588964777530379
+      },
+      {
+        "row": 3,
+        "column": 5,
+        "body_rear_y": -0.23794957055835872,
+        "surface_y": -0.24662867643146297,
+        "outward_m": 0.008679105873104248
+      },
+      {
+        "row": 3,
+        "column": 6,
+        "body_rear_y": -0.23791212439233267,
+        "surface_y": -0.24538533928478404,
+        "outward_m": 0.007473214892451369
+      },
+      {
+        "row": 3,
+        "column": 7,
+        "body_rear_y": -0.2381122771514941,
+        "surface_y": -0.2459085769109653,
+        "outward_m": 0.007796299759471187
+      },
+      {
+        "row": 3,
+        "column": 8,
+        "body_rear_y": -0.2385383744904229,
+        "surface_y": -0.2479816548004149,
+        "outward_m": 0.009443280309992003
+      },
+      {
+        "row": 3,
+        "column": 9,
+        "body_rear_y": -0.2386000085173324,
+        "surface_y": -0.2490441557636966,
+        "outward_m": 0.010444147246364194
+      },
+      {
+        "row": 3,
+        "column": 10,
+        "body_rear_y": -0.23890198534477727,
+        "surface_y": -0.24840177496655563,
+        "outward_m": 0.00949978962177836
+      },
+      {
+        "row": 3,
+        "column": 11,
+        "body_rear_y": -0.2394443049727575,
+        "surface_y": -0.24702663650569517,
+        "outward_m": 0.007582331532937664
+      },
+      {
+        "row": 3,
+        "column": 12,
+        "body_rear_y": -0.2402338412629016,
+        "surface_y": -0.24695679657305514,
+        "outward_m": 0.006722955310153544
+      },
+      {
+        "row": 3,
+        "column": 13,
+        "body_rear_y": -0.24077625282965795,
+        "surface_y": -0.24825533918888026,
+        "outward_m": 0.0074790863592223145
+      },
+      {
+        "row": 3,
+        "column": 14,
+        "body_rear_y": -0.24117993718025205,
+        "surface_y": -0.2493737293730041,
+        "outward_m": 0.008193792192752042
+      },
+      {
+        "row": 3,
+        "column": 15,
+        "body_rear_y": -0.2417725046184767,
+        "surface_y": -0.24867676671653396,
+        "outward_m": 0.006904262098057251
+      },
+      {
+        "row": 3,
+        "column": 16,
+        "body_rear_y": -0.24255395514433187,
+        "surface_y": -0.24481067483433985,
+        "outward_m": 0.0022567196900079856
+      },
+      {
+        "row": 4,
+        "column": 0,
+        "body_rear_y": -0.22632515115455892,
+        "surface_y": -0.23424321473036827,
+        "outward_m": 0.007918063575809348
+      },
+      {
+        "row": 4,
+        "column": 1,
+        "body_rear_y": -0.22770401628318915,
+        "surface_y": -0.24434093471345242,
+        "outward_m": 0.01663691843026327
+      },
+      {
+        "row": 4,
+        "column": 2,
+        "body_rear_y": -0.2217816448998592,
+        "surface_y": -0.24209558276427584,
+        "outward_m": 0.020313937864416654
+      },
+      {
+        "row": 4,
+        "column": 3,
+        "body_rear_y": -0.21913432433674973,
+        "surface_y": -0.24238129508948558,
+        "outward_m": 0.02324697075273585
+      },
+      {
+        "row": 4,
+        "column": 4,
+        "body_rear_y": -0.21495541796566497,
+        "surface_y": -0.24001144909604805,
+        "outward_m": 0.025056031130383072
+      },
+      {
+        "row": 4,
+        "column": 5,
+        "body_rear_y": -0.21103901382110357,
+        "surface_y": -0.23671677105133068,
+        "outward_m": 0.02567775723022711
+      },
+      {
+        "row": 4,
+        "column": 6,
+        "body_rear_y": -0.21107435025998936,
+        "surface_y": -0.2369296625318758,
+        "outward_m": 0.02585531227188645
+      },
+      {
+        "row": 4,
+        "column": 7,
+        "body_rear_y": -0.21135237285198935,
+        "surface_y": -0.2377303786545709,
+        "outward_m": 0.02637800580258154
+      },
+      {
+        "row": 4,
+        "column": 8,
+        "body_rear_y": -0.2118864043658828,
+        "surface_y": -0.23906834079007344,
+        "outward_m": 0.027181936424190645
+      },
+      {
+        "row": 4,
+        "column": 9,
+        "body_rear_y": -0.2120775345304271,
+        "surface_y": -0.23954230167274912,
+        "outward_m": 0.027464767142322016
+      },
+      {
+        "row": 4,
+        "column": 10,
+        "body_rear_y": -0.21255017186420422,
+        "surface_y": -0.2392372552553978,
+        "outward_m": 0.026687083391193578
+      },
+      {
+        "row": 4,
+        "column": 11,
+        "body_rear_y": -0.21327626095338725,
+        "surface_y": -0.2385038668976311,
+        "outward_m": 0.025227605944243836
+      },
+      {
+        "row": 4,
+        "column": 12,
+        "body_rear_y": -0.21727698080336383,
+        "surface_y": -0.2411567099360325,
+        "outward_m": 0.02387972913266867
+      },
+      {
+        "row": 4,
+        "column": 13,
+        "body_rear_y": -0.22179649459653458,
+        "surface_y": -0.2445933140632872,
+        "outward_m": 0.022796819466752605
+      },
+      {
+        "row": 4,
+        "column": 14,
+        "body_rear_y": -0.22656138531890577,
+        "surface_y": -0.24770709430262955,
+        "outward_m": 0.021145708983723782
+      },
+      {
+        "row": 4,
+        "column": 15,
+        "body_rear_y": -0.22710104157266647,
+        "surface_y": -0.24482472134267022,
+        "outward_m": 0.017723679770003747
+      },
+      {
+        "row": 4,
+        "column": 16,
+        "body_rear_y": -0.22589108327514945,
+        "surface_y": -0.2338091468509588,
+        "outward_m": 0.007918063575809348
+      },
+      {
+        "row": 5,
+        "column": 0,
+        "body_rear_y": -0.2268955429751639,
+        "surface_y": -0.2405650429751639,
+        "outward_m": 0.013669500000000001
+      },
+      {
+        "row": 5,
+        "column": 1,
+        "body_rear_y": -0.21922240336570706,
+        "surface_y": -0.24961768831882464,
+        "outward_m": 0.03039528495311758
+      },
+      {
+        "row": 5,
+        "column": 2,
+        "body_rear_y": -0.2078933466542524,
+        "surface_y": -0.24352885853231473,
+        "outward_m": 0.035635511878062326
+      },
+      {
+        "row": 5,
+        "column": 3,
+        "body_rear_y": -0.19548580142801758,
+        "surface_y": -0.23556035196182085,
+        "outward_m": 0.040074550533803266
+      },
+      {
+        "row": 5,
+        "column": 4,
+        "body_rear_y": -0.19165410302114028,
+        "surface_y": -0.23398429936692883,
+        "outward_m": 0.04233019634578855
+      },
+      {
+        "row": 5,
+        "column": 5,
+        "body_rear_y": -0.18842874580652805,
+        "surface_y": -0.2325334015274661,
+        "outward_m": 0.04410465572093805
+      },
+      {
+        "row": 5,
+        "column": 6,
+        "body_rear_y": -0.18800258003264728,
+        "surface_y": -0.23487778311424684,
+        "outward_m": 0.046875203081599565
+      },
+      {
+        "row": 5,
+        "column": 7,
+        "body_rear_y": -0.187851951968813,
+        "surface_y": -0.23668131621208202,
+        "outward_m": 0.04882936424326903
+      },
+      {
+        "row": 5,
+        "column": 8,
+        "body_rear_y": -0.1882048646217044,
+        "surface_y": -0.23489352364657595,
+        "outward_m": 0.04668865902487154
+      },
+      {
+        "row": 5,
+        "column": 9,
+        "body_rear_y": -0.1890038756729782,
+        "surface_y": -0.2352156223931074,
+        "outward_m": 0.046211746720129204
+      },
+      {
+        "row": 5,
+        "column": 10,
+        "body_rear_y": -0.19001348356160702,
+        "surface_y": -0.23607610938634704,
+        "outward_m": 0.04606262582474002
+      },
+      {
+        "row": 5,
+        "column": 11,
+        "body_rear_y": -0.19243321217429338,
+        "surface_y": -0.23711728646439784,
+        "outward_m": 0.04468407429010446
+      },
+      {
+        "row": 5,
+        "column": 12,
+        "body_rear_y": -0.19826948295403854,
+        "surface_y": -0.24122051206281755,
+        "outward_m": 0.042951029108779015
+      },
+      {
+        "row": 5,
+        "column": 13,
+        "body_rear_y": -0.2049001990846857,
+        "surface_y": -0.2460100736060842,
+        "outward_m": 0.0411098745213985
+      },
+      {
+        "row": 5,
+        "column": 14,
+        "body_rear_y": -0.21537069491646124,
+        "surface_y": -0.25086473466011433,
+        "outward_m": 0.03549403974365309
+      },
+      {
+        "row": 5,
+        "column": 15,
+        "body_rear_y": -0.2207295297041031,
+        "surface_y": -0.2501610831734011,
+        "outward_m": 0.02943155346929799
+      },
+      {
+        "row": 5,
+        "column": 16,
+        "body_rear_y": -0.22365784609767558,
+        "surface_y": -0.23732734609767558,
+        "outward_m": 0.013669500000000001
+      },
+      {
+        "row": 6,
+        "column": 0,
+        "body_rear_y": -0.21447452990756807,
+        "surface_y": -0.22759490990756806,
+        "outward_m": 0.013120379999999987
+      },
+      {
+        "row": 6,
+        "column": 1,
+        "body_rear_y": -0.20562068055323712,
+        "surface_y": -0.2352125299925213,
+        "outward_m": 0.029591849439284168
+      },
+      {
+        "row": 6,
+        "column": 2,
+        "body_rear_y": -0.19032881520505718,
+        "surface_y": -0.22466008839811946,
+        "outward_m": 0.034331273193062284
+      },
+      {
+        "row": 6,
+        "column": 3,
+        "body_rear_y": -0.16969517538587475,
+        "surface_y": -0.20744293998994046,
+        "outward_m": 0.0377477646040657
+      },
+      {
+        "row": 6,
+        "column": 4,
+        "body_rear_y": -0.16052505451665905,
+        "surface_y": -0.2032093049936103,
+        "outward_m": 0.04268425047695126
+      },
+      {
+        "row": 6,
+        "column": 5,
+        "body_rear_y": -0.1615677543633888,
+        "surface_y": -0.20630630768605795,
+        "outward_m": 0.044738553322669156
+      },
+      {
+        "row": 6,
+        "column": 6,
+        "body_rear_y": -0.16227455433000174,
+        "surface_y": -0.20641728664980774,
+        "outward_m": 0.044142732319806005
+      },
+      {
+        "row": 6,
+        "column": 7,
+        "body_rear_y": -0.15980830527499545,
+        "surface_y": -0.20538421694092596,
+        "outward_m": 0.0455759116659305
+      },
+      {
+        "row": 6,
+        "column": 8,
+        "body_rear_y": -0.15909202801453548,
+        "surface_y": -0.20473435370892862,
+        "outward_m": 0.04564232569439314
+      },
+      {
+        "row": 6,
+        "column": 9,
+        "body_rear_y": -0.16214318564569805,
+        "surface_y": -0.20690193335671403,
+        "outward_m": 0.044758747711015984
+      },
+      {
+        "row": 6,
+        "column": 10,
+        "body_rear_y": -0.16447658374061425,
+        "surface_y": -0.2101088306298362,
+        "outward_m": 0.04563224688922196
+      },
+      {
+        "row": 6,
+        "column": 11,
+        "body_rear_y": -0.16571007231307358,
+        "surface_y": -0.21100888246607774,
+        "outward_m": 0.04529881015300416
+      },
+      {
+        "row": 6,
+        "column": 12,
+        "body_rear_y": -0.16968872194505424,
+        "surface_y": -0.21049325036772837,
+        "outward_m": 0.040804528422674124
+      },
+      {
+        "row": 6,
+        "column": 13,
+        "body_rear_y": -0.1779410626767306,
+        "surface_y": -0.21591009881195233,
+        "outward_m": 0.037969036135221734
+      },
+      {
+        "row": 6,
+        "column": 14,
+        "body_rear_y": -0.19775065897285832,
+        "surface_y": -0.23301924859429657,
+        "outward_m": 0.03526858962143825
+      },
+      {
+        "row": 6,
+        "column": 15,
+        "body_rear_y": -0.21164954728118007,
+        "surface_y": -0.24070059196848295,
+        "outward_m": 0.02905104468730288
+      },
+      {
+        "row": 6,
+        "column": 16,
+        "body_rear_y": -0.22427528679096878,
+        "surface_y": -0.23739566679096877,
+        "outward_m": 0.013120379999999987
+      },
+      {
+        "row": 7,
+        "column": 0,
+        "body_rear_y": -0.196678149978126,
+        "surface_y": -0.209309813178126,
+        "outward_m": 0.012631663200000004
+      },
+      {
+        "row": 7,
+        "column": 1,
+        "body_rear_y": -0.19170973002891323,
+        "surface_y": -0.220216949671225,
+        "outward_m": 0.02850721964231176
+      },
+      {
+        "row": 7,
+        "column": 2,
+        "body_rear_y": -0.17225025932957938,
+        "surface_y": -0.20630349580327595,
+        "outward_m": 0.03405323647369657
+      },
+      {
+        "row": 7,
+        "column": 3,
+        "body_rear_y": -0.14692819976230664,
+        "surface_y": -0.1837970054914196,
+        "outward_m": 0.03686880572911297
+      },
+      {
+        "row": 7,
+        "column": 4,
+        "body_rear_y": -0.13346311170260475,
+        "surface_y": -0.17385264412717655,
+        "outward_m": 0.0403895324245718
+      },
+      {
+        "row": 7,
+        "column": 5,
+        "body_rear_y": -0.13682201681794076,
+        "surface_y": -0.1782343682044528,
+        "outward_m": 0.04141235138651203
+      },
+      {
+        "row": 7,
+        "column": 6,
+        "body_rear_y": -0.13886232530004444,
+        "surface_y": -0.181001057794548,
+        "outward_m": 0.04213873249450356
+      },
+      {
+        "row": 7,
+        "column": 7,
+        "body_rear_y": -0.133057601516515,
+        "surface_y": -0.1782741698339599,
+        "outward_m": 0.045216568317444916
+      },
+      {
+        "row": 7,
+        "column": 8,
+        "body_rear_y": -0.130906997018788,
+        "surface_y": -0.17692605469288042,
+        "outward_m": 0.04601905767409242
+      },
+      {
+        "row": 7,
+        "column": 9,
+        "body_rear_y": -0.13707473545436935,
+        "surface_y": -0.1801983765699185,
+        "outward_m": 0.043123641115549144
+      },
+      {
+        "row": 7,
+        "column": 10,
+        "body_rear_y": -0.14133940976983075,
+        "surface_y": -0.1838760737468316,
+        "outward_m": 0.042536663977000844
+      },
+      {
+        "row": 7,
+        "column": 11,
+        "body_rear_y": -0.13981660835300513,
+        "surface_y": -0.1819283839447286,
+        "outward_m": 0.042111775591723466
+      },
+      {
+        "row": 7,
+        "column": 12,
+        "body_rear_y": -0.14186958098107447,
+        "surface_y": -0.18150836345993498,
+        "outward_m": 0.03963878247886052
+      },
+      {
+        "row": 7,
+        "column": 13,
+        "body_rear_y": -0.1592262316661074,
+        "surface_y": -0.19676686660470047,
+        "outward_m": 0.03754063493859308
+      },
+      {
+        "row": 7,
+        "column": 14,
+        "body_rear_y": -0.18242161318798472,
+        "surface_y": -0.21709887223491953,
+        "outward_m": 0.034677259046934805
+      },
+      {
+        "row": 7,
+        "column": 15,
+        "body_rear_y": -0.1995628059371557,
+        "surface_y": -0.2270917201563073,
+        "outward_m": 0.0275289142191516
+      },
+      {
+        "row": 7,
+        "column": 16,
+        "body_rear_y": -0.21689709604627577,
+        "surface_y": -0.22952875924627578,
+        "outward_m": 0.012631663200000004
+      },
+      {
+        "row": 8,
+        "column": 0,
+        "body_rear_y": -0.1436711820952608,
+        "surface_y": -0.15583918209526082,
+        "outward_m": 0.012168000000000012
+      },
+      {
+        "row": 8,
+        "column": 1,
+        "body_rear_y": -0.13542400847582836,
+        "surface_y": -0.1615868795598753,
+        "outward_m": 0.02616287108404694
+      },
+      {
+        "row": 8,
+        "column": 2,
+        "body_rear_y": -0.12981076470895805,
+        "surface_y": -0.16132645914120283,
+        "outward_m": 0.03151569443224478
+      },
+      {
+        "row": 8,
+        "column": 3,
+        "body_rear_y": -0.10984250912658447,
+        "surface_y": -0.14448397542471164,
+        "outward_m": 0.03464146629812717
+      },
+      {
+        "row": 8,
+        "column": 4,
+        "body_rear_y": -0.0852138640951523,
+        "surface_y": -0.12223326207083053,
+        "outward_m": 0.03701939797567823
+      },
+      {
+        "row": 8,
+        "column": 5,
+        "body_rear_y": -0.09079748057064539,
+        "surface_y": -0.12939785502124107,
+        "outward_m": 0.03860037445059568
+      },
+      {
+        "row": 8,
+        "column": 6,
+        "body_rear_y": -0.09080849755413843,
+        "surface_y": -0.130582212168776,
+        "outward_m": 0.039773714614637565
+      },
+      {
+        "row": 8,
+        "column": 7,
+        "body_rear_y": -0.042405813475470185,
+        "surface_y": -0.08359179067092357,
+        "outward_m": 0.04118597719545338
+      },
+      {
+        "row": 8,
+        "column": 8,
+        "body_rear_y": -0.020242180686042686,
+        "surface_y": -0.061952012519854244,
+        "outward_m": 0.04170983183381156
+      },
+      {
+        "row": 8,
+        "column": 9,
+        "body_rear_y": -0.06521037031210854,
+        "surface_y": -0.10573988667179302,
+        "outward_m": 0.04052951635968448
+      },
+      {
+        "row": 8,
+        "column": 10,
+        "body_rear_y": -0.09268274944055876,
+        "surface_y": -0.13245201012450936,
+        "outward_m": 0.03976926068395059
+      },
+      {
+        "row": 8,
+        "column": 11,
+        "body_rear_y": -0.0819140704845404,
+        "surface_y": -0.12060667414958193,
+        "outward_m": 0.03869260366504153
+      },
+      {
+        "row": 8,
+        "column": 12,
+        "body_rear_y": -0.09319903733563861,
+        "surface_y": -0.13025572862251408,
+        "outward_m": 0.03705669128687547
+      },
+      {
+        "row": 8,
+        "column": 13,
+        "body_rear_y": -0.1253788850832931,
+        "surface_y": -0.16030032977705597,
+        "outward_m": 0.034921444693762876
+      },
+      {
+        "row": 8,
+        "column": 14,
+        "body_rear_y": -0.13487845578953278,
+        "surface_y": -0.1663385154434332,
+        "outward_m": 0.03146005965390042
+      },
+      {
+        "row": 8,
+        "column": 15,
+        "body_rear_y": -0.13992217778657837,
+        "surface_y": -0.16589453757580774,
+        "outward_m": 0.025972359789229377
+      },
+      {
+        "row": 8,
+        "column": 16,
+        "body_rear_y": -0.15060271838640588,
+        "surface_y": -0.1627707183864059,
+        "outward_m": 0.012168000000000012
+      }
+    ],
+    "protected_vertices_exact": true,
+    "triangle_topology_unchanged": true,
+    "unchanged_normal_export_preservation": {
+      "baseline_path": "qa_shots/penguin-tail-fan-flipper-match-20261012/rejected-c380/penguin_rear_surface_v3/candidate.glb",
+      "baseline_sha256": "c380a0f91dd2149936f9dd6bb5de9a8fb4e2a6631090a8e27e731d47a1a01dc5",
+      "method": "Restore unchanged body/feet/flipper NORMAL+TANGENT by exact POSITION+UV after custom-tail normal export; geometry/materials untouched",
+      "restored_export_vertices": 7691,
+      "max_export_normal_quantization_delta": 8.779764175415039e-05
+    }
+  },
+  "triangles": 14720,
+  "triangle_budget": 15000,
+  "vertices": 8095,
+  "source_vertices": 7372,
+  "surfaces": 1,
+  "surface_maps": {
+    "base_color": {
+      "image_index": 1,
+      "sha256": "46253671996aba6272f65c3c4c0b1da24c4b1be696887bf1ad1b14bd041d1ee1",
+      "width": 1024,
+      "height": 1024,
+      "color_space": "srgb",
+      "channels": "RGB color"
+    },
+    "normal": {
+      "image_index": 0,
+      "sha256": "e7081b4e87a1174a0c249048baab0fedf9c05fdf9f68e91ed1cc358aca2e684a",
+      "width": 1024,
+      "height": 1024,
+      "color_space": "linear",
+      "channels": "RGB tangent-space XYZ"
+    },
+    "metallic_roughness": {
+      "image_index": 2,
+      "sha256": "42225c3b59a23c37f8cc36321e6bcf5eda7557c4d48f412b7603926169752675",
+      "width": 1024,
+      "height": 1024,
+      "color_space": "linear",
+      "channels": "R unused255; G roughness; B metallic0"
+    }
+  },
+  "material": {
+    "name": "RearSurfaceMattePBR",
+    "base_color_factor": [
+      1,
+      1,
+      1,
+      1
+    ],
+    "effective_metallic": 0,
+    "metallic_factor": 1,
+    "roughness_factor": 1,
+    "normal_scale": 0.6499999761581421,
+    "color_owner": "baseColorTexture only; no vertex colors"
+  },
+  "atlas": {
+    "size": 1024,
+    "rectangles": {
+      "continuous_body_head": [
+        8,
+        8,
+        632,
+        1016
+      ],
+      "flipper_L": [
+        648,
+        520,
+        816,
+        1016
+      ],
+      "flipper_R": [
+        832,
+        520,
+        1000,
+        1016
+      ],
+      "foot_L": [
+        648,
+        264,
+        816,
+        504
+      ],
+      "foot_R": [
+        832,
+        264,
+        1000,
+        504
+      ],
+      "tail_top": [
+        648,
+        136,
+        816,
+        248
+      ],
+      "tail_bottom": [
+        832,
+        136,
+        1000,
+        248
+      ],
+      "tail_edge": [
+        648,
+        8,
+        1000,
+        120
+      ]
+    },
+    "covered_texels": 952192,
+    "padding_pixels": 8,
+    "normal_convention": "OpenGL tangent +Y; image UV origin bottom-left",
+    "color_adjustment": "Charcoal95% warm-neutralized atRGB1.28:1:.76, normalized to previous1.10:1:.92 luminance; same1.38 value factor; ivory/gold/orange unchanged",
+    "roughness_range": [
+      0.7599999904632568,
+      0.9050000309944153
+    ],
+    "feather_recipe": "v5 same accepted body/feet; broad warmgray innerflippers, rounded featherfan withburiedroot andstaggered coverts",
+    "authored_source": {
+      "path": "art_src/characters/penguin_rear_surface_v3/material_sources/feather-source-v2.png",
+      "sha256": "c0bc96ee273edfcfaf6350fb4319cf15af9c5a175332bd961609ec5b02adb4cc",
+      "prompt_path": "art_src/characters/penguin_rear_surface_v3/material_sources/feather-source-v2-prompt.txt",
+      "prompt_sha256": "a54d643607448cc4abe3e0744b4745e4b50ce49c7e561a3ecf74605ab0136fa6",
+      "generator": "OpenAI built-in ImageGen",
+      "original_path": "/Users/ninja/.codex/generated_images/01a12d09-d5ea-7952-8a60-3670fc421c94/exec-630cf216-24e4-48cf-82e1-17068bd9e3d1.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "raw_luma_p5_p50_p95": [
+        0.1697443127632141,
+        0.23023530840873718,
+        0.3114713728427887
+      ],
+      "pigment_luma_p5_p50_p95": [
+        0.1915811337530613,
+        0.23315975069999695,
+        0.28465016931295395
+      ],
+      "relief_luma_p5_p50_p95": [
+        0.20480342954397202,
+        0.2326473891735077,
+        0.2719746306538582
+      ],
+      "orientation": "Source PNG tips point down. Blender pixel array is bottom-left; all chart/source v derivatives positive. Atlas PNG row flip is serialization only."
+    },
+    "authored_mapping": {
+      "body_source_u_periods": "2.3 at rump to3.9 crown; source widths vary12\u201314 across; approximately18\u201324 visible midback faces",
+      "body_source_v": "1.75*v+.8*v^2+.17; derivative1.75..3.35 >0",
+      "flipper_underside_srgb": [
+        145,
+        139,
+        123
+      ],
+      "flipper_inner_face_uv_knots": {
+        "flipper_L": [
+          [
+            0,
+            0.07,
+            0.184,
+            0.325,
+            0.453,
+            0.58,
+            0.638,
+            0.67,
+            1
+          ],
+          [
+            0.36,
+            0.34,
+            0.315,
+            0.287,
+            0.273,
+            0.344,
+            0.378,
+            0.384,
+            0.384
+          ],
+          [
+            0.37,
+            0.39,
+            0.413,
+            0.399,
+            0.395,
+            0.386,
+            0.39,
+            0.384,
+            0.384
+          ]
+        ],
+        "flipper_R": [
+          [
+            0,
+            0.065,
+            0.166,
+            0.318,
+            0.457,
+            0.595,
+            0.697,
+            0.735,
+            1
+          ],
+          [
+            0.4,
+            0.36,
+            0.339,
+            0.291,
+            0.333,
+            0.375,
+            0.398,
+            0.416,
+            0.416
+          ],
+          [
+            0.4,
+            0.48,
+            0.492,
+            0.491,
+            0.461,
+            0.434,
+            0.433,
+            0.416,
+            0.416
+          ]
+        ]
+      },
+      "flipper_inner_face_source": "Exact c380 visible UV samples at reference row intervals; dark shoulder ceiling v.670L/.735R, soft .026u boundary; restrained innerface relief",
+      "flipper_section_roll_max_degrees": 28,
+      "flipper_source_span": [
+        0.78,
+        0.94
+      ],
+      "flipper_source_v_derivative": "0.56 distal to1.32 root; true overlap/free-tip intervals",
+      "tail_mapping": "Closest actual rump triangle barycentric UV at fan vertices; interpolated over unchanged chart, matching source feather phase; pigment lift delayed until lower fan",
+      "tail_tiers": 3,
+      "tail_lower_linear_pigment_multiplier": 1.18,
+      "tail_authored_source": {
+        "path": "art_src/characters/penguin_rear_surface_v3/material_sources/feather-source-v1.png",
+        "sha256": "f413ffef0bf809a4b6e8f5806ef7a236a91d78d46efa7c6b3a70fbb5c0908583",
+        "prompt_path": "art_src/characters/penguin_rear_surface_v3/material_sources/feather-source-v1-prompt.txt",
+        "prompt_sha256": "8879880766bd4ae214b27ddfcd455bf1c8d3deaaaf6aa7aa229932eac49ab5dc",
+        "generator": "OpenAI built-in ImageGen",
+        "original_path": "/Users/ninja/.codex/generated_images/01a12d09-d5ea-7952-8a60-3670fc421c94/exec-3f10be60-46d7-4217-97cb-1e6e8c9ee8e5.png",
+        "dimensions": [
+          1254,
+          1254
+        ],
+        "scope": "Local rounded tail coverts only; accepted body and flippers use irregular v2 source",
+        "orientation": "Source and chart +v both up; feather free tips point down"
+      },
+      "tail_fan_recipe": "Distinct local rounded coverts: about3 broad faces across with leading center and offset side coverts; motif1.5x wider/1.18x taller, center raised bylocalphase; shallow outward warp; root v>=.72 exactly retains62239; faces .72..2.82 linear body pigment, partial narrow cavities, no outer border; inferred3.2mm face/valley height span",
+      "tail_design": "Rounded exposed covertfan withroot buried; mainreference envelope about50px wide at304px character height",
+      "normal_guide": "Two-pass7px source box low pass; inferred shallow face relief, not recovered physical height",
+      "pigment_filter": "Two-pass3px source box low pass; v2 filtered p5..p95 mapped to40% linear face spread, mean-normalized; extrema clamped .72..1.28",
+      "relief_strength": "Filtered v2 p5..p95 supplies72% of2mm body height span; no change to global material normalScale",
+      "foot_maps": "Body and both feet chart pixels exact to acceptedb21 in all3maps"
+    }
+  },
+  "rendered_frames": 0,
+  "deferred": [
+    "rig and animation",
+    "front face/podium authoring",
+    "runtime promotion"
+  ],
+  "reference_sha256": "edcf7e3e31d8595dc7ea600a1fcbb3157b47f016b0d38147e45108eeeb0a39bb"
+}

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Support for Waddle Wars: Penguin Panic on iOS and Android.">
+  <link rel="canonical" href="https://waddlewars.io/native/support.html">
+  <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png">
+  <title>Mobile Support — Waddle Wars: Penguin Panic</title>
+  <style>
+:root { color-scheme: dark; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #edf4ff; background: #081829; line-height: 1.65; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+a { color: #a6dcff; text-underline-offset: .2em; }
+a:hover { color: #fff; }
+a:focus-visible { outline: 3px solid #ffd56d; outline-offset: 5px; }
+.skip { position: absolute; left: 1rem; top: -8rem; }
+.skip:focus { top: 1rem; background: #081829; padding: .7rem; z-index: 1; }
+.page { max-width: 880px; margin: auto; padding: 32px 24px 56px; }
+header { border-bottom: 1px solid #344e65; padding-bottom: 24px; }
+.brand { color: #a6dcff; font-size: .82rem; letter-spacing: .15em; text-transform: uppercase; }
+h1 { margin: .3rem 0 .5rem; font-size: clamp(2.2rem, 8vw, 3.7rem); line-height: 1.1; letter-spacing: -.04em; }
+.lead { max-width: 660px; font-size: 1.12rem; color: #c4d6e7; }
+nav { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-top: 22px; }
+.contact { border: 1px solid #344e65; background: #10283e; border-radius: 12px; padding: 16px 20px; margin: 26px 0; }
+.contact p { margin: .4rem 0; }
+section { margin: 32px 0; }
+h2 { font-size: 1.35rem; line-height: 1.3; margin-bottom: .6rem; }
+p { margin: .6rem 0; }
+ul, ol { padding-left: 1.5rem; }
+li { margin: .5rem 0; }
+.warning { border-left: 3px solid #ffd56d; padding-left: 16px; }
+footer { color: #c4d6e7; font-size: .9rem; border-top: 1px solid #344e65; margin-top: 40px; padding-top: 20px; }
+@media (max-width: 480px) { .page { padding: 24px 18px 40px; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+@media print { :root { color-scheme: light; color: #111; background: #fff; } a, .brand, .lead, footer { color: #111; } .contact { background: #fff; border-color: #666; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <div class="page">
+    <header>
+      <div class="brand">Waddle Wars: Penguin Panic</div>
+      <h1>Mobile support</h1>
+      <p class="lead">Get back to the ice. Help with controls, loading, local progress, and the avalanche chase.</p>
+      <nav aria-label="Information pages"><a href="privacy.html">Mobile privacy</a><a href="https://play.waddlewars.io/">Browser game</a></nav>
+    </header>
+    <aside class="contact" aria-label="Publisher and support contact">
+      <p>Support: <a href="mailto:support@waddlewars.io">support@waddlewars.io</a><br>Publisher: Ninja Consulting LLC</p>
+      <p>Help for the free iOS/Android edition. Mobile store availability is separate from this support page.</p>
+    </aside>
+    <main id="main">
+      <section aria-labelledby="runner"><h2 id="runner">What is chasing my penguin?</h2>
+        <p>Waddle Run is an avalanche chase. Keep ahead of the snow: switch lanes, jump obstacles, slide under low barriers, and collect fish. A crash costs a life and lets the avalanche gain ground. When a run ends, Run Again starts another attempt.</p>
+        <p>Waddle School introduces the movement controls. The Controls screen shows the available touch, keyboard, and gamepad inputs.</p>
+      </section>
+      <section aria-labelledby="loading"><h2 id="loading">Loading or performance trouble</h2>
+        <ol>
+          <li>If the game shows a loading-recovery screen, use its Retry loading action once.</li>
+          <li>When safe to leave the current run, close and reopen the app. Close other resource-heavy apps and let an overheated device cool.</li>
+          <li>Try a lower graphics quality in Settings → Display. Reduced camera shake is available in Settings.</li>
+          <li>If the problem returns, report the steps, device, OS version, and game version. Note whether it happens immediately or after repeated runs.</li>
+        </ol>
+        <p>Do not delete the app or clear its storage as a first troubleshooting step; that can erase your progress.</p>
+      </section>
+      <section aria-labelledby="offline"><h2 id="offline">Do I need an account or internet?</h2>
+        <p>No account is required to play. Waddle Run, the tutorial, earned customization, and local progress work offline. Viewing public Leaderboard results needs an internet connection. iOS builds with Sign In, starting with build 41, add optional production Clerk sign-in, cloud progress, and score submission. Android and earlier iOS builds keep progress local and do not sign in or submit scores.</p>
+      </section>
+      <section aria-labelledby="purchases"><h2 id="purchases">How do fish and cosmetics work?</h2>
+        <p>Earn fish through play and use earned unlocks to customize your penguin. This free mobile version has no in-app purchases, subscriptions, or paid cosmetic packs.</p>
+      </section>
+      <section aria-labelledby="saves"><h2 id="saves">Where is my progress?</h2>
+        <p>Progress and settings are stored in local app storage. On a supported iOS build, signing in also synchronizes earned progress and best results with your account. Settings and time-trial ghost files remain local. Check the Account page for connection status before relying on the online copy. Android and earlier iOS builds have no game-account cloud sync. Android disables automatic app-data backup; iOS device backups follow your operating-system settings.</p>
+        <p class="warning">Deleting the app or clearing its storage can permanently erase progress. Keep the installed app and any device backup until a save problem has been investigated. Removing mobile app data does not delete an online account. To delete a supported iOS account, open Account → Privacy &amp; Data → Delete Account. Earned offline progress remains after account deletion. See <a href="delete-data.html">data deletion instructions</a>.</p>
+      </section>
+      <section aria-labelledby="signin"><h2 id="signin">Sign-in and leaderboard names on iOS</h2>
+        <p>Tap Sign In to open the secure system authentication window. Cancelling returns to the game without signing in. If the window cannot open or the connection fails, retry when online and include the build number in a support report. Never send an authentication code or token to support.</p>
+        <p>Account lets you choose a leaderboard name independently of your social-login name. A signed-in run can post a score under that name, or Penguin if you have not chosen one. Post Local Best submits an existing local result. Signing out stops account uploads while preserving earned offline progress.</p>
+      </section>
+      <section aria-labelledby="report"><h2 id="report">Report a problem or ask a privacy question</h2>
+        <p>The owner of Ninja Consulting LLC personally handles Waddle Wars support and privacy requests at the contact address above. Include the game version shown in Settings, device model, OS version, game mode, what you expected, what happened, and the steps to reproduce it. A screenshot or short screen recording can help.</p>
+        <p>Never send passwords, signing keys, payment details, account tokens, or screenshots showing unrelated private information. We do not need those to troubleshoot the game.</p>
+        <p>Routine support correspondence is retained while an issue is open and deleted from the publisher's active mailbox within 90 days after resolution, except for specific records required by legal obligations or necessary for fraud or security handling. Gmail/Google processes email under its own <a href="https://policies.google.com/privacy">privacy policy</a>; email-provider backup copies have no fixed deletion guarantee from us.</p>
+        <p>For information-handling questions and requests, including this website's Cloudflare hosting and Web Analytics, see <a href="privacy.html">Mobile privacy policy</a>. We do not guarantee a response time.</p>
+      </section>
+    </main>
+    <footer>Waddle Wars: Penguin Panic · Ninja Consulting LLC · Mobile support updated October 9, 2026.</footer>
+  </div>
+</body>
+</html>

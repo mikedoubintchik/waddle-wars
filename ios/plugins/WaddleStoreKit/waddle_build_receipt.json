@@ -1,0 +1,48 @@
+{
+  "state": "compiled_unverified",
+  "plugin": "WaddleStoreKit",
+  "version": "1.2.0",
+  "godot_source_commit": "a13da4feb8d8aefc283c3763d33a2f170a18d541",
+  "ios_sdk": "26.5",
+  "platform": "ios",
+  "architecture": "arm64",
+  "entrypoint_linkage": "cplusplus",
+  "variant": "device",
+  "sdk_name": "iphoneos",
+  "target_triple": "arm64-apple-ios15.0",
+  "engine_cpp_defines": {
+    "debug": [
+      "IOS_ENABLED",
+      "APPLE_EMBEDDED_ENABLED",
+      "UNIX_ENABLED",
+      "COREAUDIO_ENABLED",
+      "THREADS_ENABLED",
+      "NDEBUG",
+      "DEBUG_ENABLED"
+    ],
+    "release": [
+      "IOS_ENABLED",
+      "APPLE_EMBEDDED_ENABLED",
+      "UNIX_ENABLED",
+      "COREAUDIO_ENABLED",
+      "THREADS_ENABLED",
+      "NDEBUG"
+    ]
+  },
+  "source_hashes": {
+    "WWStoreKitBridge.swift": "bcfc0e40a1a1792099c243935cea992d083ef52c9b5c0a91a709e476e3a196f6",
+    "WWAuthenticationBridge.swift": "d6cc39a4488bb66022832f765847abeca1bbd3dcccfd57ffcc1b289003f78b86",
+    "WWAuthenticationPolicy.swift": "7243d5c29386676e426bf1db96dddb4f8f081e11700ada682fea54694d8571b0",
+    "waddle_storekit.mm": "bbd5f3089b38777bd9929db139fa924a3bc4bec1dcb23b0a4a71ea88a368cc47",
+    "waddle_storekit.h": "99ed46cf9bb17b697584f6a42ff17df849b753487c46093b793ba7afb672d3cd",
+    "WaddleStoreKit.gdip": "576dfd7207f3fd82f5231c0593153396bba17da848f0c22ce8258a8aee070534"
+  },
+  "artifacts": {
+    "WaddleStoreKit.debug.a": "e69de021aa9fb7b3386a49c070354c7c8b42b163fec0e6d268aa87687d88b38e",
+    "WaddleStoreKit.gdip": "576dfd7207f3fd82f5231c0593153396bba17da848f0c22ce8258a8aee070534",
+    "WaddleStoreKit.release.a": "e736c44a68c53b62f4b027161cb3b53f669861a1f58ccfb984d67e11c521a39b"
+  },
+  "device_billing_passed": false,
+  "device_authentication_passed": false,
+  "store_ready": false
+}

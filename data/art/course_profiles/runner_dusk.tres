@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CourseVisualProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/art/course_visual_profile.gd" id="1_profile"]
+
+[resource]
+script = ExtResource("1_profile")
+profile_id = "runner_dusk"
+display_name = "Runner Dusk Shelf"
+biome_id = "dusk"
+art_direction = "Violet upper sky, coral horizon, warm snow shelf, long shadows, cool player separation."
+approved_for_runtime = false
+sky_top = Color(0.2, 0.09, 0.44, 1)
+sky_horizon = Color(1, 0.46, 0.24, 1)
+ground_horizon = Color(0.72, 0.28, 0.26, 1)
+ground_bottom = Color(0.26, 0.1, 0.24, 1)
+fog_color = Color(1, 0.46, 0.24, 1)
+fog_density = 0.002
+sun_color = Color(1, 0.6, 0.32, 1)
+sun_energy = 1.3
+ambient_energy = 0.34
+shaft_color = Color(1, 0.72, 0.42, 1)
+deck_dark = Color(0.28, 0.06, 0.18, 1)
+deck_mid = Color(0.46, 0.23, 0.34, 1)
+snow_bright = Color(1, 0.8, 0.72, 1)
+decorative_accent = Color(1, 0.42, 0.12, 1)

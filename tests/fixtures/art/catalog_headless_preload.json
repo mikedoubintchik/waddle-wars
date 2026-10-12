@@ -1,0 +1,21 @@
+{
+  "assets": [
+    {
+      "id": "headless_scene_fixture",
+      "kind": "scene",
+      "path": "res://assets/art/runner/day/runner_day_barrier_v1.tscn"
+    },
+    {
+      "id": "headless_material_fixture",
+      "kind": "material",
+      "path": "res://assets/art/runner/day/materials/runner_day_surface_v1.tres"
+    },
+    {
+      "id": "headless_missing_fixture",
+      "kind": "resource",
+      "path": "res://tests/fixtures/art/intentionally_missing_preload.tres"
+    }
+  ],
+  "catalog_id": "headless_preload_test_fixture",
+  "schema_version": 1
+}

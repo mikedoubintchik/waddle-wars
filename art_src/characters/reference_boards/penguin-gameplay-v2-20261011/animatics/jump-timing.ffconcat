@@ -1,0 +1,27 @@
+ffconcat version 1.0
+file 'jump-frame-01.png'
+option framerate 100
+duration 0.20
+file 'jump-frame-02.png'
+option framerate 100
+duration 0.12
+file 'jump-frame-03.png'
+option framerate 100
+duration 0.12
+file 'jump-frame-04.png'
+option framerate 100
+duration 0.18
+file 'jump-frame-05.png'
+option framerate 100
+duration 0.18
+file 'jump-frame-06.png'
+option framerate 100
+duration 0.12
+file 'jump-frame-07.png'
+option framerate 100
+duration 0.16
+file 'jump-frame-08.png'
+option framerate 100
+duration 0.50
+file 'jump-frame-08.png'
+option framerate 100

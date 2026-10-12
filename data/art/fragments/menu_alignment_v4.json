@@ -1,0 +1,92 @@
+{
+  "runtime_assets": [
+    {
+      "id": "race_wordmark_v4",
+      "path": "res://assets/art/ui/menu/race_wordmark_v4.webp",
+      "kind": "texture",
+      "source_export_id": "imagegen_menu_alignment_v4_race_wordmark_v4",
+      "sha256": "5805ece9e7a91b0789f0a07d97b6813650c2b3bbbcad1941283bd06bceda1dd9",
+      "license_id": "project_original",
+      "production_ready": false,
+      "groups": [
+        "alignment_v4",
+        "frontend",
+        "menu"
+      ]
+    },
+    {
+      "id": "credits_title_v4",
+      "path": "res://assets/art/ui/menu/credits_title_v4.webp",
+      "kind": "texture",
+      "source_export_id": "imagegen_menu_alignment_v4_credits_title_v4",
+      "sha256": "5b4b4023d94dbc896b1863c71154dd0f95963398d404277ad1a971d076e33c68",
+      "license_id": "project_original",
+      "production_ready": false,
+      "groups": [
+        "alignment_v4",
+        "frontend",
+        "menu"
+      ]
+    },
+    {
+      "id": "settings_wide_v4",
+      "path": "res://assets/art/ui/menu/settings_wide_v4.webp",
+      "kind": "texture",
+      "source_export_id": "imagegen_menu_alignment_v4_settings_wide_v4",
+      "sha256": "1e135e0fecfa9b9e1fb70a686307f5a15d41c9f1c2830880808226cf64332058",
+      "license_id": "project_original",
+      "production_ready": false,
+      "groups": [
+        "alignment_v4",
+        "frontend",
+        "menu"
+      ]
+    }
+  ],
+  "source_exports": [],
+  "generated_assets": [
+    {
+      "id": "imagegen_menu_alignment_v4_race_wordmark_v4",
+      "path": "art_src/ui/menu/alignment_v4/race_wordmark_v4.png",
+      "prompt_path": "art_src/ui/menu/alignment_v4/race_wordmark_v4.prompt.md",
+      "dimensions": [
+        1774,
+        887
+      ],
+      "sha256": "73f75593d575526bab6dd5c310c4462d1cec7a4742b7f2d6d8cefcf1e1795100",
+      "license_id": "project_original",
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "status": "production_source"
+    },
+    {
+      "id": "imagegen_menu_alignment_v4_credits_title_v4",
+      "path": "art_src/ui/menu/alignment_v4/credits_title_v4.png",
+      "prompt_path": "art_src/ui/menu/alignment_v4/credits_title_v4.prompt.md",
+      "dimensions": [
+        2172,
+        724
+      ],
+      "sha256": "2ba39ae07c97e7c3a37fd191f20e7407698dcec7f11c6a1e7fc4b746026cc63e",
+      "license_id": "project_original",
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "status": "production_source"
+    },
+    {
+      "id": "imagegen_menu_alignment_v4_settings_wide_v4",
+      "path": "art_src/ui/menu/alignment_v4/settings_wide_v4.png",
+      "prompt_path": "art_src/ui/menu/alignment_v4/settings_wide_v4.prompt.md",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "ba5e070d3739ac80b9ce28e436ea6ec69cc9bc2a3057ab44fa245263b2af6b42",
+      "license_id": "project_original",
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "status": "production_source"
+    }
+  ],
+  "concepts": []
+}

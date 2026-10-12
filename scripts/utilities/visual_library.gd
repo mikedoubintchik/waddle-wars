@@ -18,10 +18,15 @@ static var _meshes: Dictionary = {}
 static var _textures: Dictionary = {}
 static var _shapes: Dictionary = {}
 static var _detail_level_cache: float = -1.0
+## Only library-owned, quality-derived materials participate in live updates.
+## Cached identities stay stable across tiers; explicit detail requests and raw
+## caller-owned duplicates remain independent. Variants inherit membership
+## unless they explicitly override detail_level.
+static var _auto_detail_materials: Dictionary = {}
 
 
 ## Shader micro-detail level derived from the display quality preset, read
-## once per session: low = 0.0, medium = 0.5, high = 1.0. Headless runs get
+## until the preset changes: low = 0.0, medium = 0.5, high = 1.0. Headless runs get
 ## 0.0 (nothing renders; keeps compiled variants cheapest). Shaders skip all
 ## detail additions entirely when this is 0.
 static func shader_detail_level() -> float:
@@ -44,11 +49,33 @@ static func _resolve_detail(detail: float) -> float:
 	return detail if detail >= 0.0 else shader_detail_level()
 
 
-## Drops the cached quality-derived values so the next query re-reads the
-## (possibly changed) preset. Called by SettingsManager whenever
-## display/quality_preset changes — user edit or the web auto-governor.
+## Automatic and fixed requests cannot share a cache entry merely because
+## their current uniform values match. Auto entries omit the effective tier,
+## avoiding new materials/variants every time the governor changes direction.
+static func _detail_cache_key(detail: float) -> String:
+	return "auto" if detail < 0.0 else "fixed_%s" % var_to_str(detail)
+
+
+static func _register_auto_detail(material: ShaderMaterial, detail: float) -> void:
+	if detail < 0.0:
+		_auto_detail_materials[material.get_instance_id()] = material
+
+
+## Re-reads the preset and updates only registered auto uniforms in place.
+## Existing geometry and warmup probes keep the exact same material/shader
+## resources. Called for a user edit or the session-only web auto-governor.
 static func reset_quality_cache() -> void:
 	_detail_level_cache = -1.0
+	if not _auto_detail_materials.is_empty():
+		_refresh_auto_detail_materials(shader_detail_level())
+
+
+## Separate from settings lookup for deterministic headless contract tests.
+## This registry is not a sweep of arbitrary scene/caller-owned materials.
+static func _refresh_auto_detail_materials(detail: float) -> void:
+	for material: ShaderMaterial in _auto_detail_materials.values():
+		if material.get_shader_parameter("detail_level") != detail:
+			material.set_shader_parameter("detail_level", detail)
 
 
 ## Decorative-dressing cull distance multiplier per quality preset.
@@ -95,7 +122,8 @@ static func apply_dressing_range(gi: GeometryInstance3D, base_distance: float = 
 static func snow_material(tint: Color, sparkle: float = 0.55, detail: float = -1.0,
 		groom: float = 0.0) -> ShaderMaterial:
 	var d := _resolve_detail(detail)
-	var key := "snow_%s_%.2f_%.2f_%.2f" % [tint.to_html(false), sparkle, d, groom]
+	var key := "snow_%s_%.2f_%s_%.2f" % [tint.to_html(false), sparkle,
+			_detail_cache_key(detail), groom]
 	if _materials.has(key):
 		return _materials[key]
 	var mat := ShaderMaterial.new()
@@ -106,6 +134,7 @@ static func snow_material(tint: Color, sparkle: float = 0.55, detail: float = -1
 	mat.set_shader_parameter("detail_level", d)
 	mat.set_shader_parameter("groom_strength", groom)
 	_materials[key] = mat
+	_register_auto_detail(mat, detail)
 	return mat
 
 
@@ -113,7 +142,7 @@ static func snow_material(tint: Color, sparkle: float = 0.55, detail: float = -1
 ## detail < 0 (default) = auto from the quality preset; 0..1 forces a level.
 static func ice_material(tint: Color, clarity: float = 0.7, detail: float = -1.0) -> ShaderMaterial:
 	var d := _resolve_detail(detail)
-	var key := "ice_%s_%.2f_%.2f" % [tint.to_html(false), clarity, d]
+	var key := "ice_%s_%.2f_%s" % [tint.to_html(false), clarity, _detail_cache_key(detail)]
 	if _materials.has(key):
 		return _materials[key]
 	var mat := ShaderMaterial.new()
@@ -127,6 +156,7 @@ static func ice_material(tint: Color, clarity: float = 0.7, detail: float = -1.0
 	mat.set_shader_parameter("depth_strength", lerpf(0.08, 0.3, clarity))
 	mat.set_shader_parameter("detail_level", d)
 	_materials[key] = mat
+	_register_auto_detail(mat, detail)
 	return mat
 
 
@@ -136,7 +166,8 @@ static func ice_material(tint: Color, clarity: float = 0.7, detail: float = -1.0
 ## detail < 0 (default) = auto from the quality preset; 0..1 forces a level.
 static func water_material(deep: Color, shallow: Color, wave_height: float = 0.18, wave_scale: float = 0.35, detail: float = -1.0) -> ShaderMaterial:
 	var d := _resolve_detail(detail)
-	var key := "water_%s_%s_%.2f_%.3f_%.2f" % [deep.to_html(false), shallow.to_html(false), wave_height, wave_scale, d]
+	var key := "water_%s_%s_%.2f_%.3f_%s" % [deep.to_html(false), shallow.to_html(false),
+			wave_height, wave_scale, _detail_cache_key(detail)]
 	if _materials.has(key):
 		return _materials[key]
 	var mat := ShaderMaterial.new()
@@ -147,6 +178,7 @@ static func water_material(deep: Color, shallow: Color, wave_height: float = 0.1
 	mat.set_shader_parameter("wave_scale", wave_scale)
 	mat.set_shader_parameter("detail_level", d)
 	_materials[key] = mat
+	_register_auto_detail(mat, detail)
 	return mat
 
 
@@ -154,13 +186,14 @@ static func water_material(deep: Color, shallow: Color, wave_height: float = 0.1
 ## detail < 0 (default) = auto from the quality preset; 0..1 forces a level.
 static func aurora_material(detail: float = -1.0) -> ShaderMaterial:
 	var d := _resolve_detail(detail)
-	var key := "aurora_%.2f" % d
+	var key := "aurora_%s" % _detail_cache_key(detail)
 	if _materials.has(key):
 		return _materials[key]
 	var mat := ShaderMaterial.new()
 	mat.shader = AURORA_SHADER
 	mat.set_shader_parameter("detail_level", d)
 	_materials[key] = mat
+	_register_auto_detail(mat, detail)
 	return mat
 
 
@@ -276,14 +309,21 @@ static func shader_variant(base: ShaderMaterial, overrides: Dictionary) -> Shade
 	var param_keys: Array = overrides.keys()
 	param_keys.sort()
 	var key := "variant_%d" % base.get_instance_id()
+	var inherits_auto_detail := _auto_detail_materials.has(base.get_instance_id())
 	for param: Variant in param_keys:
 		key += "_%s=%s" % [param, overrides[param]]
+		# Accept both String and StringName parameter keys. A fixed override
+		# also stops automatic inheritance for variants derived from this one.
+		if String(param) == "detail_level":
+			inherits_auto_detail = false
 	if _materials.has(key):
 		return _materials[key]
 	var mat := base.duplicate() as ShaderMaterial
 	for param: Variant in param_keys:
 		mat.set_shader_parameter(param, overrides[param])
 	_materials[key] = mat
+	if inherits_auto_detail:
+		_register_auto_detail(mat, -1.0)
 	return mat
 
 

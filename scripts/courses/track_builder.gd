@@ -128,7 +128,12 @@ const BANK_SMOOTH_SAMPLES: int = 5
 ## "bank": 0.0 to force a corner flat.
 ## Returns a Node3D containing floor meshes/collision + walls, with a
 ## PathGuide stored under meta "guide".
-static func build_ribbon(points: Array, name_hint: String = "Track") -> Node3D:
+## `stager`, when given, is the course being built: the ribbon then yields a
+## frame between its mesh phases whenever that course's frame budget is spent
+## (web only — see CourseBase.stage). Passing null keeps the whole build inside
+## one call, which is what every headless sim and QA harness wants.
+static func build_ribbon(points: Array, name_hint: String = "Track",
+		stager: CourseBase = null) -> Node3D:
 	var root := Node3D.new()
 	root.name = name_hint
 	var positions: Array = []
@@ -176,20 +181,52 @@ static func build_ribbon(points: Array, name_hint: String = "Track") -> Node3D:
 		walls_r.append(bool(p.get("wall_r", true)) and not bool(p.get("gap", false)))
 		gaps.append(bool(p.get("gap", false)))
 
+	if stager != null:
+		await stager.stage()
+
 	# Floor meshes split into runs of identical surface; gap runs are skipped
 	# entirely (hazard tiles or jumps bridge them).
+	var surface_runs: Array[Dictionary] = []
 	var run_start := 0
 	for i: int in range(1, surfaces.size() + 1):
 		if i == surfaces.size() or surfaces[i] != surfaces[run_start] or gaps[i] != gaps[run_start]:
 			if not gaps[run_start]:
 				_emit_floor_run(root, left_pts, right_pts, run_start, i, surfaces[run_start] as SurfacesDB.Surface)
+				surface_runs.append({
+					"surface": surfaces[run_start],
+					"sample_start": run_start,
+					"sample_end": i,
+					"offset_start": float(run_start) * SAMPLE,
+					"offset_end": minf(float(i) * SAMPLE, guide.length),
+				})
+				if stager != null:
+					await stager.stage()
 			run_start = i
 	# Walls split into runs of wall-enabled.
 	_emit_walls(root, left_pts, right_pts, walls_l, true)
+	if stager != null:
+		await stager.stage()
 	_emit_walls(root, left_pts, right_pts, walls_r, false)
+	if stager != null:
+		await stager.stage()
 	_emit_skirt(root, left_pts, right_pts, gaps)
+	if stager != null:
+		await stager.stage()
 	_emit_edge_markers(root, left_pts, right_pts, walls_l, walls_r, gaps)
+	# Semantic data retained for authored dressing/collision migration. Existing
+	# course code still receives the same Node3D and child ordering.
+	root.set_meta("surface_runs", surface_runs)
+	root.set_meta("edge_left", left_pts)
+	root.set_meta("edge_right", right_pts)
 	return root
+
+
+## Semantic wrapper for new callers. `build_ribbon` remains source-compatible
+## while courses migrate away from child-order assumptions.
+static func build_ribbon_result(points: Array, name_hint: String = "Track",
+		stager: CourseBase = null) -> TrackBuildResult:
+	var track_root := await build_ribbon(points, name_hint, stager)
+	return TrackBuildResult.from_track_root(track_root)
 
 
 ## Bank angle in degrees at an offset: an explicit per-point "bank" when the
@@ -890,10 +927,15 @@ static func add_spectator(parent: Node3D, pos: Vector3, look_target: Vector3, rn
 	var bodies: Array = ["body_classic", "body_snowy", "body_midnight"]
 	var body_id: String = bodies[rng.randi_range(0, bodies.size() - 1)]
 	var info := CosmeticsDB.get_item(body_id)
-	penguin.setup({
+	var legacy_look := {
 		"body_color": info.get("body_color", Color(0.13, 0.16, 0.22)),
 		"belly_color": info.get("belly_color", Color(0.95, 0.94, 0.9)),
-	})
+	}
+	# Spectators use the shared look contract but explicitly stay on the
+	# lightweight CROWD renderer; full authored rigs are reserved for nearby
+	# gameplay characters.
+	penguin.setup_look(CharacterLook.from_legacy_config(
+			legacy_look, CharacterLook.RenderRole.CROWD))
 	penguin.position = pos
 	penguin.scale = Vector3.ONE * rng.randf_range(0.7, 0.95)
 	var flat_target := Vector3(look_target.x, pos.y, look_target.z)

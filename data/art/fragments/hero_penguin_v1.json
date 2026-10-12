@@ -1,0 +1,303 @@
+{
+  "runtime_assets": [
+    {
+      "groups": [
+        "character",
+        "customize",
+        "race",
+        "runner",
+        "shared_character"
+      ],
+      "id": "hero_penguin_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/characters/hero_penguin_v1.tscn",
+      "production_ready": false,
+      "sha256": "6737ba536a89f4b16f893a493549fbd1d658fdb1de3de43e844514dc092b6c5c",
+      "source_export_id": "hero_penguin_v1"
+    },
+    {
+      "groups": [
+        "character",
+        "customize",
+        "race",
+        "runner",
+        "shared_character"
+      ],
+      "id": "hero_penguin_v1_albedo",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/characters/textures/hero_penguin_v1_albedo.png",
+      "production_ready": false,
+      "sha256": "be2e9ba9e6d13b97d7b7e88421e35cc2f22f32c2828c9d59527bcd7ccdeec40a",
+      "source_export_id": "hero_penguin_v1"
+    },
+    {
+      "groups": [
+        "character",
+        "customize",
+        "race",
+        "runner",
+        "shared_character"
+      ],
+      "id": "hero_penguin_v1_material",
+      "kind": "material",
+      "license_id": "project_original",
+      "path": "res://assets/art/characters/hero_penguin_v1_material.tres",
+      "production_ready": false,
+      "sha256": "38af3af5358abd2fd6ffaf0a5d3a6ad01a9e4dd1406bd18d4b3e1b72f37b3667",
+      "source_export_id": "hero_penguin_v1"
+    },
+    {
+      "groups": [
+        "character",
+        "customize",
+        "race",
+        "runner",
+        "shared_character"
+      ],
+      "id": "hero_penguin_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/characters/hero_penguin_v1.glb",
+      "production_ready": false,
+      "sha256": "cc1528969bb9603b437f6074ba8c8e806e74b2fe8f01b5289753c41c4678c915",
+      "source_export_id": "hero_penguin_v1"
+    },
+    {
+      "groups": [
+        "character",
+        "race",
+        "shared_character"
+      ],
+      "id": "hero_penguin_v1_lod1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/characters/hero_penguin_v1_lod1.glb",
+      "production_ready": false,
+      "sha256": "11e63ebfa804c9401d59921f1a46d5fc5a2f39c719ce93c179bf09f4a38ff8bf",
+      "source_export_id": "hero_penguin_v1_lod1"
+    },
+    {
+      "groups": [
+        "character",
+        "customize",
+        "race",
+        "runner",
+        "shared_character"
+      ],
+      "id": "hero_penguin_v1_normal",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/characters/textures/hero_penguin_v1_normal.png",
+      "production_ready": false,
+      "sha256": "487f5731579bc23e4b3d68ef17ce00b581f2b7a6147190273ec6a2cc6d5a985a",
+      "source_export_id": "hero_penguin_v1"
+    },
+    {
+      "groups": [
+        "character",
+        "customize",
+        "race",
+        "runner",
+        "shared_character"
+      ],
+      "id": "hero_penguin_v1_orm",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/characters/textures/hero_penguin_v1_orm.png",
+      "production_ready": false,
+      "sha256": "637c07536710b447368cc1a1c7ce8b644cbd82cb004301cbdd4ee97503efbb4a",
+      "source_export_id": "hero_penguin_v1"
+    }
+  ],
+  "source_exports": [
+    {
+      "asset_class": "character",
+      "collection": "hero_penguin_v1",
+      "expected": {
+        "bounds_meters_max": [
+          1.38,
+          1.35,
+          2.0
+        ],
+        "deform_bones_max": 36,
+        "lod0_triangles_max": 25000,
+        "lod0_triangles_min": 18000,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.02,
+        "required_animations": [
+          "celebration",
+          "countdown_idle",
+          "defeat",
+          "fidget",
+          "hit_left",
+          "hit_right",
+          "jump_air",
+          "jump_land",
+          "jump_takeoff",
+          "lean_left",
+          "lean_right",
+          "ramp_flip",
+          "ramp_land",
+          "ramp_launch",
+          "recover",
+          "run",
+          "shove",
+          "slide_enter",
+          "slide_exit",
+          "slide_loop",
+          "stumble",
+          "swim",
+          "wipeout"
+        ],
+        "required_sockets": [
+          "face_socket",
+          "head_socket",
+          "neck_socket",
+          "trail_socket"
+        ],
+        "skin_influences_max": 4,
+        "surfaces_max": 2,
+        "texture_size_max": 2048
+      },
+      "export_animations": true,
+      "forward_axis": "-Z",
+      "id": "hero_penguin_v1",
+      "license_id": "project_original",
+      "output": "assets/art/characters/hero_penguin_v1.glb",
+      "source": "art_src/characters/hero_penguin_v1.blend",
+      "source_sha256": "bb5181110ab725e255f3701669486c87207a4887768df5ef7cbde9786c34cdeb"
+    },
+    {
+      "asset_class": "character_lod",
+      "collection": "hero_penguin_v1_lod1",
+      "expected": {
+        "bounds_meters_max": [
+          1.38,
+          1.35,
+          2.0
+        ],
+        "deform_bones_max": 36,
+        "lod0_triangles_max": 12000,
+        "lod0_triangles_min": 8000,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.02,
+        "required_animations": [
+          "celebration",
+          "countdown_idle",
+          "defeat",
+          "fidget",
+          "hit_left",
+          "hit_right",
+          "jump_air",
+          "jump_land",
+          "jump_takeoff",
+          "lean_left",
+          "lean_right",
+          "ramp_flip",
+          "ramp_land",
+          "ramp_launch",
+          "recover",
+          "run",
+          "shove",
+          "slide_enter",
+          "slide_exit",
+          "slide_loop",
+          "stumble",
+          "swim",
+          "wipeout"
+        ],
+        "required_sockets": [
+          "face_socket",
+          "head_socket",
+          "neck_socket",
+          "trail_socket"
+        ],
+        "skin_influences_max": 4,
+        "surfaces_max": 2,
+        "texture_size_max": 2048
+      },
+      "export_animations": true,
+      "forward_axis": "-Z",
+      "id": "hero_penguin_v1_lod1",
+      "license_id": "project_original",
+      "output": "assets/art/characters/hero_penguin_v1_lod1.glb",
+      "source": "art_src/characters/hero_penguin_v1.blend",
+      "source_sha256": "bb5181110ab725e255f3701669486c87207a4887768df5ef7cbde9786c34cdeb"
+    }
+  ],
+  "generated_assets": [],
+  "concepts": [
+    {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "generated_on": "2026-08-18",
+      "generator": "Codex built-in ImageGen (exact model identifier not exposed; one call)",
+      "id": "hero_penguin_feather_cream_source_v1",
+      "license_id": "project_original",
+      "path": "art_src/characters/material_sources/hero_penguin_feather_cream_source_v1.png",
+      "prompt_path": "art_src/characters/material_sources/hero_penguin_feather_cream_source_v1.prompt.md",
+      "sha256": "e2ae5502a33d62ed0fa94086102e43349163bc357bc15263b60e0421ed1a8e02",
+      "status": "art_direction_only"
+    },
+    {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "generated_on": "2026-08-18",
+      "generator": "Codex built-in ImageGen (exact model identifier not exposed; one call)",
+      "id": "hero_penguin_feather_dark_source_v1",
+      "license_id": "project_original",
+      "path": "art_src/characters/material_sources/hero_penguin_feather_dark_source_v1.png",
+      "prompt_path": "art_src/characters/material_sources/hero_penguin_feather_dark_source_v1.prompt.md",
+      "sha256": "4c811fb6203763d7ec82615644b43fa9b522dd83d3bc681a7e59273547678803",
+      "status": "art_direction_only"
+    },
+    {
+      "dimensions": [
+        1536,
+        1024
+      ],
+      "generated_on": "2026-08-18",
+      "generator": "OpenAI built-in ImageGen",
+      "id": "hero_penguin_reference_v2",
+      "license_id": "project_original",
+      "path": "art_src/characters/hero_penguin_reference_v2.png",
+      "prompt_path": "art_src/characters/hero_penguin_reference_v2.prompt.md",
+      "sha256": "582865406543fd5281478736949519bda3dc5a1346461e6462bf26883b425056",
+      "status": "art_direction_only"
+    },
+    {
+      "dimensions": [
+        1536,
+        1024
+      ],
+      "generated_on": "2026-08-18",
+      "generator": "User-provided via Codex chat; original generator/model unknown",
+      "id": "hero_penguin_user_reference_2026_08_18",
+      "license_id": "reference_unverified",
+      "path": "art_src/characters/hero_penguin_user_reference_2026-08-18.png",
+      "prompt_path": "art_src/characters/hero_penguin_user_reference_2026-08-18.prompt.md",
+      "sha256": "33f33f68f7e775342534619ebdf8d38f5c6c957a04d9e4fb8fd0d1d9c2ff93e2",
+      "status": "art_direction_only"
+    },
+    {
+      "dimensions": [
+        1672,
+        941
+      ],
+      "generated_on": "2026-08-18",
+      "generator": "OpenAI built-in ImageGen via Codex (one call; no iteration)",
+      "id": "hero_penguin_waddle_target_v1",
+      "license_id": "project_original",
+      "path": "art_src/characters/hero_penguin_waddle_target_v1.png",
+      "prompt_path": "art_src/characters/hero_penguin_waddle_target_v1.prompt.md",
+      "sha256": "69253fb94d1604d7a7b125c65f2bc2618b834b427f43786b901a34b3df0ee0f0",
+      "status": "art_direction_only"
+    }
+  ]
+}

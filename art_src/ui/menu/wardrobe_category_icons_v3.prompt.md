@@ -1,0 +1,7 @@
+# Wardrobe category icons v3
+
+Generated2026-10-08 with Codex built-in ImageGen. Approved reference unchanged: `art_src/ui/menu/penguins_v1.png`. Transparent original PNG copied byte-for-byte to runtime.
+
+Use case: background-extraction. Asset type: transparent game UI icon sprite atlas.
+Reference image: the supplied approved Penguins screen. Recreate ONLY the five small category icons in its horizontal category strip near the bottom, with extremely faithful shapes, colors and shading. These are: (1) front-facing small closed-mouth penguin face/chest, black/navy and white with orange beak, (2) flat blue ribbed beanie with small pompom and blue cuff, (3) navy ski goggles with pale silver double outline and empty navy lenses, (4) short simple blue wrapped scarf with two short fringed ends, (5) navy five-point star with three thin curved motion trails to lower left. Match the SIMPLE painted blue icon illustrations in that strip, NOT realistic knitwear or photographic equipment.
+Output exactly one transparent PNG sprite atlas, landscape 5:1 aspect ratio with FIVE equal square cells arranged in one horizontal row, icons in that order. Each icon centered in its cell at equal perceived size, inset at least 15% on all sides. Genuine transparent background. No text, no labels, no UI buttons, no circles or background plates, no extra snow, no cast shadows outside silhouettes. No other art from the supplied reference. The original reference remains unchanged; this is a production extraction/reconstruction of its category icon art.

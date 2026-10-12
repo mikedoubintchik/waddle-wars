@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "glb_sha256": "7d0b6ee56a3b4ca5af7236bfeb1fea6c10d9f2516c684b8b36247738cc307498",
+  "source_sha256": "b538ce6c8c406f22ccb5d5591234ebc8f0920a314aa4cf2d1e5b0ac5af2e76a2",
+  "passed": true,
+  "triangles": 8960,
+  "normals_verified": 4492,
+  "positions_verified": 4492,
+  "literal_linear_colors_verified": 4492,
+  "source_and_config_bound": true,
+  "head_torso_profile_matches_v3": true,
+  "body_is_rigid_11_degree_pitch_of_v3_max_error_m": 1.1384037712502959e-07,
+  "crown_delta_godot_xyz_m": [
+    0.0,
+    -0.02683854103088379,
+    -0.2747282013297081
+  ],
+  "crown_moves_toward_gameplay_forward_minus_z": true,
+  "bmesh_color_index_error_m": 0,
+  "foot_sole_vertices_exactly_grounded": 194,
+  "ankle_caps_inside_body": [
+    {
+      "part": "foot_L",
+      "ankle_cap_body_ellipse_ratio": 0.4992431743493485,
+      "sole_min_z_m": 0.0,
+      "ankle_cap_m": [
+        -0.20634752415750146,
+        0.0283704175437357,
+        0.245
+      ]
+    },
+    {
+      "part": "foot_R",
+      "ankle_cap_body_ellipse_ratio": 0.4992431743493485,
+      "sole_min_z_m": 0.0,
+      "ankle_cap_m": [
+        0.20634752415750146,
+        0.0283704175437357,
+        0.245
+      ]
+    }
+  ],
+  "rendered_frames": 0,
+  "visual_approval": "pending"
+}

@@ -25,6 +25,13 @@ const GAP_S: int = 6                ## Inside a group.
 const GAP_M: int = 12               ## Between groups.
 const CARD_RADIUS: float = 14.0     ## Matches UITheme.make_panel_style.
 const BAR_HEIGHT: float = 20.0      ## Gauge capsule height at hud_scale 1.
+## Horizontal band the course gauge occupies, as viewport fractions. The right
+## edge is a maximum: on touch it pulls in to clear the action buttons.
+const COURSE_RAIL_LEFT: float = 0.32
+const COURSE_RAIL_RIGHT: float = 0.68
+## Narrowest the rail may be squeezed to before it moves above the buttons
+## instead. A gauge thinner than this reads as a decoration, not a readout.
+const COURSE_RAIL_MIN_SPAN: float = 0.18
 ## Right-hand column width: RaceMinimap.BASE_SIZE, so the item slot and the map
 ## below it share one edge. Capped on touch devices, where the pause button is
 ## parked immediately left of this column.
@@ -107,6 +114,7 @@ var _position_total: Label = null
 var _position_stripe: Panel = null
 var _time_label: Label
 var _time_caption: Label
+var _time_card: PanelContainer
 var _fish_label: Label
 var _item_panel: Panel
 var _item_glow: Panel
@@ -128,6 +136,13 @@ var _speed_bar: ProgressBar
 var _speed_flag: Label
 var _speed_flagged: bool = false
 var _progress_bar: ProgressBar
+## Bottom-rail widgets, kept so their placed rects can be measured. The HUD
+## and the touch buttons share this strip of screen and used to collide there.
+var _course_caption: Control = null
+var _course_groove: Control = null
+var _speed_caption: Control = null
+var _speed_groove: Control = null
+var _fish_card: Control = null
 var _progress_value: Label
 var _progress_shown: int = -1
 var _center_label: Label
@@ -140,6 +155,69 @@ var _race_over: bool = false
 var _hud_scale: float = 1.0
 var _hint_bottom: float = -92.0
 var _root: Control
+var _layout: LayoutProfile = null
+
+
+## Rebuilds the bottom rail when a setting moves the touch buttons under it.
+## The action cluster's footprint is a function of touch_scale, so a player
+## dragging that slider mid-race would otherwise leave the course gauge
+## running underneath SHOVE until the next scene load.
+func _on_setting_changed(key: String, _value: Variant) -> void:
+	if key != "gameplay/touch_scale" or _root == null or not is_instance_valid(_root):
+		return
+	if not UITheme.is_touch():
+		return
+	_refresh_course_rail()
+
+
+## Re-pulls the course rail's right edge. Cheap enough to run on any event
+## that can move the touch cluster -- a settings change or a rotation -- and
+## it touches nothing else in the HUD.
+func _refresh_course_rail() -> void:
+	if _course_caption == null or not is_instance_valid(_course_caption):
+		return
+	if _course_groove == null or not is_instance_valid(_course_groove):
+		return
+	var placement := _course_rail_placement()
+	var right := float(placement["right"])
+	var bottom := float(placement["bottom"])
+	var bar_h := BAR_HEIGHT * _hud_scale
+	var rail_h := bar_h + 4.0 * _hud_scale + 17.0 * _hud_scale
+	_course_caption.anchor_right = right
+	_course_caption.offset_top = bottom - rail_h
+	_course_caption.offset_bottom = bottom - bar_h - 4.0 * _hud_scale
+	_course_groove.anchor_right = right
+	_course_groove.offset_top = bottom - bar_h
+	_course_groove.offset_bottom = bottom
+
+
+## Builds the HUD chrome alone, with no race behind it. The layout depends
+## only on the viewport and the player's settings, so a test can measure where
+## everything lands without running a race to produce values for it.
+func build_chrome_for_test() -> void:
+	_build()
+
+
+## The bottom-rail widgets as placed rects, for collision checks against the
+## touch buttons that share the same strip of screen.
+func bottom_rail_rects_for_test() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	var named := {
+		"course_caption": _course_caption,
+		"course_groove": _course_groove,
+		"speed_caption": _speed_caption,
+		"speed_groove": _speed_groove,
+		"fish_card": _fish_card,
+	}
+	for key: String in named.keys():
+		var control := named[key] as Control
+		if control != null and is_instance_valid(control):
+			rows.append({"name": key, "rect": control.get_global_rect()})
+	return rows
+
+
+func time_card_rect_for_test() -> Rect2:
+	return _time_card.get_global_rect() if _time_card != null else Rect2()
 
 
 func setup(p_manager: RaceManager, p_player: Racer) -> void:
@@ -169,6 +247,10 @@ func setup(p_manager: RaceManager, p_player: Racer) -> void:
 		_audio_cue("Shove landed!"))
 	player.respawned.connect(func(_racer: Racer) -> void:
 		_audio_cue("Back on track"))
+	# A rescue that just teleports you reads as a glitch. Say what happened,
+	# so the player knows the game noticed rather than misfired.
+	player.unstick_pending.connect(func(_racer: Racer) -> void:
+		show_message("Stuck — back to the last checkpoint"))
 	player.shield_changed.connect(func(_racer: Racer, active: bool) -> void:
 		if _shield_pill != null:
 			_shield_pill.visible = active
@@ -478,6 +560,7 @@ func _build() -> void:
 	var hud_scale := float(SettingsManager.get_setting("accessibility", "hud_scale"))
 	_hud_scale = hud_scale
 	add_child(_root)
+	_apply_safe_area()
 
 	# Top-left column. The position card and the timed-effect pill share it so
 	# the pill can appear and vanish mid-race without anything being measured
@@ -500,7 +583,17 @@ func _build() -> void:
 	# pause reminder when logical pixels render physically tiny, where they are
 	# unreadable noise rather than help.
 	if not GameConfig.is_headless():
-		get_viewport().size_changed.connect(_update_bar_tags)
+		var viewport := get_viewport()
+		if not viewport.size_changed.is_connected(_update_bar_tags):
+			viewport.size_changed.connect(_update_bar_tags)
+		if not viewport.size_changed.is_connected(_apply_safe_area):
+			viewport.size_changed.connect(_apply_safe_area)
+		# A rotation moves the action cluster, and the course rail stops
+		# short of it.
+		if not viewport.size_changed.is_connected(_refresh_course_rail):
+			viewport.size_changed.connect(_refresh_course_rail)
+		if not SettingsManager.setting_changed.is_connected(_on_setting_changed):
+			SettingsManager.setting_changed.connect(_on_setting_changed)
 		_update_bar_tags()
 
 	# Course minimap (top-right card under the item slot; hides itself on
@@ -510,12 +603,27 @@ func _build() -> void:
 	minimap.setup(manager, hud_scale)
 
 
+## Every anchored HUD element composes inside one platform-safe canvas. This
+## preserves authored relative geometry while keeping top cards, bottom rails,
+## minimap, and messages out of notches/home indicators in either orientation.
+func _apply_safe_area() -> void:
+	if _root == null:
+		return
+	_layout = LayoutProfile.for_viewport(get_viewport())
+	_root.offset_left = _layout.safe_insets.x
+	_root.offset_top = _layout.safe_insets.y
+	_root.offset_right = -_layout.safe_insets.z
+	_root.offset_bottom = -_layout.safe_insets.w
+
+
 ## Position card (top left): a podium-coloured edge stripe, the place numeral
 ## as the loudest thing on screen, and a quiet ordinal/field column beside it.
 ## Hidden outright when there is nobody to be ahead of (Time Trial, Endless) —
 ## "1st of 1" is furniture, and the clock deserves the attention instead.
 func _build_position_card(s: float) -> void:
-	if manager.single_racer_mode or manager.racers.size() <= 1:
+	# No manager means this is a layout-only build (build_chrome_for_test),
+	# where the card is exactly the thing being measured.
+	if manager != null and (manager.single_racer_mode or manager.racers.size() <= 1):
 		return
 	_position_card = PanelContainer.new()
 	_position_card.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -614,6 +722,7 @@ func _build_shield_pill(s: float) -> void:
 ## Clock card (top centre): caption above, monospaced-feeling numerals below.
 func _build_time_card(s: float) -> void:
 	var card := PanelContainer.new()
+	_time_card = card
 	card.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	card.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -773,6 +882,7 @@ func _build_fish_card(s: float) -> void:
 	card.offset_bottom = -GUTTER
 	card.add_theme_stylebox_override("panel", _card_style(13.0 * s, 5.0 * s))
 	_root.add_child(card)
+	_fish_card = card
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(9 * s))
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -797,6 +907,37 @@ func _build_fish_card(s: float) -> void:
 	row.add_child(_fish_label)
 
 
+## Where the course rail can sit without the SHOVE / ITEM / BACK cluster
+## sitting on top of it. Returns the right-hand anchor and the bottom offset.
+##
+## Two outcomes. Usually the rail just stops short of the buttons and stays on
+## the bottom edge. At large touch scales the cluster reaches past the rail's
+## own left anchor -- at scale 2 the buttons own the right 70% of an 800-wide
+## canvas -- and there is no width left to shrink into; the rail lifts above
+## the cluster instead, which keeps the whole gauge and its percentage
+## readable rather than squeezing them into a stub.
+func _course_rail_placement() -> Dictionary:
+	var fallback := {"right": COURSE_RAIL_RIGHT, "bottom": -GUTTER}
+	if not UITheme.is_touch():
+		return fallback
+	var viewport := get_viewport()
+	if viewport == null:
+		return fallback
+	var canvas := viewport.get_visible_rect().size
+	if canvas.x <= 0.0 or canvas.y <= 0.0:
+		return fallback
+	var cluster := TouchControls.action_cluster_rect_for_viewport(viewport)
+	if cluster.size.x <= 0.0:
+		return fallback
+	var limit := (cluster.position.x - GUTTER) / canvas.x
+	if limit - COURSE_RAIL_LEFT >= COURSE_RAIL_MIN_SPAN:
+		return {"right": minf(COURSE_RAIL_RIGHT, limit), "bottom": -GUTTER}
+	return {
+		"right": COURSE_RAIL_RIGHT,
+		"bottom": -(canvas.y - cluster.position.y + float(GAP_M)),
+	}
+
+
 ## Course and speed gauges. Both are the same capsule with the same caption
 ## row above them, sitting on the same bottom baseline as the fish card, so the
 ## bottom edge of the screen reads as one instrument rail instead of two
@@ -809,13 +950,22 @@ func _build_gauges(s: float) -> void:
 	_hint_bottom = -(GUTTER + rail_h + float(GAP_M))
 
 	# Course progress (bottom centre): caption left, percentage right.
+	#
+	# On touch the right-hand third of that band is where SHOVE, ITEM and BACK
+	# live, and on a portrait phone the gauge's right end -- the end carrying
+	# the percentage -- ran straight underneath SHOVE. The rail stops short of
+	# the cluster instead, so the number stays readable and the buttons keep
+	# their whole footprint.
+	var placement := _course_rail_placement()
+	var course_right := float(placement["right"])
+	var course_bottom := float(placement["bottom"])
 	var course_caption := HBoxContainer.new()
-	course_caption.anchor_left = 0.32
-	course_caption.anchor_right = 0.68
+	course_caption.anchor_left = COURSE_RAIL_LEFT
+	course_caption.anchor_right = course_right
 	course_caption.anchor_top = 1.0
 	course_caption.anchor_bottom = 1.0
-	course_caption.offset_top = -(GUTTER + rail_h)
-	course_caption.offset_bottom = -(GUTTER + bar_h + 4.0 * s)
+	course_caption.offset_top = course_bottom - rail_h
+	course_caption.offset_bottom = course_bottom - bar_h - 4.0 * s
 	course_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(course_caption)
 	var course_tag := _caption_label("Course", 13 * s)
@@ -828,15 +978,17 @@ func _build_gauges(s: float) -> void:
 	course_caption.add_child(_progress_value)
 	_bar_tags.append(_progress_value)
 
+	_course_caption = course_caption
 	var course_groove := _make_gauge(bar_h, 3.0 * s,
 		UITheme.COLOR_ACCENT.darkened(0.18), UITheme.COLOR_ACCENT.lightened(0.55))
-	course_groove.anchor_left = 0.32
-	course_groove.anchor_right = 0.68
+	course_groove.anchor_left = COURSE_RAIL_LEFT
+	course_groove.anchor_right = course_right
 	course_groove.anchor_top = 1.0
 	course_groove.anchor_bottom = 1.0
-	course_groove.offset_top = -(GUTTER + bar_h)
-	course_groove.offset_bottom = -GUTTER
+	course_groove.offset_top = course_bottom - bar_h
+	course_groove.offset_bottom = course_bottom
 	_root.add_child(course_groove)
+	_course_groove = course_groove
 	_progress_bar = course_groove.get_child(0) as ProgressBar
 
 	# Speed gauge: right column on desktop, above the fish card on touch.
@@ -888,6 +1040,8 @@ func _build_gauges(s: float) -> void:
 		speed_groove.offset_right = -GUTTER
 	speed_groove.offset_top = speed_bottom - bar_h
 	speed_groove.offset_bottom = speed_bottom
+	_speed_caption = speed_caption
+	_speed_groove = speed_groove
 	_root.add_child(speed_groove)
 	_speed_bar = speed_groove.get_child(0) as ProgressBar
 
@@ -953,7 +1107,24 @@ func _build_hints(s: float) -> void:
 		_controls_hint.offset_bottom = _hint_bottom
 		_controls_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_controls_hint.add_theme_stylebox_override("panel", _card_style(16.0 * s, 7.0 * s))
-		_controls_hint.add_child(build_controls_strip(s))
+		# Wrap the strip on narrow screens. Six gesture/verb pairs in one row
+		# needs about 1100 logical units; a portrait phone has 800, so the row
+		# ran off both edges and the first and last hints were unreadable.
+		var per_row := 0
+		var profile := LayoutProfile.for_viewport(get_viewport())
+		match profile.view_class:
+			LayoutProfile.ViewClass.PORTRAIT_NARROW:
+				per_row = 2
+			LayoutProfile.ViewClass.PORTRAIT_TABLET, LayoutProfile.ViewClass.LANDSCAPE_COMPACT:
+				per_row = 3
+		_controls_hint.add_child(build_controls_strip(s, per_row))
+		# Clear of the touch action buttons: on a phone they sit in the same
+		# bottom corner the strip is centred over, and a hint the thumb covers
+		# is not a hint. Sits above them in portrait, where there is height to
+		# spare, rather than fighting for the same band.
+		if UITheme.is_touch() and per_row > 0:
+			_controls_hint.offset_bottom = _hint_bottom \
+				- TouchControls.BUTTON_SIZE_PX * (1.5 if per_row == 2 else 1.0)
 		_root.add_child(_controls_hint)
 
 
@@ -962,9 +1133,25 @@ var _endless_mode: bool = false
 
 
 func set_endless_status(score: int, distance: float, storm_gap: float) -> void:
+	if not _endless_mode and _layout != null and _layout.is_portrait():
+		# Two short lines stay legible without widening the centre card into the
+		# touch pause button. A single micro-caption still grazed it on Android.
+		_time_caption.add_theme_font_size_override("font_size", int(14 * _hud_scale))
 	_endless_mode = true
-	_time_caption.text = "ENDLESS"
-	_time_label.text = "Score %d   •   %dm   •   Storm %dm" % [score, int(distance), int(storm_gap)]
+	# Keep distance as the glance value; score and storm remain on the card.
+	if _layout != null and _layout.is_portrait():
+		var enlarged_pause := UITheme.is_touch() \
+			and float(SettingsManager.get_setting("gameplay", "touch_scale")) > 1.5
+		_time_caption.text = "SCORE\n%d\nSTORM\n%dm" % [score, int(storm_gap)] \
+			if _hud_scale > 1.5 or enlarged_pause else "SCORE %d\nSTORM %dm" % [score, int(storm_gap)]
+		# At high accessibility scales a five-digit metre count widens the
+		# card into the pause target. Past 10 km, the exact metres belong in
+		# results; a rounded kilometre glance keeps the live control clear.
+		_time_label.text = "%dkm" % int(roundf(distance / 1000.0)) \
+			if distance >= 10000.0 else "%dm" % int(distance)
+	else:
+		_time_caption.text = "ENDLESS"
+		_time_label.text = "Score %d   •   %dm   •   Storm %dm" % [score, int(distance), int(storm_gap)]
 	if storm_gap < 25.0:
 		_time_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.4))
 	else:
@@ -1033,7 +1220,7 @@ func _process(_delta: float) -> void:
 		# bubble start shouting at the same moment.
 		_shield_time.add_theme_color_override("font_color",
 			UITheme.COLOR_GOLD if left <= Racer.SHIELD_WARN else UITheme.COLOR_TEXT)
-	if player.course != null and player.course is CourseBase:
+	if player != null and player.course != null and player.course is CourseBase:
 		var course := player.course as CourseBase
 		if course.main_guide != null and course.main_guide.length > 1.0:
 			var ratio := clampf(player.progress / course.finish_offset, 0.0, 1.0)

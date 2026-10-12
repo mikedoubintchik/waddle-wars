@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "state": "captured_android_emulator_unsubmitted",
+  "platform": "android",
+  "store_ready": false,
+  "uploaded": false,
+  "edited": false,
+  "source": {
+    "build_id": "native-android-11-dc50ecd61b56",
+    "runtime_source_sha256": "dc50ecd61b568091d3f5effedbc0d2ee545447d657ce96d191b0ed65c9faa569",
+    "signed_aab_sha256": "1241dc2aed31c99875edd6104727dc7cc16ada5ae079c7d5761cbb95ce3efa7e",
+    "apks_sha256": "54fdd8a5912e392a0065f3a83544daef548c4d247c052de4458592484c8d0f68",
+    "apks_audit_sha256": "69b97cf6e4f29c38c46d6b9aced4bcfd28bc8d9b49fab687e895f838cd705373",
+    "capture_method": "adb exec-out screencap -p",
+    "capture_root": "/Users/ninja/Library/Application Support/WaddleWarsLaunchCandidates/android-release-smoke-20261002.VufZ19",
+    "emulator": "WaddleWarsQA_20261002",
+    "emulator_serial": "emulator-5680",
+    "display": "540x960, density 240",
+    "orientation": "portrait",
+    "runtime_acceptance": false,
+    "physical_device_test": false,
+    "runner_cold_launch_passed": false,
+    "runner_gameplay_after_recovery_retry": true,
+    "notes": [
+      "Unchanged release-app screen captures, not mockups, cropped images or new renders.",
+      "The installed release APK set derives from the signed Android build 11 AAB. QA APKs use the configured Godot debug signer, not the production upload certificate.",
+      "Title and menu were captured before runner entry. The gameplay frame was captured after the cold runner load reached its recovery screen and Retry entered gameplay.",
+      "The cold-load failure remains a release blocker; a gameplay screenshot does not establish loading, retry, performance or launch acceptance.",
+      "Android system status and navigation bars remain visible. No iOS screenshots have been prepared, and these captures are not substitutes for iOS simulator evidence.",
+      "These are draft local listing assets, not uploaded or approved store screenshots. Reassess against the final accepted candidate before submission."
+    ]
+  },
+  "outputs": [
+    {
+      "path": "tools/release/store_assets/android-build11-draft/01-title.png",
+      "sha256": "632e5a4aca471bdc36c56a3c52c77070700a130f2441a5c891e17cef82fed6d6",
+      "width": 540,
+      "height": 960,
+      "source_filename": "01-title.png",
+      "scene": "title"
+    },
+    {
+      "path": "tools/release/store_assets/android-build11-draft/03-menu-settled.png",
+      "sha256": "e384b13dacc87fa079b3137ace52cb912671d2d5e24ec8fb6e684aae48a62d00",
+      "width": 540,
+      "height": 960,
+      "source_filename": "03-menu-settled.png",
+      "scene": "main_menu"
+    },
+    {
+      "path": "tools/release/store_assets/android-build11-draft/10-jump.png",
+      "sha256": "0ef26ac52c9f7c6748db671b7d3009c82a98cd6b33bdb14314eaa1faa4369861",
+      "width": 540,
+      "height": 960,
+      "source_filename": "10-jump.png",
+      "scene": "runner_jump_after_recovery_retry"
+    }
+  ]
+}

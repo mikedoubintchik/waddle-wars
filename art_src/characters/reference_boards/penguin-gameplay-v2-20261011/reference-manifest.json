@@ -1,0 +1,713 @@
+{
+  "schema_version": 1,
+  "created_utc": "2026-10-11T23:15:08.205204+00:00",
+  "method": "Built-in image_gen tool; no CLI/API fallback. ImageMagick extracts original pose cells; GIF/MP4 encode those still poses without deformation or interpolation.",
+  "status": "Working rear-only reference set; awaiting owner visual feedback. No runtime art or animation approval.",
+  "usage": "Character and motion art direction; generated reference pixels are not runtime textures or engine captures.",
+  "active_scope": {
+    "camera": "Directly behind the penguin, facing away, with modest elevated gameplay chase framing",
+    "actions": [
+      "waddle with stronger side-to-side lean",
+      "jump",
+      "prone belly slide"
+    ],
+    "review_page": "index.html",
+    "pose_board": "waddle-rear-strong-lean-sequence.png",
+    "waddle_animatic": "animatics-strong-lean/waddle.gif",
+    "jump_animatic": "animatics/jump.gif",
+    "slide_animatic": "animatics/slide.gif",
+    "multi_angle_assets": "Historical only; excluded from active review"
+  },
+  "owner_corrections": [
+    "Waddle, not running",
+    "Jump and slide directly from behind",
+    "Waddle needs more lean",
+    "Infinite runner needs only rear view",
+    "Slide: trailing feet move up and down, with small flipper movement",
+    "Jump: feet hang down, flippers wave slightly, body tilts forward a little"
+  ],
+  "waddle_intent": {
+    "weight_transfer": "Torso and hips visibly roll over alternating planted feet; compact steps, counterbalancing flippers, upright passing poses",
+    "torso_roll_target_degrees_at_extremes": [
+      18,
+      22
+    ],
+    "measurement_status": "Prompt/art-direction target only; generated image roll and runtime motion not measured",
+    "final_sequence_generation_steps": [
+      "waddle-strong-lean-prompt.txt",
+      "waddle-passing-poses-prompt.txt"
+    ]
+  },
+  "review_notes": {
+    "reference_only": true,
+    "runtime_parity_proven": false,
+    "runtime_files_modified": false,
+    "current_reference_owner_approved": false,
+    "remaining_interpretation": [
+      "Resolve generative proportions and contact differences in one coherent 3D model",
+      "Exact foot planting, weight shift and smooth interpolation require rigged runtime verification",
+      "Feather softness is a shading target, not a requirement for dense fur geometry",
+      "Larger reference framing does not authorize a change to the actual gameplay camera"
+    ],
+    "original_assets_preserved": true,
+    "verification_scope": "Saved pose crops, GIF count/timing, MP4 duration and source hashes; not finished animation or engine validation",
+    "review_page_evidence": {
+      "file": "rear-only-review-page.png",
+      "sha256": "b8c0d9516d16a3f53363eb3f8570abd9958435b451fa9f7f5ffbf28bd935af2e",
+      "url": "http://127.0.0.1:60256/index.html",
+      "verification": "Root inspected Chrome page; all four images loaded at expected dimensions; active references rear-only",
+      "engine_capture": false
+    },
+    "preservation_check": {
+      "unchanged_preexisting_files": 45,
+      "expected_prompt_correction": {
+        "file": "waddle-strong-lean-prompt.txt",
+        "description": "Root replaced literal trailing backslash-n with a newline before final prompt hashing; this is the newly added revision prompt, not an earlier delivered image or animatic",
+        "previous_sha256": "393af8fb51a9a4d41ed4788ae7e0ee27c551d9014df9f3892bda42cfb35245c7",
+        "final_sha256": "fc87057e4e129a8515e9b0525baf296201c46384299c7dfc1039a5cfdf6893a5"
+      }
+    }
+  },
+  "generated_assets": [
+    {
+      "file": "character-angle-waddle.png",
+      "sha256": "0eba3aed830ec5870ee23df925225374665981baa265f81aa20fccfec563971f",
+      "dimensions": [
+        1774,
+        887
+      ],
+      "status": "historical; multi-angle scope superseded by rear-only owner instruction",
+      "generated_source": "/Users/ninja/.codex/generated_images/01a12d09-d5ea-7952-8a60-3670fc421c94/exec-801f7e3f-df3e-47b4-be99-a7ca3a5a8ce1.png",
+      "copied_without_change": true,
+      "prompt_file": "angles-prompt.txt",
+      "prompt_sha256": "1fce79de0f1b5011244ace1fca4b4e23d9e31e478d1669494762c4f72faf183f",
+      "inputs": [
+        {
+          "file": "../penguin-gameplay-v1-20261011/character-angles-and-actions.png",
+          "role": "edit target and character identity",
+          "sha256": "6b384e6c2622cb8e5a9fda09205afe0573753f172e9d8b3e459f6af90858e9a1"
+        }
+      ]
+    },
+    {
+      "file": "waddle-rear-sequence.png",
+      "sha256": "02e5d86ad922831bafea2dde956d015f1b79f0f66700170e22b53ed7b84199ac",
+      "dimensions": [
+        1774,
+        887
+      ],
+      "status": "historical; owner requested greater side-to-side lean",
+      "generated_source": "/Users/ninja/.codex/generated_images/01a12d09-d5ea-7952-8a60-3670fc421c94/exec-4e6e0ff0-d78a-418f-bff0-4b9f21942168.png",
+      "copied_without_change": true,
+      "prompt_file": "waddle-prompt.txt",
+      "prompt_sha256": "e946dff59e4e385fdd9f72cc788cdf5cfb92008427571dad2940d7c0012f43f9",
+      "inputs": [
+        {
+          "file": "character-angle-waddle.png",
+          "role": "character identity reference",
+          "sha256": "0eba3aed830ec5870ee23df925225374665981baa265f81aa20fccfec563971f"
+        }
+      ]
+    },
+    {
+      "file": "jump-rear-sequence.png",
+      "sha256": "e0e1fde4977ef9eea73269909401f86af4f0ae51034277d01d67d29c08a31333",
+      "dimensions": [
+        1774,
+        887
+      ],
+      "status": "active working reference",
+      "generated_source": "/Users/ninja/.codex/generated_images/01a12d09-d5ea-7952-8a60-3670fc421c94/exec-9c9cb2da-f0c9-4556-a17e-5790772e7df5.png",
+      "copied_without_change": true,
+      "prompt_file": "jump-prompt.txt",
+      "prompt_sha256": "c93fee097838f6cb6cbffdc52f544746418de8bce9e958918bbe581e533d1407",
+      "inputs": [
+        {
+          "file": "character-angle-waddle.png",
+          "role": "character identity reference",
+          "sha256": "0eba3aed830ec5870ee23df925225374665981baa265f81aa20fccfec563971f"
+        }
+      ]
+    },
+    {
+      "file": "slide-rear-sequence.png",
+      "sha256": "d90d4a1823135fa2af535cd7d56ba6e96abbde30fa5d28636f03be6690274e8e",
+      "dimensions": [
+        1774,
+        887
+      ],
+      "status": "active working reference",
+      "generated_source": "/Users/ninja/.codex/generated_images/01a12d09-d5ea-7952-8a60-3670fc421c94/exec-c3d30235-305a-40eb-8501-e164a2a83f50.png",
+      "copied_without_change": true,
+      "prompt_file": "slide-prompt.txt",
+      "prompt_sha256": "2ca41a005aa89359d7db2e168267dad81cbed4fda04d4a05bb29fddd88f84c72",
+      "inputs": [
+        {
+          "file": "character-angle-waddle.png",
+          "role": "character identity reference",
+          "sha256": "0eba3aed830ec5870ee23df925225374665981baa265f81aa20fccfec563971f"
+        }
+      ]
+    },
+    {
+      "file": "waddle-strong-lean-initial-sequence.png",
+      "sha256": "1076624bc6f0a4e928a603cc0ad7e78b90c224f060dddb7e50e31df4a97f2519",
+      "dimensions": [
+        1774,
+        887
+      ],
+      "status": "historical intermediate; refined upright passing poses in final sequence",
+      "generated_source": "/Users/ninja/.codex/generated_images/01a12d09-d5ea-7952-8a60-3670fc421c94/exec-69d0ffe5-dc71-4015-8a1e-6556a92fa5d0.png",
+      "copied_without_change": true,
+      "prompt_file": "waddle-strong-lean-prompt.txt",
+      "prompt_sha256": "fc87057e4e129a8515e9b0525baf296201c46384299c7dfc1039a5cfdf6893a5",
+      "inputs": [
+        {
+          "file": "waddle-rear-sequence.png",
+          "role": "edit target",
+          "sha256": "02e5d86ad922831bafea2dde956d015f1b79f0f66700170e22b53ed7b84199ac"
+        },
+        {
+          "file": "character-angle-waddle.png",
+          "role": "character identity reference",
+          "sha256": "0eba3aed830ec5870ee23df925225374665981baa265f81aa20fccfec563971f"
+        }
+      ]
+    },
+    {
+      "file": "waddle-rear-strong-lean-sequence.png",
+      "sha256": "764acf53aecf29958e7ffc986bea753627b0af4f3ea95bf31f03a99c0f2ecac9",
+      "dimensions": [
+        1774,
+        887
+      ],
+      "status": "active working reference; second step of strong-lean revision",
+      "generated_source": "/Users/ninja/.codex/generated_images/01a12d09-d5ea-7952-8a60-3670fc421c94/exec-5aae47df-e4d5-49d6-8542-8d64ccdee74a.png",
+      "copied_without_change": true,
+      "prompt_file": "waddle-passing-poses-prompt.txt",
+      "prompt_sha256": "44534f420d34a42a596ba6c6fc92efee82a14d3844c1e64a450b8f496d60f282",
+      "inputs": [
+        {
+          "file": "waddle-strong-lean-initial-sequence.png",
+          "role": "edit target; preserve extreme lean and refine passing poses",
+          "sha256": "1076624bc6f0a4e928a603cc0ad7e78b90c224f060dddb7e50e31df4a97f2519"
+        }
+      ]
+    },
+    {
+      "file": "character-angle-strong-lean-waddle.png",
+      "sha256": "169d1919f2c790026c52da5d7015c0302be78249abdd6d9765821b1047a8117e",
+      "dimensions": [
+        1774,
+        887
+      ],
+      "status": "historical; generated before subsequent rear-only owner instruction, excluded from active review",
+      "generated_source": "/Users/ninja/.codex/generated_images/01a12d09-d5ea-7952-8a60-3670fc421c94/exec-4496dfdf-5748-4d15-a1b6-27eff3ba3309.png",
+      "copied_without_change": true,
+      "prompt_file": "angles-strong-lean-prompt.txt",
+      "prompt_sha256": "92086312489c5ea773d65b7a3cf1fe0c575aec35b1d4c02826be2ba0e500a147",
+      "inputs": [
+        {
+          "file": "character-angle-waddle.png",
+          "role": "edit target",
+          "sha256": "0eba3aed830ec5870ee23df925225374665981baa265f81aa20fccfec563971f"
+        },
+        {
+          "file": "waddle-strong-lean-initial-sequence.png",
+          "role": "supporting strong-lean motion reference",
+          "sha256": "1076624bc6f0a4e928a603cc0ad7e78b90c224f060dddb7e50e31df4a97f2519"
+        }
+      ]
+    }
+  ],
+  "prompts": [
+    {
+      "file": "angles-prompt.txt",
+      "sha256": "1fce79de0f1b5011244ace1fca4b4e23d9e31e478d1669494762c4f72faf183f",
+      "exact_text": "Use case: stylized-concept. Edit the attached character reference into a corrected WADDLE reference board. Preserve the exact penguin character identity, colors, markings, integrated eyes/lids, bill, proportions and restrained feather finish from the attachment. Retire all running poses: this game uses a short waddling gait.\nMake a clean high-resolution 4-column by 2-row board with eight full-body views of this SAME penguin. Same simple ice ground, cool blue background, soft readable daytime game lighting. No changes of body shape or design among panels.\nTop row labels and views: \"WADDLE \u00b7 FRONT\", \"WADDLE \u00b7 FRONT \u00be\", \"WADDLE \u00b7 SIDE\", \"WADDLE \u00b7 REAR \u00be\".\nBottom row: \"WADDLE \u00b7 REAR\", \"WADDLE \u00b7 CHASE\", \"JUMP \u00b7 CHASE\", \"BELLY SLIDE \u00b7 CHASE\".\nThe six waddle panels show the characteristic compact penguin waddle from distinct angles: short alternating steps, one foot ALWAYS planted, slight side-to-side hip/torso weight transfer, knees/feet close under the body, modest counterbalancing flippers rather than a human jogging arm swing. No sprinting, airborne running stride, giant stride or exaggerated bent human legs.\nCRITICAL CAMERA RULE: both JUMP \u00b7 CHASE and BELLY SLIDE \u00b7 CHASE show the penguin DIRECTLY FROM BEHIND, facing away upscreen, with a modest elevated 20-degree gameplay chase camera looking slightly down at its BACK. No front, side, or front three-quarter jump/slide. Do not turn the penguin's head toward the viewer. Neither eye nor bill should be visible from the rear action views.\nJump: body lifted clearly off ice, both orange feet tucked and seen from behind, flippers spread for balance, separate shadow below.\nBelly slide: belly lies flat against ice, body horizontal pointing AWAY from viewer toward top of panel, lowered silhouette, round back and back of lifted head visible, BOTH orange webbed feet trail toward viewer in the foreground, flippers swept back/sideways, slight ice dust and compressed ground shadow. Clear rear view of belly-tobogganing, not seated or standing.\nAvoid sticking-out eyes, harsh glow/highlight spots, long fur, theatrical lighting, outfits, HUD, extra penguins, watermarks. Exact same character design as attached image; clear labels only. Keep all toes/flippers/tail within panels.\n"
+    },
+    {
+      "file": "angles-strong-lean-prompt.txt",
+      "sha256": "92086312489c5ea773d65b7a3cf1fe0c575aec35b1d4c02826be2ba0e500a147",
+      "exact_text": "Use case: precise-object-edit.\nImage1 is the edit target: 4\u00d72 penguin angle/action reference board. Image2 is supporting motion reference: the strong side lean now required in the waddle.\nPRIMARY CHANGE: correct ONLY the six WADDLE panels to show emphatic side-to-side whole-body rocking, matching the strong inclined body of image2. Preserve exactly the same penguin design, cute integrated eyes, short golden bill, charcoal head/back, ivory face/belly, golden cheek patches, proportions, subtle feather finish, orange webbed feet, and short tail.\nFor FRONT, FRONT\u00be, REAR\u00be, REAR, and CHASE waddle views, show torso/neck/head visibly leaning laterally over ONE planted support foot, about18\u201322degrees at the step's peak. Other foot lifted during a compact short step; flipper counterbalances. Silhouette must be unmistakably inclined at thumbnail size. Alternate left and right extremes between panels. This is a rocking penguin waddle, not a neutral vertical pose with just one lifted foot. SIDE view preserves true side camera and shows compact forward foot recovery, pelvis weight transfer and one foot planted; do not fake lateral roll by pitching the body forward.\nPreserve all eight views, board layout, exact labels, simple snowy environment and daytime game lighting. Keep bottom-row JUMP \u00b7 CHASE and BELLY SLIDE \u00b7 CHASE unchanged: strictly rear camera facing AWAY, no eyes or bill visible, full shapes inside panels. The two action views must not be converted to front or side.\nLabels remain: top row \"WADDLE \u00b7 FRONT\", \"WADDLE \u00b7 FRONT \u00be\", \"WADDLE \u00b7 SIDE\", \"WADDLE \u00b7 REAR \u00be\"; bottom row \"WADDLE \u00b7 REAR\", \"WADDLE \u00b7 CHASE\", \"JUMP \u00b7 CHASE\", \"BELLY SLIDE \u00b7 CHASE\".\nFeet must make credible ground contact; at least one foot planted in every waddle panel. No running, long steps, human knees, airborne waddle, outfits, extra characters, camera tilts or changed horizon. Full feet, head and flippers visible in every cell.\n"
+    },
+    {
+      "file": "jump-prompt.txt",
+      "sha256": "c93fee097838f6cb6cbffdc52f544746418de8bce9e958918bbe581e533d1407",
+      "exact_text": "Use case: stylized-concept. Create an ANIMATION SPRITE SHEET, using the attached penguin identity sheet as exact visual reference. This is a frame sequence of ONE IDENTICAL penguin, not a character redesign or a set of camera angles.\nLayout is STRICTLY 4 columns by 2 rows, EIGHT IDENTICAL-SIZE SQUARE CELLS, 2:1 landscape canvas. No gutters, no lines, NO labels, no numbers, NO text. Reading order 1,2,3,4 across top, then5,6,7,8 across bottom. Each cell is a consecutive animation keyframe. Entire character and shadow fully inside its own cell.\nCamera MUST remain fixed directly BEHIND the penguin, slightly elevated 20 degrees, looking down at the back as in a runner game. Character faces straight AWAY from viewer toward top of every cell. NEVER show its face, eyes or bill, NEVER rotate camera or turn head. Same camera focal length, same model scale, same light and same framing in all eight cells. Character standing height about sixty percent of cell height, ground contact baseline at eighty-six percent down each cell; floor anchor horizontally centered. Small body displacement for motion only; no zoom.\nDesign from reference: rounded charcoal crown and back, muted golden neck patches visible symmetrically at sides, ivory belly only visible at edges from rear, compact pear-shaped body, small feather tail, two tapered flippers, two golden orange webbed feet with dark subtle toe tips. Broad matte feather shading with subtle fine detail, no dramatic fur. Same body proportions, anatomy and texture in every cell.\nBackground in every cell: identical simple PALE ICY BLUE ground and matching nearly-solid soft blue backdrop, no landscape, no railings, no horizon, no props, no particles hiding feet. One soft contact shadow under penguin, lighting upper left with sky fill. Clean stylized real-time3D reference quality. Preserve silhouette and clear distinction of both feet and flippers.\nACTION: a SINGLE JUMP from rear, eight distinct chronological frames. Show actual height change within each cell at constant model scale and same ground/shadow position. The character does NOT shrink when airborne.\nFrame1: upright neutral, feet on floor, flippers down.\nFrame2: anticipation squash, knees compress under body, hips lowered, flippers sweep slightly backward, both feet planted.\nFrame3: takeoff, body extends upward, feet just leaving floor, flippers opening outward.\nFrame4: rising, body roughly15%cell above baseline, feet tucked upward, flippers spread diagonally.\nFrame5: apex, body roughly20%cell above baseline, head still safely within cell, feet tucked, flippers extended for balance, shadow clearly separated below.\nFrame6: descending, body about10%cell above baseline, feet reaching down toward landing, flippers still open.\nFrame7: landing compression, both feet touch floor, body visibly squashed downward, flippers begin lowering.\nFrame8: recovered neutral near frame1, both feet planted and body upright, flippers down, ready to resume waddle.\nExact same rear character throughout. Clear airborne gap and floor shadow in frames3\u20136; keep body volume and head size consistent; no flapping to fly, no face visible, no body spin.\n"
+    },
+    {
+      "file": "slide-prompt.txt",
+      "sha256": "2ca41a005aa89359d7db2e168267dad81cbed4fda04d4a05bb29fddd88f84c72",
+      "exact_text": "Use case: stylized-concept. Create an ANIMATION SPRITE SHEET, using the attached penguin identity sheet as exact visual reference. This is a frame sequence of ONE IDENTICAL penguin, not a character redesign or a set of camera angles.\nLayout is STRICTLY 4 columns by 2 rows, EIGHT IDENTICAL-SIZE SQUARE CELLS, 2:1 landscape canvas. No gutters, no lines, NO labels, no numbers, NO text. Reading order 1,2,3,4 across top, then5,6,7,8 across bottom. Each cell is a consecutive animation keyframe. Entire character and shadow fully inside its own cell.\nCamera MUST remain fixed directly BEHIND the penguin, slightly elevated 20 degrees, looking down at the back as in a runner game. Character faces straight AWAY from viewer toward top of every cell. NEVER show its face, eyes or bill, NEVER rotate camera or turn head. Same camera focal length, same model scale, same light and same framing in all eight cells. Character standing height about sixty percent of cell height, ground contact baseline at eighty-six percent down each cell; floor anchor horizontally centered. Small body displacement for motion only; no zoom.\nDesign from reference: rounded charcoal crown and back, muted golden neck patches visible symmetrically at sides, ivory belly only visible at edges from rear, compact pear-shaped body, small feather tail, two tapered flippers, two golden orange webbed feet with dark subtle toe tips. Broad matte feather shading with subtle fine detail, no dramatic fur. Same body proportions, anatomy and texture in every cell.\nBackground in every cell: identical simple PALE ICY BLUE ground and matching nearly-solid soft blue backdrop, no landscape, no railings, no horizon, no props, no particles hiding feet. One soft contact shadow under penguin, lighting upper left with sky fill. Clean stylized real-time3D reference quality. Preserve silhouette and clear distinction of both feet and flippers.\nACTION: seamless BELLY-SLIDE / TOBOGGAN GLIDE LOOP FROM DIRECTLY BEHIND. All eight frames are already sliding. Penguin lies HORIZONTAL with belly and lower chest contacting ice, head lifted just enough to look forward AWAY from viewer. The whole body points upscreen; rounded back and back of head visible; both orange webbed feet trail toward viewer in foreground. Never seated, never upright, never on its back. Camera unchanged.\nMaintain a consistently LOW silhouette: prone body approximately35%cell high in projection including trailing feet, situated above the same contact baseline. The head should be at far end of body, feet closest to viewer, short tail between feet/body.\nFrame1: centered steady glide, flippers swept slightly out/back, both feet trailing low.\nFrame2: tiny left balancing roll, left flipper opens slightly, right foot lifts just a little, belly still contacts ice.\nFrame3: continue gentle left balance, left flipper momentarily wider, right foot returns low, head still straight.\nFrame4: return toward center, flippers near symmetric and low.\nFrame5: tiny right balancing roll mirroring frame2, right flipper opens slightly, left foot lifts a little.\nFrame6: gentle right balance mirroring frame3, right flipper momentarily wider, left foot returns.\nFrame7: return toward center, feet parallel trailing, flippers settling.\nFrame8: almost frame1 centered glide so cycle loops naturally.\nOnly restrained small balancing adjustments while sliding; no pushing up to stand, no foot stepping, no flying/flapping. A tiny consistent powder wake beside contact edges is allowed but should not obscure pose or change the background. Distinct but modest frame-to-frame movement with body volume, scale and center position stable.\n"
+    },
+    {
+      "file": "waddle-passing-poses-prompt.txt",
+      "sha256": "44534f420d34a42a596ba6c6fc92efee82a14d3844c1e64a450b8f496d60f282",
+      "exact_text": "Use case: precise-object-edit.\nEdit target: attached eight-pose rear-view penguin waddle sheet. This stronger side lean is correct: preserve the character identity, chunky proportions, colors, rendering, camera, background, grounded feet, and large LEFT and RIGHT body lean in all extreme poses.\nMake ONE focused correction to improve the phase sequence. Preserve cells 1,2,3,5,6,7. Replace ONLY cells 4 (TOP RIGHT) and 8 (BOTTOM RIGHT) with neutral passing poses between those extremes:\nCell4: rear-facing same penguin, torso nearly upright, leaning at most 4 degrees toward screen-right, right foot planting flat, left heel just beginning to lift, both feet briefly touch ground.\nCell8: rear-facing same penguin, torso nearly upright, leaning at most 4 degrees toward screen-left, left foot planting flat, right heel just beginning to lift, both feet briefly touch ground. This naturally leads into the strong left lean at cell1.\nMaintain original 4 columns \u00d72 rows, equal square cells, 2:1 landscape, no labels or text. Keep floor level and camera identical. No face or bill. Full silhouette inside each cell. Original left-lean extremes and right-lean extremes must remain dramatically inclined, about22degrees; do not straighten those. Do not crop or change the character scale. Goal: LEFT lean \u2192 upright passing \u2192 RIGHT lean \u2192 upright passing \u2192 loop, with alternating grounded orange feet.\n"
+    },
+    {
+      "file": "waddle-prompt.txt",
+      "sha256": "e946dff59e4e385fdd9f72cc788cdf5cfb92008427571dad2940d7c0012f43f9",
+      "exact_text": "Use case: stylized-concept. Create an ANIMATION SPRITE SHEET, using the attached penguin identity sheet as exact visual reference. This is a frame sequence of ONE IDENTICAL penguin, not a character redesign or a set of camera angles.\nLayout is STRICTLY 4 columns by 2 rows, EIGHT IDENTICAL-SIZE SQUARE CELLS, 2:1 landscape canvas. No gutters, no lines, NO labels, no numbers, NO text. Reading order 1,2,3,4 across top, then5,6,7,8 across bottom. Each cell is a consecutive animation keyframe. Entire character and shadow fully inside its own cell.\nCamera MUST remain fixed directly BEHIND the penguin, slightly elevated 20 degrees, looking down at the back as in a runner game. Character faces straight AWAY from viewer toward top of every cell. NEVER show its face, eyes or bill, NEVER rotate camera or turn head. Same camera focal length, same model scale, same light and same framing in all eight cells. Character standing height about sixty percent of cell height, ground contact baseline at eighty-six percent down each cell; floor anchor horizontally centered. Small body displacement for motion only; no zoom.\nDesign from reference: rounded charcoal crown and back, muted golden neck patches visible symmetrically at sides, ivory belly only visible at edges from rear, compact pear-shaped body, small feather tail, two tapered flippers, two golden orange webbed feet with dark subtle toe tips. Broad matte feather shading with subtle fine detail, no dramatic fur. Same body proportions, anatomy and texture in every cell.\nBackground in every cell: identical simple PALE ICY BLUE ground and matching nearly-solid soft blue backdrop, no landscape, no railings, no horizon, no props, no particles hiding feet. One soft contact shadow under penguin, lighting upper left with sky fill. Clean stylized real-time3D reference quality. Preserve silhouette and clear distinction of both feet and flippers.\nACTION: seamless short-step WADDLE LOOP viewed from rear. NOT running. Weight shifts gently from left foot to right foot. One foot is always planted; never both airborne. Feet stay close beneath hips; no giant strides; modest flipper counterbalance; hips sway visibly but subtly by a few percent of body width.\nFrame1: left support foot planted, body tips gently left, right heel lifting backward, underside of right orange foot beginning to show.\nFrame2: left support, right foot lifted just clear of floor and swinging underneath torso, right flipper slightly outward, body very slightly higher.\nFrame3: right foot reaches forward and begins planting down-track, left heel starts rising, torso starts returning toward center.\nFrame4: weight crosses to right foot, short double-contact passing pose, torso near center.\nFrame5: mirror frame1, right foot planted, body tips gently right, left heel lifts backward with its sole beginning to show.\nFrame6: mirror frame2, right support, left foot slightly raised moving beneath torso, left flipper slightly outward.\nFrame7: mirror frame3, left foot reaches forward and starts planting, right heel starts rising.\nFrame8: short passing pose returning weight toward left support, smoothly matching frame1.\nKeep small lively side-to-side waddling body motion, compact neck/head motion, clear alternating orange feet, no human-like arms, no running leap. The eight frames must show distinct consecutive gait phases. Last frame leads naturally to first. Do not repeat one static pose eight times.\n"
+    },
+    {
+      "file": "waddle-strong-lean-prompt.txt",
+      "sha256": "fc87057e4e129a8515e9b0525baf296201c46384299c7dfc1039a5cfdf6893a5",
+      "exact_text": "Use case: stylized-concept.\nAsset: eight-pose animation reference sheet, a correction of the attached rear-view waddle sequence.\nInput 1 is the edit target: current rear waddle is too upright. Input 2 is the identity reference. Preserve the same cute charcoal/ivory/gold penguin, rounded body and head, feather texture, orange webbed feet and tapered flippers.\nPRIMARY CHANGE: make a MUCH MORE PRONOUNCED SIDE-TO-SIDE WADDLE. Real penguin weight transfer with a rocking pear-shaped torso. At the two extremes the whole torso and neck lean approximately 22 DEGREES sideways toward the planted support foot, producing an unmistakably diagonal body axis and a large sideways crown displacement, about one quarter of torso width. This must be obvious even at thumbnail size. Not just raising a foot under an otherwise vertical body. Head follows the torso lean with only a small counter-tilt. Roll in the image plane, not turning or yawing.\nSTRICT layout: four columns by two rows, eight equal square cells on a 2:1 landscape canvas. No labels, numbers, lines, borders or gutters. Consecutive poses left to right top row, then left to right bottom row. All penguin parts and shadow fully inside each cell with generous side/head room; maximum silhouette height 70% of cell.\nLocked camera directly BEHIND, slightly elevated 20 degrees, facing upscreen away. No face, eye or bill visible. Locked framing, scale, lighting and pale ice-blue floor/background across every frame. No horizon, scenery or particles. Floor must stay level. Never rotate the whole image, floor or shadow to fake lean.\nEight poses:\n1. Strong LEFT lean, about 22 degrees. Left foot planted flat; body mass shifted decisively above it. Right foot lifted clear, beginning short forward recovery. Right flipper lifted outward for counterbalance.\n2. LEFT lean about 18 degrees. Same left foot grounded; right foot swings a short step forward. Free foot and body visibly in motion.\n3. LEFT lean reduced to about 8 degrees. Right foot reaching down; weight starts passing through center.\n4. RIGHT lean about 8 degrees, weight arriving over right foot, left heel lifts.\n5. Strong RIGHT lean about 22 degrees, mirror of frame 1. Right foot planted flat, left foot fully lifted clear, left flipper counterbalances.\n6. RIGHT lean about 18 degrees, mirror frame 2. Left foot swings through; right foot planted.\n7. RIGHT lean reduced to about 8 degrees, left foot reaches down, weight crossing.\n8. LEFT lean about 8 degrees, weight arrives over left foot, right heel lifts, naturally leads into frame 1.\nThis is a low, short-stepped comical WADDLE with emphatic lateral sway, not a run or hop. One foot always grounded; no airborne gait; no human knees, exaggerated forward pitch, marching high knees, slipping feet, or static upright torso. Do not redesign the character. Preserve ground anchor rather than re-centering every torso: the alternating visible side displacement is essential. Eight distinct poses with deliberate phase progression. Clean polished stylized realtime-3D reference rendering.\n"
+    }
+  ],
+  "assembly": {
+    "script": "assemble_animatic.py",
+    "sha256": "1fe11f629d83a7b346768909adff2634ad6ab0b378b48df5a4bfc9de6925310c",
+    "extraction": "4 columns \u00d7 2 rows, round(i*width/4) and round(j*height/2); at most one right/bottom pixel trimmed per cell to equalize dimensions; no resizing or retouch",
+    "gif": "Eight original poses, palette encoded; no synthesized frames",
+    "mp4": "H.264, centisecond holds represented by duplicate still frames at 100Hz; at most one right/bottom padding pixel for even dimensions; no motion interpolation"
+  },
+  "animatics": [
+    {
+      "action": "waddle",
+      "active": false,
+      "source_file": "waddle-rear-sequence.png",
+      "receipt_file": "animatics/waddle-receipt.json",
+      "receipt_sha256": "f9d011a6ef0499bcf319e4a6c4c0e0c971d4a6df0f447500a869091b1ec49406",
+      "source_pose_count": 8,
+      "gif_file": "animatics/waddle.gif",
+      "mp4_file": "animatics/waddle.mp4",
+      "frame_dimensions": [
+        443,
+        443
+      ],
+      "sequence_seconds": 1.2,
+      "loop_transition": "Cyclic authored poses",
+      "verification": {
+        "lossless_source_crops": 8,
+        "gif_frames": 8,
+        "timings_verified": true
+      }
+    },
+    {
+      "action": "jump",
+      "active": true,
+      "source_file": "jump-rear-sequence.png",
+      "receipt_file": "animatics/jump-receipt.json",
+      "receipt_sha256": "19474adc505334af0c2a81bda3ab31ff90880700c3e380a9eb8d1136b3057223",
+      "source_pose_count": 8,
+      "gif_file": "animatics/jump.gif",
+      "mp4_file": "animatics/jump.mp4",
+      "frame_dimensions": [
+        443,
+        443
+      ],
+      "sequence_seconds": 1.58,
+      "loop_transition": "Final-pose hold, then deliberate hard cut to first pose; no generated recovery or interpolation",
+      "verification": {
+        "lossless_source_crops": 8,
+        "gif_frames": 8,
+        "timings_verified": true
+      }
+    },
+    {
+      "action": "slide",
+      "active": true,
+      "source_file": "slide-rear-sequence.png",
+      "receipt_file": "animatics/slide-receipt.json",
+      "receipt_sha256": "c7791379318857af5ae9e8f7f372afb9a07448ebae2d99e248ffa71e86d2dc99",
+      "source_pose_count": 8,
+      "gif_file": "animatics/slide.gif",
+      "mp4_file": "animatics/slide.mp4",
+      "frame_dimensions": [
+        443,
+        443
+      ],
+      "sequence_seconds": 1.2,
+      "loop_transition": "Cyclic authored poses",
+      "verification": {
+        "lossless_source_crops": 8,
+        "gif_frames": 8,
+        "timings_verified": true
+      }
+    },
+    {
+      "action": "waddle",
+      "active": true,
+      "source_file": "waddle-rear-strong-lean-sequence.png",
+      "receipt_file": "animatics-strong-lean/waddle-receipt.json",
+      "receipt_sha256": "e7a54101934a1cf069d9645c9ed10e3d217b6d26a5eb2ba88f0337dcf5de4e5a",
+      "source_pose_count": 8,
+      "gif_file": "animatics-strong-lean/waddle.gif",
+      "mp4_file": "animatics-strong-lean/waddle.mp4",
+      "frame_dimensions": [
+        443,
+        443
+      ],
+      "sequence_seconds": 1.2,
+      "loop_transition": "Cyclic authored poses",
+      "verification": {
+        "lossless_source_crops": 8,
+        "gif_frames": 8,
+        "timings_verified": true
+      }
+    }
+  ],
+  "files": [
+    {
+      "file": "angles-prompt.txt",
+      "sha256": "1fce79de0f1b5011244ace1fca4b4e23d9e31e478d1669494762c4f72faf183f",
+      "bytes": 2257
+    },
+    {
+      "file": "angles-strong-lean-prompt.txt",
+      "sha256": "92086312489c5ea773d65b7a3cf1fe0c575aec35b1d4c02826be2ba0e500a147",
+      "bytes": 1941
+    },
+    {
+      "file": "animatics-strong-lean/waddle-frame-01.png",
+      "sha256": "b1967a434730a0db5e76b4980c4496aa8b2e695e3589b68e364ed55dab1b3d79",
+      "bytes": 229081
+    },
+    {
+      "file": "animatics-strong-lean/waddle-frame-02.png",
+      "sha256": "c349a30121d00c5444d173ba73952b7838a6f831f78f9be22700939c1f447365",
+      "bytes": 228664
+    },
+    {
+      "file": "animatics-strong-lean/waddle-frame-03.png",
+      "sha256": "e98ee9363656e12b78148025e492248eaffe034c8c5bd92d6ed532b13d4c63ab",
+      "bytes": 228797
+    },
+    {
+      "file": "animatics-strong-lean/waddle-frame-04.png",
+      "sha256": "edcf7e3e31d8595dc7ea600a1fcbb3157b47f016b0d38147e45108eeeb0a39bb",
+      "bytes": 227885
+    },
+    {
+      "file": "animatics-strong-lean/waddle-frame-05.png",
+      "sha256": "83da179a89e6f2a14b667ddaf34c5d4cc2458335271baa84a8253b9b934721df",
+      "bytes": 233628
+    },
+    {
+      "file": "animatics-strong-lean/waddle-frame-06.png",
+      "sha256": "ff6f914fc0980ea46d69670ae9098302511bab4ccd9e0878af8d6ad959328c22",
+      "bytes": 232840
+    },
+    {
+      "file": "animatics-strong-lean/waddle-frame-07.png",
+      "sha256": "676750be0e8181065db0d2c2c9285433a5cfbc9297d14bb70d6cb4c909ab8a7d",
+      "bytes": 230772
+    },
+    {
+      "file": "animatics-strong-lean/waddle-frame-08.png",
+      "sha256": "e9391c76490e2da78718040328bce1470dbb7c7a169f01ce72b906b776b7f244",
+      "bytes": 227327
+    },
+    {
+      "file": "animatics-strong-lean/waddle-receipt.json",
+      "sha256": "e7a54101934a1cf069d9645c9ed10e3d217b6d26a5eb2ba88f0337dcf5de4e5a",
+      "bytes": 5955
+    },
+    {
+      "file": "animatics-strong-lean/waddle-timing.ffconcat",
+      "sha256": "8096339fb022b7e7c803df8d40b72663c61f8bb1b7e447f5a12b2d067f86d9d8",
+      "bytes": 565
+    },
+    {
+      "file": "animatics-strong-lean/waddle.gif",
+      "sha256": "32cb262a835dcccd7bfb465fdecdd9d7e867dd723e56e22db578d581524b6505",
+      "bytes": 523609
+    },
+    {
+      "file": "animatics-strong-lean/waddle.mp4",
+      "sha256": "11cf307374cf84b3d36e34a347d32f311fd709022a427c9865a56f5b48f04bc4",
+      "bytes": 218193
+    },
+    {
+      "file": "animatics/jump-frame-01.png",
+      "sha256": "6c8cd59f37ae6f79b6c86b1618cd020f393358f24338e76f4c73a21a781c924d",
+      "bytes": 232245
+    },
+    {
+      "file": "animatics/jump-frame-02.png",
+      "sha256": "b8093e863677b87cc49c3d4af55db0d3097c2ccd00cd827a6a40211ee4e2a029",
+      "bytes": 227518
+    },
+    {
+      "file": "animatics/jump-frame-03.png",
+      "sha256": "86d477881e257e57aca61f027c291259e5f6163e74ada2ba95818bb9e900e594",
+      "bytes": 232512
+    },
+    {
+      "file": "animatics/jump-frame-04.png",
+      "sha256": "33516ef9bbe0be49edc40f344d55738cb2970ebcab318376a76545edee038841",
+      "bytes": 233019
+    },
+    {
+      "file": "animatics/jump-frame-05.png",
+      "sha256": "9986d6e9679890bdcf2e319733c747044e3d5105a4c95fc2a47bdf7f085210a8",
+      "bytes": 232089
+    },
+    {
+      "file": "animatics/jump-frame-06.png",
+      "sha256": "678146b8714988b651c5e56a730afe2a30c4cc85b79c6a04e8c6148a6d96874e",
+      "bytes": 232645
+    },
+    {
+      "file": "animatics/jump-frame-07.png",
+      "sha256": "c6ef4a22d3e834447dcc22663ddf53180a959bad61092bed8a953e4724936226",
+      "bytes": 224613
+    },
+    {
+      "file": "animatics/jump-frame-08.png",
+      "sha256": "570f2308eca3c81c62d6726a6862a11461e12cb3e245a104e3a9bd4fdb68d707",
+      "bytes": 231695
+    },
+    {
+      "file": "animatics/jump-receipt.json",
+      "sha256": "19474adc505334af0c2a81bda3ab31ff90880700c3e380a9eb8d1136b3057223",
+      "bytes": 5990
+    },
+    {
+      "file": "animatics/jump-timing.ffconcat",
+      "sha256": "544fe6d40cdcfd1a02eb9a9d4b916b486907d4b0c5315a769da07d08e963b21b",
+      "bytes": 547
+    },
+    {
+      "file": "animatics/jump.gif",
+      "sha256": "6ca3fdcba11668544bd79e6fbe00ff51a8958b0e52e0953a4c549187cb7eca5c",
+      "bytes": 530612
+    },
+    {
+      "file": "animatics/jump.mp4",
+      "sha256": "89c90782d73a1a5a8da4629abc544c694140351e65bc04b458d674972d3e8308",
+      "bytes": 228962
+    },
+    {
+      "file": "animatics/slide-frame-01.png",
+      "sha256": "8438c0b64322abcbc4846a66efaac8d854cee1d31d949afd914de92ed9d35cfe",
+      "bytes": 253595
+    },
+    {
+      "file": "animatics/slide-frame-02.png",
+      "sha256": "88e698d870f689cabacd5c117784a56d98405e109ef0c662dbdc2334fdb8f2f5",
+      "bytes": 255315
+    },
+    {
+      "file": "animatics/slide-frame-03.png",
+      "sha256": "77486e0234fb96e68bc59777d7da2d6e745260f76b5ef106ebad0af7a2e736d0",
+      "bytes": 255038
+    },
+    {
+      "file": "animatics/slide-frame-04.png",
+      "sha256": "8de6821514481fdae9701ce9c5ba73b90e2accd8fc6c5536df27db31b86433a4",
+      "bytes": 253283
+    },
+    {
+      "file": "animatics/slide-frame-05.png",
+      "sha256": "bc6dd4c474da70c6221b125d19cc66a72e1e07848e2a4c34d96d98f17e5aec24",
+      "bytes": 255723
+    },
+    {
+      "file": "animatics/slide-frame-06.png",
+      "sha256": "09b4c412a6f046777969a7da341573882387f42aac355c413da3980f6a2f9205",
+      "bytes": 257559
+    },
+    {
+      "file": "animatics/slide-frame-07.png",
+      "sha256": "b974a33bfda1d2ed741bd6e7e7bb477a68346945b809e6413275fffe1fb59574",
+      "bytes": 254117
+    },
+    {
+      "file": "animatics/slide-frame-08.png",
+      "sha256": "a0139970bb77c79b0c29ca3ba82c09fe3b1e4e4202a834d5a2b718f8f238508e",
+      "bytes": 253926
+    },
+    {
+      "file": "animatics/slide-receipt.json",
+      "sha256": "c7791379318857af5ae9e8f7f372afb9a07448ebae2d99e248ffa71e86d2dc99",
+      "bytes": 5931
+    },
+    {
+      "file": "animatics/slide-timing.ffconcat",
+      "sha256": "8909362db4bbf258c37b9561ffae9e55fa85b19fcb40b1ff2a0edbf768ef201c",
+      "bytes": 556
+    },
+    {
+      "file": "animatics/slide.gif",
+      "sha256": "f80a9eb2d5b40d1cf4af21f92f962879b5566b188ed4cd996ab275d865ea3b2d",
+      "bytes": 624197
+    },
+    {
+      "file": "animatics/slide.mp4",
+      "sha256": "2b71a2f903b9d2626f0a6f7c0b3e60920b8dc012be817c0ce675defe6731a66c",
+      "bytes": 237851
+    },
+    {
+      "file": "animatics/waddle-frame-01.png",
+      "sha256": "cfc8d17f38f723121840a48292934796be71429852d5abc906069259f8056ea7",
+      "bytes": 244506
+    },
+    {
+      "file": "animatics/waddle-frame-02.png",
+      "sha256": "68d0a1d3ed6d23953359812e3dfd12e334cc055396deef9f1b458dea4116de3d",
+      "bytes": 245390
+    },
+    {
+      "file": "animatics/waddle-frame-03.png",
+      "sha256": "83345c9f474008a6215d047f70c011b9d54d5ba789541085bff9d16a6b658498",
+      "bytes": 246071
+    },
+    {
+      "file": "animatics/waddle-frame-04.png",
+      "sha256": "9a11152cfb89711f2a68969f1c88cdb67cdaf3fe22d50611ba7bed5094e23903",
+      "bytes": 243962
+    },
+    {
+      "file": "animatics/waddle-frame-05.png",
+      "sha256": "78f8ae1ada7b8057c0009c74efc192628e088947be3e3c33b70bd2414df98f34",
+      "bytes": 246340
+    },
+    {
+      "file": "animatics/waddle-frame-06.png",
+      "sha256": "d56c1867b2f1036249f3ffac3f230af3e702fc18a0c1a7efd9cfd58cd13a4c91",
+      "bytes": 245975
+    },
+    {
+      "file": "animatics/waddle-frame-07.png",
+      "sha256": "c14daaad57077e4930e54c3e34c7e5dc8139d253ddc187563f7a8c322a60dee7",
+      "bytes": 242743
+    },
+    {
+      "file": "animatics/waddle-frame-08.png",
+      "sha256": "186654ea183cf0e497135bf7ecfee75e87f539d80f7bf15503c6feec661c7c85",
+      "bytes": 244074
+    },
+    {
+      "file": "animatics/waddle-receipt.json",
+      "sha256": "f9d011a6ef0499bcf319e4a6c4c0e0c971d4a6df0f447500a869091b1ec49406",
+      "bytes": 5943
+    },
+    {
+      "file": "animatics/waddle-timing.ffconcat",
+      "sha256": "8096339fb022b7e7c803df8d40b72663c61f8bb1b7e447f5a12b2d067f86d9d8",
+      "bytes": 565
+    },
+    {
+      "file": "animatics/waddle.gif",
+      "sha256": "73f1072386e1ea1e865d1e9b22f4b03c57c7978be0b54378d6006b618c895249",
+      "bytes": 559358
+    },
+    {
+      "file": "animatics/waddle.mp4",
+      "sha256": "47929f27ee344481d51526a2865bf1f53e72de9ad6dbf08a1520ce075073302c",
+      "bytes": 228236
+    },
+    {
+      "file": "assemble_animatic.py",
+      "sha256": "1fe11f629d83a7b346768909adff2634ad6ab0b378b48df5a4bfc9de6925310c",
+      "bytes": 7392
+    },
+    {
+      "file": "character-angle-strong-lean-waddle.png",
+      "sha256": "169d1919f2c790026c52da5d7015c0302be78249abdd6d9765821b1047a8117e",
+      "bytes": 2139980
+    },
+    {
+      "file": "character-angle-waddle.png",
+      "sha256": "0eba3aed830ec5870ee23df925225374665981baa265f81aa20fccfec563971f",
+      "bytes": 2200297
+    },
+    {
+      "file": "index.html",
+      "sha256": "9d5e3a154252c0aedfbdc903e7a5ac7b41a4d6738a10a7c355a109cb6f91164b",
+      "bytes": 4670
+    },
+    {
+      "file": "jump-prompt.txt",
+      "sha256": "c93fee097838f6cb6cbffdc52f544746418de8bce9e958918bbe581e533d1407",
+      "bytes": 3159
+    },
+    {
+      "file": "jump-rear-sequence.png",
+      "sha256": "e0e1fde4977ef9eea73269909401f86af4f0ae51034277d01d67d29c08a31333",
+      "bytes": 2001004
+    },
+    {
+      "file": "rear-only-review-page.png",
+      "sha256": "b8c0d9516d16a3f53363eb3f8570abd9958435b451fa9f7f5ffbf28bd935af2e",
+      "bytes": 281812,
+      "role": "Latest Chrome review-page capture; rear-only reference page, not gameplay or engine evidence"
+    },
+    {
+      "file": "review-page.jpg",
+      "sha256": "0106845f010dd42759172964045102160600bce5c68de7457a489308043fd464",
+      "bytes": 309315,
+      "role": "historical screenshot of previous review page"
+    },
+    {
+      "file": "slide-prompt.txt",
+      "sha256": "2ca41a005aa89359d7db2e168267dad81cbed4fda04d4a05bb29fddd88f84c72",
+      "bytes": 3650
+    },
+    {
+      "file": "slide-rear-sequence.png",
+      "sha256": "d90d4a1823135fa2af535cd7d56ba6e96abbde30fa5d28636f03be6690274e8e",
+      "bytes": 2192614
+    },
+    {
+      "file": "waddle-passing-poses-prompt.txt",
+      "sha256": "44534f420d34a42a596ba6c6fc92efee82a14d3844c1e64a450b8f496d60f282",
+      "bytes": 1405
+    },
+    {
+      "file": "waddle-prompt.txt",
+      "sha256": "e946dff59e4e385fdd9f72cc788cdf5cfb92008427571dad2940d7c0012f43f9",
+      "bytes": 3440
+    },
+    {
+      "file": "waddle-rear-sequence.png",
+      "sha256": "02e5d86ad922831bafea2dde956d015f1b79f0f66700170e22b53ed7b84199ac",
+      "bytes": 2097512
+    },
+    {
+      "file": "waddle-rear-strong-lean-sequence.png",
+      "sha256": "764acf53aecf29958e7ffc986bea753627b0af4f3ea95bf31f03a99c0f2ecac9",
+      "bytes": 1959650
+    },
+    {
+      "file": "waddle-strong-lean-initial-sequence.png",
+      "sha256": "1076624bc6f0a4e928a603cc0ad7e78b90c224f060dddb7e50e31df4a97f2519",
+      "bytes": 2016461
+    },
+    {
+      "file": "waddle-strong-lean-prompt.txt",
+      "sha256": "fc87057e4e129a8515e9b0525baf296201c46384299c7dfc1039a5cfdf6893a5",
+      "bytes": 3058
+    }
+  ],
+  "updated_utc": "2026-10-11T23:15:21.916363+00:00",
+  "motion_direction_addendum": {
+    "date": "2026-10-11",
+    "source": "Owner instruction in this conversation",
+    "scope": "Rig requirements and rough pose/motion proof now; final timing and polish later",
+    "camera": "Fixed rear gameplay view only",
+    "slide": {
+      "body": "Chest/belly remains low in sliding contact",
+      "feet": "Trailing feet gently lift and lower",
+      "flippers": "Small balancing movements"
+    },
+    "jump": {
+      "body": "Slight forward tilt while airborne",
+      "feet": "Relaxed hanging feet beneath the body",
+      "flippers": "Small waves"
+    },
+    "not_yet_fixed": [
+      "Exact amplitudes and timing",
+      "Foot phase relationship",
+      "Kick count or flipper wave count"
+    ],
+    "existing_reference_status": "Saved jump/slide sheets and animatics remain appearance/framing references; written addendum supersedes conflicting pose details and is not fully depicted by existing animations",
+    "runtime_implemented": false,
+    "source_images_or_animatics_changed": false,
+    "strategy_file": "../../../../docs/art/penguin-visual-strategy.md"
+  }
+}

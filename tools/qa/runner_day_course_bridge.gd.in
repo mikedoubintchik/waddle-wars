@@ -1,0 +1,249 @@
+extends "res://_qa_local/chrome_reference_bridge.gd"
+## Isolated DAY comparison only. Continuous draw timing and still staging are
+## separate modes; frozen checkpoints are never reported as performance proof.
+const COURSE_SCENE := "res://_qa_local/runner_day_course_game.tscn"
+const COURSE_SEED := 20260818
+const DISTANCES := [0.0, 60.0, 146.0, 266.0, 600.0, 650.0]
+const MAX_SAMPLES := 12000
+const MAX_RUN_USEC := 90_000_000
+const MAX_STILL_USEC := 240_000_000
+var _day_state := "idle"
+var _day_mode := ""
+var _day_error := ""
+var _day_requested_us := 0
+var _day_started_us := 0
+var _day_last_draw_us := 0
+var _day_checkpoint_index := 0
+var _day_checkpoints: Array[Dictionary] = []
+var _day_ms := PackedFloat64Array()
+var _day_draws := PackedInt32Array()
+var _day_primitives := PackedInt32Array()
+var _day_distances := PackedFloat32Array()
+var _day_scale := PackedFloat32Array()
+var _day_visibility_checks := 0
+var _day_hidden_checks := 0
+var _day_blurred_checks := 0
+var _day_visibility_due := 0
+var _day_command_callback: JavaScriptObject
+var _day_report_callback: JavaScriptObject
+var _day_session := 0
+var _day_origin_instance_id := 0
+var _day_course_requested := false
+
+func _ready() -> void:
+	super._ready()
+	if not _enabled: return
+	_day_command_callback = JavaScriptBridge.create_callback(_on_day_command)
+	_day_report_callback = JavaScriptBridge.create_callback(_on_day_report)
+	JavaScriptBridge.eval(FileAccess.get_file_as_string("res://_qa_local/runner_day_course_bridge.js"), true)
+	JavaScriptBridge.get_interface("__wwDay").bind_callbacks(_day_command_callback, _day_report_callback)
+
+func _on_day_command(args: Array) -> void:
+	if args.size() != 1 or not args[0] is String or String(args[0]).length() > 96: return
+	var command: Variant = JSON.parse_string(args[0])
+	if not command is Dictionary: return
+	match String(command.get("op", "")):
+		"start": _start_course(String(command.get("mode", "")))
+		"next":
+			if _day_state == "checkpoint" and _day_mode == "stills":
+				_day_state = "running"
+				_day_last_draw_us = 0
+				get_tree().paused = false
+		"stop":
+			if _day_state in ["loading", "running", "checkpoint"]:
+				_finish_day("stopped", "Operator stopped bounded course fixture")
+
+func _start_course(mode: String) -> bool:
+	if not _enabled or not mode in ["continuous", "stills"] or _status == "routing" \
+			or _day_state in ["loading", "running", "checkpoint"]: return false
+	_day_mode = mode
+	_day_state = "loading"
+	_status = "routing"
+	_route = "day_course_" + mode
+	_synthetic = "Fixed route seed20260818 and real autopilot actions; no input/performance claim from paused stills"
+	_day_error = ""
+	_error = ""
+	_day_session += 1
+	var origin := get_tree().current_scene
+	_day_origin_instance_id = origin.get_instance_id() if origin != null else 0
+	_day_course_requested = false
+	_day_requested_us = Time.get_ticks_usec()
+	_day_started_us = 0
+	_day_last_draw_us = 0
+	_day_checkpoint_index = 0
+	_day_checkpoints.clear()
+	_day_ms.clear(); _day_draws.clear(); _day_primitives.clear()
+	_day_distances.clear(); _day_scale.clear()
+	_day_visibility_checks = 0; _day_hidden_checks = 0; _day_blurred_checks = 0
+	_day_visibility_due = 0
+	_enter_course.call_deferred(_day_session)
+	return true
+
+func _loading_session(session: int) -> bool:
+	return _day_state == "loading" and session == _day_session
+
+func _matches_requested_course(game: RunnerGame) -> bool:
+	return _day_course_requested and is_instance_valid(game) \
+		and game.scene_file_path == COURSE_SCENE \
+		and game.get_instance_id() != _day_origin_instance_id
+
+func _enter_course(session: int) -> void:
+	# A repeat uses actual SceneRouter teardown/re-entry, not recycled live state.
+	if not _loading_session(session): return
+	get_tree().paused = false
+	var current := get_tree().current_scene
+	if current != null and current.scene_file_path == COURSE_SCENE:
+		SceneRouter.go_to(Game.SCENE_MAIN_MENU)
+		while get_tree().current_scene == current or SceneRouter.is_busy() or SceneRouter.is_presenting():
+			if not _loading_session(session): return
+			await get_tree().process_frame
+	while SceneRouter.is_busy() or SceneRouter.is_presenting():
+		if not _loading_session(session): return
+		await get_tree().process_frame
+	if not _loading_session(session): return
+	SceneRouter.go_to(COURSE_SCENE)
+	_day_course_requested = true
+
+func _process(delta: float) -> void:
+	super._process(delta)
+	if not _day_state in ["loading", "running", "checkpoint"]: return
+	var now := Time.get_ticks_usec()
+	if _day_state == "loading" and now - _day_requested_us > 60_000_000:
+		_finish_day("error", "Course load exceeded60seconds")
+		return
+	if _day_mode == "stills" and now - _day_requested_us > MAX_STILL_USEC:
+		_finish_day("error", "Still session exceeded240seconds")
+		return
+	if _day_mode == "continuous" and _day_started_us > 0 and now - _day_started_us > MAX_RUN_USEC:
+		_finish_day("error", "Continuous run exceeded90seconds")
+		return
+	var game := get_tree().current_scene as RunnerGame
+	# The previous run can remain current while the deferred route and loader
+	# begin. Its ready/dead flags must never start or end this new session.
+	if not _matches_requested_course(game): return
+	if game._dead:
+		_finish_day("error", "Natural gameplay ended before650m; no invulnerability used")
+		return
+	if _day_state == "loading" and game.build_finished and game._presentation_started:
+		_day_state = "running"
+		_status = "ready"
+		_ready_draw = _draws
+		_add_checkpoint(game, 0.0)
+	# Bounded scalar visibility sampling, never a DOM/pixel/tree dump per frame.
+	if now >= _day_visibility_due and _day_state == "running":
+		_day_visibility_due = now + 500_000
+		_day_visibility_checks += 1
+		_day_hidden_checks += int(bool(JavaScriptBridge.eval("document.hidden", true)))
+		_day_blurred_checks += int(not bool(JavaScriptBridge.eval("document.hasFocus()", true)))
+
+func _on_draw() -> void:
+	super._on_draw()
+	if _day_state != "running": return
+	var game := get_tree().current_scene as RunnerGame
+	if game == null or game.scene_file_path != COURSE_SCENE or not game.running \
+			or game._dead or get_tree().paused: return
+	var now := Time.get_ticks_usec()
+	if _day_started_us == 0: _day_started_us = now
+	if _day_mode == "continuous" and _day_last_draw_us > 0:
+		_append_sample(float(now - _day_last_draw_us) * 0.001,
+			RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME),
+			RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME),
+			game.player.distance, get_viewport().scaling_3d_scale)
+	_day_last_draw_us = now
+	if _day_ms.size() >= MAX_SAMPLES:
+		_finish_day("error", "Bounded12000drawsamplecapacity reached")
+		return
+	if _day_checkpoint_index < DISTANCES.size() and game.player.distance >= DISTANCES[_day_checkpoint_index]:
+		_add_checkpoint(game, DISTANCES[_day_checkpoint_index])
+	if game.player.distance >= DISTANCES[-1]: _finish_day("complete", "")
+
+func _append_sample(ms: float, draws: int, primitives: int, distance: float, scale_3d: float) -> void:
+	if _day_ms.size() >= MAX_SAMPLES: return
+	_day_ms.append(ms); _day_draws.append(draws); _day_primitives.append(primitives)
+	_day_distances.append(distance); _day_scale.append(scale_3d)
+
+func _add_checkpoint(game: RunnerGame, target: float) -> void:
+	var used := {}
+	var forward := {}
+	for node: Node in game.track.find_children("*", "MeshInstance3D", true, false):
+		if not node.has_meta("authored_asset_id"): continue
+		var instance := node as MeshInstance3D
+		var id := String(node.get_meta("authored_asset_id"))
+		used[id] = int(used.get(id, 0)) + 1
+		if game.camera != null and instance.is_visible_in_tree() and game.camera.is_position_in_frustum(instance.global_position):
+			forward[id] = int(forward.get(id, 0)) + 1
+	_day_checkpoints.append({"target_m": target, "distance_m": game.player.distance,
+		"elapsed_game_seconds": game.elapsed, "engine_us": Time.get_ticks_usec(),
+		"submitted_frames": _draws, "biome": game.track.biome_at_z(game.player.position.z),
+		"seed": game.generation_seed, "track_seed": game.track._seed,
+		"hits_left": game.player.hits_left, "player_state": int(game.player.state),
+		"chunks": game.track._chunks.size(), "authored_live": used,
+		"authored_origins_in_frustum": forward,
+		"frustum_note": "Mesh origins only; actual pixel visibility requires Chrome screenshot review.",
+		"art_status": game.track.authored_day_kit_status(),
+		"quality": SettingsManager.get_setting("display", "quality_preset"),
+		"scale_3d": get_viewport().scaling_3d_scale})
+	_day_checkpoint_index += 1
+	if _day_mode == "stills":
+		_day_state = "checkpoint"
+		get_tree().paused = true
+
+func _finish_day(state: String, error: String) -> void:
+	_day_state = state
+	_day_course_requested = false
+	_day_error = error
+	_status = "error" if state == "error" else "ready"
+	_error = error if state == "error" else ""
+	get_tree().paused = true
+
+func request_route(name: String) -> bool:
+	if _day_state in ["loading", "running", "checkpoint"]:
+		_finish_day("stopped", "Operator selected a different route")
+	return super.request_route(name)
+
+func snapshot() -> Dictionary:
+	var row := super.snapshot()
+	row["day_course"] = {"state": _day_state, "mode": _day_mode,
+		"error": _day_error, "seed": COURSE_SEED,
+		"checkpoint_count": _day_checkpoints.size(),
+		"latest_checkpoint": _day_checkpoints[-1] if not _day_checkpoints.is_empty() else {},
+		"sample_count": _day_ms.size(), "max_samples": MAX_SAMPLES,
+		"synthetic": "Fixed generation seed20260818; normal autopilot actions; actual countdown, collision, pickups and speed. No physical-input claim.",
+		"timing_policy": "Unchanged production delta, speed, canvas, quality, governor, FPS cap and V-Sync. Stills mode pauses only at recorded checkpoints.",
+		"hidden_checks": _day_hidden_checks, "blurred_checks": _day_blurred_checks}
+	return row
+
+func _on_day_report(_args: Array) -> void:
+	JavaScriptBridge.eval("window.__wwDay._report = " + JSON.stringify(day_report()), true)
+
+func day_report() -> Dictionary:
+	var summary := _sample_summary()
+	return {"schema_version": 1, "state": _day_state, "mode": _day_mode,
+		"error": _day_error, "generation_seed": COURSE_SEED,
+		"performance_evidence": OS.has_feature("web") and not GameConfig.is_headless() \
+			and _day_mode == "continuous" and _day_state == "complete" \
+			and _day_hidden_checks == 0 and _day_blurred_checks == 0 and _day_ms.size() > 0,
+		"physical_input_evidence": false, "headless_timing_valid": false,
+		"clock": "Monotonic intervals between real frame_post_draw signals; first draw excluded.",
+		"primitive_note": "Godot aggregate counter, not exact family triangles; GLES3 MultiMesh LOD accounting caveat applies.",
+		"visibility_checks": _day_visibility_checks, "hidden_checks": _day_hidden_checks,
+		"blurred_checks": _day_blurred_checks, "checkpoints": _day_checkpoints.duplicate(true),
+		"summary": summary, "samples": {"draw_interval_ms": _day_ms,
+			"draw_calls": _day_draws, "primitives": _day_primitives,
+			"distance_m": _day_distances, "scale_3d": _day_scale}}
+
+func _sample_summary() -> Dictionary:
+	if _day_ms.is_empty(): return {"samples": 0}
+	var sorted := _day_ms.duplicate(); sorted.sort()
+	var total := 0.0; var draw_total := 0.0; var max_draws := 0; var max_primitives := 0
+	var over100 := 0
+	for i: int in _day_ms.size():
+		total += _day_ms[i]; draw_total += _day_draws[i]
+		max_draws = maxi(max_draws, _day_draws[i]); max_primitives = maxi(max_primitives, _day_primitives[i])
+		if _day_ms[i] > 100.0: over100 += 1
+	return {"samples": _day_ms.size(), "seconds": total * 0.001,
+		"average_fps": float(_day_ms.size()) * 1000.0 / maxf(total, 0.001),
+		"p95_ms": sorted[clampi(ceili(float(sorted.size()) * 0.95) - 1, 0, sorted.size() - 1)],
+		"max_ms": sorted[-1], "frames_over100ms": over100,
+		"draw_calls_average": draw_total / float(_day_ms.size()),
+		"draw_calls_peak": max_draws, "primitives_peak": max_primitives}

@@ -1,0 +1,27 @@
+# UNDEPLOYED TEMPLATE. Placeholders are intentionally invalid, not resource IDs.
+# Copy alongside policy.public.sandbox.json; resolve against real TEST resources.
+# Never store credentials here. This file does not create or deploy anything.
+name = "REPLACE_WITH_NEW_DEDICATED_WORKER_NAME_ENDING_IN_SANDBOX"
+main = "../../leaderboard/src/worker.js"
+compatibility_date = "2026-08-01"
+workers_dev = true
+preview_urls = false
+
+[[d1_databases]]
+binding = "DB"
+database_name = "REPLACE_WITH_NEW_DEDICATED_DATABASE_NAME_ENDING_IN_SANDBOX"
+database_id = "REPLACE_WITH_NEW_SANDBOX_D1_ID"
+migrations_dir = "../../leaderboard/migrations"
+
+[vars]
+COMMERCE_ENABLED = "true"
+COMMERCE_MODE = "test"
+COMMERCE_APPLE_SALES_ENABLED = "false"
+COMMERCE_GOOGLE_SALES_ENABLED = "false"
+APPLE_SERVER_NOTIFICATIONS_ENABLED = "false"
+COMMERCE_NATIVE_AUTH_ENABLED = "false"
+CLERK_ISSUER = "REPLACE_WITH_APPROVED_TEST_CLERK_HTTPS_ISSUER"
+COMMERCE_ALLOWED_ORIGINS = "REPLACE_WITH_APPROVED_SANDBOX_HTTPS_ORIGIN"
+COMMERCE_SUCCESS_URL = "REPLACE_WITH_EXACT_APPROVED_SUCCESS_URL"
+COMMERCE_CANCEL_URL = "REPLACE_WITH_EXACT_APPROVED_CANCEL_URL"
+COMMERCE_STRIPE_PRICES = '{"cozy_expedition":"price_1ULn9lPRyv3Yftj5qHs8dLys","research_crew":"price_1ULnAePRyv3Yftj5IZtSlDuE","aurora_celebration":"price_1ULnB7PRyv3Yftj5SrBi4sZg"}'

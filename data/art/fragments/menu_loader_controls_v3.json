@@ -1,0 +1,232 @@
+{
+  "concepts": [],
+  "generated_assets": [
+    {
+      "dimensions": [
+        1536,
+        1024
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_loader_courier_v3",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/loader_courier_v3.png",
+      "prompt_path": "art_src/ui/menu/loader_fidelity_v3.prompt.md",
+      "sha256": "fd91ebf9cc054872cfcf523eff35a13de7e831e29e21694bc857c355a97b040a",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        2080,
+        756
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_loader_track_v3",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/loader_track_v3.png",
+      "prompt_path": "art_src/ui/menu/loader_fidelity_v3.prompt.md",
+      "sha256": "2b1790a57540b30ef4b676230a555764cd04ebe2b3f4f36dcd1c5ed9de737286",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1562,
+        1007
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_loader_card_v3",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/loader_card_v3.png",
+      "prompt_path": "art_src/ui/menu/loader_fidelity_v3.prompt.md",
+      "sha256": "304de0d0520730d7d29c502a02335651aa3ac701c21d85dc1ac9dec2fbda31be",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1672,
+        941
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_loader_logo_v3",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/loader_logo_v3.png",
+      "prompt_path": "art_src/ui/menu/loader_fidelity_v3.prompt.md",
+      "sha256": "5c839343a3b49c83a92cabdd7a150139a71f12c60232e8edbd7a35f3d4cb476e",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1672,
+        941
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_loader_background_v3",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/loader_background_v3.png",
+      "prompt_path": "art_src/ui/menu/loader_fidelity_v3.prompt.md",
+      "sha256": "842a0981fbc681b08c3505f90134a9b166aa36e5ea51c404fe939007018a548d",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        941,
+        1672
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_controls_background_v2",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/controls_background_v2.png",
+      "prompt_path": "art_src/ui/menu/controls_credits_fidelity_v2.prompt.md",
+      "sha256": "c43402c36f3aa5af3d1a43deff0d03074922a76dcde845ce045dd60edff2bab8",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_controls_icons_v2",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/controls_icons_v2.png",
+      "prompt_path": "art_src/ui/menu/controls_credits_fidelity_v2.prompt.md",
+      "sha256": "d6ce6345be8610099d6367e15f2bc5cd3011a41db06b3c5447fe8be0350dda46",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1122,
+        1402
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_credits_journal_v2",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/credits_journal_v2.png",
+      "prompt_path": "art_src/ui/menu/controls_credits_fidelity_v2.prompt.md",
+      "sha256": "586fca72d1aa49639966fcc7bedf66bd66412649f4109b8dfd5b7443ca9abb66",
+      "status": "production_source"
+    }
+  ],
+  "runtime_assets": [
+    {
+      "groups": [
+        "frontend",
+        "loader_controls_fidelity",
+        "menu"
+      ],
+      "id": "loader_courier_v3",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/loader_courier_v3.webp",
+      "production_ready": false,
+      "sha256": "ee210f8d06ae9783e7493dfc12e2f7da00639bb077c11119560ebef0d778d159",
+      "source_export_id": "imagegen_loader_courier_v3"
+    },
+    {
+      "groups": [
+        "frontend",
+        "loader_controls_fidelity",
+        "menu"
+      ],
+      "id": "loader_track_v3",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/loader_track_v3.webp",
+      "production_ready": false,
+      "sha256": "32689c39dd04b9d097c0c0446f0efc75022339d104e30edfd2ef617fb56a4691",
+      "source_export_id": "imagegen_loader_track_v3"
+    },
+    {
+      "groups": [
+        "frontend",
+        "loader_controls_fidelity",
+        "menu"
+      ],
+      "id": "loader_card_v3",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/loader_card_v3.webp",
+      "production_ready": false,
+      "sha256": "bdbea5c8eb8f0cfebe3220e56bcca83fcd293e635dfbd09cde38d863125316f7",
+      "source_export_id": "imagegen_loader_card_v3"
+    },
+    {
+      "groups": [
+        "frontend",
+        "loader_controls_fidelity",
+        "menu"
+      ],
+      "id": "loader_logo_v3",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/loader_logo_v3.webp",
+      "production_ready": false,
+      "sha256": "7a7a5d218ad0a3d7de66bf20811e6092ae7f209a3437bfc5aaea4085f29bc332",
+      "source_export_id": "imagegen_loader_logo_v3"
+    },
+    {
+      "groups": [
+        "frontend",
+        "loader_controls_fidelity",
+        "menu"
+      ],
+      "id": "loader_background_v3",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/loader_background_v3.webp",
+      "production_ready": false,
+      "sha256": "26db8b1b4c224b88b4d4e3f33cd044e2146237617cbb711761925939e65fa0da",
+      "source_export_id": "imagegen_loader_background_v3"
+    },
+    {
+      "groups": [
+        "frontend",
+        "loader_controls_fidelity",
+        "menu"
+      ],
+      "id": "controls_background_v2",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/controls_background_v2.webp",
+      "production_ready": false,
+      "sha256": "57ae77e11382b7f627b2294ec38c7b267bc8418def4003ccade5e31954ab12b4",
+      "source_export_id": "imagegen_controls_background_v2"
+    },
+    {
+      "groups": [
+        "frontend",
+        "loader_controls_fidelity",
+        "menu"
+      ],
+      "id": "controls_icons_v2",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/controls_icons_v2.webp",
+      "production_ready": false,
+      "sha256": "0da8b33c6d3185cba5d797c0475204afcd2b955c8dd0c46361dd9a587bee68e2",
+      "source_export_id": "imagegen_controls_icons_v2"
+    },
+    {
+      "groups": [
+        "frontend",
+        "loader_controls_fidelity",
+        "menu"
+      ],
+      "id": "credits_journal_v2",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/credits_journal_v2.webp",
+      "production_ready": false,
+      "sha256": "cdcd90653e2034c6d4c45526e2fd00095721af3f2d13ea4a3b391e7f0cf9f511",
+      "source_export_id": "imagegen_credits_journal_v2"
+    }
+  ],
+  "source_exports": []
+}

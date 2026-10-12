@@ -56,6 +56,12 @@ const LIFETIME_STATS: Array[Array] = [
 ## Extra enlargement for tall/narrow (portrait) viewports — see _tall_boost().
 var _boost: float = 1.0
 var _card_width: float = CARD_WIDTH
+var _fit: float = 1.0
+var _profile: LayoutProfile = null
+var _stacked: bool = false
+var _layout_root: Control = null
+var _scroll: ScrollContainer = null
+var _animate_build: bool = true
 ## Rows that cascade in after the screen's cards land, in build order.
 var _reveal_items: Array[Control] = []
 
@@ -63,16 +69,39 @@ var _reveal_items: Array[Control] = []
 func _ready() -> void:
 	UITheme.make_background(self)
 	UITheme.apply_ui_scale(self)
+	var initial := UtilityScreenLayout.bind_view_class(self, _on_view_class_changed)
+	_build_layout(initial, true, 0.0)
+	UITheme.attach_swipe_back(self, _go_back)
+
+
+func _on_view_class_changed(next: LayoutProfile) -> void:
+	var fraction := UtilityScreenLayout.scroll_fraction(_scroll)
+	_build_layout(next, false, fraction)
+
+
+func _build_layout(next: LayoutProfile, animate: bool, scroll_fraction: float) -> void:
+	if _layout_root != null and is_instance_valid(_layout_root):
+		_layout_root.free()
+	_profile = next
+	_animate_build = animate
+	_reveal_items.clear()
 	_boost = _tall_boost()
 	_card_width = _measure_card_width()
+	_fit = clampf(_card_width / maxf(UITheme.scaled(CARD_WIDTH), 1.0), 0.42, 1.0)
+	_stacked = UtilityScreenLayout.uses_stacked_rows(_profile)
+	_layout_root = Control.new()
+	_layout_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_layout_root)
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", UITheme.screen_margin())
-	margin.add_theme_constant_override("margin_right", UITheme.screen_margin())
+	UtilityScreenLayout.bind_safe_rect(self, margin)
+	var side_gutter := _page_gutter()
+	margin.add_theme_constant_override("margin_left", side_gutter)
+	margin.add_theme_constant_override("margin_right", side_gutter)
 	margin.add_theme_constant_override("margin_top", _gap(22))
 	margin.add_theme_constant_override("margin_bottom", _gap(20))
-	add_child(margin)
+	_layout_root.add_child(margin)
 
 	var layout := VBoxContainer.new()
 	layout.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
@@ -101,12 +130,20 @@ func _ready() -> void:
 	var total := AchievementsDB.ORDER.size()
 	_eyebrow(title_box, "Trophy Case · %d of %d claimed" % [earned_count, total],
 		Color(UITheme.COLOR_ACCENT, 0.75))
-	var title := UITheme.heading("Achievements", _heading(50))
+	var title_size := 30 if UtilityScreenLayout.is_phone(_profile) \
+		else (38 if _stacked else 50)
+	var title := UITheme.heading("Achievements", _heading(title_size))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	# A non-wrapping heading reports its full text width as a minimum, and the
+	# header row is centred by a container that lets a too-wide child spill to
+	# the right rather than shrink — which is how Back leaves the screen. Let the
+	# title give up characters instead of pushing the way out off a phone.
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	title_box.add_child(title)
 
 	var back_button := UITheme.make_button(
 		"Back", _row_size(Vector2(176, 50)), _f(22))
+	UtilityScreenLayout.enforce_target(back_button)
 	back_button.add_theme_color_override("font_color", UITheme.COLOR_GOLD)
 	var back_icon := UITheme.make_icon(UITheme.ICON_BACK, 1.0)
 	if back_icon != null:
@@ -120,14 +157,15 @@ func _ready() -> void:
 	top_row.add_child(back_button)
 	header.add_child(UITheme.make_header_rule())
 
-	var scroll := ScrollContainer.new()
+	_scroll = ScrollContainer.new()
 	# Rows are panels and bars, which swallow touch drags before the
 	# ScrollContainer can see them; this restores dragging the list on a phone.
-	TouchScroll.attach(scroll)
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.follow_focus = true
-	layout.add_child(scroll)
+	TouchScroll.attach(_scroll)
+	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.follow_focus = true
+	layout.add_child(_scroll)
+	UtilityScreenLayout.style_scrollbar(_scroll, _u(9.0))
 	var center := CenterContainer.new()
 	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# Horizontal centring only: ScrollContainer stretches a child to its own size
@@ -135,7 +173,7 @@ func _ready() -> void:
 	# starts directly under the header rather than floating mid-viewport on a
 	# tall screen or with a short trophy list.
 	center.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	scroll.add_child(center)
+	_scroll.add_child(center)
 	var column := VBoxContainer.new()
 	column.custom_minimum_size.x = _card_width
 	column.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
@@ -147,12 +185,12 @@ func _ready() -> void:
 	var locked_card := _build_locked_card(column, total - earned_count)
 
 	var entrance_items: Array[Control] = [header, collection, record, earned_card, locked_card]
-	if not UITheme.reduced_motion():
+	if animate and not UITheme.reduced_motion():
 		UITheme.play_entrance(self, entrance_items)
-	_play_reveal()
-
-	UITheme.attach_swipe_back(self, _go_back)
-	back_button.grab_focus()
+		_play_reveal()
+	UtilityScreenLayout.restore_scroll_fraction(self, _scroll, scroll_fraction)
+	if animate:
+		back_button.grab_focus()
 
 
 ## --- Layout scaling ---------------------------------------------------------
@@ -177,17 +215,19 @@ func _tall_boost() -> float:
 
 ## Authored font size -> on-screen size (touch step, then the tall step).
 func _f(size: int) -> int:
-	return maxi(1, roundi(float(UITheme.scaled_font(size)) * _boost))
+	return maxi(1, roundi(float(UITheme.scaled_font(size)) * _boost \
+		* lerpf(1.0, _fit, 0.38)))
 
 
 ## Display-heading size: UITheme's capped touch step, then the tall step.
 func _heading(size: int) -> int:
-	return maxi(1, roundi(float(UITheme.scaled_heading(size)) * minf(_boost, 1.5)))
+	return maxi(1, roundi(float(UITheme.scaled_heading(size)) * minf(_boost, 1.5) \
+		* lerpf(1.0, _fit, 0.45)))
 
 
 ## Authored horizontal metric -> on-screen metric.
 func _u(value: float) -> float:
-	return UITheme.scaled(value) * _boost
+	return UITheme.scaled(value) * _fit
 
 
 ## Authored spacing step -> on-screen separation.
@@ -198,24 +238,37 @@ func _gap(value: int) -> int:
 ## Authored control size -> on-screen size, with UITheme's touch row floor.
 func _row_size(size: Vector2) -> Vector2:
 	var out := UITheme.scaled_size(size)
+	if out.x > 0.0:
+		out.x *= _fit
 	out.y *= _boost
 	return out
 
 
 ## Width of the content column: authored on desktop landscape, the touch
 ## content band on phones, most of the screen on a portrait window.
+##
+## Headless is deliberately NOT an early exit. The column is authored at 940
+## units on the 1920-wide desktop canvas and a portrait phone lays out in
+## roughly 800, so returning the authored width whenever no display server
+## exists meant the mobile UI audit — which runs headless — measured a column
+## wider than the canvas holding it, and Back ended up past the right edge with
+## nothing able to scroll to it. Only a missing profile or an unparented screen
+## can skip the measurement now.
 func _measure_card_width() -> float:
-	if UITheme.is_touch():
-		return UITheme.content_width(CARD_WIDTH, self)
-	if GameConfig.is_headless() or not is_inside_tree():
+	if _profile == null or not is_inside_tree():
 		return CARD_WIDTH
-	var view := get_viewport_rect().size
-	if view.x <= 0.0:
-		return CARD_WIDTH
-	var usable := view.x - float(UITheme.screen_margin()) * 2.0
-	if view.y > view.x:  # portrait window: fill it rather than float in it
-		return clampf(usable, 480.0, 1700.0)
-	return clampf(minf(CARD_WIDTH * _boost, view.x * 0.74), 480.0, usable)
+	var page := UtilityScreenLayout.page_width(
+		_profile, CARD_WIDTH * _boost, 300.0, 0.70)
+	# No readability floor after the subtraction: page_width() already floors the
+	# page, and a floor applied here could only ever hand back a column wider
+	# than the container it sits in — the unreachable content described above.
+	return maxf(page - float(_page_gutter() * 2), 1.0)
+
+
+func _page_gutter() -> int:
+	if _profile == null:
+		return 20
+	return 16 if UtilityScreenLayout.is_phone(_profile) else 24
 
 
 ## --- Shared building blocks -------------------------------------------------
@@ -225,8 +278,15 @@ func _eyebrow(parent: Control, text: String, color: Color) -> Label:
 	var label := Label.new()
 	label.text = text.to_upper()
 	label.add_theme_font_override("font", UITheme.display_font())
-	label.add_theme_font_size_override("font_size", _f(17))
+	var size := _f(17)
+	label.add_theme_font_size_override("font_size", size)
 	label.add_theme_color_override("font_color", color)
+	# The header is pinned over the live backdrop rather than a card, and on a
+	# portrait phone the sky's bright band sits exactly behind it — ice blue on
+	# sunlit cloud disappeared. The heading beside it already carries UITheme's
+	# deep-navy outline; the eyebrow now earns the same, scaled to its own size.
+	label.add_theme_color_override("font_outline_color", UITheme.COLOR_BG_DEEP)
+	label.add_theme_constant_override("outline_size", maxi(3, roundi(float(size) * 0.22)))
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	parent.add_child(label)
 	return label
@@ -321,7 +381,7 @@ func _build_collection_card(parent: Control, earned: int, total: int) -> PanelCo
 	var box := _make_card(parent, accent)
 	_card_title(box, "Collection", Color(UITheme.COLOR_GOLD, 0.9) if complete else Color(UITheme.COLOR_ACCENT, 0.85))
 
-	var row := HBoxContainer.new()
+	var row: BoxContainer = VBoxContainer.new() if _stacked else HBoxContainer.new()
 	row.add_theme_constant_override("separation", _gap(UITheme.SPACE_M))
 	box.add_child(row)
 
@@ -444,7 +504,13 @@ func _build_record_card(parent: Control) -> PanelContainer:
 	xp_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	level_row.add_child(xp_label)
 
-	var stats_row := HBoxContainer.new()
+	var stats_row: Container
+	if _stacked:
+		var grid := GridContainer.new()
+		grid.columns = 2
+		stats_row = grid
+	else:
+		stats_row = HBoxContainer.new()
 	stats_row.add_theme_constant_override("separation", _gap(12))
 	box.add_child(stats_row)
 	for entry: Array in LIFETIME_STATS:
@@ -578,22 +644,35 @@ func _build_row(parent: Control, id: String, unlocked: bool, progress: Dictionar
 	parent.add_child(panel)
 	_stagger(panel)
 
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", _gap(14))
+	var row: BoxContainer
+	if _stacked:
+		row = VBoxContainer.new()
+	else:
+		row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", _gap(10 if _stacked else 14))
 	panel.add_child(row)
-	row.add_child(_badge(unlocked))
+
+	var headline: BoxContainer
+	if _stacked:
+		headline = HBoxContainer.new()
+		headline.add_theme_constant_override("separation", _gap(12))
+		row.add_child(headline)
+	else:
+		headline = row
+	headline.add_child(_badge(unlocked))
 
 	var text_box := VBoxContainer.new()
 	text_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	text_box.add_theme_constant_override("separation", 1)
-	row.add_child(text_box)
+	headline.add_child(text_box)
 	var name_label := Label.new()
 	name_label.text = String(info.get("name", id))
 	name_label.add_theme_font_override("font", UITheme.bold_font())
 	name_label.add_theme_font_size_override("font_size", _f(23))
 	name_label.add_theme_color_override("font_color",
 		UITheme.COLOR_GOLD if unlocked else UITheme.COLOR_TEXT)
+	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	text_box.add_child(name_label)
 	var desc_label := Label.new()
 	desc_label.text = String(info.get("desc", ""))
@@ -603,12 +682,14 @@ func _build_row(parent: Control, id: String, unlocked: bool, progress: Dictionar
 		Color(0.86, 0.90, 0.97) if unlocked else UITheme.COLOR_TEXT_DIM)
 	text_box.add_child(desc_label)
 
-	row.add_child(_progress_cell(unlocked, progress))
+	var progress_cell := _progress_cell(unlocked, progress)
+	if not _stacked:
+		row.add_child(progress_cell)
 	if unlocked:
-		row.add_child(_chip("Earned", Color(UITheme.COLOR_GOLD, 0.85),
+		headline.add_child(_chip("Earned", Color(UITheme.COLOR_GOLD, 0.85),
 			Color(UITheme.COLOR_GOLD, 0.9), Color(0.06, 0.09, 0.16), COL_STATUS))
 	elif progress.is_empty():
-		row.add_child(_chip("Locked", Color(1.0, 1.0, 1.0, 0.04),
+		headline.add_child(_chip("Locked", Color(1.0, 1.0, 1.0, 0.04),
 			Color(1.0, 1.0, 1.0, 0.12), UITheme.COLOR_DISABLED, COL_STATUS))
 	else:
 		var ratio := clampf(float(progress["current"]) / maxf(float(progress["target"]), 1.0), 0.0, 1.0)
@@ -621,7 +702,12 @@ func _build_row(parent: Control, id: String, unlocked: bool, progress: Dictionar
 		percent.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		percent.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		percent.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(percent)
+		headline.add_child(percent)
+	if _stacked:
+		if progress_cell.get_child_count() > 0:
+			row.add_child(progress_cell)
+		else:
+			progress_cell.free()
 
 
 func _badge(unlocked: bool) -> Control:
@@ -732,7 +818,7 @@ func _earned_count() -> int:
 
 ## Marks a freshly built row for the post-entrance cascade. Purely cosmetic.
 func _stagger(item: Control) -> void:
-	if GameConfig.is_headless() or UITheme.reduced_motion():
+	if not _animate_build or GameConfig.is_headless() or UITheme.reduced_motion():
 		return
 	item.modulate.a = 0.0
 	_reveal_items.append(item)
@@ -782,7 +868,7 @@ static func _fmt_int(value: int) -> String:
 
 
 func _go_back() -> void:
-	SceneRouter.go_to(Game.SCENE_MAIN_MENU)
+	SceneRouter.go_back()
 
 
 func _unhandled_input(event: InputEvent) -> void:

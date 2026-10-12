@@ -1,0 +1,15 @@
+# Painted runner course — ImageGen prompts, 2026-10-07
+
+Built-in ImageGen. Source PNGs untouched; runtime WebP conversion only. Course reference guides shader and semantic material updates, not a baked gameplay image.
+
+## Ice
+
+Production seamless repeating square diffuse albedo texture for an ice track in a premium family-friendly stylized penguin runner game. Hand-painted sculpted game-art style matching the warm ivory snowy Waddle Wars menu reference. Orthographic top-down ice surface only, fills entire square, no perspective, no scene, no props, no text. Rich yet soft glacier turquoise blue, broad translucent milky blue patches beneath smooth ice, sparse elegant frost-white hairline cracks and a few delicate sweeping skate-like brush streaks. NOT a web of white polygons. Low contrast large forms, matte painted shading, gentle cold brushwork, consistent lightness edge-to-edge. Every opposite border should tile seamlessly; no borders, vignettes or center spotlight; avoid intense white clusters that repeat. Material should read as polished blue painted ice under gameplay lighting, clear obstacle readability. 1024x1024.
+
+## Snow
+
+Production seamless repeating square diffuse albedo texture for snow shelves and snowbanks in a premium stylized penguin runner. Hand-painted snowy game-art material consistent with supplied Waddle Wars style. Orthographic top-down snow surface only; no perspective, scene, props, text, ice cracks or rocks. Soft cool ivory white base with subtle powder-blue brushwork sculpting broad pillowy patches, tiny restrained snow grains, low contrast and no pronounced directional lighting. High-quality tactile painted material, not photographic. Every opposite border should tile seamlessly. Entire square covered; no borders, black shadows, horizon, vignette or bright center. Snow stays light for gameplay, subtle details readable when mapped over rounded 3D snow. 1024x1024.
+
+## Course reference
+
+Create a production art direction reference for Waddle Wars in-run ice course. First image is approved style and quality: warm painterly dimensional family game, soft rounded snow, rich cheerful blue ice, coral accents. Second image is actual game camera and track geometry to retain. Redesign course ART ONLY into this cohesive painted snowy expedition style: broad calm blue glacier ice road with subtle organic frost cracks (no wireframe grid); thick pillowy ivory snowbanks; rounded deep blue and teal railings with restrained coral safety inserts; ivory snow-capped buoy towers with warm brass details; iceberg silhouettes with softly painted icy facets; dark turquoise ocean with small calm highlights and a clear blue sky with very subtle wispy clouds. Penguin same dark silhouette and same track camera. Gold pickups remain readable and hazards clearly distinct. Real-time game achievable environment, material/style ref with 3D depth, no overpainting player design, no new buildings/characters, no words, HUD or menu. Keep vanishing point and course structure of screenshot, enrich materials and colors without clutter. Wide16:9.

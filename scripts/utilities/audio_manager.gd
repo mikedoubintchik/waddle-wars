@@ -4,6 +4,7 @@ extends Node
 const SFX_POOL_SIZE: int = 14
 const SFX_3D_POOL_SIZE: int = 10
 const AUDIO_DIR: String = "res://assets/audio/"
+const SESSION_QUIET_QUERY: String = "new URLSearchParams(window.location.search).get('sound') === 'off'"
 
 var _music_a: AudioStreamPlayer
 var _music_b: AudioStreamPlayer
@@ -18,11 +19,20 @@ var _library: Dictionary = {}
 var _one_shot_cache: Dictionary = {}
 var _missing_reported: Dictionary = {}
 var _muted: bool = false
+## URL opt-in for this page lifetime only; never changes saved audio settings.
+var _session_quiet: bool = false
+var _master_silent: bool = false
+var _window_focused: bool = true
+var _web_focus_bridge: JavaScriptObject = null
+var _web_focus_callback: JavaScriptObject = null
 var _fade_tween: Tween
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_session_quiet = _read_session_quiet()
+	if _session_quiet:
+		AudioServer.set_bus_mute(0, true)
 	_music_a = AudioStreamPlayer.new()
 	_music_b = AudioStreamPlayer.new()
 	for player: AudioStreamPlayer in [_music_a, _music_b]:
@@ -40,6 +50,43 @@ func _ready() -> void:
 		add_child(sfx3d)
 		_sfx_3d_pool.append(sfx3d)
 	_scan_library()
+	_muted = bool(SettingsManager.get_setting("audio", "muted"))
+	_master_silent = float(SettingsManager.get_setting("audio", "master_volume")) <= 0.001
+	_install_web_focus_bridge()
+	refresh_focus_mute()
+
+
+func _read_session_quiet() -> bool:
+	if not OS.has_feature("web") or GameConfig.is_headless():
+		return false
+	return JavaScriptBridge.eval(SESSION_QUIET_QUERY, true) == true
+
+
+func _install_web_focus_bridge() -> void:
+	if not OS.has_feature("web") or GameConfig.is_headless():
+		return
+	_web_focus_bridge = JavaScriptBridge.get_interface("__ww_audio_focus")
+	if _web_focus_bridge == null:
+		return  # Native focus notifications remain the fallback for custom shells.
+	_web_focus_callback = JavaScriptBridge.create_callback(_on_browser_focus_changed)
+	_web_focus_bridge.subscribe(_web_focus_callback)
+
+
+func _on_browser_focus_changed(arguments: Array) -> void:
+	if not arguments.is_empty():
+		_set_window_focused(bool(arguments[0]))
+
+
+func _set_window_focused(focused: bool) -> void:
+	_window_focused = focused
+	refresh_focus_mute()
+
+
+func _exit_tree() -> void:
+	if _web_focus_bridge != null and _web_focus_callback != null:
+		_web_focus_bridge.unsubscribe(_web_focus_callback)
+	_web_focus_callback = null
+	_web_focus_bridge = null
 
 
 func _scan_library() -> void:
@@ -83,6 +130,13 @@ func _get_stream(name_key: String) -> AudioStream:
 ## instead. Safe to call for a key that is already loaded, or a missing one.
 func preload_stream(name_key: String) -> void:
 	_get_stream(name_key)
+
+
+## Prepare the exact non-looping resource used by both one-shot pools, without
+## starting playback or advancing either pool. Scene loaders can stage these
+## calls so first gameplay use does not load or duplicate the stream.
+func preload_sfx(name_key: String) -> void:
+	_one_shot_stream(name_key)
 
 
 ## The cached stream for a key, or null. For callers that need their own
@@ -217,27 +271,37 @@ func set_bus_volume(bus_name: String, linear: float) -> void:
 	if idx < 0:
 		return
 	AudioServer.set_bus_volume_db(idx, linear_to_db(clampf(linear, 0.0001, 1.0)))
-	AudioServer.set_bus_mute(idx, linear <= 0.001 or (_muted and bus_name == "Master"))
+	if bus_name == "Master":
+		_master_silent = linear <= 0.001
+		refresh_focus_mute()
+	else:
+		AudioServer.set_bus_mute(idx, linear <= 0.001)
 
 
 func set_muted(muted: bool) -> void:
 	_muted = muted
-	AudioServer.set_bus_mute(0, muted)
+	refresh_focus_mute()
+
+
+## Focus muting is temporary bus state, never a saved preference. Every path
+## that can touch Master combines all causes so a click/slider cannot override
+## session quiet, a blurred tab, explicit mute or zero Master volume.
+func refresh_focus_mute() -> void:
+	var focus_muted := not _window_focused and bool(SettingsManager.get_setting("audio", "mute_unfocused"))
+	AudioServer.set_bus_mute(0, _session_quiet or _muted or _master_silent or focus_muted)
 
 
 func _notification(what: int) -> void:
 	if GameConfig.is_headless():
 		return
-	# Browsers duck background tabs themselves, and on mobile web FOCUS_IN
-	# often never re-fires after load — focus-muting there leaves the game
-	# permanently silent. Web builds skip it entirely.
-	if OS.has_feature("web"):
+	# The Web shell combines window focus and document visibility. Its direct
+	# callback works even when hidden-tab animation frames are suspended.
+	if _web_focus_bridge != null:
 		return
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
-		if bool(SettingsManager.get_setting("audio", "mute_unfocused")):
-			AudioServer.set_bus_mute(0, true)
+		_set_window_focused(false)
 	elif what == NOTIFICATION_APPLICATION_FOCUS_IN:
-		AudioServer.set_bus_mute(0, _muted or bool(SettingsManager.get_setting("audio", "muted")))
+		_set_window_focused(true)
 
 
 ## Re-assert the user's mute setting; safe to call from any input handler.
@@ -246,4 +310,4 @@ func _notification(what: int) -> void:
 func ensure_unmuted() -> void:
 	if GameConfig.is_headless():
 		return
-	AudioServer.set_bus_mute(0, _muted or bool(SettingsManager.get_setting("audio", "muted")))
+	refresh_focus_mute()

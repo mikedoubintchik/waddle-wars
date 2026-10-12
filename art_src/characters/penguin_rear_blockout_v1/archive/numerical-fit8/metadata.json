@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "gate": "rear-shape-v1",
+  "unrigged": true,
+  "production_ready": false,
+  "animation_ready": false,
+  "visual_approval": "pending human Gate1 review",
+  "shape_revision": "v6 numerical fit iteration1: fuller lower neck and pear underside; straighter flipper roots, asymmetric waddle-reference reach; rounded foot masses with explicitly posed fore/aft stance",
+  "material_contract": "plain-literal-COLOR_0",
+  "glb_sha256": "b878dc27b8d1d4551e4c5822fc7d9d0973f78e94c8d670a9d809e36a85857beb",
+  "source_sha256": "270d3d0eec7f4cd9bf6339c45d47fa5efc9c41ca51f7517bd4f05b8e6b2da8cb",
+  "builder_sha256": "f857af8fc29f14002c95303922f388f7f6e591bb415e3a40ab67528dab6fdc43",
+  "config_sha256": "1384f6c1de03ead4364328fb7a3ae33a2c293685dfe35990141f3838de63d79e",
+  "reference_file": "art_src/characters/reference_boards/penguin-gameplay-v2-20261011/waddle-rear-strong-lean-sequence.png",
+  "reference_sha256": "764acf53aecf29958e7ffc986bea753627b0af4f3ea95bf31f03a99c0f2ecac9",
+  "source_height_m": 1.6931614875793457,
+  "gameplay_height_m": 1.05,
+  "gameplay_scale": 0.6201416744371788,
+  "author_axes": "Blender +Z up, +Y forward; exporter converts to glTF/Godot +Y up, -Z forward",
+  "bounds_author_m": {
+    "min": [
+      -0.7124186158180237,
+      -0.3670448362827301,
+      0.0
+    ],
+    "max": [
+      0.7117675542831421,
+      0.5318607687950134,
+      1.6931614875793457
+    ]
+  },
+  "root_transform": "identity",
+  "pose": {
+    "body_forward_pitch_degrees": 11,
+    "author_hip_pivot_yz_m": [
+      0.045,
+      0.28
+    ],
+    "leaned_parts": [
+      "continuous_body_head",
+      "flipper_L",
+      "flipper_R",
+      "short_tail_fan"
+    ],
+    "feet_rotated_with_body": false,
+    "crown_forward_direction": "author +Y; exported Godot -Z",
+    "static_reference_foot_poses": {
+      "L": {
+        "forward_offset_m": 0,
+        "height_scale": 1,
+        "width_scale": 1,
+        "yaw_offset_degrees": -18,
+        "center_x_offset_m": 0.035,
+        "upper_lean_y_m": -0.18,
+        "upper_lean_x_m": 0,
+        "upper_bulge_y_m": -0.08,
+        "upper_lean_full_z_m": 0.225,
+        "upper_lean_start_z_m": 0.055,
+        "upper_height_scale": 1.0
+      },
+      "R": {
+        "forward_offset_m": 0,
+        "height_scale": 1,
+        "width_scale": 1,
+        "yaw_offset_degrees": 0,
+        "center_x_offset_m": 0.04,
+        "upper_lean_y_m": 0.04,
+        "upper_lean_x_m": -0.1,
+        "upper_bulge_y_m": 0.1,
+        "upper_lean_full_z_m": 0.18,
+        "upper_lean_start_z_m": 0.09,
+        "upper_height_scale": 0.6
+      }
+    },
+    "static_reference_flipper_poses": {
+      "L": {
+        "length_scale": 1.08
+      },
+      "R": {
+        "length_scale": 0.975
+      }
+    },
+    "attachment_checks": [
+      {
+        "part": "foot_L",
+        "ankle_cap_body_ellipse_ratio": 0.7687332005216774,
+        "sole_min_z_m": 0.0,
+        "ankle_cap_m": [
+          -0.28500000000000003,
+          -0.107,
+          0.285
+        ]
+      },
+      {
+        "part": "foot_R",
+        "ankle_cap_body_ellipse_ratio": 0.6247233145854616,
+        "sole_min_z_m": 0.0,
+        "ankle_cap_m": [
+          0.1987436323395641,
+          0.13220512192768435,
+          0.19299999999999998
+        ]
+      }
+    ]
+  },
+  "vertices": 4684,
+  "triangles": 9344,
+  "surfaces": 1,
+  "material": {
+    "name": "RearBlockoutPlainMatte",
+    "roughness": 0.9,
+    "metallic": 0.0,
+    "color_space": "COLOR_0 linear RGBA from explicit sRGB palette; multiply imported baseColorFactor white",
+    "textures": []
+  },
+  "parts_vertex_ranges": {
+    "continuous_body_head": [
+      0,
+      2258
+    ],
+    "flipper_L": [
+      2258,
+      2740
+    ],
+    "flipper_R": [
+      2740,
+      3222
+    ],
+    "foot_L": [
+      3222,
+      3800
+    ],
+    "foot_R": [
+      3800,
+      4378
+    ],
+    "short_tail_fan": [
+      4378,
+      4684
+    ]
+  },
+  "geometry_validation": {
+    "nonmanifold_edges": 0,
+    "zero_area_faces": 0,
+    "signed_volume_m3": 0.6032042560137699,
+    "color_position_index_max_error_m": 0.0
+  },
+  "intentional_overlaps": "Flipper roots, upper feet and tail root bury into continuous body; six closed components in one mesh",
+  "deferred": [
+    "rig and skinning",
+    "all animation",
+    "future front podium and face detail",
+    "UVs and surface textures",
+    "LOD and species",
+    "runtime promotion"
+  ],
+  "old_mesh_skeleton_or_animation_used": false,
+  "rendered_frames": 0
+}

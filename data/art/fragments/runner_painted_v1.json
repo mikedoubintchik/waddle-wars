@@ -1,0 +1,135 @@
+{
+  "concepts": [
+    {
+      "dimensions": [
+        1672,
+        941
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_runner_course_reference_v1",
+      "license_id": "project_original",
+      "path": "art_src/runner/painted/runner_course_reference_v1.png",
+      "prompt_path": "art_src/runner/painted/runner_painted_v1.prompt.md",
+      "sha256": "bf8b946cb6797354bac1460f53f0a5b048f56e68bae07216b02d00ddcc1d9197",
+      "status": "art_direction_only"
+    }
+  ],
+  "generated_assets": [
+    {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_runner_painted_ice_v1",
+      "license_id": "project_original",
+      "path": "art_src/runner/painted/runner_painted_ice_v1.png",
+      "prompt_path": "art_src/runner/painted/runner_painted_v1.prompt.md",
+      "sha256": "67343927d9cc5cb4d1e7b5569111c8ce08bccdad19ffea6a84e0c3cf8fdc1789",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_runner_painted_snow_v1",
+      "license_id": "project_original",
+      "path": "art_src/runner/painted/runner_painted_snow_v1.png",
+      "prompt_path": "art_src/runner/painted/runner_painted_v1.prompt.md",
+      "sha256": "f1d1385226c3adfc6cca76ec5d212feaf20457cd6ecbf4a0b2b93a1d7ae10ec0",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_runner_painted_water_v1",
+      "license_id": "project_original",
+      "path": "art_src/runner/painted/runner_painted_water_v1.png",
+      "prompt_path": "art_src/runner/painted/runner_water_v1.prompt.md",
+      "sha256": "cf2df5e21219abf2358924f70f58603d4857827f9979510d47c5c9f452761d5b",
+      "status": "production_source"
+    }
+  ],
+  "runtime_assets": [
+    {
+      "groups": [
+        "runner",
+        "runner_painted",
+        "texture"
+      ],
+      "id": "runner_painted_ice_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/textures/runner_painted_ice_v1.webp",
+      "production_ready": false,
+      "sha256": "78ff1c9c65e3e2c12a2402659a0d0086c0fbe7fd36ad826433b9277b997a2b8b",
+      "source_export_id": "imagegen_runner_painted_ice_v1"
+    },
+    {
+      "groups": [
+        "material_family",
+        "runner",
+        "runner_painted"
+      ],
+      "id": "runner_painted_sea_shader_v1",
+      "kind": "resource",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/materials/runner_painted_sea_v1.gdshader",
+      "production_ready": false,
+      "sha256": "17c87e4b1f9aaecec97f053ee31e762cc9fba44f138b61daef8b9f925ec63f90",
+      "source_export_id": "imagegen_runner_painted_water_v1"
+    },
+    {
+      "groups": [
+        "runner",
+        "runner_painted",
+        "texture"
+      ],
+      "id": "runner_painted_snow_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/textures/runner_painted_snow_v1.webp",
+      "production_ready": false,
+      "sha256": "a9639e2ae1d5afcfccf638d9df89e21b04fdc1acaa88f3a3ef4b3bdd64271816",
+      "source_export_id": "imagegen_runner_painted_snow_v1"
+    },
+    {
+      "groups": [
+        "material_family",
+        "runner",
+        "runner_painted"
+      ],
+      "id": "runner_painted_surface_shader_v1",
+      "kind": "resource",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/materials/runner_painted_surface_v1.gdshader",
+      "production_ready": false,
+      "sha256": "ae64fc0fd6dcb49454b1604535fca30306a44fef71e0af5998d7271626db3464",
+      "source_export_id": "imagegen_runner_painted_ice_v1"
+    },
+    {
+      "groups": [
+        "runner",
+        "runner_painted",
+        "texture"
+      ],
+      "id": "runner_painted_water_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/runner/textures/runner_painted_water_v1.webp",
+      "production_ready": false,
+      "sha256": "96b996a6294832ea0ce2318f15af999178ea7145471554806d5033392436196b",
+      "source_export_id": "imagegen_runner_painted_water_v1"
+    }
+  ],
+  "source_exports": []
+}

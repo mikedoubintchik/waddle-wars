@@ -3,4 +3,37 @@ build/
 .wrangler/
 leaderboard/.wrangler/
 node_modules/
-qa_shots/
+qa_shots/*
+!qa_shots/.gdignore
+
+# Local environment secrets; keep safe example/sample/template documents.
+.envrc
+.env*
+!.env*.example
+!.env*.sample
+!.env*.template
+
+# Private signing material and generated provisioning/CSR outputs. Public
+# certificate files (.cer/.crt/.der and backend public .pem) remain trackable.
+*.[kK][eE][yY]
+*.[pP]8
+*.[pP][kK]8
+*.[pP][kK][cC][sS]8
+*.[pP][pP][kK]
+*.[kK][eE][yY][sS][tT][oO][rR][eE]
+*.[jJ][kK][sS]
+*.[pP]12
+*.[pP][fF][xX]
+*.[mM][oO][bB][iI][lL][eE][pP][rR][oO][vV][iI][sS][iI][oO][nN]
+*.[pP][rR][oO][vV][iI][sS][iI][oO][nN][pP][rR][oO][fF][iI][lL][eE]
+*.[cC][sS][rR]
+
+# Generated local tooling and duplicate delivery bundles.
+__pycache__/
+*.py[cod]
+/WaddleStoreKit-*.abi.json
+/WaddleStoreKit-*.swiftdoc
+/WaddleStoreKit-*.swiftmodule
+/WaddleStoreKit-*.swiftsourceinfo
+/art_src/ui/drive_archive_20261007/*.zip
+/web-host/qa_shots/

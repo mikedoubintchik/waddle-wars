@@ -1,0 +1,34 @@
+{
+  "candidate_sha256": "c0444f175f1e9e1325a70b65f1f0f377c5459ffff3dd79d585ce7b63486da417",
+  "source_sha256": "046189df016ecf9ea6410ccfd5200c7afc14425707a9737aea2a5f70afa8a285",
+  "clips": {
+    "waddle": {
+      "max_matrix_error": 1.6312333173118532e-06,
+      "worst": {
+        "frame": 0,
+        "bone": "foot_L",
+        "matrix_max_error": 1.6312333173118532e-06
+      },
+      "samples": 90
+    },
+    "jump": {
+      "max_matrix_error": 1.4603137969970703e-06,
+      "worst": {
+        "frame": 15,
+        "bone": "foot_L",
+        "matrix_max_error": 1.4603137969970703e-06
+      },
+      "samples": 90
+    },
+    "slide": {
+      "max_matrix_error": 1.642853021621704e-06,
+      "worst": {
+        "frame": 9,
+        "bone": "foot_L",
+        "matrix_max_error": 1.642853021621704e-06
+      },
+      "samples": 90
+    }
+  },
+  "passed": true
+}

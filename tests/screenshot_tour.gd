@@ -43,6 +43,10 @@ func _ready() -> void:
 		SettingsManager.set_setting("accessibility", "ui_scale", 1.0)
 	DisplayServer.window_set_size(Vector2i(width, height))
 	DisplayServer.window_set_position(Vector2i(40, 60))
+	# An occluded window never draws, and a harness that waits on
+	# frame_post_draw then hangs forever with no output. Raise it.
+	DisplayServer.window_move_to_foreground()
+	DisplayServer.window_set_position(Vector2i(40, 60))
 
 	match _shot:
 		"title":

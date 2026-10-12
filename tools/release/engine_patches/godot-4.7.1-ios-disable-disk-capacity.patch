@@ -1,0 +1,78 @@
+diff --git a/platform/ios/detect.py b/platform/ios/detect.py
+--- a/platform/ios/detect.py
++++ b/platform/ios/detect.py
+@@ -31,7 +31,12 @@ def get_opts():
+         (("APPLE_SDK_PATH", "IOS_SDK_PATH"), "Path to the iOS SDK", ""),
+         (("apple_target_triple", "ios_triple"), "Triple for the corresponding target Apple platform toolchain", ""),
+         BoolVariable(("simulator", "ios_simulator"), "Build for Simulator", False),
+         BoolVariable("generate_bundle", "Generate an APP bundle after building iOS/macOS binaries", False),
++        BoolVariable(
++            "waddle_disable_disk_capacity",
++            "Disable unused disk-capacity queries in Waddle Wars iOS templates",
++            False,
++        ),
+     ]
+ 
+ 
+@@ -153,6 +158,10 @@ def configure(env: "SConsEnvironment"):
+     env.Prepend(CPPPATH=["#platform/ios"])
+     env.Append(CPPDEFINES=["IOS_ENABLED", "APPLE_EMBEDDED_ENABLED", "UNIX_ENABLED", "COREAUDIO_ENABLED"])
+ 
++    if env["waddle_disable_disk_capacity"]:
++        env.AppendUnique(CPPDEFINES=["WADDLE_IOS_DISK_CAPACITY_DISABLED"])
++        env.extra_suffix += ".waddle_no_disk_capacity"
++
+     if env["metal"] and env["simulator"]:
+         print_warning("iOS Simulator does not support the Metal rendering driver")
+         env["metal"] = False
+diff --git a/drivers/unix/dir_access_unix.cpp b/drivers/unix/dir_access_unix.cpp
+--- a/drivers/unix/dir_access_unix.cpp
++++ b/drivers/unix/dir_access_unix.cpp
+@@ -43,6 +43,8 @@
+ #include <sys/statfs.h>
+ #endif
++#if !defined(IOS_ENABLED) || !defined(WADDLE_IOS_DISK_CAPACITY_DISABLED)
+ #include <sys/statvfs.h>
++#endif
+ 
+ #include <cerrno>
+ #include <cstdio>
+@@ -516,10 +518,16 @@ Error DirAccessUnix::create_link(String p_source, String p_target) {
+ uint64_t DirAccessUnix::get_space_left() {
++#if defined(IOS_ENABLED) && defined(WADDLE_IOS_DISK_CAPACITY_DISABLED)
++	// Preserve the virtual API/ABI without querying device capacity.
++	// Zero already represents an unavailable or failed capacity query upstream.
++	ERR_FAIL_V_MSG(0, "DirAccess.get_space_left() is unavailable in the Waddle Wars iOS template.");
++#else
+ 	struct statvfs vfs;
+ 	if (statvfs(current_dir.utf8().get_data(), &vfs) != 0) {
+ 		return 0;
+ 	}
+ 
+ 	return (uint64_t)vfs.f_bavail * (uint64_t)vfs.f_frsize;
++#endif
+ }
+ 
+ String DirAccessUnix::get_filesystem_type() const {
+diff --git a/servers/movie_writer/movie_writer.cpp b/servers/movie_writer/movie_writer.cpp
+--- a/servers/movie_writer/movie_writer.cpp
++++ b/servers/movie_writer/movie_writer.cpp
+@@ -106,16 +106,18 @@ void MovieWriter::begin(const Size2i &p_movie_size, uint32_t p_fps, const String &p_base_path) {
+ 	print_line(vformat(U"Movie Maker mode enabled, recording movie in %s×%s @ %d FPS...", movie_size.width, movie_size.height, p_fps));
+ 
++#if !defined(IOS_ENABLED) || !defined(WADDLE_IOS_DISK_CAPACITY_DISABLED)
+ 	// Check for available disk space and warn the user if needed.
+ 	Ref<DirAccess> dir = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+ 	String path = p_base_path.get_base_dir();
+ 	if (path.is_relative_path()) {
+ 		path = "res://" + path;
+ 	}
+ 	dir->open(path);
+ 	if (dir->get_space_left() < 10 * Math::pow(1024.0, 3.0)) {
+ 		// Less than 10 GiB available.
+ 		WARN_PRINT(vformat("Current available space on disk is low (%s). MovieWriter will fail during movie recording if the disk runs out of available space.", String::humanize_size(dir->get_space_left())));
+ 	}
++#endif
+ 
+ 	cpu_time = 0.0f;
+ 	gpu_time = 0.0f;

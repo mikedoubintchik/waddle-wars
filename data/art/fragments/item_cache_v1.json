@@ -1,0 +1,161 @@
+{
+  "concepts": [],
+  "generated_assets": [],
+  "runtime_assets": [
+    {
+      "groups": [
+        "gameplay",
+        "interactive",
+        "item_cache",
+        "material_family"
+      ],
+      "id": "item_cache_albedo_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/interactives/item_cache/textures/item_cache_albedo_v1.png",
+      "production_ready": false,
+      "sha256": "9219fbff592d6a7dcab437ee7ebacd45ac69ae8c9e8a263c7171a820a5591cbd",
+      "source_export_id": "item_cache_lod0_v1"
+    },
+    {
+      "groups": [
+        "gameplay",
+        "interactive",
+        "item_cache",
+        "runtime_mesh"
+      ],
+      "id": "item_cache_lod0_v1",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/interactives/item_cache/item_cache_lod0_v1.glb",
+      "production_ready": false,
+      "sha256": "daac739c645706667ab8995490650b1cc1d1468e8c5311df227117dfc6b7a8cc",
+      "source_export_id": "item_cache_lod0_v1"
+    },
+    {
+      "groups": [
+        "gameplay",
+        "interactive",
+        "item_cache",
+        "runtime_mesh"
+      ],
+      "id": "item_cache_lod1_v1",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/interactives/item_cache/item_cache_lod1_v1.glb",
+      "production_ready": false,
+      "sha256": "fb844d63aa00cec165b1439dad3817164f8723e03b0e58728a13b7afcd2d3f92",
+      "source_export_id": "item_cache_lod1_v1"
+    },
+    {
+      "groups": [
+        "gameplay",
+        "interactive",
+        "item_cache",
+        "material_family"
+      ],
+      "id": "item_cache_material_v1",
+      "kind": "material",
+      "license_id": "project_original",
+      "path": "res://assets/art/interactives/item_cache/materials/item_cache_v1.tres",
+      "production_ready": false,
+      "sha256": "84a346e9aa708e02201242659e1d37564d96f97d56299eb4acef629f08e06d7f",
+      "source_export_id": "item_cache_lod0_v1"
+    },
+    {
+      "groups": [
+        "gameplay",
+        "interactive",
+        "item_cache",
+        "material_family"
+      ],
+      "id": "item_cache_normal_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/interactives/item_cache/textures/item_cache_normal_v1.png",
+      "production_ready": false,
+      "sha256": "729580ea306e73b59ffdc5b7071842ffc117be816bf5b72b86dbf124716eb44e",
+      "source_export_id": "item_cache_lod0_v1"
+    },
+    {
+      "groups": [
+        "gameplay",
+        "interactive",
+        "item_cache",
+        "material_family"
+      ],
+      "id": "item_cache_orm_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/interactives/item_cache/textures/item_cache_orm_v1.png",
+      "production_ready": false,
+      "sha256": "8d0f3a770922f4d1b9ef5f6caebe95084907aeb775cc20addbb597fcbbb2b36e",
+      "source_export_id": "item_cache_lod0_v1"
+    },
+    {
+      "groups": [
+        "gameplay",
+        "interactive",
+        "item_cache",
+        "powerup"
+      ],
+      "id": "item_cache_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/interactives/item_cache/item_cache_v1.tscn",
+      "production_ready": false,
+      "sha256": "6fc595e44c6b8e3287945617b8fa2d6ffbf5a0f4d989746e505e7966d66d4681",
+      "source_export_id": "item_cache_lod0_v1"
+    }
+  ],
+  "source_exports": [
+    {
+      "asset_class": "gameplay_interactive",
+      "collection": "item_cache_lod0_v1",
+      "expected": {
+        "bounds_meters_max": [
+          1.4,
+          1.4,
+          1.4
+        ],
+        "lod0_triangles_max": 5000,
+        "lod0_triangles_min": 1500,
+        "pivot_policy": "center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 1024
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "item_cache_lod0_v1",
+      "license_id": "project_original",
+      "output": "assets/art/interactives/item_cache/item_cache_lod0_v1.glb",
+      "source": "art_src/interactives/item_cache/item_cache_v1.blend",
+      "source_sha256": "f40aafd14515df604672ed8785ae5f16851b8277a9be2ca9137bb6c4e9dfb91d"
+    },
+    {
+      "asset_class": "gameplay_interactive_lod",
+      "collection": "item_cache_lod1_v1",
+      "expected": {
+        "bounds_meters_max": [
+          1.4,
+          1.4,
+          1.4
+        ],
+        "lod0_triangles_max": 1100,
+        "lod0_triangles_min": 250,
+        "pivot_policy": "center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 1024
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "item_cache_lod1_v1",
+      "license_id": "project_original",
+      "output": "assets/art/interactives/item_cache/item_cache_lod1_v1.glb",
+      "source": "art_src/interactives/item_cache/item_cache_v1.blend",
+      "source_sha256": "f40aafd14515df604672ed8785ae5f16851b8277a9be2ca9137bb6c4e9dfb91d"
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-08",
+  "status": "uploaded_saved_draft_reload_verified_6_phone_and_ai_labels",
+  "store": "Google Play en-US default listing",
+  "app_id": "4974838896609027403",
+  "order": [
+    {
+      "file": "tools/release/store_assets/desktop-phone-current-20261008/avalanche-catch-chrome-941x1672.jpg",
+      "sha256": "ba085c86a3431968389c35342753615e9cfd34653781dfc3d382cac2dea78119",
+      "width": 941,
+      "height": 1672,
+      "source_kind": "chrome_qa_original",
+      "original": "qa_shots/menu-reference-review-20261008-iteration10/originals/mobile/avalanche_catch.jpg"
+    },
+    {
+      "file": "tools/release/store_assets/desktop-phone-current-20261008/menu.png",
+      "sha256": "06802e9f5ad60082ba7505b1329103072f3a21a4fe70e5a13eb8b16264b56b34",
+      "width": 1080,
+      "height": 1920,
+      "source_kind": "godot_frontend_shot_store_menu",
+      "original": null
+    },
+    {
+      "file": "tools/release/store_assets/desktop-phone-current-20261008/missions.png",
+      "sha256": "15ebba913a10fdf9bbdca34a8fe562f11d37c36156945bca64c5c305fcb412ac",
+      "width": 1080,
+      "height": 1920,
+      "source_kind": "godot_frontend_shot_missions",
+      "original": null
+    },
+    {
+      "file": "tools/release/store_assets/desktop-phone-current-20261008/customize.png",
+      "sha256": "9fde166f2563165360d70a47ee65f136e1754e7e5f0f59f72d2f56b1d8362408",
+      "width": 1080,
+      "height": 1920,
+      "source_kind": "godot_frontend_shot_customize",
+      "original": null
+    },
+    {
+      "file": "tools/release/store_assets/desktop-phone-current-20261008/play-phone-results-1080x1920.png",
+      "sha256": "4efec7c8afabb8022f83e1f14de934fc1fd9ae7b8ba54051f0e1b1ba5a36ec34",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 2370867,
+      "source_kind": "godot_runner_results_hud_sample_fixture"
+    },
+    {
+      "file": "tools/release/store_assets/desktop-phone-current-20261008/play-phone-achievements-1080x1920.png",
+      "sha256": "aed46ce64f3bfbfdbabb821076f146b0ab924eac8c34b4d638d6b8711e0b597f",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 1913327,
+      "source_kind": "godot_achievements_ui"
+    }
+  ],
+  "notes": [
+    "Three 1080x1920 stills captured from current local Godot real UI scenes with touch layout; not a signed Android candidate.",
+    "Avalanche frame is an unretouched Chrome QA original from the real running game, 941x1672, source/build provenance in accepted-captures.json.",
+    "Earlier 540x960 b29 emulator screenshots removed from listing.",
+    "Listing remains draft; final native package and privacy declarations still require reconciliation.",
+    "New Results and Achievements assets are marked as created or edited using AI in Play asset declaration; Review changes saved.",
+    "Results uses representative coherent run values in the real current RunnerHUD UI; it is not a completed live-run capture."
+  ],
+  "portal_proof": "tools/release/store_assets/desktop-phone-current-20261008/play-phone-portal-verified-6-20261008.png"
+}

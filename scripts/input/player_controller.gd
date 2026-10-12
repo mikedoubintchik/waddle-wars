@@ -93,6 +93,17 @@ func recalibrate_tilt() -> void:
 		_tilt.recalibrate()
 
 
+## Drop one-shot actions queued behind a loading screen/countdown without
+## polling devices or changing deliberate held steering/slide/aim input.
+func clear_pending_actions() -> void:
+	consume_jump()
+	consume_edges()
+	_touch_jump = false
+	_touch_shove = false
+	_touch_item = false
+	_touch_item_back = false
+
+
 func touch_jump() -> void:
 	_touch_jump = true
 

@@ -1,0 +1,1388 @@
+{
+  "concepts": [],
+  "generated_assets": [],
+  "runtime_assets": [
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "glacier_gauntlet",
+        "obstacle"
+      ],
+      "id": "glacier_boost_marker_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_boost_marker_v1.tscn",
+      "production_ready": false,
+      "sha256": "43356a51d2a81be0c20b4615f34a3e5420aa80b2c996d41a86c4f426a980f9d7",
+      "source_export_id": "glacier_boost_marker_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "glacier_gauntlet",
+        "obstacle",
+        "runtime_mesh"
+      ],
+      "id": "glacier_boost_marker_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_boost_marker_v1.glb",
+      "production_ready": false,
+      "sha256": "f044ed3b56899caae397163603a6dd1996c7f549714e080f22efb7caf4cc3f88",
+      "source_export_id": "glacier_boost_marker_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet"
+      ],
+      "id": "glacier_camp_lamp_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_camp_lamp_v1.tscn",
+      "production_ready": false,
+      "sha256": "4b7bc9306cc93528c32eb50d1e01e4c2a2cad2c959770613d43979cab9c89f31",
+      "source_export_id": "glacier_camp_lamp_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet",
+        "runtime_mesh"
+      ],
+      "id": "glacier_camp_lamp_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_camp_lamp_v1.glb",
+      "production_ready": false,
+      "sha256": "157cf9bc6faaec3d58eea176640eb25b1757cbfad72f94d668c929c4bfbb6d0d",
+      "source_export_id": "glacier_camp_lamp_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet"
+      ],
+      "id": "glacier_cave_buttress_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_cave_buttress_v1.tscn",
+      "production_ready": false,
+      "sha256": "dc5beb2b6c674eca6cd7e3173703f3aa0ce8ca15068ad42a53d054ee91bfdb64",
+      "source_export_id": "glacier_cave_buttress_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet",
+        "runtime_mesh"
+      ],
+      "id": "glacier_cave_buttress_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_cave_buttress_v1.glb",
+      "production_ready": false,
+      "sha256": "39b2776eaa60494c2a1387aa3ed0f3db888931ef1b046cb647db4b69b12f07f1",
+      "source_export_id": "glacier_cave_buttress_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "glacier_gauntlet",
+        "obstacle"
+      ],
+      "id": "glacier_cracking_ice_marker_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_cracking_ice_marker_v1.tscn",
+      "production_ready": false,
+      "sha256": "2e56b37528e3e7abcf38dbf6af00e158df1336e09e7277344b1e29ac158742c3",
+      "source_export_id": "glacier_cracking_ice_marker_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "glacier_gauntlet",
+        "obstacle",
+        "runtime_mesh"
+      ],
+      "id": "glacier_cracking_ice_marker_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_cracking_ice_marker_v1.glb",
+      "production_ready": false,
+      "sha256": "50b5e14ab1de227c110415ba14dcab0bf8ada1a91d79b4aa7393ee9bf681af80",
+      "source_export_id": "glacier_cracking_ice_marker_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "glacier_gauntlet",
+        "obstacle"
+      ],
+      "id": "glacier_duck_gate_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_duck_gate_v1.tscn",
+      "production_ready": false,
+      "sha256": "01f204190d9b382004daa16f16d4dea51171ae95c0f32df19da75fe5177926ab",
+      "source_export_id": "glacier_duck_gate_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "glacier_gauntlet",
+        "obstacle",
+        "runtime_mesh"
+      ],
+      "id": "glacier_duck_gate_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_duck_gate_v1.glb",
+      "production_ready": false,
+      "sha256": "f91c8e14e5cc512d0152270acabc35b3a1c88676d56d3d0d1e5bcf9ce6f55b56",
+      "source_export_id": "glacier_duck_gate_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet"
+      ],
+      "id": "glacier_edge_kerb_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_edge_kerb_v1.tscn",
+      "production_ready": false,
+      "sha256": "57e5f407725b56268aea23a23ff8b5337d84a9964277707a440b1992bd46d6c1",
+      "source_export_id": "glacier_edge_kerb_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet",
+        "runtime_mesh"
+      ],
+      "id": "glacier_edge_kerb_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_edge_kerb_v1.glb",
+      "production_ready": false,
+      "sha256": "e3d8912058e1c38c9475f107881cab61c97b2604a3209ca70b1634bbec15f4fe",
+      "source_export_id": "glacier_edge_kerb_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet"
+      ],
+      "id": "glacier_expedition_crate_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_expedition_crate_v1.tscn",
+      "production_ready": false,
+      "sha256": "37a82cea9353fcc2e36348e739dbf36f2cd3db31a5f382d114a42cdd0c25f5d5",
+      "source_export_id": "glacier_expedition_crate_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet",
+        "runtime_mesh"
+      ],
+      "id": "glacier_expedition_crate_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_expedition_crate_v1.glb",
+      "production_ready": false,
+      "sha256": "72f6e4240ee17d1156a0fb28930e8c8542aba0d5df96d873d9cb202d1f1f0ead",
+      "source_export_id": "glacier_expedition_crate_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet"
+      ],
+      "id": "glacier_field_lab_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_field_lab_v1.tscn",
+      "production_ready": false,
+      "sha256": "0b9f75b62a971ed2fa5764192a281e99506932acfc2b6e8dcc07ded0f6dd1b63",
+      "source_export_id": "glacier_field_lab_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet",
+        "runtime_mesh"
+      ],
+      "id": "glacier_field_lab_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_field_lab_v1.glb",
+      "production_ready": false,
+      "sha256": "3a3f729663dd2f4a46f138daf8132cbd66318db0c47207b84f4977a2def2c820",
+      "source_export_id": "glacier_field_lab_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet"
+      ],
+      "id": "glacier_field_tent_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_field_tent_v1.tscn",
+      "production_ready": false,
+      "sha256": "803dca350822be06ff2e5bee904d67bfa2ae6ea39dd262e6f8c4074fdeff3a9a",
+      "source_export_id": "glacier_field_tent_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet",
+        "runtime_mesh"
+      ],
+      "id": "glacier_field_tent_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_field_tent_v1.glb",
+      "production_ready": false,
+      "sha256": "56bb4d426d1d74df865b5409689e559b3cb5369a735d5c2c9c679124e6e371d0",
+      "source_export_id": "glacier_field_tent_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "glacier_gauntlet",
+        "landmark"
+      ],
+      "id": "glacier_frozen_fall_landmark_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_frozen_fall_landmark_v1.tscn",
+      "production_ready": false,
+      "sha256": "d9c368c2112d7f1ec3d00a59a288b9f3d6eda4f2744a3a9d01249c0cddb6fad7",
+      "source_export_id": "glacier_frozen_fall_landmark_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "glacier_gauntlet",
+        "landmark",
+        "runtime_mesh"
+      ],
+      "id": "glacier_frozen_fall_landmark_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_frozen_fall_landmark_v1.glb",
+      "production_ready": false,
+      "sha256": "4d2b01c76d12680edc1a2f792bcb036b9e70381f547d84c6f9718c811b0a1bd7",
+      "source_export_id": "glacier_frozen_fall_landmark_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "glacier_gauntlet",
+        "landmark"
+      ],
+      "id": "glacier_ice_arch_landmark_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_ice_arch_landmark_v1.tscn",
+      "production_ready": false,
+      "sha256": "7f3f9b152d803a3cb57914a4b18d82e4654a8c74f4eba2a7d349ef7b24e8479e",
+      "source_export_id": "glacier_ice_arch_landmark_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "glacier_gauntlet",
+        "landmark",
+        "runtime_mesh"
+      ],
+      "id": "glacier_ice_arch_landmark_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_ice_arch_landmark_v1.glb",
+      "production_ready": false,
+      "sha256": "db42696d3af511faa73196062ae80227f9e4bd6ce21f4f05851fcb933b0c1d93",
+      "source_export_id": "glacier_ice_arch_landmark_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet"
+      ],
+      "id": "glacier_ice_boulder_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_ice_boulder_v1.tscn",
+      "production_ready": false,
+      "sha256": "af110ecb43252d0b56683f87cbc10d3f1811a8f39a0f6247d3505a1d9ae55b1c",
+      "source_export_id": "glacier_ice_boulder_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet",
+        "runtime_mesh"
+      ],
+      "id": "glacier_ice_boulder_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_ice_boulder_v1.glb",
+      "production_ready": false,
+      "sha256": "edbfd96ff1f0171fe837eafee2834b2879dcfb3885086f4b7f97777f2554e630",
+      "source_export_id": "glacier_ice_boulder_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet"
+      ],
+      "id": "glacier_ice_spire_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_ice_spire_v1.tscn",
+      "production_ready": false,
+      "sha256": "21a76e8264213031a217f90a04b8fc2d72518d069afa9054ada0075cf370861a",
+      "source_export_id": "glacier_ice_spire_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet",
+        "runtime_mesh"
+      ],
+      "id": "glacier_ice_spire_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_ice_spire_v1.glb",
+      "production_ready": false,
+      "sha256": "03819b474dabb398e22057107268278a07f527d65adeed44325f586839a1302d",
+      "source_export_id": "glacier_ice_spire_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet"
+      ],
+      "id": "glacier_layered_ridge_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_layered_ridge_v1.tscn",
+      "production_ready": false,
+      "sha256": "b827d5cdd84081b10f647ca4750723c84d5ecdb41bffddc844d699f69f7ba45d",
+      "source_export_id": "glacier_layered_ridge_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet",
+        "runtime_mesh"
+      ],
+      "id": "glacier_layered_ridge_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_layered_ridge_v1.glb",
+      "production_ready": false,
+      "sha256": "a9f47edb1154cd9d53fa9bb9f45a66b261ee8a6cc4e9fc16571960ad9951a204",
+      "source_export_id": "glacier_layered_ridge_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet"
+      ],
+      "id": "glacier_rescue_sled_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_rescue_sled_v1.tscn",
+      "production_ready": false,
+      "sha256": "88c2161da0c739490dd0a7bf9841369884c50ba9f071fb483995db165d530cd6",
+      "source_export_id": "glacier_rescue_sled_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet",
+        "runtime_mesh"
+      ],
+      "id": "glacier_rescue_sled_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_rescue_sled_v1.glb",
+      "production_ready": false,
+      "sha256": "b81cef4524dd49990fccb3fdaf74f1c35ae2d363c1d8d0f3c038d4eb3c80a30c",
+      "source_export_id": "glacier_rescue_sled_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet"
+      ],
+      "id": "glacier_route_beacon_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_route_beacon_v1.tscn",
+      "production_ready": false,
+      "sha256": "15fab58312c5afb54fafb5d80627b03a998f69549cee90fd5554e07036ed02e4",
+      "source_export_id": "glacier_route_beacon_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet",
+        "runtime_mesh"
+      ],
+      "id": "glacier_route_beacon_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_route_beacon_v1.glb",
+      "production_ready": false,
+      "sha256": "aa907954b24b0629d80429384eef49c2420cfccdf1d5cc23e66a0f3b3487c541",
+      "source_export_id": "glacier_route_beacon_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet"
+      ],
+      "id": "glacier_route_flag_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_route_flag_v1.tscn",
+      "production_ready": false,
+      "sha256": "4ba224364fc71c8667db88db1ffa00fba545e7c19e786273d8ebd34a8fc66b22",
+      "source_export_id": "glacier_route_flag_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet",
+        "runtime_mesh"
+      ],
+      "id": "glacier_route_flag_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_route_flag_v1.glb",
+      "production_ready": false,
+      "sha256": "033729465c53e4eea656a4451361c6a612ffe2ca38c440117262d8b27c2586fb",
+      "source_export_id": "glacier_route_flag_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet"
+      ],
+      "id": "glacier_snow_fence_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_snow_fence_v1.tscn",
+      "production_ready": false,
+      "sha256": "9927c093ddc08dc0e21f47ef4310ed2940c2a982a3ca0bbee06b688231b5cb85",
+      "source_export_id": "glacier_snow_fence_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet",
+        "runtime_mesh"
+      ],
+      "id": "glacier_snow_fence_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_snow_fence_v1.glb",
+      "production_ready": false,
+      "sha256": "2c83836ee7f39b773312dc84849fa1c0c4b119ac21d2eab421390f2b43df8c57",
+      "source_export_id": "glacier_snow_fence_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "glacier_gauntlet",
+        "obstacle"
+      ],
+      "id": "glacier_snowball_warning_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_snowball_warning_v1.tscn",
+      "production_ready": false,
+      "sha256": "12bd73cc2ad82c603d2b48f4bf6cf3b7aa2a97fd02b3e4a4bb6d4b948c1ca877",
+      "source_export_id": "glacier_snowball_warning_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "glacier_gauntlet",
+        "obstacle",
+        "runtime_mesh"
+      ],
+      "id": "glacier_snowball_warning_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_snowball_warning_v1.glb",
+      "production_ready": false,
+      "sha256": "5c3dd9245dd855129071b19bf5418cfde397a014759e332888830614869fe6bd",
+      "source_export_id": "glacier_snowball_warning_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet"
+      ],
+      "id": "glacier_snowbank_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_snowbank_v1.tscn",
+      "production_ready": false,
+      "sha256": "5b0f6ebb313f3ee6022d5b8881b556d5b6abfc901d963478bd25f30fa69bdd11",
+      "source_export_id": "glacier_snowbank_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet",
+        "runtime_mesh"
+      ],
+      "id": "glacier_snowbank_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_snowbank_v1.glb",
+      "production_ready": false,
+      "sha256": "16379e40033aa3363c9bbd1fc29b6e36febbce7c1227768252f47b3f7f726db4",
+      "source_export_id": "glacier_snowbank_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "glacier_gauntlet",
+        "landmark"
+      ],
+      "id": "glacier_summit_station_landmark_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_summit_station_landmark_v1.tscn",
+      "production_ready": false,
+      "sha256": "8e3d442f2d4247f84696c5f12a0b57ccdaed6ac17bef597bac90fe01ac5fc4a3",
+      "source_export_id": "glacier_summit_station_landmark_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "glacier_gauntlet",
+        "landmark",
+        "runtime_mesh"
+      ],
+      "id": "glacier_summit_station_landmark_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_summit_station_landmark_v1.glb",
+      "production_ready": false,
+      "sha256": "3d17dc223a8bbbe7581cd7b37255825e1594d62cdff74329593f96e52fcc5dc8",
+      "source_export_id": "glacier_summit_station_landmark_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "glacier_gauntlet",
+        "material_family"
+      ],
+      "id": "glacier_surface_albedo_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/textures/glacier_surface_albedo_v1.png",
+      "production_ready": false,
+      "sha256": "0de2457de1a8ff92dc6d1c2bea23304c7407c5cd7812a72fa233588c2c99b0cb",
+      "source_export_id": "glacier_edge_kerb_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet"
+      ],
+      "id": "glacier_surface_inlay_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_surface_inlay_v1.tscn",
+      "production_ready": false,
+      "sha256": "b0fd973250133a414757213ea782c274527449efc46ee6fe88bef1e268c7806b",
+      "source_export_id": "glacier_surface_inlay_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet",
+        "runtime_mesh"
+      ],
+      "id": "glacier_surface_inlay_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_surface_inlay_v1.glb",
+      "production_ready": false,
+      "sha256": "fa0f8a838e2ca34d1111d61760b4d10ff3f747e27313d45cae23ecfdb9566737",
+      "source_export_id": "glacier_surface_inlay_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "glacier_gauntlet",
+        "material_family"
+      ],
+      "id": "glacier_surface_material_v1",
+      "kind": "material",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/materials/glacier_surface_v1.tres",
+      "production_ready": false,
+      "sha256": "fc6720138b1a2a4c6086b3e9ff6dc8bd239a60f50ac07fb98f7694297c6e14cc",
+      "source_export_id": "glacier_edge_kerb_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "glacier_gauntlet",
+        "material_family"
+      ],
+      "id": "glacier_surface_normal_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/textures/glacier_surface_normal_v1.png",
+      "production_ready": false,
+      "sha256": "60b6fb078968c8ed620a145e8cbb8db36a7416d6c7f22d8088de36132aced50a",
+      "source_export_id": "glacier_edge_kerb_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "glacier_gauntlet",
+        "material_family"
+      ],
+      "id": "glacier_surface_orm_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/textures/glacier_surface_orm_v1.png",
+      "production_ready": false,
+      "sha256": "4e0cc1f66d84ed18f918e07629f7b66b01e2822cb1a3f27579b81911123dea16",
+      "source_export_id": "glacier_edge_kerb_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet"
+      ],
+      "id": "glacier_track_skin_patch_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_track_skin_patch_v1.tscn",
+      "production_ready": false,
+      "sha256": "72afdbe91f5ad5f1db769650a2f70747573ff2ae265b3b5da27edd3627ab1ff7",
+      "source_export_id": "glacier_track_skin_patch_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet",
+        "runtime_mesh"
+      ],
+      "id": "glacier_track_skin_patch_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_track_skin_patch_v1.glb",
+      "production_ready": false,
+      "sha256": "07ecc475acd67cf82ee4794124334acb09857810a71694420ab11606485ec3cb",
+      "source_export_id": "glacier_track_skin_patch_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet"
+      ],
+      "id": "glacier_weather_mast_v1",
+      "kind": "scene",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_weather_mast_v1.tscn",
+      "production_ready": false,
+      "sha256": "9c9a52c38883f71f08763bd79eb9ce483ee499ecc96cbb0e59192e075f45bcb1",
+      "source_export_id": "glacier_weather_mast_v1"
+    },
+    {
+      "groups": [
+        "course",
+        "course_glacier",
+        "dressing",
+        "glacier_gauntlet",
+        "runtime_mesh"
+      ],
+      "id": "glacier_weather_mast_v1_mesh",
+      "kind": "mesh",
+      "license_id": "project_original",
+      "path": "res://assets/art/courses/glacier/glacier_weather_mast_v1.glb",
+      "production_ready": false,
+      "sha256": "7f33266f41006fc33490864a7fed47843767f74e56b7469102388c0d3b5c09b4",
+      "source_export_id": "glacier_weather_mast_v1"
+    }
+  ],
+  "source_exports": [
+    {
+      "asset_class": "obstacle",
+      "collection": "glacier_boost_marker_v1",
+      "expected": {
+        "bounds_meters_max": [
+          7.0,
+          6.5,
+          3.0
+        ],
+        "lod0_triangles_max": 5000,
+        "lod0_triangles_min": 1500,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_boost_marker_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_boost_marker_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "glacier_camp_lamp_v1",
+      "expected": {
+        "bounds_meters_max": [
+          3.0,
+          3.0,
+          5.0
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_camp_lamp_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_camp_lamp_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "glacier_cave_buttress_v1",
+      "expected": {
+        "bounds_meters_max": [
+          5.5,
+          5.5,
+          10.0
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_cave_buttress_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_cave_buttress_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "obstacle",
+      "collection": "glacier_cracking_ice_marker_v1",
+      "expected": {
+        "bounds_meters_max": [
+          9.0,
+          3.0,
+          4.0
+        ],
+        "lod0_triangles_max": 5000,
+        "lod0_triangles_min": 1500,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_cracking_ice_marker_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_cracking_ice_marker_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "obstacle",
+      "collection": "glacier_duck_gate_v1",
+      "expected": {
+        "bounds_meters_max": [
+          18.0,
+          3.0,
+          5.0
+        ],
+        "lod0_triangles_max": 5000,
+        "lod0_triangles_min": 1500,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_duck_gate_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_duck_gate_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "glacier_edge_kerb_v1",
+      "expected": {
+        "bounds_meters_max": [
+          1.5,
+          6.5,
+          2.0
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_edge_kerb_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_edge_kerb_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "glacier_expedition_crate_v1",
+      "expected": {
+        "bounds_meters_max": [
+          2.5,
+          2.5,
+          2.0
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_expedition_crate_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_expedition_crate_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "glacier_field_lab_v1",
+      "expected": {
+        "bounds_meters_max": [
+          10.0,
+          12.0,
+          6.0
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_field_lab_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_field_lab_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "glacier_field_tent_v1",
+      "expected": {
+        "bounds_meters_max": [
+          6.0,
+          5.5,
+          4.0
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_field_tent_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_field_tent_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "landmark",
+      "collection": "glacier_frozen_fall_landmark_v1",
+      "expected": {
+        "bounds_meters_max": [
+          40.0,
+          18.0,
+          24.0
+        ],
+        "lod0_triangles_max": 30000,
+        "lod0_triangles_min": 10000,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 3,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_frozen_fall_landmark_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_frozen_fall_landmark_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "landmark",
+      "collection": "glacier_ice_arch_landmark_v1",
+      "expected": {
+        "bounds_meters_max": [
+          40.0,
+          15.0,
+          22.0
+        ],
+        "lod0_triangles_max": 30000,
+        "lod0_triangles_min": 10000,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 3,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_ice_arch_landmark_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_ice_arch_landmark_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "glacier_ice_boulder_v1",
+      "expected": {
+        "bounds_meters_max": [
+          5.0,
+          5.0,
+          4.0
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_ice_boulder_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_ice_boulder_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "glacier_ice_spire_v1",
+      "expected": {
+        "bounds_meters_max": [
+          8.0,
+          8.0,
+          8.0
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_ice_spire_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_ice_spire_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "glacier_layered_ridge_v1",
+      "expected": {
+        "bounds_meters_max": [
+          100.0,
+          24.0,
+          44.0
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_layered_ridge_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_layered_ridge_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "glacier_rescue_sled_v1",
+      "expected": {
+        "bounds_meters_max": [
+          3.0,
+          7.0,
+          2.0
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_rescue_sled_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_rescue_sled_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "glacier_route_beacon_v1",
+      "expected": {
+        "bounds_meters_max": [
+          2.5,
+          2.5,
+          4.5
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_route_beacon_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_route_beacon_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "glacier_route_flag_v1",
+      "expected": {
+        "bounds_meters_max": [
+          2.5,
+          1.5,
+          4.0
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_route_flag_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_route_flag_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "glacier_snow_fence_v1",
+      "expected": {
+        "bounds_meters_max": [
+          6.0,
+          3.5,
+          3.0
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_snow_fence_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_snow_fence_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "obstacle",
+      "collection": "glacier_snowball_warning_v1",
+      "expected": {
+        "bounds_meters_max": [
+          7.0,
+          3.0,
+          5.0
+        ],
+        "lod0_triangles_max": 5000,
+        "lod0_triangles_min": 1500,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_snowball_warning_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_snowball_warning_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "glacier_snowbank_v1",
+      "expected": {
+        "bounds_meters_max": [
+          7.0,
+          4.0,
+          2.0
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_snowbank_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_snowbank_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "landmark",
+      "collection": "glacier_summit_station_landmark_v1",
+      "expected": {
+        "bounds_meters_max": [
+          42.0,
+          18.0,
+          16.0
+        ],
+        "lod0_triangles_max": 30000,
+        "lod0_triangles_min": 10000,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 3,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_summit_station_landmark_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_summit_station_landmark_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "glacier_surface_inlay_v1",
+      "expected": {
+        "bounds_meters_max": [
+          2.5,
+          6.5,
+          0.5
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_surface_inlay_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_surface_inlay_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "glacier_track_skin_patch_v1",
+      "expected": {
+        "bounds_meters_max": [
+          10.0,
+          8.0,
+          0.3
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_track_skin_patch_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_track_skin_patch_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    },
+    {
+      "asset_class": "repeated_prop",
+      "collection": "glacier_weather_mast_v1",
+      "expected": {
+        "bounds_meters_max": [
+          3.0,
+          3.0,
+          6.0
+        ],
+        "lod0_triangles_max": 1500,
+        "lod0_triangles_min": 300,
+        "pivot_policy": "ground_center",
+        "pivot_tolerance_m": 0.01,
+        "surfaces_max": 1,
+        "texture_size_max": 2048
+      },
+      "export_animations": false,
+      "forward_axis": "-Z",
+      "id": "glacier_weather_mast_v1",
+      "license_id": "project_original",
+      "output": "assets/art/courses/glacier/glacier_weather_mast_v1.glb",
+      "source": "art_src/courses/glacier/glacier_gauntlet_kit_v1.blend",
+      "source_sha256": "10e744512f246708782df740243f5ac93fdd9f91b805c7778a09d19b251da9d4"
+    }
+  ]
+}

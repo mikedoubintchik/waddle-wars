@@ -29,6 +29,7 @@ func _ready() -> void:
 	_test_save_round_trip()
 	_test_save_corruption_recovery()
 	_test_default_settings()
+	_test_ui_font_contract()
 	_test_settings_round_trip()
 	_test_cosmetics_db()
 	_test_achievements_db()
@@ -36,6 +37,7 @@ func _ready() -> void:
 	_test_progression()
 	await _test_racer_instantiation()
 	_test_path_guide()
+	await _test_track_build_result_contract()
 	await _test_powerup_activation()
 	await _test_backward_snowball()
 	await _test_shield_lifetime()
@@ -43,11 +45,181 @@ func _ready() -> void:
 	await _test_pause_settings_round_trip()
 	await _test_setup_entry_step()
 	_test_daily_challenge()
+	_test_grand_prix_cup()
+	await _test_unstick_watchdog()
 	_test_tilt_steering()
 	await _test_menu_scenes()
 	await _test_touch_controls()
 	print("[unit] DONE: %d passed, %d failed, %d skipped" % [_passes, _failures, _skips])
 	get_tree().quit(1 if _failures > 0 else 0)
+
+
+## --- Unstick watchdog -------------------------------------------------------
+
+## The AI has had a stuck-detector since the beginning; the player never did,
+## so a player wedged against geometry above the kill plane had no way out but
+## the pause menu. These checks hold the rescue to being conservative: it must
+## fire on a genuinely pinned racer and must not fire on one that is moving or
+## making progress.
+func _test_unstick_watchdog() -> void:
+	var racer := Racer.new()
+	add_child(racer)
+	racer.setup("stuck_player", "Wedged", true, {}, RacerController.new(), null)
+	await get_tree().physics_frame
+
+	# No course means no rescue: there is nowhere to send the racer.
+	for _i: int in 200:
+		racer._check_stuck(0.05)
+	_check("unstick_needs_a_course", racer._unstick_timer == 0.0,
+		"timer ran to %f without a course" % racer._unstick_timer)
+
+	# racer.course is typed CourseBase, so the stand-in has to be one. It is
+	# never added to the tree -- the watchdog only needs the reference to be
+	# non-null, and building a real course here would cost the whole scene.
+	var course := CourseBase.new()
+	racer.course = course
+	racer.current_speed = 0.0
+	racer.progress = 100.0
+	racer._unstick_progress_mark = -1.0
+	# A lambda captures by VALUE in GDScript, so an int counter incremented
+	# inside one never reaches the caller. A Dictionary is captured by
+	# reference and does.
+	var seen := {"rescues": 0}
+	racer.unstick_pending.connect(func(_r: Racer) -> void:
+		seen["rescues"] = int(seen["rescues"]) + 1)
+
+	# Not on a wall in a bare test scene, so the patient window applies.
+	var window := int(Racer.UNSTICK_WINDOW_IDLE / 0.05) + 2
+	for _i: int in window:
+		racer._check_stuck(0.05)
+	_check("unstick_fires_when_pinned", int(seen["rescues"]) == 1, "fired %d times" % int(seen["rescues"]))
+
+	# The case this exists for: a racer waddling at full tilt straight into a
+	# wall. It is moving fast and going nowhere, and it must still be rescued.
+	# A speed test used to rearm the watchdog here, so this is the check that
+	# would have caught the first version of the fix.
+	seen["rescues"] = 0
+	racer.state = Racer.State.WADDLING
+	racer.current_speed = 9.0
+	racer.progress = 100.0
+	racer._unstick_progress_mark = -1.0
+	for _i: int in window:
+		racer._check_stuck(0.05)
+	_check("unstick_rescues_a_racer_running_into_a_wall",
+		int(seen["rescues"]) == 1, "fired %d times" % int(seen["rescues"]))
+
+	# Neither is crawling forward: progress alone rearms the window.
+	seen["rescues"] = 0
+	racer.state = Racer.State.WADDLING
+	racer.progress = 100.0
+	racer._unstick_progress_mark = -1.0
+	for i: int in window * 2:
+		racer.progress += Racer.UNSTICK_PROGRESS
+		racer._check_stuck(0.05)
+	_check("unstick_ignores_a_racer_making_progress", int(seen["rescues"]) == 0,
+		"fired %d times" % int(seen["rescues"]))
+
+	# A finished racer holds position on purpose.
+	seen["rescues"] = 0
+	racer.current_speed = 0.0
+	racer.state = Racer.State.FINISHED
+	racer._unstick_progress_mark = -1.0
+	for _i: int in window * 2:
+		racer._check_stuck(0.05)
+	_check("unstick_leaves_a_finished_racer_alone", int(seen["rescues"]) == 0,
+		"fired %d times" % int(seen["rescues"]))
+
+	# AI racers keep their own watchdog, which also re-picks a route.
+	seen["rescues"] = 0
+	racer.state = Racer.State.WADDLING
+	racer.is_player = false
+	racer._unstick_progress_mark = -1.0
+	for _i: int in window * 2:
+		racer._check_stuck(0.05)
+	_check("unstick_leaves_ai_to_its_own_watchdog", int(seen["rescues"]) == 0,
+		"fired %d times" % int(seen["rescues"]))
+
+	# A racer held by the countdown is standing still on purpose.
+	seen["rescues"] = 0
+	racer.is_player = true
+	racer.state = Racer.State.WADDLING
+	racer.current_speed = 0.0
+	racer._unstick_progress_mark = -1.0
+	var held := PlayerController.new()
+	held.input_enabled = false
+	racer.controller = held
+	for _i: int in window * 2:
+		racer._check_stuck(0.05)
+	_check("unstick_waits_for_the_countdown", int(seen["rescues"]) == 0,
+		"fired %d times" % int(seen["rescues"]))
+	racer.controller = RacerController.new()
+
+	racer.course = null
+	course.free()
+	racer.queue_free()
+	await get_tree().process_frame
+
+
+## --- Grand Prix ------------------------------------------------------------
+
+## The cup used to be awarded from inside the results screen's panel building,
+## so the record depended on which panels a layout happened to build and a
+## rotation re-entered the mutation. It is settled by the race flow now; these
+## checks hold that line.
+func _test_grand_prix_cup() -> void:
+	var saved_mode := Game.mode
+	var saved_course := Game.course_id
+	var rounds := CoursesDB.GRAND_PRIX_ORDER.size()
+
+	Game.mode = Game.Mode.GRAND_PRIX
+	Game.gp_round = 0
+	Game.gp_points = {}
+	Game.gp_times = {}
+	Game.gp_cup_complete = false
+	Game.gp_cup_place = 1
+
+	var podium := func(player_position: int) -> Array[Dictionary]:
+		var rows: Array[Dictionary] = []
+		rows.append({"key": "player", "name": "You", "is_player": true,
+			"position": player_position, "time": 100.0, "fish": 0, "dnf": false})
+		var rivals: PackedStringArray = ["gus", "marina", "nova"]
+		var place := 1
+		for rival: String in rivals:
+			if place == player_position:
+				place += 1
+			rows.append({"key": rival, "name": rival, "is_player": false,
+				"position": place, "time": 101.0 + place, "fish": 0, "dnf": false})
+			place += 1
+		return rows
+
+	# Every round but the last leaves the cup open.
+	for round_index: int in rounds - 1:
+		Game.award_grand_prix_round(podium.call(1))
+		_check("gp_cup_open_after_round_%d" % round_index, not Game.gp_cup_complete,
+			"cup settled early at round %d" % round_index)
+		Game.gp_round += 1
+
+	Game.award_grand_prix_round(podium.call(1))
+	_check("gp_cup_settles_on_final_round", Game.gp_cup_complete)
+	_check("gp_cup_place_recorded", Game.gp_cup_place == 1,
+		"place was %d" % Game.gp_cup_place)
+	_check("gp_round_marked_complete", Game.gp_round == rounds,
+		"gp_round was %d" % Game.gp_round)
+	var points_after := int(Game.gp_points.get("player", 0))
+	# A second finish (a rebuild, a re-entered results screen) must not re-award.
+	Game.award_grand_prix_round(podium.call(1))
+	_check("gp_cup_settle_is_idempotent",
+		Game.gp_cup_complete and Game.gp_round == rounds,
+		"gp_round drifted to %d" % Game.gp_round)
+	_check("gp_cup_points_final", int(Game.gp_points.get("player", 0)) > points_after,
+		"points must still accrue per finish, not reset")
+
+	Game.mode = saved_mode
+	Game.course_id = saved_course
+	Game.gp_round = 0
+	Game.gp_points = {}
+	Game.gp_times = {}
+	Game.gp_cup_complete = false
 
 
 ## --- Reporting helpers -----------------------------------------------------
@@ -150,6 +322,12 @@ func _test_default_settings() -> void:
 	_check("settings_defaults_music_range", music >= 0.0 and music <= 1.0, "music=%f" % music)
 	_check("settings_defaults_touch_mode",
 		String(defaults["gameplay"]["touch_controls"]) in ["auto", "on", "off"])
+
+
+func _test_ui_font_contract() -> void:
+	var font := UITheme.ui_font()
+	_check("ui_font_loads", font != null)
+	_check("ui_font_has_latin", font != null and font.has_char("A".unicode_at(0)))
 
 
 ## --- 4. Settings round trip ------------------------------------------------
@@ -258,13 +436,16 @@ func _test_progression() -> void:
 	_check("progression_spend_fish_insufficient",
 		not Progression.spend_fish(1000) and Progression.get_fish() == 60)
 
-	# hat_crown costs 400, balance is 60: unlock must fail without charging.
+	# Exercise the current catalog price, not a retired economy constant.
 	_check("progression_unlock_insufficient",
 		not Progression.try_unlock_cosmetic("hat_crown") and Progression.get_fish() == 60)
-	# hat_beanie costs 50: unlock must succeed and charge exactly 50.
+	var beanie_cost := int(CosmeticsDB.get_item("hat_beanie")["cost"])
+	Progression.add_fish(beanie_cost)
+	var balance_before_unlock := Progression.get_fish()
 	var unlocked := Progression.try_unlock_cosmetic("hat_beanie")
 	_check("progression_unlock_success",
-		unlocked and Progression.is_cosmetic_unlocked("hat_beanie") and Progression.get_fish() == 10,
+		unlocked and Progression.is_cosmetic_unlocked("hat_beanie")
+		and Progression.get_fish() == balance_before_unlock - beanie_cost,
 		"fish=%d" % Progression.get_fish())
 
 	Progression.equip("hat", "hat_beanie")
@@ -323,6 +504,46 @@ func _test_path_guide() -> void:
 	var mid := guide.position_at(guide.length * 0.5)
 	_check("path_guide_position_finite",
 		is_finite(mid.x) and is_finite(mid.y) and is_finite(mid.z))
+
+
+## --- 10b. Semantic track result keeps legacy geometry stable --------------
+
+func _test_track_build_result_contract() -> void:
+	var course := CourseBase.new()
+	var points: Array = [
+		{"pos": Vector3(0.0, 2.0, 12.0), "width": 14.0,
+			"surface": SurfacesDB.Surface.PACKED_SNOW},
+		{"pos": Vector3(0.0, 1.0, -12.0), "width": 15.0,
+			"surface": SurfacesDB.Surface.PACKED_SNOW},
+		{"pos": Vector3(8.0, 0.0, -36.0), "width": 16.0,
+			"surface": SurfacesDB.Surface.ICE_SMOOTH},
+		{"pos": Vector3(12.0, -1.0, -60.0), "width": 16.0,
+			"surface": SurfacesDB.Surface.ICE_SMOOTH},
+	]
+	await course.setup_main(points)
+	var result := course.main_track_result
+	_check("track_result_valid", result != null and result.is_valid())
+	if result == null:
+		course.free()
+		return
+	_check("track_result_guide_identity",
+		result.guide == course.main_guide
+		and result.root.get_meta("guide", null) == course.main_guide)
+	_check("track_result_surface_runs", not result.surface_runs.is_empty(),
+		"runs=%d" % result.surface_runs.size())
+	_check("track_result_edge_samples_paired",
+		result.edge_left.size() > 2
+		and result.edge_left.size() == result.edge_right.size(),
+		"left=%d right=%d" % [result.edge_left.size(), result.edge_right.size()])
+	_check("track_result_legacy_child_layout",
+		not result.uses_split_roots
+		and result.visual_root == result.root
+		and result.collision_root == result.root
+		and result.root.name == "MainTrack"
+		and result.root.get_child_count() > 0,
+		"split=%s children=%d" % [result.uses_split_roots,
+			result.root.get_child_count()])
+	course.free()
 
 
 ## --- 11. Every powerup activates -------------------------------------------
@@ -725,6 +946,8 @@ func _test_menu_scenes() -> void:
 	Game.last_race_results = rows
 	Game.last_rewards = {"fish": 63, "xp": 145, "unlocks": []}
 
+	var runtime_theme_ok := true
+	var bad_theme_path := ""
 	for path: String in MENU_SCENES:
 		var short := path.get_file()
 		if not ResourceLoader.exists(path):
@@ -740,10 +963,16 @@ func _test_menu_scenes() -> void:
 		await get_tree().process_frame
 		var node_count := _count_nodes(instance)
 		var has_script := instance.get_script() != null
+		if path.begins_with("res://scenes/menus/"):
+			var control := instance as Control
+			if control == null or control.theme != UITheme.runtime_theme():
+				runtime_theme_ok = false
+				bad_theme_path = path
 		_check("menu_load_%s" % short, has_script and node_count > 3,
 			"script=%s nodes=%d" % [str(has_script), node_count])
 		instance.queue_free()
 		await get_tree().process_frame
+	_check("menu_roots_runtime_theme", runtime_theme_ok, bad_theme_path)
 
 
 ## --- 13. Touch controls instantiate ----------------------------------------

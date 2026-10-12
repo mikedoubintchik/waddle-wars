@@ -17,20 +17,45 @@ func _ready() -> void:
 			course = _instantiate_course_script("res://scripts/courses/course_tutorial.gd")
 		_:
 			var info := CoursesDB.get_item(course_id)
+			if info.is_empty():
+				# An id with no database entry used to fall through to glacier
+				# geometry while times and records were still filed under the
+				# unknown id — a wrong record is worse than no race. Refuse.
+				push_error("Race: unknown course id '%s'; returning to the menu" % course_id)
+				SceneRouter.go_to(Game.SCENE_MAIN_MENU)
+				return
 			course = _instantiate_course_script(String(info.get("script", "res://scripts/courses/course_glacier.gd")))
+	# Course construction still runs in _ready/staged coroutines, but moving
+	# platforms and hazard timers must not advance underneath the loader.
+	# Tutorial/endless own their distinct start boundaries; standard races
+	# release this hold only at GO through RaceManager.
+	if Game.mode != Game.Mode.ENDLESS and Game.mode != Game.Mode.TUTORIAL:
+		course.process_mode = Node.PROCESS_MODE_DISABLED
 	course.add_to_group(&"course")
 	add_child(course)
+	# On web the course builds itself over several frames so the loading
+	# animation keeps running through it (CourseBase.stage()); everywhere else
+	# this returns without suspending and the scene is assembled in one go.
+	# Nothing below may touch course geometry before this resolves.
+	await course.build_ready()
 
 	var powerups := PowerupSystem.new()
 	add_child(powerups)
 
-	if Game.mode == Game.Mode.ENDLESS and course.has_method("run_endless"):
-		course.call("run_endless", self, powerups)
-		ShaderWarmup.warm(self)
-		return
-	if Game.mode == Game.Mode.TUTORIAL and course.has_method("run_tutorial"):
-		course.call("run_tutorial", self, powerups)
-		ShaderWarmup.warm(self)
+	# Endless and Tutorial are whole flows, not variations on a race: they own
+	# their own managers, their own finish call and their own results panels.
+	# A course that cannot run them used to fall through to a standard race,
+	# which then finished through finish_race while the results screen drew
+	# endless panels off Game.mode and read a result nobody had written.
+	# Refuse the run instead of showing the player a blank scoreboard.
+	if Game.mode == Game.Mode.ENDLESS or Game.mode == Game.Mode.TUTORIAL:
+		var entry := "run_endless" if Game.mode == Game.Mode.ENDLESS else "run_tutorial"
+		if not course.has_method(entry):
+			push_error("Race: course '%s' cannot run %s; returning to the menu"
+				% [course_id, entry])
+			SceneRouter.go_to(Game.SCENE_MAIN_MENU)
+			return
+		course.call(entry, self, powerups)
 		return
 
 	Game.used_item_this_race = false
@@ -102,18 +127,21 @@ func _ready() -> void:
 	var music := String(CoursesDB.get_item(course_id).get("music", "music_race"))
 	AudioManager.play_music(music)
 
-	# Course geometry, props, HUD and the chase camera all exist now, and the
-	# racers are queued on the deferred flush — the last moment before anything
-	# is playable and the last moment SceneRouter's opaque overlay is still up.
-	# ShaderWarmup links every first-sight GPU program here so Chrome's
-	# ANGLE -> Metal path cannot stall a frame mid-race on a material it has
-	# never drawn. It runs for two or three frames and frees itself; headless
-	# sims skip it entirely.
-	ShaderWarmup.warm(self)
+	# Actor setup is still deferred/staged here. RaceManager starts the one-shot
+	# visual census after the final grid placement; TutorialManager owns the
+	# equivalent boundary for Waddle School. Collecting here missed late meshes.
 
 
 ## Runs after RaceManager's deferred player.setup, so the controller exists.
+## On the staged (web) path the spawns are drained a couple per frame, so the
+## controller can still be missing on the first deferred pass — wait for it
+## rather than storing the null TouchControls used to store.
 func _setup_touch_deferred(touch: TouchControls) -> void:
+	while is_instance_valid(touch) and manager != null and manager.player != null \
+			and manager.player.controller == null:
+		await get_tree().process_frame
+	if not is_instance_valid(touch) or manager == null or manager.player == null:
+		return
 	touch.setup(manager.player.controller as PlayerController)
 
 

@@ -1,0 +1,985 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Waddle Wars — local Chrome runner probe</title>
+  <style>
+    html,body{margin:0;background:#0a1020;color:#e0efff;font:13px system-ui;overflow:auto}
+    @@CANVAS_CSS@@
+    #status{position:fixed;top:8px;left:8px;max-width:90vw;padding:8px 12px;background:#07111fe8;z-index:5;white-space:pre-wrap;pointer-events:none}
+    #start-diagnostic{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:16px 24px;border:2px solid #c0eaff;border-radius:8px;background:#173c58;color:#fff;font:inherit;font-size:18px;z-index:6;cursor:pointer}
+    #capture-lifecycle{position:fixed;top:8px;right:8px;padding:10px 14px;border:2px solid #c0eaff;border-radius:8px;background:#173c58;color:#fff;font:13px system-ui;z-index:6;cursor:pointer}
+    #start-diagnostic:focus-visible,#capture-lifecycle:focus-visible{outline:3px solid #ffdb75;outline-offset:4px}
+  </style>
+  @@CANVAS_POLICY_HEAD@@
+</head>
+<body>
+  <canvas id="canvas"@@CANVAS_ATTRIBUTES@@></canvas>
+  <output id="status">Loading local runner probe…</output>
+  <button id="start-diagnostic" type="button" aria-describedby="status" hidden>Start diagnostic</button>
+  <button id="capture-lifecycle" type="button" hidden>Save lifecycle snapshot</button>
+  <script>
+  "use strict";
+  const runConfig = @@RUN_CONFIG@@;
+  const statusNode = document.getElementById("status");
+  const startButton = document.getElementById("start-diagnostic");
+  const captureButton = document.getElementById("capture-lifecycle");
+  const entryMode = runConfig.entry === "app" ? "app" : "runner";
+  const manualStart = new URLSearchParams(location.search).get("manualstart") === "1";
+  const marks = {shell_ready: performance.now()};
+  const rendererInfo = {requested: new URLSearchParams(location.search).get("rendererinfo") === "1",
+    status: "disabled", attempted: false, start_ms: null, end_ms: null,
+    scope: "Opt-in one-time metadata from the already-started full-app main canvas WebGL2 context. Separate diagnostic GL queries, not shader-trace call timing or performance acceptance. No context attributes, browser settings, shader compilation, readback or renderer changes. Worker contexts are outside scope. Masked strings alone do not prove hardware acceleration; unmasked strings can be unavailable.",
+    string_limit: 256, masked_vendor: null, masked_renderer: null,
+    unmasked_vendor: null, unmasked_renderer: null,
+    debug_renderer_info_available: null, khr_parallel_shader_compile_advertised: null,
+    truncated_fields: [], unavailable: []};
+  if (rendererInfo.requested) rendererInfo.status = entryMode === "app" ? "waiting_for_engine_started" : "unsupported_entry";
+  function captureRendererInfo() {
+    if (!rendererInfo.requested || rendererInfo.attempted || entryMode !== "app" ||
+        marks.engine_started === undefined || finished) return;
+    rendererInfo.attempted = true;
+    rendererInfo.start_ms = performance.now();
+    try {
+      // Engine start has already created this canvas's context. Do not query a
+      // throwaway canvas or supply attributes that could alter the game context.
+      const canvas = document.getElementById("canvas");
+      let context;
+      try { context = canvas && canvas.getContext("webgl2"); }
+      catch (_) { rendererInfo.unavailable.push("main_canvas_context_query_failed"); }
+      if (!context) {
+        if (!rendererInfo.unavailable.length) rendererInfo.unavailable.push("main_canvas_webgl2_context_unavailable");
+        rendererInfo.status = "unavailable";
+        return;
+      }
+      const retainString = (field, queryEnum) => {
+        try {
+          const value = context.getParameter(queryEnum);
+          if (typeof value !== "string") { rendererInfo.unavailable.push(field + "_not_string"); return; }
+          rendererInfo[field] = value.slice(0, rendererInfo.string_limit);
+          if (value.length > rendererInfo.string_limit) rendererInfo.truncated_fields.push(field);
+        } catch (_) { rendererInfo.unavailable.push(field + "_query_failed"); }
+      };
+      retainString("masked_vendor", 7936);
+      retainString("masked_renderer", 7937);
+      try {
+        const names = context.getSupportedExtensions();
+        if (Array.isArray(names)) rendererInfo.khr_parallel_shader_compile_advertised = names.includes("KHR_parallel_shader_compile");
+        else rendererInfo.unavailable.push("supported_extensions_unavailable");
+      } catch (_) { rendererInfo.unavailable.push("supported_extensions_query_failed"); }
+      try {
+        const extension = context.getExtension("WEBGL_debug_renderer_info");
+        if (extension === null) rendererInfo.debug_renderer_info_available = false;
+        else if (typeof extension === "object" || typeof extension === "function") rendererInfo.debug_renderer_info_available = true;
+        else rendererInfo.unavailable.push("debug_renderer_info_invalid_return");
+      } catch (_) { rendererInfo.unavailable.push("debug_renderer_info_query_failed"); }
+      if (rendererInfo.debug_renderer_info_available === true) {
+        retainString("unmasked_vendor", 37445);
+        retainString("unmasked_renderer", 37446);
+      } else if (rendererInfo.debug_renderer_info_available === false) {
+        rendererInfo.unavailable.push("debug_renderer_info_unavailable");
+      }
+      rendererInfo.status = rendererInfo.unavailable.length ? "partial" : "active";
+    } finally { rendererInfo.end_ms = performance.now(); }
+  }
+  const lifecycleEvents = {
+    scope: "Opt-in engine lifecycle edges on this page's performance.now timeline; append-only and not RAF phase attribution",
+    limit: 128, field_limit: 8, field_string_limit: 256,
+    seen: 0, rows: [], dropped: 0, invalid: 0,
+  };
+  const trustedInputLatency = {
+    scope: "Trusted page-content pointer/key dispatch only; excludes browser chrome, automation round-trip and proof of visual presentation",
+    timing_scope: "event.timeStamp, capture-handler performance.now and first following RAF share the page time origin",
+    privacy_scope: "Retains event type and target tag only; no key, text, value, coordinates, id or DOM path",
+    limit: 64, seen: 0, rows: [], dropped: 0, untrusted_ignored: 0,
+    pending_raf_cancelled_at_finish: 0,
+  };
+  const trustedInputRAFIDs = new Set();
+  const visibility = [{ms: performance.now(), state: document.visibilityState}];
+  let visibilityDropped = 0;
+  let finished = false;
+  let rafID = 0, previousRAF = null, rafCount = 0, rafMax = 0, rafDropped = 0;
+  const rafSlow = [];
+  const rafPreEngine = {scope: "Intervals ending before engine_start; waiting for manual start is not game startup",
+    limit: 32, intervals: 0, max_ms: 0, slow_frames_over_50_ms: [], rows_dropped: 0};
+  const rafPhases = {startup: {limit: 64, retained: 0, dropped: 0},
+    after_first_running: {limit: 64, retained: 0, dropped: 0},
+    app_unclassified: {limit: 128, retained: 0, dropped: 0}};
+  const canvasPolicyMode = runConfig.canvas_policy === "production" ? "production" : "fixed";
+  const canvasSamples = {};
+  const ownedEngineURL = new URL("$GODOT_URL", location.href).href;
+  const pageErrors = {scope: "Bounded page diagnostics; extension and unattributed events do not end the probe",
+    limit: 32, message_limit: 500, stack_limit: 1500, rows: [], dropped: 0};
+  function recordPageError(kind, event) {
+    const reason = kind === "unhandledrejection" ? event.reason : event.error;
+    const message = String(kind === "unhandledrejection" ? reason : event.message || "Page error");
+    const source = typeof event.filename === "string" ? event.filename : "";
+    const stack = reason && typeof reason.stack === "string" ? reason.stack : "";
+    const extension = /(?:chrome|moz|safari-web)-extension:\/\//i.test(source + "\n" + stack);
+    // A rejected promise has no reliable script-owner field. Stack frames or
+    // message text alone cannot establish that Godot created the promise.
+    const owned = kind === "error" && !extension && source === ownedEngineURL;
+    const classification = extension ? "extension" : owned ? "owned_engine_script" : "unattributed";
+    if (pageErrors.rows.length < pageErrors.limit) {
+      pageErrors.rows.push({kind, classification, ms: performance.now(),
+        message: message.slice(0, pageErrors.message_limit), message_truncated: message.length > pageErrors.message_limit,
+        source: source.slice(0, 1000), source_truncated: source.length > 1000,
+        stack: stack.slice(0, pageErrors.stack_limit), stack_truncated: stack.length > pageErrors.stack_limit});
+    } else pageErrors.dropped++;
+    return classification;
+  }
+  const glTrace = {enabled: new URLSearchParams(location.search).get("webgltrace") === "1",
+    scope: "Synchronous JavaScript WebGL2 call CPU duration; not GPU timestamps. Instrumentation adds overhead.",
+    threshold_ms: 8, limit: 256, calls: {}, slow_calls: [], dropped: 0, unavailable: []};
+  if (glTrace.enabled) {
+    const proto = window.WebGL2RenderingContext && WebGL2RenderingContext.prototype;
+    for (const name of ["compileShader", "linkProgram", "getProgramParameter", "getShaderParameter",
+                        "bufferData", "texImage2D", "renderbufferStorageMultisample"]) {
+      if (!proto || typeof proto[name] !== "function") { glTrace.unavailable.push(name); continue; }
+      const original = proto[name];
+      glTrace.calls[name] = {count: 0, total_cpu_ms: 0, max_cpu_ms: 0, over_threshold: 0};
+      proto[name] = function (...args) {
+        const started = performance.now();
+        try { return original.apply(this, args); }
+        finally {
+          const elapsed = performance.now() - started;
+          const totals = glTrace.calls[name];
+          totals.count++; totals.total_cpu_ms += elapsed;
+          totals.max_cpu_ms = Math.max(totals.max_cpu_ms, elapsed);
+          if (elapsed >= glTrace.threshold_ms) {
+            totals.over_threshold++;
+            if (glTrace.slow_calls.length < glTrace.limit) {
+              glTrace.slow_calls.push({name, start_ms: started, duration_ms: elapsed,
+                phase: marks.first_running === undefined ? "startup" : "after_first_running"});
+            } else glTrace.dropped++;
+          }
+        }
+      };
+    }
+  }
+  const presentationTrace = {enabled: new URLSearchParams(location.search).get("presentationtrace") === "1",
+    scope: "Whole-page synchronous JavaScript WebGL2 call wall duration, including waits; not GPU timestamps or CPU execution time. Instrumentation adds overhead. Only numeric getParameter enums 3089/36006 and blitFramebuffer are timed; no query results or other arguments retained.",
+    threshold_ms: 8, limit: 128, calls: {}, slow_calls: [], dropped: 0, unavailable: []};
+  if (presentationTrace.enabled) {
+    const proto = window.WebGL2RenderingContext && WebGL2RenderingContext.prototype;
+    for (const name of ["getParameter", "blitFramebuffer"]) {
+      if (!proto || typeof proto[name] !== "function") { presentationTrace.unavailable.push(name); continue; }
+      const original = proto[name];
+      for (const queryEnum of name === "getParameter" ? [3089, 36006] : [null]) {
+        const key = queryEnum === null ? name : name + ":" + queryEnum;
+        presentationTrace.calls[key] = {count: 0, total_wall_ms: 0, max_wall_ms: 0, over_threshold: 0};
+      }
+      proto[name] = function () {
+        // Do not coerce arguments or inspect returned WebGL objects. Other
+        // queries keep the original call path without timer/bookkeeping work.
+        const queryEnum = name === "getParameter" ? arguments[0] : null;
+        if (name === "getParameter" && queryEnum !== 3089 && queryEnum !== 36006) {
+          return Reflect.apply(original, this, arguments);
+        }
+        const key = queryEnum === null ? name : name + ":" + queryEnum;
+        const phase = marks.first_running === undefined ? "startup" : "after_first_running";
+        const started = performance.now();
+        try { return Reflect.apply(original, this, arguments); }
+        finally {
+          const elapsed = performance.now() - started;
+          const totals = presentationTrace.calls[key];
+          totals.count++; totals.total_wall_ms += elapsed;
+          totals.max_wall_ms = Math.max(totals.max_wall_ms, elapsed);
+          if (elapsed >= presentationTrace.threshold_ms) {
+            totals.over_threshold++;
+            if (presentationTrace.slow_calls.length < presentationTrace.limit) {
+              const row = {name, start_ms: started, duration_ms: elapsed, phase};
+              if (queryEnum !== null) row.query_enum = queryEnum;
+              presentationTrace.slow_calls.push(row);
+            } else presentationTrace.dropped++;
+          }
+        }
+      };
+    }
+  }
+  const renderTrace = {enabled: new URLSearchParams(location.search).get("rendertrace") === "1",
+    scope: "Whole-page synchronous JavaScript WebGL2 call wall latency, including waits; not GPU timestamps or CPU/GPU execution time. Instruments existing calls only, never issues GL calls for measurement. Instrumentation adds overhead; no argument, buffer or return values retained.",
+    phase_scope: "Per-method by_phase counters use phase at call start; startup versus after_first_running. Fixed counters, no per-frame records.",
+    threshold_ms: 8, limit: 128, calls: {}, slow_calls: [], dropped: 0, unavailable: []};
+  if (renderTrace.enabled) {
+    const proto = window.WebGL2RenderingContext && WebGL2RenderingContext.prototype;
+    const emptyTotals = () => ({count: 0, total_wall_ms: 0, max_wall_ms: 0, over_threshold: 0});
+    for (const name of ["drawArrays", "drawElements", "drawArraysInstanced", "drawElementsInstanced",
+                        "bufferSubData", "texSubImage2D", "bindFramebuffer", "clientWaitSync", "finish", "flush"]) {
+      if (!proto || typeof proto[name] !== "function") { renderTrace.unavailable.push(name); continue; }
+      const original = proto[name];
+      const totals = emptyTotals();
+      totals.by_phase = {startup: emptyTotals(), after_first_running: emptyTotals()};
+      renderTrace.calls[name] = totals;
+      proto[name] = function () {
+        const phase = marks.first_running === undefined ? "startup" : "after_first_running";
+        const started = performance.now();
+        try { return Reflect.apply(original, this, arguments); }
+        finally {
+          const elapsed = performance.now() - started;
+          const phaseTotals = totals.by_phase[phase];
+          totals.count++; totals.total_wall_ms += elapsed;
+          totals.max_wall_ms = Math.max(totals.max_wall_ms, elapsed);
+          phaseTotals.count++; phaseTotals.total_wall_ms += elapsed;
+          phaseTotals.max_wall_ms = Math.max(phaseTotals.max_wall_ms, elapsed);
+          if (elapsed >= renderTrace.threshold_ms) {
+            totals.over_threshold++; phaseTotals.over_threshold++;
+            if (renderTrace.slow_calls.length < renderTrace.limit) {
+              renderTrace.slow_calls.push({name, start_ms: started, duration_ms: elapsed, phase});
+            } else renderTrace.dropped++;
+          }
+        }
+      };
+    }
+  }
+  const glAllTrace = {requested: new URLSearchParams(location.search).get("glalltrace") === "1",
+    enabled: false, status: "disabled",
+    scope: "Page-realm synchronous JavaScript WebGL2 call wall latency, including waits; not GPU timestamps or CPU/GPU execution time. Worker contexts and methods on extension objects are outside scope. Times existing calls only; no extra GL calls or argument, query-result, buffer, return or exception values retained. Instrumentation adds overhead; do not use as an uninstrumented performance gate.",
+    discovery_scope: "Effective callable data properties across the WebGL2 prototype chain, excluding constructor and the terminal Object prototype. Accessors are never invoked. Symbol keys use indexed display names. Wrappers are installed only on the WebGL2 prototype, not shared ancestor prototypes.",
+    phase_scope: "Per-method by_phase counters use phase at call start; startup versus after_first_running. Slow-call rows have independent 64-row phase reservations inside one legacy 128-row combined array, so startup cannot consume gameplay retention. Fixed counters, no per-frame records.",
+    exclusivity: "Refused when webgltrace=1, presentationtrace=1 or rendertrace=1 is also requested; existing diagnostics retain their behavior and are not wrapped again.",
+    incompatible_flags: [], discovered_names: [], method_names: [], skipped_accessors: [],
+    threshold_ms: 8, limit: 128, calls: Object.create(null), slow_calls: [], dropped: 0,
+    slow_call_retention_by_phase: {
+      startup: {limit: 64, seen: 0, kept: 0, dropped: 0},
+      after_first_running: {limit: 64, seen: 0, kept: 0, dropped: 0}}, unavailable: []};
+  if (glAllTrace.requested) {
+    glAllTrace.incompatible_flags = [["webgltrace", glTrace.enabled],
+      ["presentationtrace", presentationTrace.enabled], ["rendertrace", renderTrace.enabled]]
+      .filter(([, enabled]) => enabled).map(([name]) => name);
+    const proto = window.WebGL2RenderingContext && WebGL2RenderingContext.prototype;
+    if (glAllTrace.incompatible_flags.length) {
+      glAllTrace.status = "refused_incompatible_flags";
+    } else if (!proto) {
+      glAllTrace.status = "unavailable";
+      glAllTrace.unavailable.push({name: "WebGL2RenderingContext", reason: "missing_prototype"});
+    } else {
+      const seen = new Set(), candidates = [];
+      let symbolIndex = 0;
+      // Discovery precedes installation, so inherited methods are considered
+      // once and a nearer non-callable property still shadows its ancestor.
+      // Native context chains terminate at Object.prototype (parent === null).
+      for (let owner = proto; owner && Object.getPrototypeOf(owner) !== null;
+           owner = Object.getPrototypeOf(owner)) {
+        for (const key of Reflect.ownKeys(owner)) {
+          if (key === "constructor" || seen.has(key)) continue;
+          seen.add(key);
+          const descriptor = Object.getOwnPropertyDescriptor(owner, key);
+          const name = typeof key === "symbol" ? "[symbol " + symbolIndex++ + "] " + String(key) : key;
+          if (!Object.hasOwn(descriptor, "value")) {
+            glAllTrace.skipped_accessors.push(name);
+            continue;
+          }
+          if (typeof descriptor.value !== "function") continue;
+          glAllTrace.discovered_names.push(name);
+          candidates.push({key, name, descriptor});
+        }
+      }
+      const emptyTotals = () => ({count: 0, total_wall_ms: 0, max_wall_ms: 0, over_threshold: 0});
+      for (const {key, name, descriptor} of candidates) {
+        const original = descriptor.value;
+        const totals = emptyTotals();
+        totals.by_phase = {startup: emptyTotals(), after_first_running: emptyTotals()};
+        const wrapped = function () {
+          const phase = marks.first_running === undefined ? "startup" : "after_first_running";
+          const started = performance.now();
+          try { return Reflect.apply(original, this, arguments); }
+          finally {
+            const elapsed = performance.now() - started;
+            const phaseTotals = totals.by_phase[phase];
+            totals.count++; totals.total_wall_ms += elapsed;
+            totals.max_wall_ms = Math.max(totals.max_wall_ms, elapsed);
+            phaseTotals.count++; phaseTotals.total_wall_ms += elapsed;
+            phaseTotals.max_wall_ms = Math.max(phaseTotals.max_wall_ms, elapsed);
+            if (elapsed >= glAllTrace.threshold_ms) {
+              totals.over_threshold++; phaseTotals.over_threshold++;
+              const retention = glAllTrace.slow_call_retention_by_phase[phase];
+              retention.seen++;
+              if (retention.kept < retention.limit && glAllTrace.slow_calls.length < glAllTrace.limit) {
+                glAllTrace.slow_calls.push({name, start_ms: started, duration_ms: elapsed, phase});
+                retention.kept++;
+              } else {
+                retention.dropped++;
+                glAllTrace.dropped++;
+              }
+            }
+          }
+        };
+        // A frozen/non-extensible prototype is an explicit coverage gap, not
+        // a bootstrap failure. No method is called to test installation.
+        let installed = false;
+        try { installed = Reflect.defineProperty(proto, key, {...descriptor, value: wrapped}); }
+        catch (_) { /* Record only the method name and fixed reason below. */ }
+        if (!installed) {
+          glAllTrace.unavailable.push({name, reason: "wrapper_installation_failed"});
+          continue;
+        }
+        glAllTrace.method_names.push(name);
+        glAllTrace.calls[name] = totals;
+      }
+      glAllTrace.enabled = glAllTrace.method_names.length > 0;
+      glAllTrace.status = glAllTrace.enabled ? (glAllTrace.unavailable.length ? "partial" : "active") : "unavailable";
+      if (!candidates.length) glAllTrace.unavailable.push({name: "WebGL2RenderingContext", reason: "no_callable_methods"});
+    }
+  }
+  const shaderTrace = {requested: new URLSearchParams(location.search).get("shadertrace") === "1",
+    enabled: false, status: "disabled",
+    scope: "Page-realm existing shader/program call wall latency, including waits; not CPU execution or GPU timestamps. No extra GL calls, argument coercion, object inspection, source bodies, query results or exception values retained. Instrumentation adds overhead; source metadata extraction is outside each native-call span but inside the game frame.",
+    identity_scope: "Bounded lifetime IDs from object identity on normal createShader/createProgram returns only; no native type/status validation. Primitive/null returns and unknown references are counted. Worker contexts are outside scope.",
+    source_scope: "Latest normal-returning primitive-string shaderSource metadata per tracked shader; normal return does not prove GL success. First-source summary and compile/link source revisions remain, but old define text is replaced. Hash is noncryptographic FNV-1a over UTF-16 code units, for diagnostic grouping only; collisions possible. Defines are physical preprocessor lines only, not expanded includes or continuation bodies.",
+    source_text_budget_scope: "Independent define-text budgets: startup 524288 UTF-16 bytes, after_first_running 131072 bytes; global maximum 655360 bytes. Each latest source record owns bytes in its call-entry phase. Source replacement releases its previous owner's bytes and admits new text only against the new phase's budget. Startup cannot consume the post-GO reserve; zero-byte truncated records still declare ownership.",
+    attachment_scope: "Unique IDs from normal-returning attachShader calls, not queried current native attachments. detachShader/delete calls are not instrumented; link snapshots describe observed attach edges only.",
+    phase_scope: "Phase captured at call entry. first_source is first normal-returning primitive-string source; first_compile/first_link are first attempted calls, including throws. Post-GO rows include every installed method call up to the cap; startup retains only spans >=8ms. Full-app entry does not set first_running, so correlate startup rows with lifecycle_events rather than inferring a gameplay phase. Per-method max_spans retain the first maximum timestamp even when event-row caps fill.",
+    exclusivity: "Refused if glalltrace=1, webgltrace=1, presentationtrace=1 or rendertrace=1 is requested. Other diagnostics keep their existing behavior.",
+    limits: {shader_ids: 512, program_ids: 256, attachments_per_program: 16,
+      define_lines_per_source: 64, define_line_code_units: 160, retained_define_text_bytes: 655360,
+      retained_define_text_bytes_by_phase: {startup: 524288, after_first_running: 131072},
+      text_byte_accounting: "Retained UTF-16 code units times two, not measured JS heap usage; excludes generated hash/metadata strings.",
+      post_go_events: 512, startup_slow_events: 128, startup_slow_threshold_ms: 8},
+    incompatible_flags: [], method_names: [], unavailable: [], calls: Object.create(null), max_spans: Object.create(null),
+    shaders: [], programs: [], first_source: null, first_compile: null, first_link: null,
+    post_go_events: [], post_go_events_seen: 0, post_go_events_dropped: 0,
+    startup_slow_events: [], startup_slow_events_seen: 0, startup_slow_events_dropped: 0,
+    shader_id_admission_drops: 0, program_id_admission_drops: 0,
+    invalid_shader_create_returns: 0, invalid_program_create_returns: 0,
+    unknown_shader_references: 0, unknown_program_references: 0,
+    nonprimitive_source_calls: 0, untracked_source_calls: 0, attachment_edges_dropped: 0,
+    retained_define_text_bytes: 0, peak_retained_define_text_bytes: 0,
+    define_text_by_phase: {startup: {retained_bytes: 0, peak_retained_bytes: 0},
+      after_first_running: {retained_bytes: 0, peak_retained_bytes: 0}}, diagnostic_errors: 0};
+  if (shaderTrace.requested) {
+    shaderTrace.incompatible_flags = [["glalltrace", glAllTrace.requested], ["webgltrace", glTrace.enabled],
+      ["presentationtrace", presentationTrace.enabled], ["rendertrace", renderTrace.enabled]]
+      .filter(([, enabled]) => enabled).map(([name]) => name);
+    if (shaderTrace.incompatible_flags.length) {
+      shaderTrace.status = "refused_incompatible_flags";
+    } else {
+      const proto = window.WebGL2RenderingContext && WebGL2RenderingContext.prototype;
+      const shaderIDs = new WeakMap(), programIDs = new WeakMap();
+      const objectLike = value => value !== null && (typeof value === "object" || typeof value === "function");
+      const numericEnum = value => typeof value === "number" && Number.isFinite(value) ? value : null;
+      const stamp = row => ({phase: row.phase, start_ms: row.start_ms, duration_ms: row.duration_ms,
+        outcome: row.outcome});
+      const emptyTotals = () => ({count: 0, total_wall_ms: 0, max_wall_ms: 0, over_threshold: 0});
+      const lookup = (value, shader) => {
+        const record = objectLike(value) ? (shader ? shaderIDs : programIDs).get(value) : undefined;
+        if (!record) shaderTrace[shader ? "unknown_shader_references" : "unknown_program_references"]++;
+        return record;
+      };
+      const admit = (value, shader, row, typeEnum) => {
+        if (!objectLike(value)) {
+          shaderTrace[shader ? "invalid_shader_create_returns" : "invalid_program_create_returns"]++;
+          return undefined;
+        }
+        const ids = shader ? shaderIDs : programIDs;
+        const existing = ids.get(value);
+        if (existing) return existing;
+        const records = shader ? shaderTrace.shaders : shaderTrace.programs;
+        if (records.length >= (shader ? shaderTrace.limits.shader_ids : shaderTrace.limits.program_ids)) {
+          shaderTrace[shader ? "shader_id_admission_drops" : "program_id_admission_drops"]++;
+          return undefined;
+        }
+        const record = shader ? {id: "s" + (records.length + 1), type_enum: typeEnum,
+          created: stamp(row), source_updates: 0, source: null, first_source: null,
+          compile_attempts: 0, first_compile: null, last_compile: null} :
+          {id: "p" + (records.length + 1), created: stamp(row), attached_shader_ids: [],
+            attachment_edges_dropped: 0, link_attempts: 0, first_link: null, last_link: null};
+        ids.set(value, record); records.push(record);
+        return record;
+      };
+      const sourceMetadata = (source, revision, availableBytes) => {
+        let hash = 2166136261;
+        for (let index = 0; index < source.length; index++) {
+          hash = Math.imul(hash ^ source.charCodeAt(index), 16777619) >>> 0;
+        }
+        const metadata = {revision, length_code_units: source.length,
+          hash: hash.toString(16).padStart(8, "0"), hash_algorithm: "fnv1a32_utf16_diagnostic_noncryptographic",
+          defines: [], define_lines_seen: 0, define_lines_omitted: 0,
+          define_line_limit_truncated: false, define_length_truncated: false,
+          source_text_budget_truncated: false, contains_continued_define: false, retained_text_bytes: 0};
+        const whitespace = char => char === " " || char === "\t" || char === "\r" || char === "\f" || char === "\v";
+        for (let start = 0; start < source.length;) {
+          let end = source.indexOf("\n", start);
+          if (end === -1) end = source.length;
+          let prefix = start;
+          while (prefix < end && whitespace(source[prefix])) prefix++;
+          let keyword = prefix + 1;
+          while (keyword < end && whitespace(source[keyword])) keyword++;
+          if (source[prefix] === "#" && source.startsWith("define", keyword) &&
+              (keyword + 6 === end || whitespace(source[keyword + 6]))) {
+            metadata.define_lines_seen++;
+            let contentEnd = end;
+            if (contentEnd > prefix && source[contentEnd - 1] === "\r") contentEnd--;
+            if (contentEnd > prefix && source[contentEnd - 1] === "\\") metadata.contains_continued_define = true;
+            const lineLength = contentEnd - prefix;
+            if (lineLength > shaderTrace.limits.define_line_code_units) metadata.define_length_truncated = true;
+            if (metadata.defines.length >= shaderTrace.limits.define_lines_per_source) {
+              metadata.define_line_limit_truncated = true;
+            } else {
+              const desired = Math.min(lineLength, shaderTrace.limits.define_line_code_units);
+              const retained = Math.min(desired, Math.floor((availableBytes - metadata.retained_text_bytes) / 2));
+              if (retained < desired) metadata.source_text_budget_truncated = true;
+              if (retained > 0) {
+                metadata.defines.push(source.slice(prefix, prefix + retained));
+                metadata.retained_text_bytes += retained * 2;
+              }
+            }
+          }
+          start = end + 1;
+        }
+        metadata.define_lines_omitted = metadata.define_lines_seen - metadata.defines.length;
+        return metadata;
+      };
+      const sourceVersion = shader => ({shader_id: shader.id,
+        source_revision: shader.source ? shader.source.revision : null,
+        source_hash: shader.source ? shader.source.hash : null});
+      const recordCall = (name, args, result, returned, phase, started, elapsed, totals) => {
+        const phaseTotals = totals.by_phase[phase];
+        for (const counter of [totals, phaseTotals]) {
+          counter.count++; counter.total_wall_ms += elapsed;
+          counter.max_wall_ms = Math.max(counter.max_wall_ms, elapsed);
+          if (elapsed >= shaderTrace.limits.startup_slow_threshold_ms) counter.over_threshold++;
+        }
+        const row = {name, phase, start_ms: started, duration_ms: elapsed, outcome: returned ? "returned" : "threw"};
+        let shader, program;
+        if (name === "createShader") {
+          row.type_enum = numericEnum(args[0]);
+          if (returned) shader = admit(result, true, row, row.type_enum);
+          row.shader_id = shader ? shader.id : null;
+        } else if (name === "createProgram") {
+          if (returned) program = admit(result, false, row, null);
+          row.program_id = program ? program.id : null;
+        } else if (["shaderSource", "compileShader", "getShaderParameter"].includes(name)) {
+          shader = lookup(args[0], true); row.shader_id = shader ? shader.id : null;
+        } else {
+          program = lookup(args[0], false); row.program_id = program ? program.id : null;
+          if (name === "attachShader") {
+            shader = lookup(args[1], true); row.shader_id = shader ? shader.id : null;
+          }
+        }
+        if (name === "getShaderParameter" || name === "getProgramParameter") row.query_enum = numericEnum(args[1]);
+        if (name === "shaderSource" && returned) {
+          if (typeof args[1] !== "string") {
+            shaderTrace.nonprimitive_source_calls++; row.source_status = "nonprimitive_string";
+          } else if (!shader) {
+            shaderTrace.untracked_source_calls++; row.source_status = "untracked_shader";
+          } else {
+            const previousBytes = shader.source ? shader.source.retained_text_bytes : 0;
+            const previousPhase = shader.source ? shader.source.define_text_phase : phase;
+            const phaseText = shaderTrace.define_text_by_phase[phase];
+            const metadata = sourceMetadata(args[1], shader.source_updates + 1,
+              shaderTrace.limits.retained_define_text_bytes_by_phase[phase] - phaseText.retained_bytes +
+                (previousPhase === phase ? previousBytes : 0));
+            metadata.define_text_phase = phase;
+            shaderTrace.define_text_by_phase[previousPhase].retained_bytes -= previousBytes;
+            phaseText.retained_bytes += metadata.retained_text_bytes;
+            phaseText.peak_retained_bytes = Math.max(phaseText.peak_retained_bytes, phaseText.retained_bytes);
+            shaderTrace.retained_define_text_bytes += metadata.retained_text_bytes - previousBytes;
+            shaderTrace.peak_retained_define_text_bytes = Math.max(shaderTrace.peak_retained_define_text_bytes,
+              shaderTrace.retained_define_text_bytes);
+            shader.source_updates++; shader.source = metadata;
+            Object.assign(row, sourceVersion(shader), {source_length_code_units: metadata.length_code_units,
+              source_status: "captured"});
+            const first = {...stamp(row), ...sourceVersion(shader), source_length_code_units: metadata.length_code_units};
+            if (!shader.first_source) shader.first_source = first;
+            if (!shaderTrace.first_source) shaderTrace.first_source = first;
+          }
+        }
+        if (name === "compileShader") {
+          const attempt = {...stamp(row), shader_id: row.shader_id};
+          if (shader) {
+            Object.assign(attempt, sourceVersion(shader)); Object.assign(row, sourceVersion(shader));
+            shader.compile_attempts++; shader.last_compile = attempt;
+            if (!shader.first_compile) shader.first_compile = attempt;
+          }
+          if (!shaderTrace.first_compile) shaderTrace.first_compile = attempt;
+        }
+        if (name === "attachShader" && returned && program && shader && !program.attached_shader_ids.includes(shader.id)) {
+          if (program.attached_shader_ids.length < shaderTrace.limits.attachments_per_program) program.attached_shader_ids.push(shader.id);
+          else { program.attachment_edges_dropped++; shaderTrace.attachment_edges_dropped++; }
+        }
+        if (name === "linkProgram") {
+          const attempt = {...stamp(row), program_id: row.program_id};
+          if (program) {
+            row.shader_sources = program.attached_shader_ids.map(id => sourceVersion(shaderTrace.shaders[Number(id.slice(1)) - 1]));
+            row.attachments_truncated = program.attachment_edges_dropped > 0;
+            Object.assign(attempt, {shader_sources: row.shader_sources, attachments_truncated: row.attachments_truncated});
+            program.link_attempts++; program.last_link = attempt;
+            if (!program.first_link) program.first_link = attempt;
+          }
+          if (!shaderTrace.first_link) shaderTrace.first_link = attempt;
+        }
+        const maxima = shaderTrace.max_spans[name];
+        for (const bucket of ["all", phase]) {
+          if (maxima[bucket] === null || elapsed > maxima[bucket].duration_ms) {
+            const maximum = {name, ...stamp(row)};
+            if (Object.hasOwn(row, "query_enum")) maximum.query_enum = row.query_enum;
+            if (Object.hasOwn(row, "shader_id")) maximum.shader_id = row.shader_id;
+            if (Object.hasOwn(row, "program_id")) maximum.program_id = row.program_id;
+            maxima[bucket] = maximum;
+          }
+        }
+        if (phase === "after_first_running") {
+          shaderTrace.post_go_events_seen++;
+          if (shaderTrace.post_go_events.length < shaderTrace.limits.post_go_events) shaderTrace.post_go_events.push(row);
+          else shaderTrace.post_go_events_dropped++;
+        } else if (elapsed >= shaderTrace.limits.startup_slow_threshold_ms) {
+          shaderTrace.startup_slow_events_seen++;
+          if (shaderTrace.startup_slow_events.length < shaderTrace.limits.startup_slow_events) shaderTrace.startup_slow_events.push(row);
+          else shaderTrace.startup_slow_events_dropped++;
+        }
+      };
+      for (const name of ["createShader", "shaderSource", "compileShader", "getShaderParameter",
+                          "createProgram", "attachShader", "linkProgram", "getProgramParameter"]) {
+        let descriptor;
+        for (let owner = proto; owner && Object.getPrototypeOf(owner) !== null; owner = Object.getPrototypeOf(owner)) {
+          descriptor = Object.getOwnPropertyDescriptor(owner, name);
+          if (descriptor) break;
+        }
+        if (!descriptor || typeof descriptor.value !== "function") {
+          shaderTrace.unavailable.push({name, reason: descriptor && !Object.hasOwn(descriptor, "value") ? "accessor_not_invoked" : "missing_callable_method"});
+          continue;
+        }
+        const original = descriptor.value, totals = emptyTotals();
+        totals.by_phase = {startup: emptyTotals(), after_first_running: emptyTotals()};
+        const wrapped = function () {
+          const phase = marks.first_running === undefined ? "startup" : "after_first_running";
+          const started = performance.now();
+          let result, returned = false;
+          try { result = Reflect.apply(original, this, arguments); returned = true; return result; }
+          finally {
+            const elapsed = performance.now() - started;
+            // Diagnostics must never replace a native result or thrown value.
+            // No inspection of result occurs except object identity on create.
+            try { recordCall(name, arguments, result, returned, phase, started, elapsed, totals); }
+            catch (_) { shaderTrace.diagnostic_errors++; }
+          }
+        };
+        let installed = false;
+        try { installed = Reflect.defineProperty(proto, name, {...descriptor, value: wrapped}); }
+        catch (_) { /* Fixed coverage-gap reason only; no exception retained. */ }
+        if (!installed) {
+          shaderTrace.unavailable.push({name, reason: "wrapper_installation_failed"});
+          continue;
+        }
+        shaderTrace.method_names.push(name); shaderTrace.calls[name] = totals;
+        shaderTrace.max_spans[name] = {all: null, startup: null, after_first_running: null};
+      }
+      shaderTrace.enabled = shaderTrace.method_names.length > 0;
+      shaderTrace.status = shaderTrace.enabled ? (shaderTrace.unavailable.length ? "partial" : "active") : "unavailable";
+    }
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (finished) return;
+    if (visibility.length < 64) visibility.push({ms: performance.now(), state: document.visibilityState});
+    else visibilityDropped++;
+  });
+  function recordTrustedInput(eventType, event) {
+    if (finished) return;
+    if (!event || event.isTrusted !== true) { trustedInputLatency.untrusted_ignored++; return; }
+    trustedInputLatency.seen++;
+    if (trustedInputLatency.rows.length >= trustedInputLatency.limit) {
+      trustedInputLatency.dropped++;
+      return;
+    }
+    const handled = performance.now();
+    const eventStamp = Number(event.timeStamp);
+    const stampValid = Number.isFinite(eventStamp) && eventStamp >= 0;
+    const rawTag = event.target && typeof event.target.tagName === "string" ? event.target.tagName : "";
+    const row = {sequence: trustedInputLatency.seen, event_type: eventType,
+      target_tag: rawTag.slice(0, 32), trusted: true,
+      event_timestamp_ms: stampValid ? eventStamp : null, handler_ms: handled,
+      queue_delay_ms: stampValid ? handled - eventStamp : null,
+      next_raf_ms: null, handler_to_next_raf_ms: null};
+    trustedInputLatency.rows.push(row);
+    const inputRAFID = requestAnimationFrame(() => {
+      trustedInputRAFIDs.delete(inputRAFID);
+      if (finished) return;
+      const observed = performance.now();
+      row.next_raf_ms = observed;
+      row.handler_to_next_raf_ms = observed - handled;
+    });
+    trustedInputRAFIDs.add(inputRAFID);
+  }
+  document.addEventListener("pointerdown", event => recordTrustedInput("pointerdown", event),
+    {capture: true, passive: true});
+  document.addEventListener("keydown", event => recordTrustedInput("keydown", event), {capture: true});
+  function frame(now) {
+    if (finished) return;
+    if (previousRAF !== null) {
+      const duration = now - previousRAF;
+      const preEngine = marks.engine_start === undefined || now < marks.engine_start;
+      if (preEngine) {
+        rafPreEngine.intervals++; rafPreEngine.max_ms = Math.max(rafPreEngine.max_ms, duration);
+        if (duration >= 50) {
+          if (rafPreEngine.slow_frames_over_50_ms.length < rafPreEngine.limit) {
+            rafPreEngine.slow_frames_over_50_ms.push({start_ms: previousRAF, duration_ms: duration,
+              visibility: document.visibilityState, phase: "pre_engine"});
+          } else rafPreEngine.rows_dropped++;
+        }
+      } else {
+        rafCount++; rafMax = Math.max(rafMax, duration);
+        if (duration >= 50) {
+          // Reserve runner startup/run independently. Keep a full interval
+          // crossing start, but flag it: it includes time before the engine.
+          // Full-app lifecycle remains unclassified without authoritative marks.
+          const phase = entryMode === "app" ? "app_unclassified" :
+            (marks.first_running === undefined || now < marks.first_running ? "startup" : "after_first_running");
+          const bucket = rafPhases[phase];
+          if (bucket.retained < bucket.limit) {
+            rafSlow.push({start_ms: previousRAF, duration_ms: duration,
+              visibility: document.visibilityState, phase,
+              crosses_engine_start: previousRAF < marks.engine_start,
+              crosses_first_running: marks.first_running !== undefined &&
+                previousRAF < marks.first_running && now >= marks.first_running});
+            bucket.retained++;
+          } else { bucket.dropped++; rafDropped++; }
+        }
+      }
+    }
+    previousRAF = now;
+    rafID = requestAnimationFrame(frame);
+  }
+  rafID = requestAnimationFrame(frame);
+  function canvasSurface(label) {
+    const canvas = document.getElementById("canvas");
+    const doc = document.documentElement || {};
+    const layoutWidth = Number(doc.clientWidth || innerWidth);
+    const layoutHeight = Number(doc.clientHeight || innerHeight);
+    const ratio = Number(devicePixelRatio);
+    const backing = [Number(canvas && canvas.width), Number(canvas && canvas.height)];
+    const client = [Number(canvas && canvas.clientWidth), Number(canvas && canvas.clientHeight)];
+    const expected = canvasPolicyMode === "production" ?
+      [Math.round(layoutWidth * ratio), Math.round(layoutHeight * ratio)] :
+      [Number(runConfig.width), Number(runConfig.height)];
+    const values = [layoutWidth, layoutHeight, ratio, ...backing, ...client, ...expected];
+    const positive = values.every(value => Number.isFinite(value) && value > 0);
+    const backingMatches = positive && backing[0] === expected[0] && backing[1] === expected[1];
+    const cssMatches = positive && client[0] === layoutWidth && client[1] === layoutHeight;
+    return {label, ms: performance.now(), layout_css: [layoutWidth, layoutHeight],
+      window_css: [Number(innerWidth), Number(innerHeight)], device_pixel_ratio: ratio,
+      canvas_css: client, canvas_backing: backing, expected_backing: expected,
+      positive_dimensions: positive, backing_matches_expected: backingMatches,
+      css_matches_layout: cssMatches,
+      reconciled: canvasPolicyMode === "production" ? backingMatches && cssMatches : backingMatches};
+  }
+  function captureCanvas(label) { canvasSamples[label] = canvasSurface(label); }
+  captureCanvas("shell_ready");
+  // Explicit runner preflight only. Preserve any prior optional tracing wrapper
+  // exactly; no buffers, data, offsets, receiver objects, or call arguments retained.
+  let readbackWitness = null;
+  let readbackRestore = null;
+  const readbackScope = "Preflight-only getBufferSubData calls returned normally with positive destination byte counts; exact data verified separately by two mesh checks. No GL error query or GPU timing. Original descriptor restored before world construction/timing.";
+  function readbackBytes(args) {
+    try {
+      const view = args[2];
+      if (!ArrayBuffer.isView(view)) return 0;
+      let byteLength, elements;
+      try {
+        const typed = Object.getPrototypeOf(Uint8Array.prototype);
+        byteLength = Object.getOwnPropertyDescriptor(typed, "byteLength").get.call(view);
+        elements = Object.getOwnPropertyDescriptor(typed, "length").get.call(view);
+      } catch {
+        byteLength = Object.getOwnPropertyDescriptor(DataView.prototype, "byteLength").get.call(view);
+        elements = byteLength;
+      }
+      const offset = args[3] === undefined ? 0 : args[3];
+      const length = args[4] === undefined ? 0 : args[4];
+      if (!Number.isSafeInteger(offset) || !Number.isSafeInteger(length) || offset < 0 || length < 0 ||
+          offset > elements || length > elements - offset || elements === 0) return 0;
+      const bytes = (length || elements - offset) * (byteLength / elements);
+      return Number.isSafeInteger(bytes) && bytes > 0 ? bytes : 0;
+    } catch { return 0; }
+  }
+  window.__wwRunnerReadbackBegin = () => {
+    if (readbackWitness) return JSON.stringify({begun: false, reason: "preflight_already_started", restored: readbackWitness.restored});
+    readbackWitness = {begun: false, passed: false, calls_attempted: 0, calls_returned: 0,
+      nonzero_returned_calls: 0, returned_bytes: 0, calls_threw: 0, unmeasured_returned_calls: 0,
+      required_nonzero_calls: 2, restored: false, reason: "not_started", scope: readbackScope};
+    const proto = window.WebGL2RenderingContext && WebGL2RenderingContext.prototype;
+    try {
+      if (entryMode !== "runner") throw new Error("runner_preflight_only");
+      const descriptor = proto && Object.getOwnPropertyDescriptor(proto, "getBufferSubData");
+      if (!descriptor || typeof descriptor.value !== "function") throw new Error("readback_method_unavailable");
+      const original = descriptor.value;
+      const wrapper = function(...args) {
+        readbackWitness.calls_attempted += 1;
+        try {
+          const result = original.apply(this, args);
+          readbackWitness.calls_returned += 1;
+          const bytes = readbackBytes(args);
+          if (bytes > 0) {
+            readbackWitness.nonzero_returned_calls += 1;
+            readbackWitness.returned_bytes += bytes;
+          } else readbackWitness.unmeasured_returned_calls += 1;
+          return result;
+        } catch (error) { readbackWitness.calls_threw += 1; throw error; }
+      };
+      readbackRestore = () => {
+        Object.defineProperty(proto, "getBufferSubData", descriptor);
+        const actual = Object.getOwnPropertyDescriptor(proto, "getBufferSubData");
+        return actual.value === descriptor.value && actual.writable === descriptor.writable &&
+          actual.enumerable === descriptor.enumerable && actual.configurable === descriptor.configurable;
+      };
+      Object.defineProperty(proto, "getBufferSubData", {...descriptor, value: wrapper});
+      if (Object.getOwnPropertyDescriptor(proto, "getBufferSubData").value !== wrapper) throw new Error("readback_install_failed");
+      readbackWitness.begun = true;
+      readbackWitness.reason = "active";
+    } catch (error) {
+      readbackWitness.reason = String(error.message || error);
+      readbackWitness.restored = readbackRestore === null;
+    }
+    return JSON.stringify(readbackWitness);
+  };
+  window.__wwRunnerReadbackEnd = () => {
+    if (!readbackWitness) return JSON.stringify({begun: false, passed: false, restored: false, reason: "preflight_not_started", scope: readbackScope});
+    if (readbackRestore) {
+      try { readbackWitness.restored = readbackRestore(); }
+      catch { readbackWitness.restored = false; }
+      readbackRestore = null;
+      readbackWitness.passed = readbackWitness.begun && readbackWitness.restored &&
+        readbackWitness.calls_threw === 0 && readbackWitness.nonzero_returned_calls >= readbackWitness.required_nonzero_calls;
+      readbackWitness.reason = !readbackWitness.restored ? "readback_restore_failed" :
+        readbackWitness.calls_threw > 0 ? "readback_call_threw" :
+        readbackWitness.nonzero_returned_calls < readbackWitness.required_nonzero_calls ? "insufficient_nonzero_readback_calls" : "preflight_witness_passed";
+    }
+    return JSON.stringify(readbackWitness);
+  };
+  window.__wwRunnerMark = name => {
+    marks[name] = performance.now();
+    captureCanvas(name);
+    statusNode.textContent = name === "first_running" ? "Runner active — sampling locally…" : "Building runner…";
+  };
+  function boundedLifecycleFields(fields) {
+    if (!fields || typeof fields !== "object" || Array.isArray(fields)) return {};
+    const result = {};
+    for (const rawKey of Object.keys(fields).slice(0, lifecycleEvents.field_limit)) {
+      const key = String(rawKey).slice(0, 64);
+      const value = fields[rawKey];
+      if (value === null || typeof value === "boolean" ||
+          (typeof value === "number" && Number.isFinite(value))) result[key] = value;
+      else if (typeof value === "string") result[key] = value.slice(0, lifecycleEvents.field_string_limit);
+    }
+    return result;
+  }
+  window.__wwRunnerLifecycleEvent = (name, fields = {}) => {
+    if (finished) return false;
+    if (typeof name !== "string" || name.length === 0) {
+      lifecycleEvents.invalid++;
+      return false;
+    }
+    lifecycleEvents.seen++;
+    if (lifecycleEvents.rows.length >= lifecycleEvents.limit) {
+      lifecycleEvents.dropped++;
+      return false;
+    }
+    lifecycleEvents.rows.push({sequence: lifecycleEvents.seen, name: name.slice(0, 80),
+      ms: performance.now(), visibility: document.visibilityState,
+      fields: boundedLifecycleFields(fields)});
+    return true;
+  };
+  function canvasPolicyMetadata() {
+    const finalSample = canvasSamples.report || canvasSurface("report");
+    return {mode: canvasPolicyMode,
+      requested_probe_size: [Number(runConfig.width), Number(runConfig.height)],
+      requested_probe_size_scope: "Fixed backing request when applicable; reference only for page-owned production canvas",
+      source_preset_sha256: String(runConfig.canvas_policy_source_sha256 || ""),
+      fragment_sha256: String(runConfig.canvas_policy_fragment_sha256 || ""),
+      fixed_resolution_gate_applicable: canvasPolicyMode === "fixed",
+      complete_production: false, samples: canvasSamples,
+      final_positive_dimensions: finalSample.positive_dimensions,
+      final_reconciled: finalSample.reconciled};
+  }
+  function applyCanvasEligibility(payload, policy) {
+    if (entryMode !== "runner" || !payload.report) return;
+    const workloadValid = payload.report.workload_valid === true &&
+      payload.report.workload_validation?.valid === true &&
+      payload.report.workload_validation?.captured === true &&
+      payload.report.measurement_eligibility?.workload_valid !== false;
+    payload.report.workload_valid = workloadValid;
+    policy.workload_valid = workloadValid;
+    if (canvasPolicyMode !== "production") {
+      if (!workloadValid) {
+        payload.report.meets_gate = false;
+        payload.report.measurement_eligibility = {...payload.report.measurement_eligibility,
+          eligible: false, workload_valid: false, reason: "runner_workload_invalid"};
+      }
+      return;
+    }
+    const first = canvasSamples.first_running;
+    const finalSample = canvasSamples.report;
+    const engineSize = Array.isArray(payload.report.actual_window_size) ? payload.report.actual_window_size :
+      payload.report.resolution;
+    const enginePositive = Array.isArray(engineSize) && engineSize.length === 2 &&
+      engineSize.every(value => Number.isFinite(Number(value)) && Number(value) > 0);
+    const stableBacking = !!first && !!finalSample &&
+      first.canvas_backing[0] === finalSample.canvas_backing[0] &&
+      first.canvas_backing[1] === finalSample.canvas_backing[1];
+    const engineMatches = enginePositive && !!finalSample &&
+      Number(engineSize[0]) === finalSample.canvas_backing[0] &&
+      Number(engineSize[1]) === finalSample.canvas_backing[1];
+    const reconciled = !!first && !!finalSample && first.positive_dimensions && finalSample.positive_dimensions &&
+      first.reconciled && finalSample.reconciled && stableBacking && engineMatches;
+    const thresholdsMet = payload.report.performance_thresholds_met === true;
+    const accepted = reconciled && thresholdsMet && workloadValid;
+    payload.report.meets_gate = false;
+    payload.report.measurement_eligibility = {eligible: accepted,
+      native_size_workload_accepted: accepted, fixed_resolution_gate_applicable: false,
+      performance_thresholds_met: thresholdsMet, canvas_policy_reconciled: reconciled,
+      workload_valid: workloadValid,
+      engine_window_positive: enginePositive, engine_window_matches_final_backing: engineMatches,
+      backing_stable_first_running_to_report: stableBacking,
+      not_complete_production: true, complete_production: false,
+      reason: !workloadValid ? "runner_workload_invalid" :
+        !reconciled ? "canvas_policy_not_reconciled_at_first_running_and_report" :
+        !thresholdsMet ? "performance_thresholds_not_met" : "eligible_production_canvas_diagnostic"};
+    if (payload.report.gate) payload.report.gate.fixed_resolution_gate_applicable = false;
+    policy.native_size_workload_accepted = accepted;
+  }
+  function browserMetadata() {
+    const canvas = document.getElementById("canvas");
+    return {user_agent: navigator.userAgent, platform: navigator.platform,
+      device_pixel_ratio: devicePixelRatio, window_css: [innerWidth, innerHeight],
+      canvas_backing: [canvas.width, canvas.height],
+      canvas_css: [canvas.clientWidth, canvas.clientHeight],
+      visibility, visibility_rows_dropped: visibilityDropped,
+      ending_visibility: document.visibilityState, cross_origin_isolated: crossOriginIsolated,
+      threads_requested: runConfig.threads === true,
+      engine_template_sha256: runConfig.engine_template_sha256 || null,
+      entry: entryMode,
+      manual_start: manualStart,
+      canvas_policy: canvasPolicyMetadata(),
+      timing_origin: "performance.now() milliseconds since navigation time origin",
+      marks, lifecycle_events: lifecycleEvents, trusted_input_latency: trustedInputLatency,
+      request_animation_frame: {schema_version: 2,
+        scope: "Intervals ending at or after engine_start, including flagged boundary intervals; not inherited probe sample window",
+        phase_scope: entryMode === "app" ? "Unclassified app lifecycle; correlate timestamped operator marks, not engine phases" :
+          "Standalone runner phase at interval end: startup versus after_first_running, with independent 64-row reservations",
+        intervals: rafCount, max_ms: rafMax, slow_frames_over_50_ms: rafSlow,
+        rows_dropped: rafDropped, phase_retention: rafPhases, pre_engine: rafPreEngine,
+        whole_page: {intervals: rafCount + rafPreEngine.intervals, max_ms: Math.max(rafMax, rafPreEngine.max_ms)}},
+      webgl_trace: glTrace, presentation_trace: presentationTrace,
+      render_trace: renderTrace, gl_all_trace: glAllTrace, shader_trace: shaderTrace,
+      renderer_diagnostic: rendererInfo, page_errors: pageErrors};
+  }
+  async function sendResult(payload) {
+    if (finished) return;
+    // A fatal engine/script edge during the tiny preflight still restores the
+    // method. Never accept a normal report whose preflight wrapper survived.
+    if (readbackRestore) {
+      payload.readback_witness_cleanup = JSON.parse(window.__wwRunnerReadbackEnd());
+      if (payload.report) {
+        payload.report.workload_valid = false;
+        payload.error = "Readback preflight witness was not closed before world/timing";
+        payload.error_source = "readback_witness_protocol";
+      }
+    }
+    if (entryMode === "app" && payload.kind === undefined) payload.kind = "app_lifecycle";
+    finished = true;
+    startButton.disabled = true;
+    startButton.hidden = true;
+    captureButton.disabled = true;
+    captureButton.hidden = true;
+    marks.report = performance.now();
+    captureCanvas("report");
+    cancelAnimationFrame(rafID);
+    trustedInputLatency.pending_raf_cancelled_at_finish = trustedInputRAFIDs.size;
+    for (const inputRAFID of trustedInputRAFIDs) cancelAnimationFrame(inputRAFID);
+    trustedInputRAFIDs.clear();
+    payload.run_id = runConfig.run_id;
+    payload.browser = browserMetadata();
+    applyCanvasEligibility(payload, payload.browser.canvas_policy);
+    window.__wwRunnerResult = payload;
+    if (payload.error) statusNode.hidden = false;
+    statusNode.textContent = "Saving report to localhost…";
+    try {
+      const response = await fetch("/report", {method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload)});
+      if (!response.ok) throw new Error("Collector HTTP " + response.status);
+      statusNode.textContent = payload.error ? "Probe failed; saved local error: " + payload.error :
+        entryMode === "app" ? "Saved app lifecycle snapshot — no FPS/performance gate evaluated" :
+        canvasPolicyMode === "production" ? "Saved production-canvas diagnostic — " +
+          (payload.report.measurement_eligibility.native_size_workload_accepted ? "workload eligible" : "workload ineligible") +
+          "; fixed-resolution gate N/A" :
+        "Saved local report — " + payload.report.average_fps + " FPS; p95 " + payload.report.p95_frame_ms +
+          " ms; max " + payload.report.max_frame_ms + " ms; gate " + (payload.report.meets_gate ? "PASS" : "FAIL");
+      document.title = payload.error ? "Runner probe failed" : "Runner probe complete";
+    } catch (error) { statusNode.textContent = "Report save failed: " + String(error); }
+  }
+  window.__wwRunnerFinish = (report, csv) => entryMode === "app" ?
+    window.__wwRunnerFail("Performance callback is invalid for app lifecycle entry", "entry_contract") :
+    sendResult({report, csv});
+  window.__wwRunnerFail = (error, source = "godot_probe", diagnostics = null) => {
+    const payload = {error: String(error), error_source: source};
+    if (entryMode !== "app" && diagnostics && typeof diagnostics === "object" && !Array.isArray(diagnostics)) {
+      payload.diagnostics = diagnostics;
+    }
+    return sendResult(payload);
+  };
+  function captureAppLifecycle() {
+    if (entryMode !== "app" || finished || marks.engine_started === undefined) return;
+    marks.app_snapshot = performance.now();
+    captureCanvas("app_snapshot");
+    return sendResult({kind: "app_lifecycle", report: {
+      schema_version: 1, measurement_kind: "app_lifecycle",
+      scope: "Explicit browser-side full-app lifecycle snapshot; no engine FPS or performance gate",
+      performance_gate_applicable: false, engine_fps_report_present: false,
+      meets_gate: false, complete_production: false,
+    }});
+  }
+  captureButton.addEventListener("click", captureAppLifecycle, {once: true});
+  window.addEventListener("error", event => {
+    if (finished) return;
+    if (recordPageError("error", event) === "owned_engine_script") {
+      window.__wwRunnerFail(event.message, "owned_engine_script_error");
+    }
+  });
+  window.addEventListener("unhandledrejection", event => {
+    if (!finished) recordPageError("unhandledrejection", event);
+  });
+  </script>
+  <script src="$GODOT_URL" onerror="window.__wwRunnerFail('Engine script failed to load', 'engine_script_load')"></script>
+  <script>
+    try {
+      const engine = new Engine($GODOT_CONFIG);
+      const missing = Engine.getMissingFeatures({threads: runConfig.threads === true});
+      if (missing.length) window.__wwRunnerFail("Missing browser features: " + missing.join(", "), "engine_features");
+      else {
+        let startRequested = false;
+        const startDiagnostic = () => {
+          if (startRequested || finished) return;
+          startRequested = true;
+          startButton.disabled = true;
+          startButton.hidden = true;
+          try {
+            marks.engine_start = performance.now();
+            captureCanvas("engine_start");
+            engine.startGame({canvas: document.getElementById("canvas"), canvasResizePolicy: 0,
+              // Local debugging is always silent; no persistent sound preference
+              // or user save is changed. Audio work is outside this probe scope.
+              args: ["--audio-driver", "Dummy"],
+              onExit: code => { if (!finished) window.__wwRunnerFail("Engine exited without report: " + code, "engine_exit"); }
+            }).then(() => {
+              if (entryMode !== "app" || finished) return;
+              marks.engine_started = performance.now();
+              captureCanvas("engine_started");
+              captureRendererInfo();
+              statusNode.hidden = true;
+              captureButton.hidden = false;
+              document.title = "Waddle Wars — app lifecycle diagnostic";
+            }, error => window.__wwRunnerFail(error, "engine_start"));
+          } catch (error) { window.__wwRunnerFail(error, "engine_bootstrap"); }
+        };
+        if (manualStart && !finished) {
+          // Keep the page/renderer available for PID selection and tracing,
+          // without starting Godot or changing the measured game's settings.
+          statusNode.textContent = "Ready — attach trace, then select Start diagnostic.";
+          startButton.hidden = false;
+          startButton.addEventListener("click", startDiagnostic, {once: true});
+        } else startDiagnostic();
+      }
+    } catch (error) { window.__wwRunnerFail(error, "engine_bootstrap"); }
+  </script>
+</body>
+</html>

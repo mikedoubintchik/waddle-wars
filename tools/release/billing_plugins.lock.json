@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "android": {
+    "name": "GodotGooglePlayBilling",
+    "version": "3.3.0",
+    "source_commit": "e494f370ee591fa11823ad2749a070ed1149de99",
+    "license": "MIT",
+    "release_url": "https://github.com/godot-sdk-integrations/godot-google-play-billing/releases/download/3.3.0/godot-google-play-billing.zip",
+    "sha256": "20d75623d6f337f08d8283c83098b73678d5f575e39247af5a8eb80588b18568",
+    "billing_library": "9.1.0",
+    "wrapper_path": "res://addons/GodotGooglePlayBilling/BillingClient.gd",
+    "editor_plugin_path": "res://addons/GodotGooglePlayBilling/plugin.cfg"
+  },
+  "ios": {
+    "name": "WaddleStoreKit",
+    "source": "native/ios/WaddleStoreKit",
+    "version": "1.2.0",
+    "godot_source_commit": "a13da4feb8d8aefc283c3763d33a2f170a18d541",
+    "godot_version": "4.7.1.stable",
+    "minimum_ios_for_billing": "15.0",
+    "export_plugin": "plugins/WaddleStoreKit",
+    "authentication_helper": "native/ios/WaddleStoreKit/WWAuthenticationBridge.swift",
+    "authentication_origin": "https://waddlewars.io",
+    "authentication_callback_scheme": "com.blubberandbyte.waddlewars.auth",
+    "binary_status": "compiled_installed_requires_app_linkage_auth_and_billing_device_verification"
+  }
+}

@@ -1,0 +1,5 @@
+Use case: precise-object-edit
+Asset type: production Waddle Wars Missions screen background plate, portrait 9:16.
+Input images: Image 1 is the approved Missions mockup and edit target.
+Primary request: Remove all UI controls and readable text from Image 1: top header/back/star counter, all destination nameplates and numeric milestone plaque, the three lower mission strips and progress bars, and the coral Run Now button. Reconstruct natural bright Antarctic snow and sky behind them. Preserve the central handcrafted expedition route parchment occupying the upper-middle with its four miniature landmark sculptures (day ice, twilight mountain, crystal cave, aurora), dotted path and tiny penguin marker, but with NO words or plaques on it. Leave the lower half as clean softly textured snowy negative space suitable for separate live Godot mission rows. Preserve color, camera and premium 3D style.
+Constraints: no text, no UI, no buttons, no badges, no progress bars, no watermark. Keep the map's four distinct biome landmarks legible.

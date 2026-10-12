@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="ArtCatalog" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/art/art_catalog.gd" id="1_catalog"]
+
+[resource]
+script = ExtResource("1_catalog")
+manifest_path = "res://assets/art/art_manifest.json"
+strict_paths = true

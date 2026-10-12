@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "state": "prepared_policy_delta",
+  "prepared_date": "2026-10-09",
+  "scope": "Optional production Clerk accounts in supported iOS builds starting at 41; Android and prior iOS offline scope retained. Source preparation is not publication or runtime acceptance.",
+  "historical_publication": "native_privacy_inventory.json#public_pages_followup_20261009",
+  "publication_verified_at_preparation": false,
+  "account_upload_gate": "ios_account_release_audit.py",
+  "pages": {
+    "privacy": {
+      "path": "web/native/privacy.html",
+      "url": "https://waddlewars.io/native/privacy.html",
+      "prior_published_sha256": "5a35e9eae56c1aea4d2cdc0508fd06b1832e92ddc0f91a59cd503dd55b64fdc1",
+      "prepared_sha256": "08f71acfa206a0f6bf9c7ac68ab68323a4ed47bd6c8d00217d1c3b4321be69b7"
+    },
+    "support": {
+      "path": "web/native/support.html",
+      "url": "https://waddlewars.io/native/support.html",
+      "prior_published_sha256": "08962428fdee184a2ceee6bdd422a72b527d879909ff473e9d5c6f8dd973cb63",
+      "prepared_sha256": "8e1261f75793a0ed1f33ccf6fc97c0e4fbd70c7152681424ee149b57b4dfe5ef"
+    },
+    "deletion": {
+      "path": "web/native/delete-data.html",
+      "url": "https://waddlewars.io/native/delete-data.html",
+      "prior_published_sha256": "31790067814d8d80d7e7d30fb0aa7ad5707e383541c0ebd2a28e7fdbd662a6f2",
+      "prepared_sha256": "ba7b2c248bb5b95aa75f37e39e45e957ad01a0d6c354b30ce3b31236eb268adf"
+    }
+  }
+}

@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "reference": "art_src/characters/reference_boards/penguin-gameplay-v2-20261011/waddle-rear-strong-lean-sequence.png",
+  "gameplay_height_m": 1.05,
+  "body_segments": 48,
+  "body_rings": 48,
+  "body_profile_z_rx_ry_center_y": [
+    [
+      0.115,
+      0.0,
+      0.0,
+      0.015
+    ],
+    [
+      0.16,
+      0.175,
+      0.17,
+      0.015
+    ],
+    [
+      0.24,
+      0.29,
+      0.235,
+      0.025
+    ],
+    [
+      0.38,
+      0.405,
+      0.31,
+      0.035
+    ],
+    [
+      0.56,
+      0.463,
+      0.352,
+      0.04
+    ],
+    [
+      0.75,
+      0.472,
+      0.365,
+      0.045
+    ],
+    [
+      0.94,
+      0.414,
+      0.335,
+      0.05
+    ],
+    [
+      1.105,
+      0.335,
+      0.28,
+      0.055
+    ],
+    [
+      1.255,
+      0.29484,
+      0.242,
+      0.06
+    ],
+    [
+      1.405,
+      0.3136,
+      0.246,
+      0.067
+    ],
+    [
+      1.525,
+      0.29344,
+      0.233,
+      0.066
+    ],
+    [
+      1.635,
+      0.2184,
+      0.181,
+      0.06
+    ],
+    [
+      1.695,
+      0.1176,
+      0.099,
+      0.052
+    ],
+    [
+      1.72,
+      0.0,
+      0.0,
+      0.047
+    ]
+  ],
+  "flipper_profile_t_x_y_z_half_width_half_thickness": [
+    [
+      0.0,
+      0.275,
+      -0.03,
+      1.19,
+      0.05,
+      0.03
+    ],
+    [
+      0.15,
+      0.38,
+      -0.04,
+      1.098,
+      0.079,
+      0.035
+    ],
+    [
+      0.36,
+      0.482,
+      -0.064,
+      0.9439,
+      0.077,
+      0.031
+    ],
+    [
+      0.61,
+      0.575,
+      -0.081,
+      0.74725,
+      0.06,
+      0.025
+    ],
+    [
+      0.83,
+      0.632,
+      -0.083,
+      0.5782,
+      0.035,
+      0.018
+    ],
+    [
+      0.97,
+      0.651,
+      -0.071,
+      0.49425,
+      0.018,
+      0.011
+    ],
+    [
+      0.989,
+      0.649,
+      -0.0675,
+      0.4818,
+      0.01,
+      0.007
+    ],
+    [
+      1.0,
+      0.648,
+      -0.066,
+      0.47585,
+      0.0,
+      0.0
+    ]
+  ],
+  "foot_centers_x": 0.215,
+  "foot_center_y": 0.055,
+  "foot_splay_degrees": 18,
+  "foot_width_scale": 0.94,
+  "palette_srgb": {
+    "crown": "#252b31",
+    "back": "#343d44",
+    "rump": "#2f373d",
+    "ivory": "#e8e4d5",
+    "neck_gold": "#cf9a42",
+    "flipper": "#343d43",
+    "tail": "#2c353c",
+    "foot": "#d97a24"
+  },
+  "roughness": 0.9,
+  "metallic": 0.0,
+  "flipper_rings": 28,
+  "revision": "v3: rear cream edges and gold teardrops; orange feet with modest outward splay; curved integrated tail fan; v2 head/torso/flippers unchanged",
+  "rear_color_wrap": {
+    "ivory_lower_sin_cutoff": -0.55,
+    "ivory_mid_sin_cutoff": -0.45,
+    "ivory_upper_sin_shift": 0.58,
+    "gold_rear_angle_radians": 0.43,
+    "gold_angular_radius": 0.3,
+    "gold_center_z": 1.365,
+    "gold_height_radius": 0.145
+  }
+}

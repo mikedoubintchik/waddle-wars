@@ -14,7 +14,7 @@ extends Control
 ## uppercase letter-spaced caption, and one promoted primary action in solid
 ## glacier blue (Challenge Friends) with every secondary kept quieter.
 
-## Board tabs: one per race course, plus Endless.
+## Separate boards for Waddle Run points, each race's best time, and Expedition.
 ##
 ## Built from CoursesDB rather than hand-listed. The hand-listed version named
 ## three courses, so the two added after it had no board at all -- a course you
@@ -22,6 +22,9 @@ extends Control
 ## Anything added to the roster from here on gets a tab for free.
 static func tabs() -> Array[Dictionary]:
 	var list: Array[Dictionary] = []
+	list.append({"mode": "runner", "course": "runner", "label": "Waddle Run"})
+	if not GameConfig.RACE_VISIBLE_IN_MVP:
+		return list
 	for id: String in CoursesDB.ORDER:
 		var info := CoursesDB.get_item(id)
 		# First word of the course name: "Glacier Gauntlet" -> "Glacier". Tabs
@@ -30,11 +33,27 @@ static func tabs() -> Array[Dictionary]:
 		var space := full.find(" ")
 		list.append({"mode": "time", "course": id,
 			"label": full.substr(0, space) if space > 0 else full})
-	list.append({"mode": "endless", "course": "endless", "label": "Endless"})
+	list.append({"mode": "endless", "course": "endless", "label": "Expedition"})
 	return list
+
+
+static func initial_tab_index() -> int:
+	var list := tabs()
+	var course := Game.course_id
+	if Game.mode == Game.Mode.RUNNER:
+		course = "runner"
+	elif Game.mode == Game.Mode.ENDLESS:
+		course = "endless"
+	elif Progression.runner_high_score() > 0 and Progression.best_time(course) <= 0.0:
+		course = "runner"
+	for i: int in list.size():
+		if String(list[i]["course"]) == course:
+			return i
+	return 0
 
 ## Authored width of the board column on the 1920x1080 desktop canvas.
 const CARD_WIDTH: float = 880.0
+const WIDE_CARD_WIDTH: float = 1280.0
 
 ## Corner language shared with results.gd.
 const RADIUS_CARD: int = 18
@@ -68,12 +87,38 @@ const ICON_OFFLINE: String = """<svg xmlns="http://www.w3.org/2000/svg" width="7
 ## Number of skeleton rows drawn while a board request is in flight.
 const SKELETON_ROWS: int = 6
 
+
+## HTTPRequest outlives a menu that the player backs out of mid-fetch. A lambda
+## owned by the menu becomes an invalid Callable in that case, so the transport
+## reports a script error before the lambda can run its is_inside_tree guard.
+## This ref-counted gate stays alive with the request and keeps only a weak
+## reference back to the screen.
+class BoardRequestGate:
+	extends RefCounted
+
+	var owner: WeakRef
+	var serial: int
+	var tab: Dictionary
+
+	func _init(screen: Node, request_serial: int, requested_tab: Dictionary) -> void:
+		owner = weakref(screen)
+		serial = request_serial
+		tab = requested_tab
+
+	func deliver(ok: bool, data: Dictionary) -> void:
+		var screen: Variant = owner.get_ref()
+		if screen == null or not is_instance_valid(screen):
+			return
+		(screen as Node).call("_receive_board", ok, data, tab, serial)
+
 var _tab_index: int = 0
 var _tab_buttons: Array[Button] = []
 var _list_box: VBoxContainer
 var _state_box: VBoxContainer
 var _header_row: Control
 var _board_caption: Label
+var _board_hint: Label
+var _own_rank_label: Label
 var _value_caption: Label
 var _records_box: VBoxContainer
 var _status_label: Label
@@ -86,25 +131,80 @@ var _auth_card: PanelContainer = null
 var _name_row: HBoxContainer = null
 var _name_edit: LineEdit = null
 var _name_status: Label = null
+var _post_button: Button = null
+var _post_status: Label = null
+var _post_busy: bool = false
+var _post_text: String = ""
 var _fetch_serial: int = 0
 ## Extra enlargement for tall/narrow (portrait) viewports — see _tall_boost().
 var _boost: float = 1.0
 var _card_width: float = CARD_WIDTH
+var _fit: float = 1.0
+var _profile: LayoutProfile = null
+var _stacked: bool = false
+var _layout_root: Control = null
+var _scroll: ScrollContainer = null
 
 
 func _ready() -> void:
 	UITheme.make_background(self)
 	UITheme.apply_ui_scale(self)
+	var initial := UtilityScreenLayout.bind_view_class(self, _on_view_class_changed)
+	_build_layout(initial, true, 0.0, initial_tab_index())
+	UITheme.attach_swipe_back(self, _go_back)
+	LeaderboardClient.auth_changed.connect(_on_auth_changed)
+	AudioManager.play_music("music_title")
+
+
+func _on_view_class_changed(next: LayoutProfile) -> void:
+	var fraction := UtilityScreenLayout.scroll_fraction(_scroll)
+	_build_layout(next, false, fraction, _tab_index)
+
+
+func _build_layout(next: LayoutProfile, animate: bool, scroll_fraction: float,
+		selected_tab: int) -> void:
+	_fetch_serial += 1
+	if _layout_root != null and is_instance_valid(_layout_root):
+		_layout_root.free()
+	_profile = next
+	_tab_buttons.clear()
+	_list_box = null
+	_state_box = null
+	_header_row = null
+	_board_caption = null
+	_board_hint = null
+	_own_rank_label = null
+	_value_caption = null
+	_records_box = null
+	_status_label = null
+	_status_dancers = null
+	_dancer_holder = null
+	_auth_button = null
+	_auth_label = null
+	_auth_title = null
+	_auth_card = null
+	_name_row = null
+	_name_edit = null
+	_name_status = null
+	_post_button = null
+	_post_status = null
 	_boost = _tall_boost()
 	_card_width = _measure_card_width()
+	_fit = clampf(_card_width / maxf(UITheme.scaled(CARD_WIDTH), 1.0), 0.42, 1.0)
+	_stacked = UtilityScreenLayout.uses_stacked_rows(_profile)
+	_layout_root = Control.new()
+	_layout_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_layout_root)
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", UITheme.screen_margin())
-	margin.add_theme_constant_override("margin_right", UITheme.screen_margin())
-	margin.add_theme_constant_override("margin_top", _gap(22))
+	UtilityScreenLayout.bind_safe_rect(self, margin)
+	margin.add_theme_constant_override("margin_left", _page_gutter())
+	margin.add_theme_constant_override("margin_right", _page_gutter())
+	margin.add_theme_constant_override("margin_top", _gap(
+		16 if UtilityScreenLayout.is_phone(_profile) else 22))
 	margin.add_theme_constant_override("margin_bottom", _gap(20))
-	add_child(margin)
+	_layout_root.add_child(margin)
 	var layout := VBoxContainer.new()
 	layout.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
 	margin.add_child(layout)
@@ -128,10 +228,18 @@ func _ready() -> void:
 	title_box.add_theme_constant_override("separation", 0)
 	top_row.add_child(title_box)
 	_eyebrow(title_box, "Global board · Top 20", Color(UITheme.COLOR_ACCENT, 0.75))
-	var title := UITheme.heading("Leaderboard", _heading(50))
+	var title_size := 30 if UtilityScreenLayout.is_phone(_profile) \
+		else (38 if _stacked else 50)
+	var title := UITheme.heading("Leaderboard", _heading(title_size))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	# A non-wrapping heading reports its full text width as a minimum, and the
+	# header row is centred by a container that lets a too-wide child spill to
+	# the right rather than shrink — which is how Back leaves the screen. Let the
+	# title give up characters instead of pushing the way out off a phone.
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	title_box.add_child(title)
 	var back := UITheme.make_button("Back", _row_size(Vector2(176, 50)), _f(22))
+	UtilityScreenLayout.enforce_target(back)
 	back.add_theme_color_override("font_color", UITheme.COLOR_GOLD)
 	var back_icon := UITheme.make_icon(UITheme.ICON_BACK, 1.0)
 	if back_icon != null:
@@ -146,14 +254,16 @@ func _ready() -> void:
 	header.add_child(UITheme.make_header_rule())
 	_build_tabs(header)
 
-	var scroll := ScrollContainer.new()
+	_scroll = ScrollContainer.new()
 	# Rows and buttons swallow touch drags before the ScrollContainer can see
 	# them; this restores dragging the page on a phone.
-	TouchScroll.attach(scroll)
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.follow_focus = true
-	layout.add_child(scroll)
+	TouchScroll.attach(_scroll)
+	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.follow_focus = true
+	layout.add_child(_scroll)
+	UtilityScreenLayout.style_scrollbar(_scroll, _u(9.0))
 	var center := CenterContainer.new()
 	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# Horizontal centring only. ScrollContainer stretches a child to its own size
@@ -162,18 +272,38 @@ func _ready() -> void:
 	# with EXPAND a short page (empty board on a tall phone) floated in the
 	# middle of the viewport with a dead gap under the tabs.
 	center.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	scroll.add_child(center)
-	var column := VBoxContainer.new()
-	column.custom_minimum_size.x = _card_width
-	column.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
-	center.add_child(column)
+	_scroll.add_child(center)
+	var board: Control
+	var records: Control
+	var cta: Control
+	if _profile.view_class == LayoutProfile.ViewClass.LANDSCAPE_WIDE:
+		var workspace := HBoxContainer.new()
+		workspace.custom_minimum_size.x = _card_width
+		workspace.add_theme_constant_override("separation", _gap(UITheme.SPACE_M))
+		center.add_child(workspace)
+		var board_column := VBoxContainer.new()
+		board_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		board_column.size_flags_stretch_ratio = 0.56
+		workspace.add_child(board_column)
+		var detail_column := VBoxContainer.new()
+		detail_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		detail_column.size_flags_stretch_ratio = 0.44
+		detail_column.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
+		workspace.add_child(detail_column)
+		board = _build_board_card(board_column)
+		records = _build_records_card(detail_column)
+		_build_auth_card(detail_column)
+		cta = _build_cta_row(detail_column)
+	else:
+		var column := VBoxContainer.new()
+		column.custom_minimum_size.x = _card_width
+		column.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
+		center.add_child(column)
+		board = _build_board_card(column)
+		records = _build_records_card(column)
+		_build_auth_card(column)
+		cta = _build_cta_row(column)
 
-	var board := _build_board_card(column)
-	var records := _build_records_card(column)
-	_build_auth_card(column)
-	var cta := _build_cta_row(column)
-
-	UITheme.attach_swipe_back(self, _go_back)
 	# Only the header takes UITheme's fade+rise. The cards below sit above a
 	# panel whose height changes when the fetch lands (skeletons -> rows, or an
 	# empty/error block), and a position tween running across that re-sort
@@ -183,14 +313,13 @@ func _ready() -> void:
 	if _auth_card != null:
 		cards.append(_auth_card)
 	cards.append(cta)
-	if not UITheme.reduced_motion():
+	if animate and not UITheme.reduced_motion():
 		UITheme.play_entrance(self, [header] as Array[Control])
 		_fade_in(cards)
-	LeaderboardClient.auth_changed.connect(_on_auth_changed)
-	_select_tab(0)
-	if not _tab_buttons.is_empty():
-		_tab_buttons[0].grab_focus()
-	AudioManager.play_music("music_title")
+	_select_tab(clampi(selected_tab, 0, maxi(tabs().size() - 1, 0)))
+	UtilityScreenLayout.restore_scroll_fraction(self, _scroll, scroll_fraction)
+	if animate and not _tab_buttons.is_empty():
+		_tab_buttons[_tab_index].grab_focus()
 
 
 ## Staggered opacity-only cascade for the card stack. Never touches position,
@@ -226,15 +355,17 @@ func _tall_boost() -> float:
 
 
 func _f(size: int) -> int:
-	return maxi(1, roundi(float(UITheme.scaled_font(size)) * _boost))
+	return maxi(1, roundi(float(UITheme.scaled_font(size)) * _boost \
+		* lerpf(1.0, _fit, 0.38)))
 
 
 func _heading(size: int) -> int:
-	return maxi(1, roundi(float(UITheme.scaled_heading(size)) * minf(_boost, 1.5)))
+	return maxi(1, roundi(float(UITheme.scaled_heading(size)) * minf(_boost, 1.5) \
+		* lerpf(1.0, _fit, 0.45)))
 
 
 func _u(value: float) -> float:
-	return UITheme.scaled(value) * _boost
+	return UITheme.scaled(value) * _fit
 
 
 func _gap(value: int) -> int:
@@ -243,22 +374,36 @@ func _gap(value: int) -> int:
 
 func _row_size(size: Vector2) -> Vector2:
 	var out := UITheme.scaled_size(size)
+	if out.x > 0.0:
+		out.x *= _fit
 	out.y *= _boost
+	if out.y > 0.0:
+		out.y = maxf(out.y, UtilityScreenLayout.MIN_TOUCH_TARGET)
 	return out
 
 
+## Headless is deliberately NOT an early exit here. The board column is
+## authored at 880 units on the 1920-wide desktop canvas, and a portrait phone
+## lays out in roughly 800: returning the authored width whenever no display
+## server exists meant the mobile UI audit — which runs headless — measured a
+## column wider than the canvas holding it, so Back and the right-hand tab
+## column sat past the right edge with nothing able to scroll to them. Only a
+## missing profile or an unparented screen can skip the measurement now.
 func _measure_card_width() -> float:
-	if UITheme.is_touch():
-		return UITheme.content_width(CARD_WIDTH, self)
-	if GameConfig.is_headless() or not is_inside_tree():
+	if _profile == null or not is_inside_tree():
 		return CARD_WIDTH
-	var view := get_viewport_rect().size
-	if view.x <= 0.0:
-		return CARD_WIDTH
-	var usable := view.x - float(UITheme.screen_margin()) * 2.0
-	if view.y > view.x:  # portrait window: fill it rather than float in it
-		return clampf(usable, 440.0, 1500.0)
-	return clampf(minf(CARD_WIDTH * _boost, view.x * 0.62), 440.0, usable)
+	var authored := WIDE_CARD_WIDTH if _profile.view_class \
+		== LayoutProfile.ViewClass.LANDSCAPE_WIDE else CARD_WIDTH * _boost
+	var page := UtilityScreenLayout.page_width(_profile, authored, 300.0, 0.82)
+	# No readability floor is applied to the result: page_width() already floors
+	# the page itself, and a floor applied *after* the gutters are subtracted can
+	# only ever hand back a column wider than the container it sits in — which is
+	# the unreachable content this measurement exists to prevent.
+	return maxf(page - float(_page_gutter() * 2), 1.0)
+
+
+func _page_gutter() -> int:
+	return 16 if UtilityScreenLayout.is_phone(_profile) else 24
 
 
 ## --- Shared building blocks -------------------------------------------------
@@ -267,8 +412,15 @@ func _eyebrow(parent: Control, text: String, color: Color) -> Label:
 	var label := Label.new()
 	label.text = text.to_upper()
 	label.add_theme_font_override("font", UITheme.display_font())
-	label.add_theme_font_size_override("font_size", _f(17))
+	var size := _f(17)
+	label.add_theme_font_size_override("font_size", size)
 	label.add_theme_color_override("font_color", color)
+	# The header is pinned over the live backdrop rather than a card, and on a
+	# portrait phone the sky's bright band sits exactly behind it — ice blue on
+	# sunlit cloud disappeared. The heading beside it already carries UITheme's
+	# deep-navy outline; the eyebrow now earns the same, scaled to its own size.
+	label.add_theme_color_override("font_outline_color", UITheme.COLOR_BG_DEEP)
+	label.add_theme_constant_override("outline_size", maxi(3, roundi(float(size) * 0.22)))
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	parent.add_child(label)
 	return label
@@ -276,7 +428,7 @@ func _eyebrow(parent: Control, text: String, color: Color) -> Label:
 
 func _make_card(parent: Control, accent: Color = Color(UITheme.COLOR_ACCENT, 0.22)) -> VBoxContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size.x = _card_width
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var style := UITheme.make_panel_style(Color(0.063, 0.114, 0.204, 0.90), accent)
 	style.set_corner_radius_all(RADIUS_CARD)
 	style.content_margin_left = _u(20.0)
@@ -346,8 +498,9 @@ func _head_label(text: String, width: float,
 
 ## --- Course tabs ------------------------------------------------------------
 
-## Segmented picker: the four boards sit in one grouped strip, and the active
-## segment is the only filled thing in the header.
+## Segmented picker: every board sits in one grouped strip, and the active
+## segment is the only filled thing. Compact layouts wrap into a deliberate
+## grid instead of squeezing seven course names into one clipped row.
 func _build_tabs(parent: Control) -> void:
 	var strip := PanelContainer.new()
 	var style := StyleBoxFlat.new()
@@ -361,15 +514,31 @@ func _build_tabs(parent: Control) -> void:
 	style.content_margin_bottom = _u(6.0)
 	strip.add_theme_stylebox_override("panel", style)
 	parent.add_child(strip)
-	var row := HBoxContainer.new()
+	var use_grid := _profile.view_class != LayoutProfile.ViewClass.LANDSCAPE_WIDE
+	var row: Container
+	if use_grid:
+		var grid := GridContainer.new()
+		grid.columns = 3 if _profile.is_portrait() else 4
+		row = grid
+	else:
+		row = HBoxContainer.new()
 	row.add_theme_constant_override("separation", _gap(6))
+	row.add_theme_constant_override("h_separation", _gap(6))
+	row.add_theme_constant_override("v_separation", _gap(6))
 	strip.add_child(row)
 	var tab_list := tabs()
 	for i: int in tab_list.size():
 		var tab: Dictionary = tab_list[i]
 		var button := UITheme.make_button(
-			String(tab["label"]), _row_size(Vector2(0, 48)), _f(21))
+			String(tab["label"]), _row_size(Vector2(0, 48)), _f(19 if use_grid else 21))
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# Tabs are built from the course roster, so the strip has to survive a
+		# course name longer than anything shipped today. A Button's text is part
+		# of its minimum width unless it may clip, and one over-long label in a
+		# grid column would widen the whole strip past the card — off a portrait
+		# phone entirely. Ellipsis is the graceful loss; overflow is not.
+		button.clip_text = true
+		button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		button.toggle_mode = true
 		_style_tab(button)
 		UITheme.hook_sounds(button)
@@ -417,6 +586,13 @@ func _build_board_card(parent: Control) -> PanelContainer:
 	# an error block does not resize the page under the player's finger.
 	(box.get_parent() as PanelContainer).custom_minimum_size.y = _u(300.0)
 	_board_caption = _card_title(box, "Glacier Gauntlet · Best Times")
+	_board_hint = UITheme.sub_label("", _f(17))
+	_board_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(_board_hint)
+	_own_rank_label = UITheme.sub_label("", _f(18))
+	_own_rank_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_own_rank_label.add_theme_color_override("font_color", UITheme.COLOR_GOLD)
+	box.add_child(_own_rank_label)
 
 	# Column captions sit on the same fixed widths as the data cells, indented to
 	# match the row content margins so headings sit over their columns.
@@ -449,10 +625,8 @@ func _build_board_card(parent: Control) -> PanelContainer:
 	_state_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	_state_box.add_theme_constant_override("separation", _gap(8))
 	box.add_child(_state_box)
-	# Dancing penguins mark the fetch. Built once and kept parented at the top of
-	# the state area for the whole screen's life: it owns a SubViewport and a 3D
-	# penguin, so rebuilding it per tab switch (or orphaning it on the way to
-	# another state) would churn real resources.
+	# Cached mascot animation marks the fetch. Built once and kept parented at
+	# the top of the state area so tab switches never churn its texture state.
 	if not GameConfig.is_headless():
 		_dancer_holder = CenterContainer.new()
 		_dancer_holder.visible = false
@@ -613,8 +787,7 @@ static func _row_color(highlight: bool, rank: int) -> Color:
 ## Clears the rows and the state block so a state can be drawn fresh.
 func _clear_board() -> void:
 	for child in _list_box.get_children():
-		_list_box.remove_child(child)
-		child.queue_free()
+		child.free()
 	# The status label outlives every state block, so it is detached before the
 	# block that held it is freed. The penguin loader's holder is a permanent
 	# child of _state_box and is skipped entirely.
@@ -623,8 +796,7 @@ func _clear_board() -> void:
 	for child in _state_box.get_children():
 		if child == _dancer_holder:
 			continue
-		_state_box.remove_child(child)
-		child.queue_free()
+		child.free()
 
 
 ## Grey placeholder rows while a request is in flight — the board keeps its
@@ -633,7 +805,8 @@ func _clear_board() -> void:
 func _show_loading(tab: Dictionary) -> void:
 	_clear_board()
 	_header_row.visible = true
-	_status_label.text = "Fetching %s times…" % String(tab["label"])
+	_status_label.text = "Fetching %s %s…" % [String(tab["label"]),
+		"times" if String(tab["mode"]) == "time" else "scores"]
 	for i: int in SKELETON_ROWS:
 		_list_box.add_child(_skeleton_row(i))
 	var block := VBoxContainer.new()
@@ -755,10 +928,13 @@ func _refresh_records() -> void:
 	if _records_box == null:
 		return
 	for child in _records_box.get_children():
-		_records_box.remove_child(child)
-		child.queue_free()
+		child.free()
 	var active_course := String(tabs()[_tab_index]["course"])
 	var index := 0
+	var runner_best := Progression.runner_high_score()
+	_records_box.add_child(_record_row("Waddle Run",
+		"—" if runner_best <= 0 else _fmt_int(runner_best), active_course == "runner", index))
+	index += 1
 	for course_id: String in CoursesDB.ORDER:
 		var best := Progression.best_time(course_id)
 		_records_box.add_child(_record_row(
@@ -827,12 +1003,7 @@ func _build_auth_card(parent: Control) -> void:
 		_auth_button.add_theme_color_override("font_color", UITheme.COLOR_ACCENT)
 		_auth_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		UITheme.hook_sounds(_auth_button)
-		_auth_button.pressed.connect(func() -> void:
-			if LeaderboardClient.signed_in:
-				LeaderboardClient.sign_out()
-			else:
-				_auth_button.text = "Opening…"
-				LeaderboardClient.sign_in())
+		_auth_button.pressed.connect(AccountAuthPresentation.activate)
 		row.add_child(_auth_button)
 
 	# Signed-in players pick the name shown on the boards.
@@ -850,7 +1021,8 @@ func _build_auth_card(parent: Control) -> void:
 	_name_edit = LineEdit.new()
 	_name_edit.max_length = 20
 	_name_edit.placeholder_text = "2-20 letters/numbers"
-	_name_edit.custom_minimum_size = _row_size(Vector2(260, 46))
+	_name_edit.custom_minimum_size = _row_size(Vector2(
+		220 if _profile.view_class == LayoutProfile.ViewClass.LANDSCAPE_WIDE else 260, 46))
 	_name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_name_edit.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_name_edit.add_theme_font_size_override("font_size", _f(20))
@@ -867,7 +1039,8 @@ func _build_auth_card(parent: Control) -> void:
 	focus_style.set_border_width_all(2)
 	_name_edit.add_theme_stylebox_override("focus", focus_style)
 	_name_row.add_child(_name_edit)
-	var save_button := UITheme.make_button("Save", _row_size(Vector2(112, 46)), _f(20))
+	var save_button := UITheme.make_button("Save", _row_size(Vector2(
+		104 if _profile.view_class == LayoutProfile.ViewClass.LANDSCAPE_WIDE else 112, 46)), _f(20))
 	save_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	UITheme.hook_sounds(save_button)
 	save_button.pressed.connect(func() -> void:
@@ -893,6 +1066,16 @@ func _build_auth_card(parent: Control) -> void:
 	_name_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_name_status.visible = false
 	box.add_child(_name_status)
+	_post_button = UITheme.make_button("Post local best", _row_size(Vector2(0, 48)), _f(20))
+	_post_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_post_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_post_button.clip_text = true
+	UITheme.hook_sounds(_post_button)
+	_post_button.pressed.connect(_post_local_best)
+	box.add_child(_post_button)
+	_post_status = UITheme.sub_label(_post_text, _f(17))
+	_post_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(_post_status)
 	_refresh_auth_row()
 
 
@@ -909,25 +1092,69 @@ func _refresh_auth_row() -> void:
 	if LeaderboardClient.can_sign_in():
 		if LeaderboardClient.signed_in:
 			_auth_title.text = "ACCOUNT"
-			_auth_label.text = "Signed in as %s. Your times post automatically and your progress backs up to the cloud." % LeaderboardClient.display_name
+			_auth_label.text = "Signed in as %s. New completed signed-in runs post automatically. Older local records need Post local best. Choose a public board name below; otherwise you appear as Penguin." % LeaderboardClient.display_name
 			_auth_button.text = "Sign Out"
 			_auth_button.add_theme_color_override("font_color", UITheme.COLOR_TEXT_DIM)
 		else:
-			_auth_title.text = "POST YOUR TIMES"
-			_auth_label.text = "Sign in to put your runs on the global board and back your progress up to the cloud."
-			_auth_button.text = "Opening…" if LeaderboardClient.sign_in_pending else "Sign In"
+			_auth_title.text = "POST YOUR RECORDS"
+			_auth_label.text = "Guest records stay on this device, not the global board. Sign in to save online and post a local best. Race times, Waddle Run and Expedition have separate boards."
+			_auth_label.text = AccountAuthPresentation.message(_auth_label.text)
 			_auth_button.add_theme_color_override("font_color", UITheme.COLOR_ACCENT)
+		AccountAuthPresentation.update_button(_auth_button, "Sign In")
 	else:
-		_auth_title.text = "POST YOUR TIMES"
-		_auth_label.text = "Browsing works everywhere, but posting needs the web version — play at %s to claim a spot on these boards." % \
+		_auth_title.text = "BROWSE GLOBAL RECORDS"
+		_auth_label.text = "This build keeps your records offline. Posting needs sign-in on the web version — play at %s to claim a spot." % \
 			ShareManager.SHARE_URL.trim_prefix("https://")
+		if GameConfig.native_offline_mvp():
+			_auth_label.text += " Native boards use Penguin rank aliases."
 	if _name_row != null:
 		_name_row.visible = LeaderboardClient.can_sign_in() and LeaderboardClient.signed_in
 		if _name_row.visible and _name_edit.text.is_empty():
 			var stored := String(SettingsManager.get_setting("online", "display_name"))
-			_name_edit.text = stored if not stored.is_empty() else LeaderboardClient.display_name
+			# Never prefill a private sign-in name into a public-name editor.
+			_name_edit.text = stored
 		if not _name_row.visible and _name_status != null:
 			_name_status.visible = false
+	_refresh_post_action()
+
+
+func _refresh_post_action() -> void:
+	if _post_button == null:
+		return
+	var tab: Dictionary = tabs()[_tab_index]
+	var value := LeaderboardClient.local_board_value(String(tab["mode"]), String(tab["course"]))
+	_post_button.visible = AccountAuthPresentation.account_surface_enabled() \
+		and LeaderboardClient.can_sign_in() and LeaderboardClient.signed_in and value > 0
+	_post_button.disabled = _post_busy
+	_post_button.text = "Posting…" if _post_busy else "Post local best · %s" % \
+		LeaderboardClient.format_value(String(tab["mode"]), value)
+	_post_button.tooltip_text = "%s · %s" % [_board_name(tab), _post_button.text]
+	_post_button.accessibility_name = _post_button.tooltip_text
+	_post_status.text = _post_text
+	_post_status.visible = not _post_text.is_empty() and AccountAuthPresentation.account_surface_enabled()
+
+
+func _post_local_best() -> void:
+	if _post_busy or not LeaderboardClient.signed_in or not AccountAuthPresentation.account_surface_enabled():
+		return
+	var tab: Dictionary = tabs()[_tab_index]
+	var mode := String(tab["mode"])
+	var course := String(tab["course"])
+	var value := LeaderboardClient.local_board_value(mode, course)
+	if value <= 0:
+		return
+	_post_busy = true
+	_post_text = "Posting your saved %s record…" % _board_name(tab)
+	_refresh_post_action()
+	LeaderboardClient.submit_score(mode, course, value, func(ok: bool, data: Dictionary) -> void:
+		_post_busy = false
+		_post_text = "%s · Your global rank #%d" % [_board_name(tab), int(data.get("rank", 0))] \
+			if ok else "Could not post %s. Your local record is safe; retry when signed in and online." % _board_name(tab)
+		if not is_inside_tree():
+			return
+		_refresh_post_action()
+		if tabs()[_tab_index] == tab:
+			_select_tab(_tab_index))
 
 
 ## --- Call to action ---------------------------------------------------------
@@ -999,48 +1226,79 @@ func _select_tab(index: int) -> void:
 	_board_caption.text = ("%s · %s" % [
 		_board_name(tab), "Best Times" if mode == "time" else "High Scores"]).to_upper()
 	_value_caption.text = "TIME" if mode == "time" else "SCORE"
+	_board_hint.text = "Time Trial · fastest completed time wins." if mode == "time" \
+		else ("Waddle Run · avalanche chase points. Higher score wins." if mode == "runner" \
+		else "Endless Expedition · race-course survival points. Separate from Waddle Run.")
+	_own_rank_label.text = ""
 	_refresh_records()
+	_refresh_post_action()
 	_set_busy(true)
 	_show_loading(tab)
 	_fetch_serial += 1
 	var serial := _fetch_serial
-	LeaderboardClient.fetch_board(mode, String(tab["course"]), 20,
-		func(ok: bool, data: Dictionary) -> void:
-			if not is_inside_tree() or serial != _fetch_serial:
-				return
-			_populate(ok, data, tab))
+	var gate := BoardRequestGate.new(self, serial, tab)
+	# A bound method Callable keeps only a weak target in Godot. Capture the
+	# RefCounted gate in a closure so it stays alive until HTTP completion even
+	# when the screen is closed during the request.
+	var deliver := func(ok: bool, data: Dictionary) -> void:
+		gate.deliver(ok, data)
+	LeaderboardClient.fetch_board(
+		mode, String(tab["course"]), 20, deliver)
+
+
+func _receive_board(ok: bool, data: Dictionary, tab: Dictionary, serial: int) -> void:
+	if not is_inside_tree() or serial != _fetch_serial:
+		return
+	_populate(ok, data, tab)
 
 
 func _populate(ok: bool, data: Dictionary, tab: Dictionary) -> void:
 	_set_busy(false)
 	if not ok:
-		_show_message(ICON_OFFLINE, "Board unreachable",
-			"We couldn't reach the global leaderboard. Check your connection — your local records below are always available.",
-			"Try Again", func() -> void: _select_tab(_tab_index))
+		_own_rank_label.text = "Global rank unavailable. Local records are not lost."
+		var problem := String(data.get("error", ""))
+		if problem == "bad params" or problem.begins_with("http 400"):
+			_show_message(ICON_OFFLINE, "Run board updating",
+				"The live server has not enabled Waddle Run scores yet. Your local record is safe; this is not your connection.",
+				"Try Again", func() -> void: _select_tab(_tab_index))
+		else:
+			_show_message(ICON_OFFLINE, "Board unreachable",
+				"We couldn't reach the global leaderboard. Your local record below is safe.",
+				"Try Again", func() -> void: _select_tab(_tab_index))
 		return
 	var entries: Array = data.get("entries", [])
+	var mode := String(tab["mode"])
+	var me: Variant = data.get("me")
+	var my_rank := int((me as Dictionary).get("rank", -1)) if me is Dictionary else -1
+	_own_rank_label.text = "Your global rank #%d · %s" % [my_rank,
+		LeaderboardClient.format_value(mode, int(me.get("value", 0)))] if my_rank > 0 \
+		else ("No posted record on this board. Post your local best below." if LeaderboardClient.signed_in \
+		else "Sign in on web to post and see your own global rank.")
 	if entries.is_empty():
-		_show_message(UITheme.ICON_PODIUM, "No times posted yet",
-			"Nobody has claimed %s. Set a run and the top of this board is yours." % _board_name(tab),
+		_show_message(UITheme.ICON_PODIUM, "No %s posted yet" % ("times" if mode == "time" else "scores"),
+			"No public records for %s yet. Guest/local records do not appear until posted while signed in." % _board_name(tab),
 			"", Callable())
 		return
 	_clear_board()
 	_header_row.visible = true
-	var mode := String(tab["mode"])
-	var me: Variant = data.get("me")
-	var my_rank := int((me as Dictionary).get("rank", -1)) if me is Dictionary else -1
 	var index := 0
+	var own_row_shown := false
 	for entry: Variant in entries:
 		if not (entry is Dictionary):
 			continue
 		var row := entry as Dictionary
 		var rank := int(row.get("rank", 0))
+		# Equal scores/ranks/names do not identify an account. New responses
+		# carry an authenticated is_me flag; older backends get a separate You row.
+		var owns_row: Variant = row.get("is_me", false)
+		var is_me := owns_row is bool and bool(owns_row) and LeaderboardClient.signed_in
+		own_row_shown = own_row_shown or is_me
 		_list_box.add_child(_make_row(
 			rank, String(row.get("name", "?")),
 			LeaderboardClient.format_value(mode, int(row.get("value", 0))),
-			rank == my_rank and LeaderboardClient.signed_in, index))
+			is_me, index))
 		index += 1
-	if me is Dictionary and my_rank > entries.size():
+	if me is Dictionary and my_rank > 0 and not own_row_shown and LeaderboardClient.signed_in:
 		_list_box.add_child(_gap_marker())
 		_list_box.add_child(_make_row(
 			my_rank, "You",
@@ -1054,6 +1312,8 @@ func _populate(ok: bool, data: Dictionary, tab: Dictionary) -> void:
 static func _board_name(tab: Dictionary) -> String:
 	if String(tab["mode"]) == "time":
 		return CoursesDB.display_name(String(tab["course"]))
+	if String(tab["mode"]) == "runner":
+		return "Waddle Run"
 	return "Endless Expedition"
 
 
@@ -1081,7 +1341,7 @@ func _gap_marker() -> Control:
 
 
 func _go_back() -> void:
-	SceneRouter.go_to(Game.SCENE_MAIN_MENU)
+	SceneRouter.go_back()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -1091,8 +1351,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_go_back()
 
 
-## Toggles the dancing-penguin busy row (headless builds have none). Hiding the
-## holder also parks the loader's SubViewport, so an idle board costs nothing.
+## Toggles the mascot busy row (headless builds have none). Hidden loaders stop
+## processing, so an idle board costs nothing.
 func _set_busy(busy: bool) -> void:
 	if _dancer_holder != null and is_instance_valid(_dancer_holder):
 		_dancer_holder.visible = busy

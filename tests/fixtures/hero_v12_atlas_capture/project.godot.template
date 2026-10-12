@@ -1,0 +1,18 @@
+; Standalone capture fixture. Copied to project.godot only in a temporary project.
+; Intentionally no game autoloads or save access.
+config_version=5
+
+[application]
+config/name="Waddle V12 Candidate Atlas QA"
+config/use_custom_user_dir=true
+config/custom_user_dir_name="waddle-v12-candidate-atlas-qa"
+boot_splash/show_image=false
+
+[display]
+window/size/viewport_width=768
+window/size/viewport_height=960
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
+textures/vram_compression/import_s3tc_bptc=true

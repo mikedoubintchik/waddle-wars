@@ -1,0 +1,25 @@
+{
+  "mode": "built-in image_gen; edit",
+  "jobs": [
+    {
+      "key": "missions_desktop_v3",
+      "path": "art_src/ui/menu/reference_iteration_v3/missions_desktop_v2.png",
+      "prompt": "Edit this desktop Waddle Wars MISSIONS reference precisely. Preserve canvas aspect, snowy scene, map composition, header, fonts, ivory cards, spacing, icons and red Run Now button. Update starter state: star counter 0. Move map penguin/red current marker to DAY ICE. TWILIGHT, CAVES, AURORA each have blue lock markers, connecting path entirely blue. Wooden next sign says exactly 'NEXT: 1,800 M'. Three goal cards top to bottom: flag icon and 'RUN 8,000 M IN TOTAL'; blue fish icon and 'COLLECT 300 FISH IN TOTAL'; ice cube icon and 'JUMP 40 TIMES IN TOTAL'. Each has empty pale blue full-width progress track. Remove CLAIM button since rewards automatic. Keep typography readable within cards. Change only these state labels/icons and map markers. Finished polished reference screenshot, no new decoration."
+    },
+    {
+      "key": "missions_portrait_v2",
+      "path": "art_src/ui/menu/missions_v1.png",
+      "prompt": "Edit this portrait/mobile Waddle Wars MISSIONS reference precisely. Preserve portrait canvas aspect, snowy scene, map composition, header, fonts, ivory cards, spacing and red Run Now button. Update starter state: star counter 0. Move map penguin/red current marker to DAY ICE. TWILIGHT, CAVES, AURORA each have blue lock markers, connecting path entirely blue. Wooden next sign says exactly 'NEXT: 1,800 M'. Three goal cards top to bottom: flag icon and 'RUN 8,000 M IN TOTAL'; blue fish icon and 'COLLECT 300 FISH IN TOTAL'; ice cube icon and 'JUMP 40 TIMES IN TOTAL'. Each has empty pale blue full-width progress track. Remove CLAIM button since rewards automatic. Keep typography readable within cards. Change only these state labels/icons and map markers. Finished polished reference screenshot, no new decoration."
+    },
+    {
+      "key": "feedback_desktop_v4",
+      "path": "art_src/ui/menu/reference_iteration_v3/feedback_desktop_v3.png",
+      "prompt": "Precise text-only edit to supplied Waddle Wars desktop Feedback reference. Replace the one gray small line below optional email field which currently says Sent to support@waddlewars.io with game version and platform. New exact text: 'Your message will include the game version and platform.' Preserve same gray font, alignment and size. Preserve everything else exactly: full canvas aspect, composition, penguin, background, panel shapes, all other labels, buttons, icons, spacing, margins, light, colors. This is unsent empty form; no success indication."
+    },
+    {
+      "key": "feedback_portrait_v4",
+      "path": "art_src/ui/menu/reference_iteration_v3/feedback_portrait_v3.png",
+      "prompt": "Precise text-only edit to supplied Waddle Wars portrait/mobile Feedback reference. Replace the one gray small line below optional email field which currently says Sent to support@waddlewars.io with game version and platform. New exact text: 'Your message will include the game version and platform.' Preserve same gray font, alignment and size. Preserve everything else exactly: full portrait canvas aspect, composition, penguin, background, panel shapes, all other labels, buttons, icons, spacing, margins, light, colors. This is unsent empty form; no success indication."
+    }
+  ]
+}

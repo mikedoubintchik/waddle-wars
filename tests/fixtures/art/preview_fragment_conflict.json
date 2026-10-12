@@ -1,0 +1,14 @@
+{
+  "concepts": [],
+  "generated_assets": [],
+  "runtime_assets": [
+    {
+      "groups": ["preview_test"],
+      "id": "frontend_loader_penguin",
+      "kind": "texture",
+      "path": "res://assets/art/ui/title_expedition_landscape_v1.png",
+      "production_ready": false
+    }
+  ],
+  "source_exports": []
+}

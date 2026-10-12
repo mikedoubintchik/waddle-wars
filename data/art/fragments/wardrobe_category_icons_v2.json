@@ -1,0 +1,36 @@
+{
+  "concepts": [],
+  "generated_assets": [
+    {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_wardrobe_category_icons_v2",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/wardrobe_category_icons_v2.png",
+      "prompt_path": "art_src/ui/menu/wardrobe_category_icons_v2.prompt.md",
+      "sha256": "4d8b0d22eac4c8d46fafa9a221bde8704b2b7691c10ce3c6a447718ce004661b",
+      "status": "production_source"
+    }
+  ],
+  "runtime_assets": [
+    {
+      "groups": [
+        "frontend",
+        "menu",
+        "wardrobe"
+      ],
+      "id": "wardrobe_category_icons_v2",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/wardrobe_category_icons_v2.webp",
+      "production_ready": false,
+      "sha256": "ab1be06e3c02c4aeb428cce33915361a32475fff0174739cf6ffbae92c021734",
+      "source_export_id": "imagegen_wardrobe_category_icons_v2"
+    }
+  ],
+  "source_exports": []
+}

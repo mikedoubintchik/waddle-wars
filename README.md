@@ -8,14 +8,15 @@ slide, hop, swim, shove, and out-item everybody to the finish line.
 
 ![screenshot](web/share.png)
 
-- **3 handcrafted courses** plus an ever-harder **Endless Expedition**
+- **5 handcrafted courses** plus an ever-harder **Endless Expedition**
 - **Quick Race, Grand Prix, Time Trial** (with ghost), and a playable tutorial
 - **8 real penguin species** to unlock, plus hats and trail cosmetics
 - Seven AI rivals with distinct personalities and racing styles
 - **Optional online leaderboard** — sign-in is optional; everything works signed out
 - Touch controls — plays great on phones and tablets
-- All art, audio, and code are original and generated procedurally — no external
-  assets, no runtime dependencies, fully functional offline
+- Original procedural 3D gameplay art plus authored expedition UI art; original
+  generated audio and code. No network runtime dependency; fully functional
+  offline.
 
 ## Controls
 
@@ -48,6 +49,8 @@ adjustable (Settings → Gameplay).
 1. **Glacier Gauntlet** — bright glacier, ice-cave slalom, low slide tunnel, cracking-ice shortcut, rolling snowballs, big final slide.
 2. **Aurora Ascent** — twilight climb under the aurora, wind ridges, falling icicles, ridge shortcut, geysers, corkscrew descent.
 3. **Iceberg Bay** — sunset ocean, moving/tilting bergs, swim channels, wave ramps, sliding seals.
+4. **Cinder Coast** — volcanic black-sand ice shelf, steam vents, lava-lit caves, drifting floes.
+5. **Sapphire Hollow** — technical glacier interior with icicle galleries, rolling ice and cold swim channels.
 
 ---
 
@@ -108,6 +111,42 @@ godot --headless --export-release "macOS" build/waddle-wars-macos.zip
 godot --headless --export-release "Linux" build/waddle-wars-linux.x86_64
 ```
 
+Windowed runner performance probe (JSON and CSV output; add `enforce=true` for
+the documented tier gates):
+
+```bash
+./run_runner_perf.sh tier=high w=1920 h=1080 warmup=5 seconds=30
+```
+
+Deterministic runner golden-slice captures. Wrapper cold-imports a temporary
+project identity and emulates touch metrics; defaults produce five ignored
+1600×900 review frames under `qa_shots/runner/`. Arguments after defaults
+override them:
+
+```bash
+./run_runner_capture.sh
+./run_runner_capture.sh w=540 h=960 \
+  out="$PWD/qa_shots/runner/golden_portrait_review.png"
+```
+
+Premium boot/title/loading contract, captures, and frame probe:
+
+```bash
+./run_frontend_qa.sh test
+./run_frontend_qa.sh shot screen=title out="$PWD/qa_shots/title.png" w=1920 h=1080
+./run_frontend_qa.sh perf screen=title seconds=10 enforce=1
+```
+
+Authored-art review and parallel-stream merge. Gallery cold-imports an isolated
+project and can render either 3D wrapper scenes or 2D texture contact sheets:
+
+```bash
+./run_art_gallery.sh group=course_posters \
+  out="$PWD/qa_shots/course_posters/catalog.png" w=1920 h=1080
+python3 tools/art/merge_art_fragments.py          # read-only conflict check
+python3 tools/art/merge_art_fragments.py --apply  # atomic merge + full validation
+```
+
 - **Web**: `tools/deploy_cloudflare.sh` exports the build, uploads it to the
   `waddle-wars-web` R2 bucket and redeploys the Worker that serves it at
   https://waddlewars.ninjaconsulting.ai/. The Worker (see `web-host/`) exists
@@ -118,7 +157,8 @@ godot --headless --export-release "Linux" build/waddle-wars-linux.x86_64
   `og:image` tag expects it at the site root.
 - **Android**: install Android build tools + a debug keystore, set them in Editor
   Settings, then export the `Android` preset. The project already uses the
-  Mobile renderer, landscape orientation, touch controls, and `user://` saves.
+  Mobile renderer, full-sensor portrait/landscape layouts, safe-area touch
+  controls, and `user://` saves.
 - **iOS**: requires macOS + Xcode + an Apple developer certificate. Create an
   iOS preset in Project → Export (all project-side requirements — renderer,
   orientation, touch, safe areas — are already satisfied).
@@ -129,19 +169,24 @@ godot --headless --export-release "Linux" build/waddle-wars-linux.x86_64
 autoload/            (via project.godot: GameConfig, SaveManager, SettingsManager,
                       AudioManager, Progression, Game, SceneRouter, LeaderboardClient)
 assets/audio/        generated WAV sfx + music
+assets/art/          runtime art catalog, licenses, manifests, wrapper assets
+assets/fonts/        pinned OFL UI font and notice
 assets/icons/        icon.svg (original logo/icon)
+art_src/             Blender/paint/concept sources (.gdignore, Git LFS)
 data/settings/       audio bus layout
 leaderboard/         Cloudflare Worker for the optional online leaderboard
 scenes/              thin .tscn wrappers; all UI/gameplay built in code
 scripts/ai/          AI controller, difficulty + personality tables
+scripts/art/         catalog, CharacterLook, runner/course visual profiles
 scripts/camera/      chase camera
 scripts/characters/  racer state machine, procedural penguin
-scripts/courses/     track builder, path guide, course base + 3 courses,
+scripts/courses/     track builder, path guide, course base + 5 courses,
                      endless + tutorial courses
 scripts/gameplay/    race manager, powerups, hazards, ghost, endless, tutorial
 scripts/input/       player controller, touch controls
 scripts/progression/ progression, cosmetics + achievements DBs
 scripts/save/        save manager, settings manager
+tools/art/           deterministic Blender export + manifest/glTF validators
 scripts/ui/          all menu screens, HUD, pause
 tests/               headless test scenes + race simulation
 tools/               generate_audio.py

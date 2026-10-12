@@ -1,0 +1,120 @@
+{
+  "concepts": [],
+  "generated_assets": [
+    {
+      "dimensions": [
+        1234,
+        1274
+      ],
+      "generated_on": "2026-10-08",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_mission_penguin_marker_v7",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/mission_map_v7/mission_penguin_marker_v7.png",
+      "prompt_path": "art_src/ui/menu/mission_map_v7/mission_penguin_marker_v7.prompt.md",
+      "sha256": "70447cbd45197215600903fa42a9c309a975b9e36d937d1b6e7e2b375dda603e",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        2172,
+        724
+      ],
+      "generated_on": "2026-10-08",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_mission_route_markers_v7",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/mission_map_v7/mission_route_markers_v7.png",
+      "prompt_path": "art_src/ui/menu/mission_map_v7/mission_route_markers_v7.prompt.md",
+      "sha256": "e37b3b7ba95ce3c9553afae0d24ae80fd166472f3c1b802f13d0d172e76b6be2",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1672,
+        941
+      ],
+      "generated_on": "2026-10-08",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_missions_background_desktop_v7",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/mission_map_v7/missions_background_desktop_v7.png",
+      "prompt_path": "art_src/ui/menu/mission_map_v7/missions_background_desktop_v7.prompt.md",
+      "sha256": "6bf718e8a1bd103a8de5a2a3aec3098a8a5188d38ca23dffc873f84ae1f2af47",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        941,
+        1672
+      ],
+      "generated_on": "2026-10-08",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_missions_background_portrait_v7",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/mission_map_v7/missions_background_portrait_v7.png",
+      "prompt_path": "art_src/ui/menu/mission_map_v7/missions_background_portrait_v7.prompt.md",
+      "sha256": "9760f488951baf9bc66b42b63dcd4dbc1538f8caa19fb45f77591d715f38d266",
+      "status": "production_source"
+    }
+  ],
+  "runtime_assets": [
+    {
+      "groups": [
+        "menu",
+        "missions",
+        "ui"
+      ],
+      "id": "mission_penguin_marker_v7",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/mission_map_v7/mission_penguin_marker_v7.webp",
+      "production_ready": true,
+      "sha256": "e14aca5c9a94ed99460d92877157d844dcab423111172ef7f9a38fa8fbf74ad2",
+      "source_export_id": "imagegen_mission_penguin_marker_v7"
+    },
+    {
+      "groups": [
+        "menu",
+        "missions",
+        "ui"
+      ],
+      "id": "mission_route_markers_v7",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/mission_map_v7/mission_route_markers_v7.webp",
+      "production_ready": true,
+      "sha256": "53e541544383cf28a4ddca92b847e0983df600ecc796b115159f0761871ec1a5",
+      "source_export_id": "imagegen_mission_route_markers_v7"
+    },
+    {
+      "groups": [
+        "menu",
+        "missions",
+        "ui"
+      ],
+      "id": "missions_background_desktop_v7",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/mission_map_v7/missions_background_desktop_v7.webp",
+      "production_ready": true,
+      "sha256": "c25cbcf944d8f7cde9c2b2d62aee9fc22f63e03264f524a7983f088cacae5101",
+      "source_export_id": "imagegen_missions_background_desktop_v7"
+    },
+    {
+      "groups": [
+        "menu",
+        "missions",
+        "ui"
+      ],
+      "id": "missions_background_portrait_v7",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/mission_map_v7/missions_background_portrait_v7.webp",
+      "production_ready": true,
+      "sha256": "be64a24056d2e2959dc52d8733118aa3506ee9b9e303f6b49820851c5e4b23fe",
+      "source_export_id": "imagegen_missions_background_portrait_v7"
+    }
+  ],
+  "source_exports": []
+}

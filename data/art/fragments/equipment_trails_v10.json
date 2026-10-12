@@ -1,0 +1,124 @@
+{
+  "concepts": [],
+  "generated_assets": [
+    {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "generated_on": "2026-10-08",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_trail_snowflake_particle_v1",
+      "license_id": "project_original",
+      "path": "art_src/ui/equipment_v10/trail_snowflake_particle_v1.png",
+      "prompt_path": "art_src/ui/equipment_v10/trail_snowflake_particle_v1.prompt.md",
+      "sha256": "bb21b142937e548fe11893579d7ce1ce24f41496ce23ccf0356848a8effc7fcd",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "generated_on": "2026-10-08",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_trail_fish_particle_v1",
+      "license_id": "project_original",
+      "path": "art_src/ui/equipment_v10/trail_fish_particle_v1.png",
+      "prompt_path": "art_src/ui/equipment_v10/trail_fish_particle_v1.prompt.md",
+      "sha256": "5a5df8245686c4a7a3dae6e539f4290c2d6324fa0b27e19bd7ec93a3759b9c1e",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "generated_on": "2026-10-08",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_trail_aurora_particle_v1",
+      "license_id": "project_original",
+      "path": "art_src/ui/equipment_v10/trail_aurora_particle_v1.png",
+      "prompt_path": "art_src/ui/equipment_v10/trail_aurora_particle_v1.prompt.md",
+      "sha256": "2359de571691bb6cf46f69d482a77ac63b8802c3fa75dfa180ecc1ae4937c72d",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "generated_on": "2026-10-08",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_trail_rainbow_particle_v1",
+      "license_id": "project_original",
+      "path": "art_src/ui/equipment_v10/trail_rainbow_particle_v1.png",
+      "prompt_path": "art_src/ui/equipment_v10/trail_rainbow_particle_v1.prompt.md",
+      "sha256": "c468cc314fd4b121cb22c1434e333c2f74abf99374d02d7d86eea499d9575d2c",
+      "status": "production_source"
+    }
+  ],
+  "runtime_assets": [
+    {
+      "groups": [
+        "characters",
+        "cosmetic",
+        "equipment_reference",
+        "frontend"
+      ],
+      "id": "trail_snowflake_particle_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/characters/trails/trail_snowflake_particle_v1.webp",
+      "production_ready": true,
+      "sha256": "62e9abada6bad74ea72c4c3caac961acab5e9be3314d3828db31108dcb01f622",
+      "source_export_id": "imagegen_trail_snowflake_particle_v1"
+    },
+    {
+      "groups": [
+        "characters",
+        "cosmetic",
+        "equipment_reference",
+        "frontend"
+      ],
+      "id": "trail_fish_particle_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/characters/trails/trail_fish_particle_v1.webp",
+      "production_ready": true,
+      "sha256": "f68789aff897770766ac3c379015efbcc971011a85081d67ff751f960cc4b87e",
+      "source_export_id": "imagegen_trail_fish_particle_v1"
+    },
+    {
+      "groups": [
+        "characters",
+        "cosmetic",
+        "equipment_reference",
+        "frontend"
+      ],
+      "id": "trail_aurora_particle_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/characters/trails/trail_aurora_particle_v1.webp",
+      "production_ready": true,
+      "sha256": "d19fe82676d03d07271a59ca65de919088d5a9d72870f14e3b1e2b9b703eaf58",
+      "source_export_id": "imagegen_trail_aurora_particle_v1"
+    },
+    {
+      "groups": [
+        "characters",
+        "cosmetic",
+        "equipment_reference",
+        "frontend"
+      ],
+      "id": "trail_rainbow_particle_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/characters/trails/trail_rainbow_particle_v1.webp",
+      "production_ready": true,
+      "sha256": "ea7f1c2913c2ab446a059bc6f99cc5667255bb1e680e4c258dfd10ea435430f1",
+      "source_export_id": "imagegen_trail_rainbow_particle_v1"
+    }
+  ],
+  "source_exports": []
+}

@@ -1,4 +1,6 @@
 extends Control
+
+const UtilityArt := preload("res://scripts/ui/utility_reference_art.gd")
 ## Mode → course → difficulty setup flow, then starts the race.
 ##
 ## Built in the shared menu language established by results.gd and main_menu.gd:
@@ -45,95 +47,25 @@ const ICON_TIME_TRIAL: String = """<svg xmlns="http://www.w3.org/2000/svg" width
 
 ## --- Course posters ---------------------------------------------------------
 ##
-## One flat-fill "screen print" of each course, authored at the art plate's
-## aspect (200x92) and drawn over a GradientTexture2D sky so the plate reads as
-## a place rather than a bullet point. Same hand-drawn flat-fill language as the
-## menu icon set — no SVG gradients, so the rasterizer never surprises us.
+## All five race courses use authored runtime textures and center-cover inside
+## both the landscape tile and narrow portrait row. Waddle School is registered
+## here for shared poster QA without changing the five-course race selection.
 
-const ART_GLACIER: String = """<svg xmlns="http://www.w3.org/2000/svg" width="200" height="92" viewBox="0 0 200 92">
-<path d="M0 62 L34 26 L64 62 Z" fill="#a9cfe8"/>
-<path d="M112 62 L146 30 L182 62 Z" fill="#a9cfe8"/>
-<path d="M46 62 L86 16 L126 62 Z" fill="#d8eefb"/>
-<path d="M86 16 L74 32 L82 29 L88 36 L95 28 L101 32 Z" fill="#ffffff"/>
-<path d="M170 62 L200 36 L200 62 Z" fill="#94c1de"/>
-<rect x="0" y="61" width="200" height="31" fill="#e9f6ff"/>
-<path d="M128 61 v-11 a10 10 0 0 1 20 0 v11 Z" fill="#6fb6de"/>
-<path d="M-6 94 Q56 74 98 78 Q142 82 206 62" stroke="#8fd0f0" stroke-width="10" fill="none" opacity="0.9"/>
-<path d="M-6 94 Q56 74 98 78 Q142 82 206 62" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-dasharray="7 10" opacity="0.9"/>
-</svg>"""
-
-const ART_AURORA: String = """<svg xmlns="http://www.w3.org/2000/svg" width="200" height="92" viewBox="0 0 200 92">
-<circle cx="26" cy="12" r="1.3" fill="#ffffff" opacity="0.9"/>
-<circle cx="72" cy="8" r="1" fill="#ffffff" opacity="0.7"/>
-<circle cx="140" cy="14" r="1.2" fill="#ffffff" opacity="0.8"/>
-<circle cx="186" cy="9" r="1" fill="#ffffff" opacity="0.7"/>
-<path d="M-6 34 Q40 10 80 30 Q120 50 206 16" stroke="#5cf0bb" stroke-width="11" fill="none" opacity="0.5"/>
-<path d="M-6 46 Q44 22 86 42 Q126 62 206 28" stroke="#9a7bff" stroke-width="8" fill="none" opacity="0.42"/>
-<path d="M0 66 L38 32 L72 66 Z" fill="#243a5e"/>
-<path d="M122 66 L162 34 L200 66 Z" fill="#243a5e"/>
-<path d="M56 66 L100 22 L144 66 Z" fill="#16263f"/>
-<path d="M100 22 L89 38 L96 35 L102 42 L109 33 L115 37 Z" fill="#cfe4ff"/>
-<rect x="0" y="65" width="200" height="27" fill="#dbe9fb"/>
-<path d="M-6 94 Q56 76 100 80 Q148 84 206 68" stroke="#7fbfe6" stroke-width="9" fill="none" opacity="0.8"/>
-<path d="M-6 94 Q56 76 100 80 Q148 84 206 68" stroke="#ffffff" stroke-width="2" fill="none" stroke-dasharray="7 10" opacity="0.75"/>
-</svg>"""
-
-const ART_ICEBERG: String = """<svg xmlns="http://www.w3.org/2000/svg" width="200" height="92" viewBox="0 0 200 92">
-<circle cx="152" cy="28" r="15" fill="#ffd897" opacity="0.95"/>
-<path d="M0 56 L26 28 L50 56 Z" fill="#f0d9c4"/>
-<path d="M98 56 L126 32 L154 56 Z" fill="#f0d9c4"/>
-<path d="M38 56 L76 20 L114 56 Z" fill="#fff1e2"/>
-<path d="M76 20 L66 34 L73 32 L79 39 L85 31 L91 34 Z" fill="#ffffff"/>
-<rect x="0" y="55" width="200" height="37" fill="#2a688f"/>
-<path d="M-6 63 Q16 59 38 63 T82 63 T126 63 T170 63 T206 63" stroke="#9fd8f2" stroke-width="2.4" fill="none" opacity="0.65"/>
-<path d="M-6 74 Q20 70 46 74 T98 74 T150 74 T206 74" stroke="#78c2e6" stroke-width="2.4" fill="none" opacity="0.5"/>
-<path d="M18 86 L34 70 L54 86 Z" fill="#eaf6ff"/>
-<path d="M140 84 L152 74 L166 84 Z" fill="#d8ecfb"/>
-</svg>"""
-
-## Cinder Coast: dusk geothermal shore -- basalt palisade, a smoking cone and
-## the glowing seam where the lava meets the black sand.
-const ART_CINDER: String = """<svg xmlns="http://www.w3.org/2000/svg" width="200" height="92" viewBox="0 0 200 92">
-<path d="M0 62 L34 30 L52 44 L74 22 L96 50 L118 34 L146 12 L172 40 L200 26 L200 92 L0 92 Z" fill="#3a2029"/>
-<path d="M132 24 L146 12 L162 28 L152 30 Z" fill="#4d2a2c"/>
-<path d="M141 12 q4 -9 -2 -14 q10 4 8 14 Z" fill="#8d6a63" opacity="0.7"/>
-<path d="M0 62 L34 30 L52 44 L74 22 L96 50 L118 34 L146 12 L172 40 L200 26 L200 34 L0 70 Z" fill="#a83a1c" opacity="0.55"/>
-<rect x="0" y="66" width="200" height="26" fill="#20141a"/>
-<path d="M0 66 q26 5 52 0 q28 -5 52 2 q30 5 52 -2 q24 -4 44 1 L200 70 L0 72 Z" fill="#e0642a" opacity="0.75"/>
-<circle cx="26" cy="80" r="2.4" fill="#f0a34c" opacity="0.6"/>
-<circle cx="118" cy="84" r="2" fill="#f0a34c" opacity="0.5"/>
-</svg>"""
-
-## Sapphire Hollow: inside the glacier -- vaulted arches down a blue slot with
-## crystal veins glowing in the walls.
-const ART_HOLLOW: String = """<svg xmlns="http://www.w3.org/2000/svg" width="200" height="92" viewBox="0 0 200 92">
-<rect x="0" y="0" width="200" height="92" fill="#050b1c"/>
-<path d="M18 92 L18 34 q82 -34 164 0 L164 92 Z" fill="#123a72"/>
-<path d="M40 92 L40 44 q60 -26 120 0 L160 92 Z" fill="#1b56a0"/>
-<path d="M64 92 L64 54 q36 -18 72 0 L136 92 Z" fill="#2a74c6"/>
-<path d="M86 92 L86 64 q14 -10 28 0 L114 92 Z" fill="#4a9ce0"/>
-<rect x="6" y="20" width="9" height="72" fill="#0d2450"/>
-<rect x="185" y="20" width="9" height="72" fill="#0d2450"/>
-<path d="M28 40 L31 62 L27 78" stroke="#7fd8ff" stroke-width="2" fill="none" opacity="0.75"/>
-<path d="M172 44 L169 66 L173 80" stroke="#7fd8ff" stroke-width="2" fill="none" opacity="0.75"/>
-<rect x="0" y="84" width="200" height="8" fill="#5fa8e6" opacity="0.5"/>
-</svg>"""
-
-const COURSE_ART: Dictionary = {
-	"glacier": ART_GLACIER,
-	"aurora": ART_AURORA,
-	"iceberg": ART_ICEBERG,
-	"cinder": ART_CINDER,
-	"hollow": ART_HOLLOW,
+const COURSE_POSTER_PATHS: Dictionary = {
+	"aurora": "res://assets/art/ui/course_posters/aurora_ascent_wave1.png",
+	"cinder": "res://assets/art/ui/course_posters/cinder_coast_wave2.png",
+	"glacier": "res://assets/art/ui/course_posters/glacier_gauntlet_wave1.png",
+	"hollow": "res://assets/art/ui/course_posters/sapphire_hollow_wave2.png",
+	"iceberg": "res://assets/art/ui/course_posters/iceberg_bay_wave2.png",
+	"tutorial": "res://assets/art/ui/course_posters/waddle_school_wave1.png",
 }
-
-## Sky gradient behind each poster (top → bottom).
-const COURSE_SKY: Dictionary = {
-	"glacier": [Color(0.29, 0.52, 0.78), Color(0.82, 0.92, 0.99)],
-	"aurora": [Color(0.04, 0.07, 0.19), Color(0.24, 0.38, 0.56)],
-	"iceberg": [Color(0.25, 0.23, 0.49), Color(0.99, 0.70, 0.45)],
-	"cinder": [Color(0.36, 0.10, 0.09), Color(0.92, 0.44, 0.18)],
-	"hollow": [Color(0.02, 0.05, 0.13), Color(0.16, 0.42, 0.72)],
+const COURSE_POSTER_TEXTURES: Dictionary = {
+	"aurora": preload("res://assets/art/ui/course_posters/aurora_ascent_wave1.png"),
+	"cinder": preload("res://assets/art/ui/course_posters/cinder_coast_wave2.png"),
+	"glacier": preload("res://assets/art/ui/course_posters/glacier_gauntlet_wave1.png"),
+	"hollow": preload("res://assets/art/ui/course_posters/sapphire_hollow_wave2.png"),
+	"iceberg": preload("res://assets/art/ui/course_posters/iceberg_bay_wave2.png"),
+	"tutorial": preload("res://assets/art/ui/course_posters/waddle_school_wave1.png"),
 }
 
 ## Most course posters in one landscape row before the grid wraps.
@@ -160,6 +92,9 @@ const DIFFICULTY_PITCH: Dictionary = {
 
 ## Corner language, shared with results.gd: cards are soft, rows are tighter.
 const RADIUS_CARD: int = 18
+## Floor for a phone card that has sized itself to its content, so a short
+## card still reads as a card and stays a comfortable thumb target.
+const CARD_MIN_HEIGHT: float = 120.0
 const RADIUS_ROW: int = 10
 
 ## Promoted-action face, matching the main menu's Play hero and results' Race
@@ -176,39 +111,57 @@ var _chosen_course: String = "glacier"
 var _content: VBoxContainer
 ## Pinned bottom bar holding the step's Back button, outside the scroll.
 var _footer: MarginContainer = null
+var _scroll: ScrollContainer = null
 var _buttons: Array[Button] = []
 var _card_width: float = COLUMN_BASE
 ## Extra enlargement for tall/narrow (portrait) viewports — see _tall_boost().
 var _boost: float = 1.0
+## Shared viewport contract (class, safe insets, safe rect). Resolved once per
+## build so every step measures against the same rectangle.
+var _profile: LayoutProfile = null
+## Gradient under the pinned footer. Held so a rotation can re-measure it.
+var _scrim: TextureRect = null
+var _mode_hero: Control = null
+const MODE_REFERENCE := "res://assets/art/ui/menu/race_mode_reference_v1.png"
+const MODE_PANELS := {
+	"Quick Race": Rect2(57, 823, 326, 147),
+	"Grand Prix": Rect2(57, 1018, 328, 149),
+	"Time Trial": Rect2(57, 1212, 330, 151),
+	"Endless Expedition": Rect2(56, 1409, 389, 152),
+}
 ## Rasterized SVG cache: menu steps rebuild on every navigation and a phone
 ## rasterizing the same poster three times is pure jank.
 static var _icon_cache: Dictionary = {}
 
 
 func _ready() -> void:
-	UITheme.make_background(self)
+	UtilityArt.bind_background(self, "res://assets/art/ui/menu/race_setup_background_v1.webp", "res://assets/art/ui/menu/race_setup_background_landscape_v3.webp")
 	UITheme.apply_ui_scale(self)
+	_profile = LayoutProfile.for_viewport(get_viewport())
 	_boost = _tall_boost()
 	_card_width = _measure_card_width()
 	# The gallery outgrows a short landscape phone, so the step lives in a
 	# scroll wrapper; while it fits, the expanding CenterContainer keeps the
 	# desktop composition perfectly centered.
-	var scroll := ScrollContainer.new()
+	_scroll = ScrollContainer.new()
 	# Rows are buttons, which swallow touch drags before the ScrollContainer
 	# can see them; this restores dragging the list on a phone.
-	TouchScroll.attach(scroll)
-	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.follow_focus = true
-	add_child(scroll)
+	TouchScroll.attach(_scroll)
+	_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.follow_focus = true
+	# A phone cannot fit four mode cards, so the step scrolls -- and with the
+	# default invisible scrollbar the fold landed on a card boundary and the
+	# list read as finished. The shared slim bar is the only signal that a
+	# fourth mode exists. Same treatment as settings, controls and credits.
+	UtilityScreenLayout.style_scrollbar(_scroll)
+	add_child(_scroll)
 	var center := CenterContainer.new()
 	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.add_child(center)
+	_scroll.add_child(center)
 	_content = VBoxContainer.new()
 	_content.alignment = BoxContainer.ALIGNMENT_CENTER
-	_content.custom_minimum_size.x = _card_width
-	_content.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
 	center.add_child(_content)
 
 	# Back lives OUTSIDE the scroll, pinned to the bottom.
@@ -221,14 +174,11 @@ func _ready() -> void:
 	_footer = MarginContainer.new()
 	_footer.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	_footer.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_footer.add_theme_constant_override("margin_bottom", _gap(UITheme.SPACE_S))
-	_footer.add_theme_constant_override("margin_left", UITheme.screen_margin())
-	_footer.add_theme_constant_override("margin_right", UITheme.screen_margin())
 	_footer.mouse_filter = Control.MOUSE_FILTER_PASS
 	# Scrim under the footer so cards scrolling beneath it fade out rather than
 	# running into the button. Without it the Back control reads as an unrelated
 	# thing dropped on top of the list.
-	var scrim := TextureRect.new()
+	_scrim = TextureRect.new()
 	var fade := Gradient.new()
 	fade.colors = PackedColorArray([Color(0.02, 0.04, 0.09, 0.0), Color(0.02, 0.04, 0.09, 0.92)])
 	fade.offsets = PackedFloat32Array([0.0, 1.0])
@@ -236,16 +186,14 @@ func _ready() -> void:
 	fade_tex.gradient = fade
 	fade_tex.fill_from = Vector2(0.0, 0.0)
 	fade_tex.fill_to = Vector2(0.0, 1.0)
-	scrim.texture = fade_tex
-	scrim.stretch_mode = TextureRect.STRETCH_SCALE
-	scrim.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	scrim.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	# Tall enough to actually be a fade. A strip only as tall as the button
-	# reads as a hard edge rather than content receding under a bar.
-	scrim.offset_top = -(_u(52.0) * 2.6 + float(_gap(UITheme.SPACE_L)))
-	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(scrim)
+	_scrim.texture = fade_tex
+	_scrim.stretch_mode = TextureRect.STRETCH_SCALE
+	_scrim.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_scrim.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_scrim)
 	add_child(_footer)
+	_apply_frame()
 	# Normally the top of the flow, but a caller can send the player straight to
 	# a later step -- "Change Course" from a pause menu or the results screen
 	# opens here rather than walking mode/course/difficulty again.
@@ -260,6 +208,66 @@ func _ready() -> void:
 		_:
 			_show_mode_step()
 	UITheme.attach_swipe_back(self, _go_back_step)
+	# Portrait is a supported orientation (see RotateOverlay), so a player can
+	# turn the phone mid-flow. Every metric here -- column width, grid columns,
+	# the safe-area gutters -- is measured once at build time, so without this
+	# a rotation left a landscape-width column inside a portrait canvas: the
+	# exact "cards run off the edge and nothing scrolls sideways" defect, just
+	# reached by turning the device instead of opening the screen.
+	UtilityScreenLayout.bind_view_class(self, _reflow)
+
+
+## Re-measures and rebuilds the current step for a new layout class. Only fires
+## when the class actually changes, so a resize burst costs one rebuild.
+func _reflow(profile: LayoutProfile) -> void:
+	_profile = profile
+	_boost = _tall_boost()
+	_card_width = _measure_card_width()
+	_apply_frame()
+	match _step:
+		"course":
+			_show_course_step()
+		"difficulty":
+			_show_difficulty_step()
+		_:
+			_show_mode_step()
+
+
+## Safe-area gutters, footer band and column width, in one place so _ready and
+## a rotation cannot drift apart.
+func _apply_frame() -> void:
+	var profile := _layout()
+	if _step == "mode":
+		var safe := profile.safe_rect
+		_scroll.offset_left = safe.position.x + safe.size.x * (0.04 if _is_portrait() else 0.515)
+		_scroll.offset_top = safe.position.y + safe.size.y * (0.48 if _is_portrait() else 0.065)
+		_scroll.offset_right = -(profile.safe_insets.z + safe.size.x * 0.03)
+		_scroll.offset_bottom = -(profile.safe_insets.w + safe.size.y * 0.03)
+		_card_width = safe.size.x * (0.92 if _is_portrait() else 0.455)
+		_content.custom_minimum_size.x = _card_width
+		_content.add_theme_constant_override("separation", 0)
+		_footer.hide()
+		_scrim.hide()
+		return
+	_footer.show()
+	_scrim.show()
+	_scroll.offset_left = profile.safe_insets.x
+	_scroll.offset_top = profile.safe_insets.y
+	_scroll.offset_right = -profile.safe_insets.z
+	# Footer owns this band. Content never renders under Back, even before the
+	# final spacer reaches the viewport during a portrait course scroll.
+	_scroll.offset_bottom = -(profile.safe_insets.w + _u(92.0))
+	_content.custom_minimum_size.x = _card_width
+	_content.add_theme_constant_override("separation", _gap(UITheme.SPACE_S))
+	_footer.add_theme_constant_override("margin_bottom",
+		roundi(profile.safe_insets.w) + _gap(UITheme.SPACE_S))
+	_footer.add_theme_constant_override("margin_left",
+		roundi(profile.safe_insets.x) + UITheme.screen_margin())
+	_footer.add_theme_constant_override("margin_right",
+		roundi(profile.safe_insets.z) + UITheme.screen_margin())
+	# Tall enough to actually be a fade. A strip only as tall as the button
+	# reads as a hard edge rather than content receding under a bar.
+	_scrim.offset_top = -(_u(52.0) * 2.6 + float(_gap(UITheme.SPACE_L)))
 
 
 ## --- Layout scaling ---------------------------------------------------------
@@ -297,25 +305,49 @@ func _gap(value: int) -> int:
 	return maxi(1, roundi(float(UITheme.spacing(value)) * _boost))
 
 
+## Shared viewport contract, resolved lazily so helpers called before _ready
+## (or from a test harness) still get a sane rectangle.
+##
+## Deliberately NOT gated on GameConfig.is_headless(). The gate used to live in
+## every measuring helper here, which meant a headless run measured the screen
+## as if it were a 1920-wide desktop no matter what viewport it was actually
+## given -- so the automated mobile audit built the two-column desktop grid
+## inside an 800-unit phone canvas and could not see the overflow a player
+## sees. Geometry comes from the viewport; the display server has no opinion
+## about it.
+func _layout() -> LayoutProfile:
+	if _profile == null:
+		_profile = LayoutProfile.for_viewport(get_viewport()) if is_inside_tree() \
+			else LayoutProfile.for_view_size(Vector2(1920.0, 1080.0))
+	return _profile
+
+
 ## True for tall/narrow viewports, where galleries stack into single-file rows.
 func _is_portrait() -> bool:
-	if GameConfig.is_headless() or not is_inside_tree():
-		return false
-	var view := get_viewport_rect().size
-	return view.x > 0.0 and view.y > view.x * 1.05
+	return _layout().is_portrait()
 
 
+## Width of the setup column: the authored width on desktop landscape, the
+## touch content band on phones, and most of the safe rect on any portrait
+## viewport.
+##
+## The final clamp is the load-bearing part. The step lives in a
+## ScrollContainer with horizontal scrolling DISABLED, so a column even one
+## unit wider than the safe rect is not "a bit tight" -- it is a card the
+## player's thumb can never reach, because nothing can scroll sideways to it.
 func _measure_card_width() -> float:
+	var profile := _layout()
+	var usable := maxf(profile.safe_rect.size.x, 1.0)
+	var want := COLUMN_BASE
 	if UITheme.is_touch():
-		return UITheme.content_width(COLUMN_BASE, self)
-	if GameConfig.is_headless() or not is_inside_tree():
-		return COLUMN_BASE
-	var view := get_viewport_rect().size
-	if view.x <= 0.0:
-		return COLUMN_BASE
-	if view.y > view.x:  # portrait window: fill it rather than float in it
-		return clampf(view.x * 0.86, COLUMN_BASE, 1700.0)
-	return minf(COLUMN_BASE * _boost, view.x * 0.78)
+		want = UITheme.content_width(COLUMN_BASE, self)
+	elif profile.is_portrait():
+		# Portrait desktop/test window: fill it rather than float a 1080-wide
+		# desktop column in a canvas that is 800 across.
+		want = usable * 0.90
+	else:
+		want = minf(COLUMN_BASE * _boost, profile.viewport_size.x * 0.78)
+	return clampf(want, 1.0, usable)
 
 
 ## --- Shared building blocks -------------------------------------------------
@@ -340,6 +372,56 @@ func _hero(eyebrow: String, headline: String) -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", _gap(6))
 	_content.add_child(box)
+	if _step == "mode":
+		box.queue_free()
+		var safe := _profile.safe_rect
+		_mode_hero = Control.new()
+		_mode_hero.name = "RaceReferenceHero"
+		_mode_hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_mode_hero)
+		var logo := TextureRect.new()
+		logo.name = "WaddleRaceWordmark"
+		var title_crop := AtlasTexture.new()
+		title_crop.atlas = ExpeditionMenuStyle._material_texture("res://assets/art/ui/menu/race_wordmark_v4.webp")
+		title_crop.region = Rect2(20,20,1734,847)
+		title_crop.filter_clip = true
+		logo.texture = title_crop
+		logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var width := safe.size.x * (0.72 if _is_portrait() else 0.42)
+		logo.position = safe.position + Vector2(safe.size.x * (0.14 if _is_portrait() else 0.085), safe.size.y * (0.055 if _is_portrait() else 0.10))
+		logo.size = Vector2(width, width * 0.50)
+		_mode_hero.add_child(logo)
+		var plaque := TextureRect.new()
+		plaque.name = "ChooseModeWoodPlaque"
+		plaque.texture = _mode_region(Rect2(275, 408, 407, 94))
+		plaque.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		plaque.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		plaque.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		plaque.accessibility_name = headline
+		plaque.size = Vector2(width * 0.62, width * 0.143)
+		plaque.position = logo.position + Vector2(width * (0.19 if _is_portrait() else 0.19), logo.size.y - width * 0.02)
+		_mode_hero.add_child(plaque)
+		var flag_penguin := TextureRect.new()
+		flag_penguin.name = "RaceFlagPenguin"
+		flag_penguin.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		flag_penguin.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		flag_penguin.texture = ExpeditionMenuStyle._material_texture("res://assets/art/ui/menu/race_flag_penguin_v1.webp")
+		flag_penguin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		flag_penguin.size = Vector2(safe.size.x * (0.50 if _is_portrait() else 0.33), safe.size.y * (0.40 if _is_portrait() else 0.59))
+		flag_penguin.position = safe.position + Vector2(safe.size.x * -0.055, safe.size.y * (0.11 if _is_portrait() else 0.32))
+		_mode_hero.add_child(flag_penguin)
+		var back := ExpeditionMenuStyle.button("BASE CAMP", false, maxi(24, roundi(safe.size.y * (0.018 if _is_portrait() else 0.034))), safe.size.y * 0.055)
+		back.name = "RaceSetupBack"
+		back.position = safe.position + Vector2(safe.size.x * 0.035, safe.size.y * 0.018)
+		back.size = Vector2(safe.size.x * (0.29 if _is_portrait() else 0.17), safe.size.y * 0.055)
+		back.icon = ExpeditionMenuStyle.wardrobe_sprite("back")
+		back.expand_icon = true
+		back.add_theme_constant_override("icon_max_width", roundi(back.size.y * 0.65))
+		back.pressed.connect(_go_back_step)
+		_mode_hero.add_child(back)
+		return
 	_eyebrow(box, eyebrow, Color(UITheme.COLOR_ACCENT, 0.75))
 	var label := UITheme.heading(
 		headline, roundi(float(UITheme.scaled_heading(52)) * _boost))
@@ -396,9 +478,9 @@ func _body_text(parent: Control, text: String, size: int, lines: int) -> Label:
 func _stat_tile(parent: Control, value: String, caption: String, tint: Color,
 		highlight: bool) -> PanelContainer:
 	var tile := PanelContainer.new()
-	var style := UITheme.make_panel_style(
-		Color(tint.r, tint.g, tint.b, 0.14) if highlight else Color(0.086, 0.149, 0.251, 0.72),
-		Color(tint, 0.55 if highlight else 0.18))
+	var style := ExpeditionMenuStyle.surface(
+		Color("fff0d8") if highlight else ExpeditionMenuStyle.IVORY,
+		RADIUS_ROW)
 	style.set_corner_radius_all(RADIUS_ROW)
 	style.content_margin_left = _u(13.0)
 	style.content_margin_right = _u(13.0)
@@ -421,23 +503,66 @@ func _stat_tile(parent: Control, value: String, caption: String, tint: Color,
 ## Card shell: one radius, one border language, one padding rhythm — and it is
 ## a real focusable Button, because every card on this screen is a choice.
 ## Returns the inert full-rect content host for the caller to fill.
+## Sizes a grid of cards to what they actually hold.
+##
+## A card's contents sit in a MarginContainer anchored to the button's full
+## rect, which means they never reach the button's own minimum size: the
+## height is whatever constant was authored, and the button clips. Both ends
+## of that hurt on a phone. The Endless card wanted 394 units and was given
+## 346, so its description was quietly cut off; the difficulty cards wanted
+## 359 and were given 473, leaving a quarter of every card empty between the
+## pitch and the pip meters.
+##
+## In a multi-column grid the cards share a row, so they take one shared
+## height -- the tallest card's content, never less than the authored value.
+## In the single-column phone layout nothing sits beside them, so each card
+## takes its own height and the empty band disappears.
+##
+## Runs as a coroutine: label minimum sizes are only final once the grid has
+## handed out its column width, which takes a layout pass.
+func _fit_cards(grid: GridContainer, columns: int, authored: float) -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not is_instance_valid(grid):
+		return
+	var cards: Array[Button] = []
+	var wanted: Array[float] = []
+	for child: Node in grid.get_children():
+		var button := child as Button
+		if button == null:
+			continue
+		var content := 0.0
+		for inner: Node in button.get_children():
+			var host := inner as Control
+			if host != null:
+				content = maxf(content, host.get_combined_minimum_size().y)
+		if content <= 0.0:
+			continue
+		cards.append(button)
+		wanted.append(content)
+	if cards.is_empty():
+		return
+	if columns > 1:
+		var tallest := authored
+		for height: float in wanted:
+			tallest = maxf(tallest, height)
+		for button: Button in cards:
+			button.custom_minimum_size.y = tallest
+		return
+	for i: int in cards.size():
+		cards[i].custom_minimum_size.y = maxf(wanted[i], CARD_MIN_HEIGHT)
+
+
 func _make_card(parent: Control, min_size: Vector2, action: Callable,
 		primary: bool = false, pad: float = 18.0) -> MarginContainer:
 	var button := Button.new()
+	button.set_meta("premium_primary", primary)
 	button.custom_minimum_size = min_size
 	# Backstop for the same class of bug: whatever a future child does with its
 	# minimum size, a card cannot paint outside its own rounded rect.
 	button.clip_contents = true
 	button.focus_mode = Control.FOCUS_ALL
-	button.add_theme_stylebox_override("normal", _card_style(
-		PRIMARY_FILL if primary else Color(0.063, 0.114, 0.204, 0.90),
-		Color(UITheme.COLOR_ACCENT, 0.85 if primary else 0.22), 2 if primary else 1, 12))
-	button.add_theme_stylebox_override("hover", _card_style(
-		PRIMARY_FILL_HOVER if primary else Color(0.110, 0.192, 0.318, 0.96),
-		Color(0.90, 0.98, 1.0, 0.95), 2, 18))
-	button.add_theme_stylebox_override("pressed", _card_style(
-		(PRIMARY_FILL if primary else Color(0.063, 0.114, 0.204, 0.90)).darkened(0.35),
-		Color(UITheme.COLOR_GOLD, 0.9), 2, 4))
+	ExpeditionMenuStyle.style_button(button, primary, _f(24))
 	var focus := StyleBoxFlat.new()
 	focus.draw_center = false
 	focus.border_color = Color(0.72, 0.92, 1.0)
@@ -602,16 +727,17 @@ func _rail_pill(parent: Control, name_text: String, value_text: String,
 	var live := index == current
 	var can_jump := done and jump.is_valid()
 	var pill := PanelContainer.new()
+	pill.set_meta("premium_primary", live)
 	var style := StyleBoxFlat.new()
 	if live:
-		style.bg_color = Color(UITheme.COLOR_ACCENT.r, UITheme.COLOR_ACCENT.g, UITheme.COLOR_ACCENT.b, 0.14)
-		style.border_color = Color(UITheme.COLOR_ACCENT, 0.7)
+		style.bg_color = ExpeditionMenuStyle.CORAL
+		style.border_color = ExpeditionMenuStyle.GOLD
 	elif done:
-		style.bg_color = Color(0.086, 0.149, 0.251, 0.78)
-		style.border_color = Color(UITheme.COLOR_ACCENT, 0.22)
+		style.bg_color = ExpeditionMenuStyle.IVORY
+		style.border_color = ExpeditionMenuStyle.GOLD
 	else:
-		style.bg_color = Color(0.055, 0.098, 0.172, 0.55)
-		style.border_color = Color(0.55, 0.68, 0.82, 0.14)
+		style.bg_color = Color("edf5f8")
+		style.border_color = Color("d4e6ee")
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(roundi(_u(16.0)))
 	style.content_margin_left = _u(16.0)
@@ -665,13 +791,13 @@ func _rail_pill(parent: Control, name_text: String, value_text: String,
 func _show_mode_step() -> void:
 	_step = "mode"
 	_clear()
-	_hero("Waddle Wars · Setup", "Choose a Mode")
-	_build_rail()
+	_apply_frame()
+	_hero("WADDLE RACE", "CHOOSE A MODE")
 
 	var grid := GridContainer.new()
-	grid.columns = 1 if _is_portrait() else 2
+	grid.columns = 1
 	grid.add_theme_constant_override("h_separation", _gap(14))
-	grid.add_theme_constant_override("v_separation", _gap(14))
+	grid.add_theme_constant_override("v_separation", roundi(_profile.safe_rect.size.y * 0.009))
 	_content.add_child(grid)
 	var tile := _mode_tile_size(grid.columns)
 
@@ -706,50 +832,96 @@ func _show_mode_step() -> void:
 		"best score" if endless_best > 0 else "", false,
 		func() -> void:
 			Game.start_endless())
-
-	_build_back_row("Main Menu", func() -> void:
-		SceneRouter.go_to(Game.SCENE_MAIN_MENU))
+	# Four fixed reference rows occupy the visible selection area.
+	_buttons.append(_mode_hero.find_child("RaceSetupBack", true, false) as Button)
 	_focus_first()
 	_play_entrance()
 
 
-func _mode_tile_size(columns: int) -> Vector2:
-	var gaps := float(_gap(14)) * float(columns - 1)
-	var width := (_card_width - gaps) / float(columns)
-	return Vector2(width, _u(154.0))
+## Card footprint for the mode grid. Height is authored per orientation, not
+## shared, because the single-column card carries strictly more text than the
+## two-column one: the record leaves the right-hand stat tile and becomes an
+## extra line under the metadata (see _mode_card), and the longest mode name --
+## "Endless Expedition" -- no longer fits one line beside the icon plate.
+## Measured on a 390x844 phone (canvas 800x1731, card 662 wide): content came
+## to 307 units against a 271-unit card, and _make_card clips, so the blurb and
+## the record were sliced off the bottom of three of the four cards.
+func _mode_tile_size(_columns: int) -> Vector2:
+	return Vector2(_card_width, _profile.safe_rect.size.y * (0.112 if _is_portrait() else 0.22))
 
 
-func _mode_card(parent: Control, tile: Vector2, title: String, icon_svg: String,
-		tint: Color, blurb: String, meta: String, stat_value: String,
-		stat_caption: String, primary: bool, action: Callable) -> void:
-	var host := _make_card(parent, tile, action, primary, 18.0)
+func _mode_region(region: Rect2) -> AtlasTexture:
+	var atlas := AtlasTexture.new()
+	atlas.atlas = ExpeditionMenuStyle._material_texture(MODE_REFERENCE)
+	atlas.region = region
+	atlas.filter_clip = true
+	return atlas
+
+
+func _mode_card(parent: Control, tile: Vector2, title: String, _icon_svg: String,
+		_tint: Color, blurb: String, meta: String, stat_value: String,
+		stat_caption: String, _primary: bool, action: Callable) -> void:
+	var host := _make_card(parent, tile, action, false, 10.0)
+	var button := host.get_parent() as Button
+	button.name = "RaceMode_" + title.to_pascal_case()
+	button.accessibility_name = title
+	button.tooltip_text = "%s\n%s" % [blurb, meta]
+	if not stat_value.is_empty(): button.tooltip_text += "\n%s: %s" % [stat_caption, stat_value]
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", _gap(14))
+	row.add_theme_constant_override("separation", roundi(tile.x * 0.025))
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	host.add_child(row)
-	_icon_plate(row, icon_svg, tint, _u(64.0))
-
-	var text_box := VBoxContainer.new()
-	text_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	text_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	text_box.add_theme_constant_override("separation", _gap(4))
-	text_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(text_box)
-	var name_label := Label.new()
-	name_label.text = title
-	name_label.add_theme_font_override("font", UITheme.display_font())
-	name_label.add_theme_font_size_override("font_size", _f(29))
-	name_label.add_theme_color_override("font_color",
-		Color(0.98, 0.995, 1.0) if primary else UITheme.COLOR_TEXT)
-	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	text_box.add_child(name_label)
-	_body_text(text_box, blurb, 17, 2).add_theme_color_override("font_color",
-		Color(0.84, 0.92, 0.99) if primary else UITheme.COLOR_TEXT_DIM)
-	_caption(text_box, meta, 13,
-		Color(0.78, 0.90, 1.0, 0.85) if primary else Color(tint, 0.85))
-
-	if not stat_value.is_empty():
-		_stat_tile(row, stat_value, stat_caption, tint, false)
+	var illustration := TextureRect.new()
+	illustration.name = "ModeIllustration_" + title.to_pascal_case()
+	illustration.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	illustration.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	illustration.texture = _mode_region(MODE_PANELS[title])
+	var mask := Shader.new()
+	mask.code = "shader_type canvas_item; uniform vec2 extent=vec2(300.0,150.0); varying vec2 local; void vertex(){local=VERTEX;} void fragment(){ vec4 ink=texture(TEXTURE,UV); vec2 p=local/max(extent.y,1.0); float edge=length(p-vec2(0.5,0.5))-0.5; float left=1.0-smoothstep(-0.012,0.012,edge); if(p.x>0.5) left=1.0; ink.a*=left*(1.0-smoothstep(0.87,1.0,local.x/max(extent.x,1.0))); COLOR=ink; }"
+	var material := ShaderMaterial.new()
+	material.shader = mask
+	material.set_shader_parameter("extent", Vector2(tile.x * 0.34, tile.y - _u(20)))
+	illustration.resized.connect(func() -> void: material.set_shader_parameter("extent", illustration.size))
+	illustration.material = material
+	var frame := MarginContainer.new()
+	frame.custom_minimum_size.x = tile.x * 0.37
+	frame.add_theme_constant_override("margin_top", roundi(tile.y * 0.06))
+	frame.add_theme_constant_override("margin_bottom", roundi(tile.y * 0.06))
+	frame.clip_contents = true
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(illustration)
+	illustration.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(frame)
+	var display_name := "ENDLESS\nEXPEDITION" if title == "Endless Expedition" else title.to_upper()
+	var font := ExpeditionMenuStyle.display_font()
+	var name_size := roundi(tile.x * 0.072)
+	var name_width := tile.x * 0.63 - tile.y * 0.62 - 2.0 * roundi(tile.x * 0.025) - 2.0 * roundi(_u(10.0)) - 2.0
+	# Reserve the illustration, arrow, gaps and card padding before choosing
+	# type size. Never split a mode name mid-word or let it escape the card.
+	for line: String in display_name.split("\n"):
+		while name_size > 16 and font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, name_size).x > name_width:
+			name_size -= 1
+	var label := ExpeditionMenuStyle.label(display_name, name_size, ExpeditionMenuStyle.INK)
+	label.name = "ModeName_" + title.to_pascal_case()
+	label.add_theme_font_override("font", font)
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(label)
+	var arrow := PanelContainer.new()
+	arrow.custom_minimum_size = Vector2.ONE * tile.y * 0.62
+	arrow.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	arrow.set_meta("premium_primary", true)
+	var face := ExpeditionMenuStyle.material_box(true, 0, 0)
+	arrow.add_theme_stylebox_override("panel", face)
+	row.add_child(arrow)
+	var glyph := ExpeditionMenuStyle.label("›", roundi(tile.y * 0.44), Color.WHITE)
+	glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	arrow.add_child(glyph)
 
 
 ## Fastest personal best across every course — the headline number for the
@@ -809,14 +981,15 @@ func _show_course_step() -> void:
 			_course_row(grid, Vector2(width, _u(190.0)), course_id, pick)
 		else:
 			_course_tile(grid, Vector2(width, _u(330.0)), course_id, pick)
+	_fit_cards(grid, columns, _u(190.0) if portrait else _u(330.0))
 
 	_build_back_row("Back", _show_mode_step)
 	_focus_first()
 	_play_entrance()
 
 
-## Framed poster: gradient sky, flat-fill scene, and a hairline accent rim so
-## the plate reads as art hung inside the card rather than a stray image.
+## Framed authored plate. KEEP_ASPECT_COVERED deliberately center-crops: every
+## production landmark was authored inside the central 55% safe region.
 func _course_art(parent: Control, id: String, min_size: Vector2) -> Control:
 	var frame := Control.new()
 	frame.custom_minimum_size = min_size
@@ -824,27 +997,19 @@ func _course_art(parent: Control, id: String, min_size: Vector2) -> Control:
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(frame)
 
-	var sky_pair: Array = COURSE_SKY.get(id, [Color(0.29, 0.52, 0.78), Color(0.82, 0.92, 0.99)])
-	var grad := Gradient.new()
-	grad.colors = PackedColorArray([sky_pair[0] as Color, sky_pair[1] as Color])
-	grad.offsets = PackedFloat32Array([0.0, 1.0])
-	var tex := GradientTexture2D.new()
-	tex.gradient = grad
-	tex.fill_from = Vector2(0.0, 0.0)
-	tex.fill_to = Vector2(0.0, 1.0)
-	var sky := TextureRect.new()
-	sky.texture = tex
-	sky.stretch_mode = TextureRect.STRETCH_SCALE
-	sky.set_anchors_preset(Control.PRESET_FULL_RECT)
-	sky.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.add_child(sky)
-
-	var art := _cached_icon(String(COURSE_ART.get(id, ART_GLACIER)))
-	if art != null:
+	# Preloaded script dependencies are decoded by SceneRouter's threaded scene
+	# load. Card construction only binds an existing texture; it never blocks the
+	# first course screen on synchronous disk IO or PNG decode.
+	var authored := COURSE_POSTER_TEXTURES.get(id) as Texture2D
+	if authored == null:
+		push_error("Missing authored course poster: %s" % id)
+	else:
 		var scene := TextureRect.new()
-		scene.texture = art
+		scene.name = "CoursePoster_%s" % id.capitalize()
+		scene.texture = authored
 		scene.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		scene.stretch_mode = TextureRect.STRETCH_SCALE
+		scene.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		scene.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		scene.set_anchors_preset(Control.PRESET_FULL_RECT)
 		scene.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		frame.add_child(scene)
@@ -953,7 +1118,9 @@ func _course_row(parent: Control, tile: Vector2, id: String, action: Callable) -
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(column)
 	_course_title(column, info, 25)
-	var blurb := _body_text(column, String(info.get("desc", "")), 16, 2)
+	# The portrait row is the full width of the screen; two lines cut every
+	# course description short.
+	var blurb := _body_text(column, String(info.get("desc", "")), 16, 3)
 	blurb.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_course_records(column, id, info, tint, true)
 
@@ -989,6 +1156,7 @@ func _show_difficulty_step() -> void:
 		# rather than the first card in reading order.
 		_difficulty_card(grid, Vector2(width, _u(268.0)), id, i + 1,
 			id == "competitive", pick)
+	_fit_cards(grid, columns, _u(268.0))
 
 	_build_back_row("Back",
 		_show_mode_step if _chosen_mode == Game.Mode.GRAND_PRIX else _show_course_step)
@@ -1128,8 +1296,8 @@ func _build_back_row(text: String, action: Callable) -> void:
 	var button := UITheme.make_button(
 		text, UITheme.scaled_size(Vector2(220.0, 52.0)), _f(20))
 	button.custom_minimum_size.y = _u(52.0)
-	button.add_theme_color_override("font_color", Color(0.78, 0.86, 0.95))
-	var icon := _cached_icon(UITheme.ICON_BACK)
+	ExpeditionMenuStyle.style_button(button, false, _f(20))
+	var icon := ExpeditionMenuStyle.wardrobe_sprite("back")
 	if icon != null:
 		button.icon = icon
 		button.expand_icon = true
@@ -1148,7 +1316,11 @@ func _build_back_row(text: String, action: Callable) -> void:
 
 
 func _clear() -> void:
+	if is_instance_valid(_mode_hero):
+		_mode_hero.free()
+		_mode_hero = null
 	_buttons.clear()
+	_apply_frame()
 	for child in _content.get_children():
 		_content.remove_child(child)
 		child.queue_free()
@@ -1166,6 +1338,7 @@ func _focus_first() -> void:
 ## Unified staggered fade+rise entrance whenever a step is rebuilt. Never gates
 ## input, and calmed screens skip it outright.
 func _play_entrance() -> void:
+	_recolor_premium(_content)
 	if UITheme.reduced_motion():
 		return
 	var items: Array[Control] = []
@@ -1173,6 +1346,17 @@ func _play_entrance() -> void:
 		if child is Control:
 			items.append(child as Control)
 	UITheme.play_entrance(self, items)
+
+
+func _recolor_premium(node: Node, coral: bool = false) -> void:
+	if node.has_meta("premium_primary"):
+		coral = bool(node.get_meta("premium_primary"))
+	if node is Label:
+		var label := node as Label
+		label.add_theme_color_override("font_color",
+			Color.WHITE if coral else ExpeditionMenuStyle.INK)
+	for child in node.get_children():
+		_recolor_premium(child, coral)
 
 
 ## --- Formatting -------------------------------------------------------------
@@ -1207,7 +1391,7 @@ static func _fmt_int(value: int) -> String:
 func _go_back_step() -> void:
 	match _step:
 		"mode":
-			SceneRouter.go_to(Game.SCENE_MAIN_MENU)
+			SceneRouter.go_back()
 		"course":
 			_show_mode_step()
 		"difficulty":

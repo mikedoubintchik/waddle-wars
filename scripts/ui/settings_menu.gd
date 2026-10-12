@@ -1,10 +1,7 @@
 extends Control
-## Settings screen covering the full SettingsManager schema.
-##
-## Shape follows the results/main-menu language: an eyebrow + headline hero, a
-## centered content column (never a full-bleed table), cards at radius 18 whose
-## titles are an accent tick plus an uppercase tracked caption, rows at radius
-## 10 with a faint zebra, and one promoted primary action — Back.
+## Settings screen covering the full SettingsManager schema. Player-facing
+## destinations expose one group at a time: Controls, Comfort, Sound, Account,
+## Graphics. Storage keys and reset scopes remain unchanged.
 ##
 ## Every row shares one anatomy: name, an optional one-line description, and a
 ## control block of a single fixed width so the right edge is a real column.
@@ -13,8 +10,9 @@ extends Control
 ## numbers as a slider with a display-font readout, and free text as an inset
 ## field — all the same height, radius and rim.
 ##
-## Narrow viewports (portrait phones) stack each row instead, label over a
-## full-width control, which is the only layout that stays legible there.
+## Narrow viewports stack each row, label over a full-width control. Wide
+## landscape gets a dedicated expedition-systems rail beside the scrollable
+## cards instead of stretching the phone composition.
 ##
 ## Controls re-read their value from SettingsManager.setting_changed, so a
 ## section reset — or a change made from anywhere else — updates the screen in
@@ -32,6 +30,8 @@ const CONTROL_COLUMN: float = 340.0
 ## Readout gutter to the left of a slider track.
 const VALUE_WIDTH: float = 76.0
 const CONTROL_HEIGHT: float = 40.0
+const WIDE_COLUMN_WIDTH: float = 1180.0
+const NAV_RAIL_WIDTH: float = 188.0
 ## Below this column width a row stacks (label over a full-width control)
 ## instead of splitting left/right.
 const COMPACT_COLUMN: float = 720.0
@@ -39,13 +39,15 @@ const COMPACT_COLUMN: float = 720.0
 ## the results screen needs — settings is dense and must not overflow.
 const BOOST_MAX: float = 1.35
 
-## Section id (also the SettingsManager section) -> title, in screen order.
+## Player-facing destinations, not the SettingsManager storage order. One
+## destination is visible at a time; advanced graphics no longer dominates the
+## first view and account/help live together.
 const SECTIONS: Array = [
-	["display", "Display"],
-	["audio", "Audio"],
-	["gameplay", "Gameplay"],
-	["accessibility", "Accessibility"],
-	["online", "Online"],
+	["gameplay", "Controls"],
+	["accessibility", "Comfort"],
+	["audio", "Sound"],
+	["online", "Account"],
+	["display", "Graphics"],
 ]
 
 var _scroll: ScrollContainer
@@ -59,27 +61,75 @@ var _refreshers: Dictionary = {}
 var _reset_armed: String = ""
 var _reset_buttons: Dictionary = {}  # section id -> Button
 var _section_cards: Dictionary = {}  # section id -> PanelContainer, for the jump chips
+var _category_buttons: Dictionary = {}
+var _active_category: String = "gameplay"
 var _boost: float = 1.0
 var _column: float = COLUMN_WIDTH
 var _compact: bool = false
+var _fit: float = 1.0
 ## Zebra counter, reset at the top of each card.
 var _row_index: int = 0
+var _profile: LayoutProfile = null
+var _layout_root: Control = null
+var _account_status_label: Label = null
+var _account_deletion_panel: AccountDeletionPanel = null
 
 
 func _ready() -> void:
 	UITheme.make_background(self)
 	UITheme.apply_ui_scale(self)
+	var initial := UtilityScreenLayout.bind_view_class(self, _on_view_class_changed)
+	_build_layout(initial, true, 0.0)
+	SettingsManager.setting_changed.connect(_on_setting_changed)
+	LeaderboardClient.auth_changed.connect(_refresh_account_status)
+	var native_auth := get_node_or_null("/root/NativeAuthClient")
+	if native_auth != null:
+		native_auth.connect("auth_changed", _refresh_account_status)
+		if native_auth.has_signal("status_changed"):
+			native_auth.connect("status_changed", _on_native_account_status_changed)
+	UITheme.attach_swipe_back(self, _go_back)
+
+
+func _on_view_class_changed(next: LayoutProfile) -> void:
+	var fraction := UtilityScreenLayout.scroll_fraction(_scroll)
+	_build_layout(next, false, fraction)
+
+
+func _build_layout(next: LayoutProfile, animate: bool, scroll_fraction: float) -> void:
+	# Keep the same confirmation and its opening account identity across rotation.
+	# Its CanvasLayer stays mounted while the scrollable settings tree is replaced.
+	if _account_deletion_panel != null and is_instance_valid(_account_deletion_panel) \
+			and _account_deletion_panel.get_parent() != self:
+		_account_deletion_panel.reparent(self, false)
+	if _layout_root != null and is_instance_valid(_layout_root):
+		_layout_root.free()
+	_profile = next
+	_refreshers.clear()
+	_reset_buttons.clear()
+	_section_cards.clear()
+	_category_buttons.clear()
+	_entrance_items.clear()
+	_reset_armed = ""
+	_back_button = null
+	_account_status_label = null
 	_boost = _tall_boost()
 	_column = _measure_column()
-	_compact = _column < UITheme.scaled(COMPACT_COLUMN) * _boost
+	_fit = clampf(_column / maxf(UITheme.scaled(COLUMN_WIDTH), 1.0), 0.40, 1.0)
+	_compact = UtilityScreenLayout.uses_stacked_rows(_profile) \
+		or _column < UITheme.scaled(COMPACT_COLUMN)
+	_layout_root = Control.new()
+	_layout_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_layout_root)
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", UITheme.screen_margin())
-	margin.add_theme_constant_override("margin_right", UITheme.screen_margin())
-	margin.add_theme_constant_override("margin_top", _gap(24))
+	UtilityScreenLayout.bind_safe_rect(self, margin)
+	margin.add_theme_constant_override("margin_left", _page_gutter())
+	margin.add_theme_constant_override("margin_right", _page_gutter())
+	margin.add_theme_constant_override("margin_top", _gap(
+		16 if UtilityScreenLayout.is_phone(_profile) else 24))
 	margin.add_theme_constant_override("margin_bottom", _gap(20))
-	add_child(margin)
+	_layout_root.add_child(margin)
 
 	# Fixed-width column centered by two weightless spacers. A MarginContainer
 	# cannot center a column whose width is computed at runtime, and a
@@ -96,17 +146,28 @@ func _ready() -> void:
 
 	var header := _build_header(layout)
 	layout.add_child(UITheme.make_header_rule())
-	var chips := _build_section_chips(layout)
 
 	_scroll = ScrollContainer.new()
 	# Rows are buttons and sliders, which swallow touch drags before the
 	# ScrollContainer can see them; this restores dragging the list on a phone.
 	TouchScroll.attach(_scroll)
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.follow_focus = true
-	layout.add_child(_scroll)
 	_style_scrollbar(_scroll.get_v_scroll_bar())
+
+	var chips: Control
+	if _profile.view_class == LayoutProfile.ViewClass.LANDSCAPE_WIDE:
+		var workspace := HBoxContainer.new()
+		workspace.add_theme_constant_override("separation", _gap(UITheme.SPACE_M))
+		workspace.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		layout.add_child(workspace)
+		chips = _build_navigation_rail(workspace)
+		workspace.add_child(_scroll)
+	else:
+		chips = _build_section_chips(layout)
+		layout.add_child(_scroll)
 
 	_sections = VBoxContainer.new()
 	_sections.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -120,7 +181,9 @@ func _ready() -> void:
 	_build_gameplay_section()
 	_build_accessibility_section()
 	_build_online_section()
+	_build_support_section()
 	_build_about_footer()
+	_show_category(_active_category)
 
 	# Closing note plus breathing room so the last card is never flush against
 	# the bottom edge of the scroll viewport.
@@ -132,11 +195,13 @@ func _ready() -> void:
 	tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_sections.add_child(tail)
 
-	UITheme.play_entrance(self, _entrance_items)
+	if _docks_back():
+		_entrance_items.append(_build_action_bar(layout))
 
-	SettingsManager.setting_changed.connect(_on_setting_changed)
-	UITheme.attach_swipe_back(self, _go_back)
-	if _back_button != null:
+	if animate:
+		UITheme.play_entrance(self, _entrance_items)
+	UtilityScreenLayout.restore_scroll_fraction(self, _scroll, scroll_fraction)
+	if animate and _back_button != null:
 		_back_button.grab_focus()
 
 
@@ -162,12 +227,13 @@ func _tall_boost() -> float:
 
 ## Authored font size -> on-screen size (touch step, then the tall step).
 func _f(size: int) -> int:
-	return maxi(1, roundi(float(UITheme.scaled_font(size)) * _boost))
+	return maxi(1, roundi(float(UITheme.scaled_font(size)) * _boost \
+		* lerpf(1.0, _fit, 0.32)))
 
 
 ## Authored metric -> on-screen metric.
 func _u(value: float) -> float:
-	return UITheme.scaled(value) * _boost
+	return UITheme.scaled(value) * _fit
 
 
 ## Integer flavour of _u(), for theme constants.
@@ -182,29 +248,41 @@ func _gap(value: int) -> int:
 
 ## Authored button size -> on-screen button size.
 func _btn(width: float, height: float) -> Vector2:
-	return UITheme.scaled_size(Vector2(width, height)) * _boost
+	var out := UITheme.scaled_size(Vector2(width, height))
+	if width > 0.0:
+		out.x *= _fit
+	if height > 0.0:
+		out.y *= _boost
+	if height > 0.0:
+		out.y = maxf(out.y, UtilityScreenLayout.MIN_TOUCH_TARGET)
+	return out
 
 
 ## Height every control in the family shares.
 func _control_height() -> float:
-	return maxf(UITheme.scaled_size(Vector2(0.0, CONTROL_HEIGHT)).y, CONTROL_HEIGHT) * _boost
+	return maxf(UITheme.scaled_size(Vector2(0.0, CONTROL_HEIGHT)).y,
+		UtilityScreenLayout.MIN_TOUCH_TARGET) * _boost
 
 
 ## Width of the centered column: the authored width on a desktop landscape
 ## window, the touch content band on phones, and the full usable width on a
 ## portrait window (where floating a narrow column would waste the screen).
 func _measure_column() -> float:
-	if UITheme.is_touch():
-		return UITheme.content_width(COLUMN_WIDTH, self)
-	if GameConfig.is_headless() or not is_inside_tree():
+	# Headless is NOT a reason to fall back to the authored desktop width. The
+	# profile is built from the live viewport, which is just as valid without a
+	# window, and returning 940 here meant every automated portrait check laid a
+	# 940-unit column out inside an 800-unit canvas -- which is exactly how Back
+	# ended up measured at x=786 on a phone-sized viewport.
+	if _profile == null or not is_inside_tree():
 		return COLUMN_WIDTH
-	var view := get_viewport_rect().size
-	if view.x <= 0.0:
-		return COLUMN_WIDTH
-	var usable := maxf(view.x - float(UITheme.screen_margin()) * 2.0, 320.0)
-	if view.y > view.x:
-		return usable
-	return clampf(minf(COLUMN_WIDTH * _boost, view.x * 0.72), 420.0, usable)
+	var authored := WIDE_COLUMN_WIDTH if _profile.view_class \
+		== LayoutProfile.ViewClass.LANDSCAPE_WIDE else COLUMN_WIDTH * _boost
+	var page := UtilityScreenLayout.page_width(_profile, authored, 320.0, 0.78)
+	return maxf(page - float(_page_gutter() * 2), 300.0)
+
+
+func _page_gutter() -> int:
+	return 16 if UtilityScreenLayout.is_phone(_profile) else 24
 
 
 ## The engine's default scrollbar is the one grey rectangle left on the screen;
@@ -255,11 +333,31 @@ func _build_header(parent: VBoxContainer) -> Control:
 		GameConfig.GAME_NAME, 15, Color(UITheme.COLOR_ACCENT, 0.75))
 	titles.add_child(eyebrow)
 	var title := UITheme.heading("Settings", maxi(1, roundi(
-		float(UITheme.scaled_heading(46)) * _boost)))
+		float(UITheme.scaled_heading(46)) * _boost \
+		* lerpf(1.0, _fit, 0.38))))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	titles.add_child(title)
 
-	_back_button = UITheme.make_button("Back", _btn(168.0, 48.0), _f(22))
+	if _docks_back():
+		return header
+	header.add_child(_make_back_button(_btn(168.0, 48.0)))
+	return header
+
+
+## True when Back belongs at the foot of the screen rather than in the header.
+##
+## On a phone the top-right corner is the one place a thumb cannot reach without
+## shifting grip, and the header there is already carrying the headline across
+## the full column -- so a right-aligned Back both fights the title for width
+## and sits where nobody can press it. Landscape keeps the authored header
+## action, where the corner is close and vertical space is the scarce axis.
+func _docks_back() -> bool:
+	return _profile != null and _profile.is_portrait()
+
+
+## The one promoted action, built identically wherever it is parked.
+func _make_back_button(size: Vector2) -> Button:
+	_back_button = UITheme.make_button("Back", size, _f(22))
 	UITheme.style_primary(_back_button)
 	_back_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var icon := UITheme.make_icon(UITheme.ICON_BACK, 1.0)
@@ -270,36 +368,90 @@ func _build_header(parent: VBoxContainer) -> Control:
 		_back_button.add_theme_constant_override("h_separation", _ui(10.0))
 	UITheme.hook_sounds(_back_button)
 	_back_button.pressed.connect(_go_back)
-	header.add_child(_back_button)
-	return header
+	return _back_button
 
 
-## Jump strip: one small quiet button per card. On a long settings list this is
-## the difference between scanning and hunting, and it wraps onto a second line
-## rather than clipping on a narrow window.
-func _build_section_chips(parent: VBoxContainer) -> Control:
-	var chips := HFlowContainer.new()
+## Portrait action bar: a rule, then one full-width primary target pinned under
+## the scrolling list. Being a sibling of the ScrollContainer rather than a
+## child of it means the list shortens to make room instead of the button
+## scrolling away, so Back is on screen at every scroll position.
+func _build_action_bar(parent: VBoxContainer) -> Control:
+	var bar := VBoxContainer.new()
+	bar.add_theme_constant_override("separation", _gap(8))
+	parent.add_child(bar)
+	bar.add_child(UITheme.make_header_rule())
+	var button := _make_back_button(_btn(0.0, 52.0))
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.size_flags_vertical = Control.SIZE_SHRINK_END
+	bar.add_child(button)
+	return bar
+
+
+## Category selector: three wide targets per row on phones, a vertical rail on
+## wide screens. Hidden panels never force the player through a long settings
+## document to find one control.
+func _build_section_chips(parent: Control, vertical: bool = false) -> Control:
+	var chips: Container = VBoxContainer.new() if vertical else GridContainer.new()
+	if chips is GridContainer:
+		(chips as GridContainer).columns = 3
 	chips.add_theme_constant_override("h_separation", _ui(8.0))
 	chips.add_theme_constant_override("v_separation", _ui(6.0))
 	parent.add_child(chips)
 	for entry: Array in SECTIONS:
 		var id := String(entry[0])
-		var chip := UITheme.make_button(String(entry[1]), _btn(0.0, 34.0), _f(16))
+		var chip := UITheme.make_button(String(entry[1]), _btn(0.0, 40.0), _f(16))
 		chip.add_theme_color_override("font_color", UITheme.COLOR_TEXT_DIM)
+		chip.toggle_mode = true
+		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		UITheme.hook_sounds(chip)
 		chip.pressed.connect(func() -> void:
-			_jump_to(id))
+			_show_category(id))
 		chips.add_child(chip)
+		_category_buttons[id] = chip
 	return chips
 
 
+func _build_navigation_rail(parent: Control) -> Control:
+	var card := PanelContainer.new()
+	card.custom_minimum_size.x = _u(NAV_RAIL_WIDTH)
+	card.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var style := UITheme.make_panel_style(
+		Color(0.045, 0.086, 0.155, 0.92), Color(UITheme.COLOR_ACCENT, 0.24))
+	style.content_margin_left = _u(12.0)
+	style.content_margin_right = _u(12.0)
+	style.content_margin_top = _u(14.0)
+	style.content_margin_bottom = _u(14.0)
+	card.add_theme_stylebox_override("panel", style)
+	parent.add_child(card)
+	var body := VBoxContainer.new()
+	body.add_theme_constant_override("separation", _gap(8))
+	card.add_child(body)
+	body.add_child(_caption_label("Choose a category", 14,
+		Color(UITheme.COLOR_GOLD, 0.82)))
+	body.add_child(_divider())
+	_build_section_chips(body, true)
+	return card
+
+
 func _jump_to(id: String) -> void:
-	var card: Variant = _section_cards.get(id)
-	if not (card is Control) or not is_instance_valid(card as Control):
+	_show_category(id)
+
+
+func _show_category(id: String) -> void:
+	if not _section_cards.has(id):
 		return
-	if _scroll == null:
-		return
-	_scroll.scroll_vertical = maxi(0, roundi((card as Control).position.y - _u(6.0)))
+	_active_category = id
+	_disarm_resets()
+	for key: String in _section_cards.keys():
+		var card := _section_cards[key] as Control
+		card.visible = key == id or (id == "online" and key == "support")
+	for key: String in _category_buttons.keys():
+		var button := _category_buttons[key] as Button
+		button.set_pressed_no_signal(key == id)
+		button.add_theme_color_override("font_color",
+			UITheme.COLOR_GOLD if key == id else UITheme.COLOR_TEXT_DIM)
+	if _scroll != null:
+		_scroll.scroll_vertical = 0
 
 
 ## --- Type ramp (boost-aware mirrors of the UITheme helpers) ------------------
@@ -366,30 +518,11 @@ func _divider() -> Control:
 
 ## --- Section / row shells ---------------------------------------------------
 
-## Builds a section card and returns the VBox its rows go into. `id` is the
-## SettingsManager section, which is also what the card's Reset restores.
-## Small print naming the exact build and the canvas it is laying out for.
-##
-## Every screenshot of a layout bug so far has been ambiguous about which of
-## those two things was wrong, and several turned out to be neither -- just a
-## cached build from before the fix. One line makes both answerable from a
-## photo of the screen.
+## Quiet release identity. Renderer/canvas diagnostics belong in QA probes,
+## not in the player's settings page.
 func _build_about_footer() -> void:
 	var line := Label.new()
-	var view := get_viewport_rect().size
-	var scale_size := Vector2i.ZERO
-	var window := get_window()
-	if window != null:
-		scale_size = window.content_scale_size
-	# The 3D scale is the number that answers "why does it look pixelated": a
-	# screenshot of this footer now says whether the auto-governor took the
-	# resolution down, without a single follow-up question.
-	var vp := get_viewport()
-	var scale_3d := 1.0 if vp == null else vp.scaling_3d_scale
-	line.text = "Waddle Wars %s · build %s · canvas %d×%d · design %d×%d · 3D %d%%" % [
-		GameConfig.GAME_VERSION, GameConfig.BUILD_ID,
-		int(view.x), int(view.y), scale_size.x, scale_size.y,
-		int(round(scale_3d * 100.0))]
+	line.text = "Waddle Wars %s" % GameConfig.GAME_VERSION
 	line.add_theme_font_size_override("font_size", _f(14))
 	line.add_theme_color_override("font_color", Color(0.52, 0.62, 0.75, 0.75))
 	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -398,7 +531,7 @@ func _build_about_footer() -> void:
 	_sections.add_child(line)
 
 
-func _section(id: String, title: String) -> VBoxContainer:
+func _section(id: String, title: String, resettable: bool = true) -> VBoxContainer:
 	var card := PanelContainer.new()
 	var style := UITheme.make_card_style()
 	style.content_margin_left = _u(18.0)
@@ -420,12 +553,13 @@ func _section(id: String, title: String) -> VBoxContainer:
 	body.add_child(head)
 	_card_title(head, title)
 	head.add_child(_flex_spacer())
-	var reset := UITheme.make_ghost_button("Reset", _btn(0.0, 32.0), _f(16))
-	reset.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	UITheme.hook_sounds(reset)
-	reset.pressed.connect(_on_reset_pressed.bind(id))
-	_reset_buttons[id] = reset
-	head.add_child(reset)
+	if resettable:
+		var reset := UITheme.make_ghost_button("Reset", _btn(0.0, 32.0), _f(16))
+		reset.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		UITheme.hook_sounds(reset)
+		reset.pressed.connect(_on_reset_pressed.bind(id))
+		_reset_buttons[id] = reset
+		head.add_child(reset)
 
 	body.add_child(_divider())
 	_row_index = 0
@@ -604,7 +738,7 @@ func _build_segmented(slot: HBoxContainer, options: Array, on_pick: Callable) ->
 		var segment := Button.new()
 		segment.text = String(pair[1])
 		segment.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		segment.custom_minimum_size.y = maxf(_control_height() - _u(8.0), 28.0)
+		segment.custom_minimum_size.y = _control_height()
 		segment.clip_text = true
 		segment.add_theme_font_override("font", UITheme.bold_font())
 		segment.add_theme_font_size_override("font_size", _f(17))
@@ -737,7 +871,7 @@ func _add_slider_row(body: VBoxContainer, section: String, key: String, label_te
 	slider.step = step
 	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	slider.custom_minimum_size = Vector2(_u(140.0), maxf(_control_height() - _u(8.0), 28.0))
+	slider.custom_minimum_size = Vector2(_u(140.0), _control_height())
 	UITheme.style_slider(slider)
 	var format := func(amount: float) -> String:
 		return "%d%%" % int(round(amount * 100.0)) if as_percent else "%.2f" % amount
@@ -905,15 +1039,42 @@ func _add_tilt_status_row(body: VBoxContainer) -> void:
 
 ## --- Section builders -------------------------------------------------------
 
+## True where the game owns a desktop window it can actually resize and re-mode.
+##
+## Window Mode and Resolution write straight through DisplayServer, and on a
+## phone -- native or in a browser -- neither call does anything: the page owns
+## the canvas size, and iOS has no Fullscreen API outside video. A row that
+## cannot move is worse than an absent one, so these two only appear where they
+## act. Judged on live geometry rather than a device name, like every other
+## layout decision here: a touch machine laying out in phone or tablet geometry
+## is a handheld, while a touch laptop in a wide landscape window is a desktop
+## and keeps both rows.
+func _owns_window() -> bool:
+	if GameConfig.is_mobile() or SettingsManager.is_mobile_web():
+		return false
+	if GameConfig.has_touchscreen() \
+			and not UtilityScreenLayout.is_wide_landscape(_profile):
+		return false
+	return true
+
+
 func _build_display_section() -> void:
-	var body := _section("display", "Display")
-	_add_choice_row(body, "display", "window_mode", "Window Mode", [
-		["windowed", "Windowed"], ["fullscreen", "Fullscreen"], ["borderless", "Borderless"],
-	])
-	_add_choice_row(body, "display", "resolution", "Resolution", [
-		["1280x720", "1280 x 720"], ["1600x900", "1600 x 900"],
-		["1920x1080", "1920 x 1080"], ["2560x1440", "2560 x 1440"],
-	], "Windowed size. Fullscreen always uses the display's own.")
+	var body := _section("display", "Graphics & Performance")
+	if _owns_window():
+		_add_choice_row(body, "display", "window_mode", "Window Mode", [
+			["windowed", "Windowed"], ["fullscreen", "Fullscreen"], ["borderless", "Borderless"],
+		])
+		# Even on a desktop, a web build's canvas is sized by the page around
+		# it, so a resolution list there would be four choices that all do the
+		# same nothing.
+		if not OS.has_feature("web"):
+			_add_choice_row(body, "display", "resolution", "Resolution", [
+				["1280x720", "1280 x 720"], ["1600x900", "1600 x 900"],
+				["1920x1080", "1920 x 1080"], ["2560x1440", "2560 x 1440"],
+			], "Windowed size. Fullscreen always uses the display's own.")
+	else:
+		_note(body, "Your browser sets the window size here. "
+			+ "Menu and HUD size are under Accessibility.")
 	_add_toggle_row(body, "display", "vsync", "V-Sync",
 		"Matches the display's refresh rate and removes tearing.")
 	_add_choice_row(body, "display", "quality_preset", "Quality Preset", [
@@ -934,7 +1095,7 @@ func _build_display_section() -> void:
 
 
 func _build_audio_section() -> void:
-	var body := _section("audio", "Audio")
+	var body := _section("audio", "Sound")
 	_add_slider_row(body, "audio", "master_volume", "Master Volume", 0.0, 1.0, 0.05, true)
 	_add_slider_row(body, "audio", "music_volume", "Music Volume", 0.0, 1.0, 0.05, true)
 	_add_slider_row(body, "audio", "sfx_volume", "SFX Volume", 0.0, 1.0, 0.05, true)
@@ -945,7 +1106,7 @@ func _build_audio_section() -> void:
 
 
 func _build_gameplay_section() -> void:
-	var body := _section("gameplay", "Gameplay")
+	var body := _section("gameplay", "Controls")
 	_add_slider_row(body, "gameplay", "steer_sensitivity", "Steer Sensitivity",
 		0.5, 1.5, 0.05, true, "How sharply the penguin answers a turn.")
 	# Tilt only appears where a lean can actually be read. On a desktop it
@@ -977,7 +1138,7 @@ func _build_gameplay_section() -> void:
 
 
 func _build_accessibility_section() -> void:
-	var body := _section("accessibility", "Accessibility")
+	var body := _section("accessibility", "Comfort & Accessibility")
 	_add_choice_row(body, "accessibility", "camera_shake", "Camera Shake", [
 		["full", "Full"], ["reduced", "Reduced"], ["off", "Off"],
 	], "Impact and speed shake, softened or removed.")
@@ -997,20 +1158,128 @@ func _build_accessibility_section() -> void:
 
 
 func _build_online_section() -> void:
-	var body := _section("online", "Online")
+	var body := _section("online", "Account & Progress")
+	if not AccountAuthPresentation.account_surface_enabled():
+		_account_status_label = _note(body, _account_status())
+		# There are no editable account settings in the offline mobile edition.
+		(_reset_buttons["online"] as Button).hide()
+		return
 	_add_text_row(body, "online", "display_name", "Leaderboard Name",
 		"2-20 letters/numbers", "Shown beside your times on the global boards.")
-	_note(body, _account_status())
+	_account_status_label = _note(body, _account_status())
+	body.add_child(_divider())
+	if _account_deletion_panel == null or not is_instance_valid(_account_deletion_panel):
+		_account_deletion_panel = AccountDeletionPanel.new()
+		body.add_child(_account_deletion_panel)
+	else:
+		_account_deletion_panel.reparent(body, false)
+
+
+## Bundled contact/help and explicit links to the published mobile policy.
+## Constructing/reading this card never launches another app or sends data.
+func _build_support_section() -> void:
+	if not GameConfig.native_offline_mvp():
+		return
+	var body := _section("support", "Help & Support", false)
+	var contact := _note(body, "Ninja Consulting LLC\nninjaconsultingllc@gmail.com")
+	contact.name = "SupportContact"
+	contact.add_theme_font_size_override("font_size", _f(18))
+	contact.add_theme_color_override("font_color", UITheme.COLOR_TEXT)
+	var version: Variant = ProjectSettings.get_setting("application/config/version", GameConfig.GAME_VERSION)
+	var support_version := String(version).strip_edges() if version is String else ""
+	if support_version.is_empty():
+		support_version = GameConfig.GAME_VERSION
+	var identity := _note(body, "Version %s\nBuild %s" % [
+		support_version, GameConfig.BUILD_ID])
+	identity.name = "SupportBuildIdentity"
+	_note(body, "In your email, include device model, OS version, game mode, "
+		+ "what happened and steps to repeat it.")
+	var safety := _note(body, "Do not send passwords, payment credentials, "
+		+ "account tokens or unrelated private information. "
+		+ "Deleting app data can erase local progress.")
+	safety.name = "SupportSafety"
+	# Bundled edition facts do not imply store approval or a runtime audit.
+	body.add_child(_divider())
+	var privacy_heading := _note(body, "Privacy & local data")
+	privacy_heading.name = "SupportPrivacyHeading"
+	privacy_heading.add_theme_font_override("font", UITheme.bold_font())
+	privacy_heading.add_theme_font_size_override("font_size", _f(18))
+	privacy_heading.add_theme_color_override("font_color", UITheme.COLOR_TEXT)
+	var local := _note(body, "Local progress, earned cosmetics, best results, "
+		+ "runner missions, settings and Time Trial ghosts are stored on this device. "
+		+ "Core gameplay works offline.")
+	local.name = "SupportPrivacyLocal"
+	var features := _note(body, "This mobile edition has no account sign-in, "
+		+ "game-account cloud sync, purchases or score posting.")
+	features.name = "SupportPrivacyFeatures"
+	var requests := _note(body, "Opening Leaderboard fetches your selected board "
+		+ "over HTTPS: mode, course and result limit. Requests do not send your local save.")
+	requests.name = "SupportPrivacyRequests"
+	var provider := _note(body, "Cloudflare provides the service and can see your "
+		+ "network address and process requests to deliver and secure it. "
+		+ "Avoid Leaderboard to skip these game-service requests.")
+	provider.name = "SupportPrivacyProvider"
+	var retention := _note(body, "If you email support, we receive the details you "
+		+ "choose to send to respond and troubleshoot. Routine correspondence is deleted "
+		+ "from the publisher's active mailbox within 90 days after resolution.")
+	retention.name = "SupportPrivacyRetention"
+	var limits := _note(body, "Specific records are held longer only for legal "
+		+ "obligations or necessary fraud or security handling. Gmail/Google processes "
+		+ "email separately; provider backup copies have no fixed deletion deadline from us.")
+	limits.name = "SupportPrivacyRetentionLimits"
+	var deletion := _note(body, "Deleting the app or clearing app data can erase "
+		+ "local progress. Device backups may retain a separate copy. "
+		+ "This does not delete a separate browser-game account.")
+	deletion.name = "SupportPrivacyDeletionWarning"
+	body.add_child(_divider())
+	_note(body, "Privacy policy and support pages open in your browser. "
+		+ "Visiting them sends normal website requests; you do not need to open them to play.")
+	var privacy_link := UITheme.make_ghost_button("Privacy Policy", Vector2(0.0, _f(48)), _f(18))
+	privacy_link.name = "NativePrivacyLink"
+	privacy_link.pressed.connect(_open_native_help_url.bind(GameConfig.NATIVE_PRIVACY_URL))
+	body.add_child(privacy_link)
+	var support_link := UITheme.make_ghost_button("Support Website", Vector2(0.0, _f(48)), _f(18))
+	support_link.name = "NativeSupportLink"
+	support_link.pressed.connect(_open_native_help_url.bind(GameConfig.NATIVE_SUPPORT_URL))
+	body.add_child(support_link)
+
+
+func _open_native_help_url(url: String) -> void:
+	# Fixed allowlist, no credentials/local state/query parameters and no
+	# automatic visit on menu construction, focus, pause or orientation changes.
+	if not GameConfig.native_offline_mvp() or GameConfig.is_headless() \
+			or url not in [GameConfig.NATIVE_PRIVACY_URL, GameConfig.NATIVE_SUPPORT_URL]:
+		return
+	OS.shell_open(url)
 
 
 ## One-line description of the leaderboard account state, so the Online section
 ## explains what the name is actually for.
 func _account_status() -> String:
-	if not LeaderboardClient.can_sign_in():
-		return "Play the web version to sign in and post times."
+	if not AccountAuthPresentation.account_surface_enabled():
+		return "Progress saves on this device. No account is needed. Earn cosmetics with fish in Customize; this edition has no purchases."
+	var auth_message := AccountAuthPresentation.message()
+	if not auth_message.is_empty():
+		return auth_message
 	if LeaderboardClient.signed_in:
 		return "Signed in as %s — times post to the global boards." % LeaderboardClient.display_name
-	return "Sign in from the Leaderboard screen to post times and back up progress."
+	if LeaderboardClient.can_sign_in():
+		return "Sign in from the Leaderboard screen to post times and back up progress."
+	var native_auth := get_node_or_null("/root/NativeAuthClient")
+	if native_auth != null and bool(native_auth.call("signed_in")):
+		return "Account connected on this device. Cloud backup and posting times currently require the web version."
+	if native_auth != null and bool(native_auth.get("pending")):
+		return "Account sign-in is in progress. Return to the Cosmetic Shop to finish connecting your account."
+	return "Connect your account from the Cosmetic Shop. Cloud backup and posting times are available in the web version."
+
+
+func _refresh_account_status() -> void:
+	if _account_status_label != null and is_instance_valid(_account_status_label):
+		_account_status_label.text = _account_status()
+
+
+func _on_native_account_status_changed(_message: String) -> void:
+	_refresh_account_status()
 
 
 ## --- Plumbing ---------------------------------------------------------------
@@ -1031,10 +1300,12 @@ var on_back: Callable = Callable()
 
 
 func _go_back() -> void:
+	if _account_deletion_panel != null and _account_deletion_panel.consume_back():
+		return
 	if on_back.is_valid():
 		on_back.call()
 		return
-	SceneRouter.go_to(Game.SCENE_MAIN_MENU)
+	SceneRouter.go_back()
 
 
 func _unhandled_input(event: InputEvent) -> void:

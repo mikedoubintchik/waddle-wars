@@ -1,0 +1,34 @@
+{
+	"generator": {
+		"godot_version": "4.7.1-stable (official)",
+		"path": "tools/release/store_assets/export_premium_icon.gd",
+		"sha256": "502c0b29c2b594cdb6702a7f55ebd5ce7bd88b5fca8d608f3ea3a90cf238f462"
+	},
+	"outputs": [
+		{
+			"alpha": true,
+			"format": "RGBA8",
+			"height": 512,
+			"opaque": true,
+			"path": "tools/release/store_assets/icon-512-v4.png",
+			"sha256": "435a6332710feb402164fbefa41ce7e468e810b8a17c2e6c471ca32cba3b5dcf",
+			"width": 512
+		},
+		{
+			"alpha": false,
+			"format": "RGB8",
+			"height": 1024,
+			"opaque": true,
+			"path": "tools/release/store_assets/icon-1024-v4.png",
+			"sha256": "cfdd4bc6ee25b478a36ba82ae5239b717f0302911dafc8592a0a65950c30678a",
+			"width": 1024
+		}
+	],
+	"schema_version": 1,
+	"source": {
+		"path": "assets/icons/waddle_wars_app_icon_v4.png",
+		"sha256": "eae66cbf7331892b62146bce2c183cc68978b08cc3faadcb4bbe83e7bcb423a3"
+	},
+	"state": "generated_unsubmitted",
+	"store_ready": false
+}

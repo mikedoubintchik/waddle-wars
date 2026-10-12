@@ -1,0 +1,291 @@
+{
+  "schema_version": 1,
+  "gate": "rear-shape-v1",
+  "unrigged": true,
+  "production_ready": false,
+  "animation_ready": false,
+  "visual_approval": "pending human Gate1 review",
+  "shape_revision": "v7 foot-only refinement: convex rear heel removes v6 ankle overhang; blunt forward toe lobes, modest left outward splay; fitted body/flippers/materials unchanged",
+  "material_contract": "plain-literal-COLOR_0",
+  "glb_sha256": "1c3deac8a4999d3a9d31517f0255e631815254b05f4301331fcf91f2f64b138f",
+  "source_sha256": "88287b0c218de1e7fe304b5ceddaed94f96983407356bd0efc2f852109243667",
+  "builder_sha256": "7bff43a77a4bef1cf2c9b5e50859e308664b854d6970b84abf75c66fcceb6896",
+  "config_sha256": "fb7202407e7aa49b2bf01b1cc03cebba014f42dfddf5a164c9810eac74a4f617",
+  "reference_file": "art_src/characters/reference_boards/penguin-gameplay-v2-20261011/waddle-rear-strong-lean-sequence.png",
+  "reference_sha256": "764acf53aecf29958e7ffc986bea753627b0af4f3ea95bf31f03a99c0f2ecac9",
+  "source_height_m": 1.6931614875793457,
+  "gameplay_height_m": 1.05,
+  "gameplay_scale": 0.6201416744371788,
+  "author_axes": "Blender +Z up, +Y forward; exporter converts to glTF/Godot +Y up, -Z forward",
+  "bounds_author_m": {
+    "min": [
+      -0.7124186158180237,
+      -0.3670448362827301,
+      0.0
+    ],
+    "max": [
+      0.7117675542831421,
+      0.5318607687950134,
+      1.6931614875793457
+    ]
+  },
+  "root_transform": "identity",
+  "pose": {
+    "body_forward_pitch_degrees": 11,
+    "right_hip_settle_m": 0.04,
+    "pose_scope": "Static reference stance; shared anatomical foot loft, upper ankle lean and right lower-rump settle. No rig or animation.",
+    "author_hip_pivot_yz_m": [
+      0.045,
+      0.28
+    ],
+    "leaned_parts": [
+      "continuous_body_head",
+      "flipper_L",
+      "flipper_R",
+      "short_tail_fan"
+    ],
+    "feet_rotated_with_body": false,
+    "crown_forward_direction": "author +Y; exported Godot -Z",
+    "static_reference_foot_poses": {
+      "L": {
+        "forward_offset_m": 0,
+        "height_scale": 1,
+        "width_scale": 0.94,
+        "yaw_offset_degrees": -6,
+        "center_x_offset_m": 0.0215,
+        "upper_lean_y_m": -0.18,
+        "upper_lean_x_m": 0,
+        "upper_bulge_y_m": -0.08,
+        "upper_lean_full_z_m": 0.225,
+        "upper_lean_start_z_m": 0.055
+      },
+      "R": {
+        "forward_offset_m": 0,
+        "height_scale": 1,
+        "width_scale": 1,
+        "yaw_offset_degrees": 0,
+        "center_x_offset_m": 0.04,
+        "upper_lean_y_m": 0.04,
+        "upper_lean_x_m": -0.1,
+        "upper_bulge_y_m": 0.1,
+        "upper_lean_full_z_m": 0.18,
+        "upper_lean_start_z_m": 0.09
+      }
+    },
+    "static_reference_flipper_poses": {
+      "L": {
+        "length_scale": 1.08
+      },
+      "R": {
+        "length_scale": 0.975
+      }
+    },
+    "attachment_checks": [
+      {
+        "part": "foot_L",
+        "ankle_cap_body_ellipse_ratio": 0.7718474956711996,
+        "sole_min_z_m": 0.0,
+        "ankle_cap_m": [
+          -0.2744775764604029,
+          -0.11467025236541308,
+          0.285
+        ]
+      },
+      {
+        "part": "foot_R",
+        "ankle_cap_body_ellipse_ratio": 0.3082516831260793,
+        "sole_min_z_m": 0.0,
+        "ankle_cap_m": [
+          0.1987436323395641,
+          0.13220512192768435,
+          0.285
+        ]
+      }
+    ]
+  },
+  "vertices": 4972,
+  "triangles": 9920,
+  "surfaces": 1,
+  "material": {
+    "name": "RearBlockoutPlainMatte",
+    "roughness": 0.9,
+    "metallic": 0.0,
+    "color_space": "COLOR_0 linear RGBA from explicit sRGB palette; multiply imported baseColorFactor white",
+    "textures": []
+  },
+  "foot_geometry_diagnostics": {
+    "L": {
+      "rear_section_z_m": [
+        0.0,
+        0.0021648951957603567,
+        0.008593801538008048,
+        0.019091379960717483,
+        0.03333866685554563,
+        0.05090276561966814,
+        0.07124999999999998,
+        0.09376212957609217,
+        0.1177551346824624,
+        0.14249999999999996,
+        0.16724486531753754,
+        0.19123787042390775,
+        0.21374999999999994,
+        0.23409723438033184,
+        0.2516613331444543,
+        0.26590862003928245,
+        0.27640619846199194,
+        0.2828351048042396
+      ],
+      "rear_y_before_m": [
+        -0.09101500132527787,
+        -0.09427884317128017,
+        -0.10518332065788509,
+        -0.10959936599291951,
+        -0.10819811442053864,
+        -0.1052540247455165,
+        -0.11153751161803035,
+        -0.14058790117214162,
+        -0.1819938928411833,
+        -0.21933453145560952,
+        -0.23253029481095758,
+        -0.2425165629184262,
+        -0.24268610941176882,
+        -0.21996171020808153,
+        -0.1801409203001939,
+        -0.1473612505352578,
+        -0.1263425697862004,
+        -0.11686249217592282
+      ],
+      "rear_y_after_m": [
+        -0.09101500132527787,
+        -0.11254682371754961,
+        -0.13358932813448054,
+        -0.15367102743960834,
+        -0.17235569279745905,
+        -0.1892589905617419,
+        -0.2040639706266485,
+        -0.216535082899471,
+        -0.22653042303172283,
+        -0.23401189337599196,
+        -0.23905285714533928,
+        -0.24184257433473116,
+        -0.24268610941176882,
+        -0.21996171020808153,
+        -0.1801409203001939,
+        -0.1473612505352578,
+        -0.1263425697862004,
+        -0.11686249217592282
+      ],
+      "peak_z_m": 0.21374999999999994,
+      "sole_preserved": true,
+      "method": "convex lower heel fill; no palette change or backward toe additions"
+    },
+    "R": {
+      "rear_section_z_m": [
+        0.0,
+        0.0021648951957603567,
+        0.008593801538008048,
+        0.019091379960717483,
+        0.03333866685554563,
+        0.05090276561966814,
+        0.07124999999999998,
+        0.09376212957609217,
+        0.1177551346824624,
+        0.14249999999999996,
+        0.16724486531753754,
+        0.19123787042390775,
+        0.21374999999999994,
+        0.23409723438033184,
+        0.2516613331444543,
+        0.26590862003928245,
+        0.27640619846199194,
+        0.2828351048042396
+      ],
+      "rear_y_before_m": [
+        -0.09373004495826226,
+        -0.0971563806170938,
+        -0.10859161136619402,
+        -0.11335787947924701,
+        -0.11228600734853941,
+        -0.10974202368812568,
+        -0.09982868230333133,
+        -0.06562088419226184,
+        0.0003849346411660959,
+        0.07975336721567607,
+        0.13997727376941285,
+        0.16323491023086256,
+        0.17920209756749106,
+        0.178479212877463,
+        0.15454328720721502,
+        0.1341569859384542,
+        0.1282669814997912,
+        0.13046570749742606
+      ],
+      "rear_y_after_m": [
+        -0.09373004495826226,
+        -0.10280851127055167,
+        -0.11012433315172993,
+        -0.11335787947924701,
+        -0.11228600734853941,
+        -0.10974202368812568,
+        -0.09982868230333133,
+        -0.06562088419226184,
+        0.0003849346411660959,
+        0.07975336721567607,
+        0.13997727376941285,
+        0.16323491023086256,
+        0.17920209756749106,
+        0.178479212877463,
+        0.15454328720721502,
+        0.1341569859384542,
+        0.1282669814997912,
+        0.13046570749742606
+      ],
+      "peak_z_m": 0.019091379960717483,
+      "sole_preserved": true,
+      "method": "convex lower heel fill; no palette change or backward toe additions"
+    }
+  },
+  "parts_vertex_ranges": {
+    "continuous_body_head": [
+      0,
+      2258
+    ],
+    "flipper_L": [
+      2258,
+      2740
+    ],
+    "flipper_R": [
+      2740,
+      3222
+    ],
+    "foot_L": [
+      3222,
+      3944
+    ],
+    "foot_R": [
+      3944,
+      4666
+    ],
+    "short_tail_fan": [
+      4666,
+      4972
+    ]
+  },
+  "geometry_validation": {
+    "nonmanifold_edges": 0,
+    "zero_area_faces": 0,
+    "signed_volume_m3": 0.6133167601508894,
+    "color_position_index_max_error_m": 0.0
+  },
+  "intentional_overlaps": "Flipper roots, upper feet and tail root bury into continuous body; six closed components in one mesh",
+  "deferred": [
+    "rig and skinning",
+    "all animation",
+    "future front podium and face detail",
+    "UVs and surface textures",
+    "LOD and species",
+    "runtime promotion"
+  ],
+  "old_mesh_skeleton_or_animation_used": false,
+  "rendered_frames": 0
+}

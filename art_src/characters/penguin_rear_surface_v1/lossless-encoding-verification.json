@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "candidate_sha256": "b21ca5327a7798b31b1b5b7aa098a4452c623db2c95044244aa490fb72fc7484",
+  "source_sha256": "7253e147302eb8476524d9694cb6f8eb0032cac7a37ca58bd730e7723fde98b2",
+  "method": "PNG adaptive lossless scanline filtering and zlib9; decodedRGB unchanged",
+  "prior_same_art_candidate_sha256": "04b605158fc1585826b5c811394792765f239dbb207e12648fd599c0b11a4946",
+  "checks": {
+    "base-color.png": {
+      "pixels_bit_identical": true,
+      "pixel_sha256": "01bae24d0f5314cb0f0af95261c3efab02f2a1355a1f7a682ca0cb8932d54f73",
+      "before_bytes": 843936,
+      "after_bytes": 600383
+    },
+    "normal.png": {
+      "pixels_bit_identical": true,
+      "pixel_sha256": "bac62ca10338761c59d6b070e31fe177b67e0b04dadc0987c12b12c7c22162ec",
+      "before_bytes": 1097929,
+      "after_bytes": 757390
+    },
+    "metallic-roughness.png": {
+      "pixels_bit_identical": true,
+      "pixel_sha256": "f2162c31e5c79be769eda500dd1b6ee1cb7ff7e44ec2d3df35b88afeb7717669",
+      "before_bytes": 466277,
+      "after_bytes": 352590
+    }
+  },
+  "glb_bytes": 2189172,
+  "passed": true
+}

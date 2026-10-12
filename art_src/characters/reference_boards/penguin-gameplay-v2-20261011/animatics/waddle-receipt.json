@@ -1,0 +1,251 @@
+{
+  "schema": 1,
+  "action": "waddle",
+  "description": "Eight generated still poses played as a stepped reference animatic; not a game capture or finished animation.",
+  "source_file": "waddle-rear-sequence.png",
+  "source_sha256": "02e5d86ad922831bafea2dde956d015f1b79f0f66700170e22b53ed7b84199ac",
+  "source_dimensions": [
+    1774,
+    887
+  ],
+  "grid": [
+    4,
+    2
+  ],
+  "frame_dimensions": [
+    443,
+    443
+  ],
+  "extraction": "Original pixels; nearest rounded grid boundaries; at most one right/bottom pixel trimmed per cell; no resize or retouch.",
+  "source_pose_count": 8,
+  "timing_seconds": [
+    0.15,
+    0.15,
+    0.15,
+    0.15,
+    0.15,
+    0.15,
+    0.15,
+    0.15
+  ],
+  "sequence_seconds": 1.2,
+  "loop_transition": "Cyclic authored poses",
+  "frames": [
+    {
+      "frame": 1,
+      "file": "waddle-frame-01.png",
+      "sheet_bounds_xyxy": [
+        0,
+        0,
+        444,
+        444
+      ],
+      "trim_right_bottom_px": [
+        1,
+        1
+      ],
+      "duration_seconds": 0.15,
+      "sha256": "cfc8d17f38f723121840a48292934796be71429852d5abc906069259f8056ea7",
+      "source_crop_pixel_signature": "fb0b5b79906b751764caa4586a179c020ad5c4dc569525e594bc8d1ae8ec6197",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 2,
+      "file": "waddle-frame-02.png",
+      "sheet_bounds_xyxy": [
+        444,
+        0,
+        887,
+        444
+      ],
+      "trim_right_bottom_px": [
+        0,
+        1
+      ],
+      "duration_seconds": 0.15,
+      "sha256": "68d0a1d3ed6d23953359812e3dfd12e334cc055396deef9f1b458dea4116de3d",
+      "source_crop_pixel_signature": "f58d4b0bb9b7ea67ebd5f260ef004fe97c5d331522b66737ad72e64e1978c1b9",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 3,
+      "file": "waddle-frame-03.png",
+      "sheet_bounds_xyxy": [
+        887,
+        0,
+        1330,
+        444
+      ],
+      "trim_right_bottom_px": [
+        0,
+        1
+      ],
+      "duration_seconds": 0.15,
+      "sha256": "83345c9f474008a6215d047f70c011b9d54d5ba789541085bff9d16a6b658498",
+      "source_crop_pixel_signature": "624d918053a90988faaa2fd4e5fbf9b0861fecdbe9669daf33918fb773bcf0d0",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 4,
+      "file": "waddle-frame-04.png",
+      "sheet_bounds_xyxy": [
+        1330,
+        0,
+        1774,
+        444
+      ],
+      "trim_right_bottom_px": [
+        1,
+        1
+      ],
+      "duration_seconds": 0.15,
+      "sha256": "9a11152cfb89711f2a68969f1c88cdb67cdaf3fe22d50611ba7bed5094e23903",
+      "source_crop_pixel_signature": "f896ee3c74f7e5504951566a31805081117eebe76b153fc8d325b7b9ac75a719",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 5,
+      "file": "waddle-frame-05.png",
+      "sheet_bounds_xyxy": [
+        0,
+        444,
+        444,
+        887
+      ],
+      "trim_right_bottom_px": [
+        1,
+        0
+      ],
+      "duration_seconds": 0.15,
+      "sha256": "78f8ae1ada7b8057c0009c74efc192628e088947be3e3c33b70bd2414df98f34",
+      "source_crop_pixel_signature": "b84174e991b053afc3b20c9c01e67fdc61a16659ba7f3892aa5a0e58ebf5c42c",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 6,
+      "file": "waddle-frame-06.png",
+      "sheet_bounds_xyxy": [
+        444,
+        444,
+        887,
+        887
+      ],
+      "trim_right_bottom_px": [
+        0,
+        0
+      ],
+      "duration_seconds": 0.15,
+      "sha256": "d56c1867b2f1036249f3ffac3f230af3e702fc18a0c1a7efd9cfd58cd13a4c91",
+      "source_crop_pixel_signature": "6ae557d08e8c92eec5e4eba9365c1070dffb5439a4206e7109ac3c86d4fed665",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 7,
+      "file": "waddle-frame-07.png",
+      "sheet_bounds_xyxy": [
+        887,
+        444,
+        1330,
+        887
+      ],
+      "trim_right_bottom_px": [
+        0,
+        0
+      ],
+      "duration_seconds": 0.15,
+      "sha256": "c14daaad57077e4930e54c3e34c7e5dc8139d253ddc187563f7a8c322a60dee7",
+      "source_crop_pixel_signature": "1484fb3ec73b544b0b18fe59a939ec936a0129e17f3bd81954c0fa80592c9e6c",
+      "lossless_pixel_match": true
+    },
+    {
+      "frame": 8,
+      "file": "waddle-frame-08.png",
+      "sheet_bounds_xyxy": [
+        1330,
+        444,
+        1774,
+        887
+      ],
+      "trim_right_bottom_px": [
+        1,
+        0
+      ],
+      "duration_seconds": 0.15,
+      "sha256": "186654ea183cf0e497135bf7ecfee75e87f539d80f7bf15503c6feec661c7c85",
+      "source_crop_pixel_signature": "4444d5e857e981e1a0becde91e67f8e7e33a6dc77982c82f55c255a59c7eb31e",
+      "lossless_pixel_match": true
+    }
+  ],
+  "verification": {
+    "lossless_source_crops": 8,
+    "gif_frames": 8,
+    "timings_verified": true
+  },
+  "gif": {
+    "file": "waddle.gif",
+    "sha256": "73f1072386e1ea1e865d1e9b22f4b03c57c7978be0b54378d6006b618c895249",
+    "canvas_width_height_delay_centiseconds": [
+      [
+        443,
+        443,
+        15
+      ],
+      [
+        443,
+        443,
+        15
+      ],
+      [
+        443,
+        443,
+        15
+      ],
+      [
+        443,
+        443,
+        15
+      ],
+      [
+        443,
+        443,
+        15
+      ],
+      [
+        443,
+        443,
+        15
+      ],
+      [
+        443,
+        443,
+        15
+      ],
+      [
+        443,
+        443,
+        15
+      ]
+    ],
+    "encoding": "GIF palette encoding; infinite loop"
+  },
+  "mp4": {
+    "file": "waddle.mp4",
+    "sha256": "47929f27ee344481d51526a2865bf1f53e72de9ad6dbf08a1520ce075073302c",
+    "probe": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "width": 444,
+          "height": 444,
+          "nb_frames": "120"
+        }
+      ],
+      "format": {
+        "duration": "1.200000"
+      }
+    },
+    "encoding": "H.264 yuv420p at 100 frames/sec for exact centisecond holds; duplicate stills only; at most one right/bottom padding pixel for even dimensions; no interpolation"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-11",
+  "items": [
+    {
+      "file": "runner-mobile-20261009.jpg",
+      "source": "/Users/ninja/Fun/waddle-wars/qa_shots/menu-reference-review-20261009-iteration14/originals/mobile/runner_hud.jpg",
+      "sha256": "58efcad87165dafbe23012660cc0ee9ab24ebd5349e16b3ef910022fa2286185",
+      "kind": "historical evidence; not a fresh capture"
+    },
+    {
+      "file": "authored-v11-study-20261004.png",
+      "source": "/Users/ninja/Fun/waddle-wars/qa_shots/hero/v1_shader_single_sample_20261004/hero_penguin_neutral_close_portrait.png",
+      "sha256": "28c0e851d604fad05a48c1d761863d162b0d1f4153a65476682d22374a15e9cf",
+      "kind": "historical evidence; not a fresh capture"
+    },
+    {
+      "file": "unified-face-retopology-20261002.log",
+      "source": "/Users/ninja/Fun/waddle-wars/qa_shots/hero/unified_face_retopology_20261002_units02.log",
+      "sha256": "46832ece241437f14d538d9b675d25cb1bf2193692e90993827d4382b19aabea",
+      "kind": "historical evidence; not a fresh capture"
+    }
+  ]
+}

@@ -1,0 +1,717 @@
+{
+  "$id": "https://waddlewars.ninjaconsulting.ai/schemas/art-source-manifest-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authored_packages": {
+      "description": "Prepared custom-builder runner package. Separate from full shared-character export contract; front/podium art remains incomplete.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_class": {
+            "const": "runner_character"
+          },
+          "binding": {
+            "pattern": "^assets/art/(?!.*\\.\\.).+\\.json$",
+            "type": "string"
+          },
+          "binding_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "builder": {
+            "pattern": "^tools/art/(?!.*\\.\\.).+\\.py$",
+            "type": "string"
+          },
+          "builder_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "expected": {
+            "const": {
+              "deform_bones_max": 15,
+              "required_animations": [
+                "jump",
+                "slide",
+                "waddle"
+              ],
+              "skin_influences_max": 4,
+              "surfaces_max": 1,
+              "triangles_max": 15000
+            }
+          },
+          "front_ready": {
+            "const": false
+          },
+          "id": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "license_id": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "output": {
+            "pattern": "^assets/art/(?!.*\\.\\.).+\\.glb$",
+            "type": "string"
+          },
+          "output_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "scope": {
+            "const": "rear_runner_only"
+          },
+          "source": {
+            "pattern": "^art_src/(?!.*\\.\\.).+\\.blend$",
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_class",
+          "binding",
+          "binding_sha256",
+          "builder",
+          "builder_sha256",
+          "expected",
+          "front_ready",
+          "id",
+          "license_id",
+          "output",
+          "output_sha256",
+          "scope",
+          "source",
+          "source_sha256"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "blender_version": {
+      "const": "5.2.0"
+    },
+    "concepts": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "dimensions": {
+            "items": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "generated_on": {
+            "format": "date",
+            "type": "string"
+          },
+          "generator": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "license_id": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "path": {
+            "pattern": "^art_src/",
+            "type": "string"
+          },
+          "prompt_path": {
+            "pattern": "^art_src/",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "status": {
+            "const": "art_direction_only"
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "prompt_path",
+          "sha256",
+          "dimensions",
+          "generated_on",
+          "generator",
+          "license_id",
+          "status"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "exports": {
+      "items": {
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "asset_class": {
+                  "const": "character"
+                }
+              },
+              "required": [
+                "asset_class"
+              ]
+            },
+            "then": {
+              "properties": {
+                "expected": {
+                  "properties": {
+                    "deform_bones_max": {
+                      "const": 36
+                    },
+                    "lod0_triangles_max": {
+                      "const": 25000
+                    },
+                    "lod0_triangles_min": {
+                      "const": 18000
+                    },
+                    "required_animations": {
+                      "const": [
+                        "celebration",
+                        "countdown_idle",
+                        "defeat",
+                        "fidget",
+                        "hit_left",
+                        "hit_right",
+                        "jump_air",
+                        "jump_land",
+                        "jump_takeoff",
+                        "lean_left",
+                        "lean_right",
+                        "ramp_flip",
+                        "ramp_land",
+                        "ramp_launch",
+                        "recover",
+                        "run",
+                        "shove",
+                        "slide_enter",
+                        "slide_exit",
+                        "slide_loop",
+                        "stumble",
+                        "swim",
+                        "wipeout"
+                      ]
+                    },
+                    "required_sockets": {
+                      "const": [
+                        "face_socket",
+                        "head_socket",
+                        "neck_socket",
+                        "trail_socket"
+                      ]
+                    },
+                    "skin_influences_max": {
+                      "const": 4
+                    },
+                    "surfaces_max": {
+                      "const": 2
+                    }
+                  },
+                  "required": [
+                    "deform_bones_max",
+                    "required_animations",
+                    "required_sockets",
+                    "skin_influences_max"
+                  ]
+                },
+                "export_animations": {
+                  "const": true
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "asset_class": {
+                  "const": "character_lod"
+                }
+              },
+              "required": [
+                "asset_class"
+              ]
+            },
+            "then": {
+              "properties": {
+                "expected": {
+                  "properties": {
+                    "deform_bones_max": {
+                      "const": 36
+                    },
+                    "lod0_triangles_max": {
+                      "const": 12000
+                    },
+                    "lod0_triangles_min": {
+                      "const": 8000
+                    },
+                    "required_animations": {
+                      "const": [
+                        "celebration",
+                        "countdown_idle",
+                        "defeat",
+                        "fidget",
+                        "hit_left",
+                        "hit_right",
+                        "jump_air",
+                        "jump_land",
+                        "jump_takeoff",
+                        "lean_left",
+                        "lean_right",
+                        "ramp_flip",
+                        "ramp_land",
+                        "ramp_launch",
+                        "recover",
+                        "run",
+                        "shove",
+                        "slide_enter",
+                        "slide_exit",
+                        "slide_loop",
+                        "stumble",
+                        "swim",
+                        "wipeout"
+                      ]
+                    },
+                    "required_sockets": {
+                      "const": [
+                        "face_socket",
+                        "head_socket",
+                        "neck_socket",
+                        "trail_socket"
+                      ]
+                    },
+                    "skin_influences_max": {
+                      "const": 4
+                    },
+                    "surfaces_max": {
+                      "const": 2
+                    }
+                  },
+                  "required": [
+                    "deform_bones_max",
+                    "required_animations",
+                    "required_sockets",
+                    "skin_influences_max"
+                  ]
+                },
+                "export_animations": {
+                  "const": true
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "asset_class": {
+                  "const": "gameplay_interactive"
+                }
+              },
+              "required": [
+                "asset_class"
+              ]
+            },
+            "then": {
+              "properties": {
+                "expected": {
+                  "properties": {
+                    "lod0_triangles_max": {
+                      "const": 5000
+                    },
+                    "lod0_triangles_min": {
+                      "const": 1500
+                    },
+                    "surfaces_max": {
+                      "const": 1
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "asset_class": {
+                  "const": "gameplay_interactive_lod"
+                }
+              },
+              "required": [
+                "asset_class"
+              ]
+            },
+            "then": {
+              "properties": {
+                "expected": {
+                  "properties": {
+                    "lod0_triangles_max": {
+                      "const": 1100
+                    },
+                    "lod0_triangles_min": {
+                      "const": 250
+                    },
+                    "surfaces_max": {
+                      "const": 1
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "asset_class": {
+                  "const": "landmark"
+                }
+              },
+              "required": [
+                "asset_class"
+              ]
+            },
+            "then": {
+              "properties": {
+                "expected": {
+                  "properties": {
+                    "lod0_triangles_max": {
+                      "const": 30000
+                    },
+                    "lod0_triangles_min": {
+                      "const": 10000
+                    },
+                    "surfaces_max": {
+                      "const": 3
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "asset_class": {
+                  "const": "obstacle"
+                }
+              },
+              "required": [
+                "asset_class"
+              ]
+            },
+            "then": {
+              "properties": {
+                "expected": {
+                  "properties": {
+                    "lod0_triangles_max": {
+                      "const": 5000
+                    },
+                    "lod0_triangles_min": {
+                      "const": 1500
+                    },
+                    "surfaces_max": {
+                      "const": 1
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "asset_class": {
+                  "const": "repeated_prop"
+                }
+              },
+              "required": [
+                "asset_class"
+              ]
+            },
+            "then": {
+              "properties": {
+                "expected": {
+                  "properties": {
+                    "lod0_triangles_max": {
+                      "const": 1500
+                    },
+                    "lod0_triangles_min": {
+                      "const": 300
+                    },
+                    "surfaces_max": {
+                      "const": 1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "properties": {
+          "asset_class": {
+            "enum": [
+              "character",
+              "character_lod",
+              "gameplay_interactive",
+              "gameplay_interactive_lod",
+              "landmark",
+              "obstacle",
+              "repeated_prop"
+            ]
+          },
+          "collection": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "expected": {
+            "additionalProperties": false,
+            "properties": {
+              "bounds_meters_max": {
+                "items": {
+                  "exclusiveMinimum": 0,
+                  "type": "number"
+                },
+                "maxItems": 3,
+                "minItems": 3,
+                "type": "array"
+              },
+              "deform_bones_max": {
+                "maximum": 36,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "lod0_triangles_max": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "lod0_triangles_min": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "pivot_policy": {
+                "enum": [
+                  "center",
+                  "ground_center"
+                ]
+              },
+              "pivot_tolerance_m": {
+                "exclusiveMinimum": 0,
+                "type": "number"
+              },
+              "required_animations": {
+                "items": {
+                  "pattern": "^[a-z][a-z0-9_]*$",
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
+              },
+              "required_sockets": {
+                "items": {
+                  "pattern": "^[a-z][a-z0-9_]*$",
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
+              },
+              "skin_influences_max": {
+                "maximum": 4,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "surfaces_max": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "texture_size_max": {
+                "maximum": 2048,
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "bounds_meters_max",
+              "lod0_triangles_min",
+              "lod0_triangles_max",
+              "pivot_policy",
+              "pivot_tolerance_m",
+              "surfaces_max",
+              "texture_size_max"
+            ],
+            "type": "object"
+          },
+          "export_animations": {
+            "type": "boolean"
+          },
+          "forward_axis": {
+            "const": "-Z"
+          },
+          "id": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "license_id": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "output": {
+            "pattern": "^assets/art/.*\\.glb$",
+            "type": "string"
+          },
+          "source": {
+            "pattern": "^art_src/.*\\.blend$",
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "asset_class",
+          "source",
+          "source_sha256",
+          "collection",
+          "output",
+          "forward_axis",
+          "export_animations",
+          "license_id",
+          "expected"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "generated_assets": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "dimensions": {
+            "items": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "generated_on": {
+            "format": "date",
+            "type": "string"
+          },
+          "generator": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "license_id": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "path": {
+            "pattern": "^art_src/(?:ui|runner/painted)/",
+            "type": "string"
+          },
+          "prompt_path": {
+            "pattern": "^art_src/(?:ui|runner/painted)/",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "status": {
+            "const": "production_source"
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "prompt_path",
+          "sha256",
+          "dimensions",
+          "generated_on",
+          "generator",
+          "license_id",
+          "status"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "study_sources": {
+      "description": "Source-only Blender research and archived iterations; no runtime export or visual approval implied.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "license_id": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "path": {
+            "pattern": "^art_src/(?!.*\\.\\.).+\\.blend$",
+            "type": "string"
+          },
+          "production_ready": {
+            "const": false
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "source_study",
+              "archived_study"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "license_id",
+          "path",
+          "production_ready",
+          "sha256",
+          "status"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "blender_version",
+    "concepts",
+    "exports",
+    "generated_assets",
+    "schema_version"
+  ],
+  "title": "Waddle Wars authored art source manifest",
+  "type": "object"
+}

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Privacy policy for the free iOS and Android edition of Waddle Wars: Penguin Panic.">
+  <link rel="canonical" href="https://waddlewars.io/native/privacy.html">
+  <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png">
+  <title>Mobile Privacy Policy — Waddle Wars: Penguin Panic</title>
+  <style>
+:root { color-scheme: dark; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #edf4ff; background: #081829; line-height: 1.65; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+a { color: #a6dcff; text-underline-offset: .2em; }
+a:hover { color: #fff; }
+a:focus-visible { outline: 3px solid #ffd56d; outline-offset: 5px; }
+.skip { position: absolute; left: 1rem; top: -8rem; }
+.skip:focus { top: 1rem; background: #081829; padding: .7rem; z-index: 1; }
+.page { max-width: 880px; margin: auto; padding: 32px 24px 56px; }
+header { border-bottom: 1px solid #344e65; padding-bottom: 24px; }
+.brand { color: #a6dcff; font-size: .82rem; letter-spacing: .15em; text-transform: uppercase; }
+h1 { margin: .3rem 0 .5rem; font-size: clamp(2.2rem, 8vw, 3.7rem); line-height: 1.1; letter-spacing: -.04em; }
+.lead { max-width: 660px; font-size: 1.12rem; color: #c4d6e7; }
+nav { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-top: 22px; }
+.contact { border: 1px solid #344e65; background: #10283e; border-radius: 12px; padding: 16px 20px; margin: 26px 0; }
+.contact p { margin: .4rem 0; }
+section { margin: 32px 0; }
+h2 { font-size: 1.35rem; line-height: 1.3; margin-bottom: .6rem; }
+p { margin: .6rem 0; }
+ul, ol { padding-left: 1.5rem; }
+li { margin: .5rem 0; }
+.warning { border-left: 3px solid #ffd56d; padding-left: 16px; }
+footer { color: #c4d6e7; font-size: .9rem; border-top: 1px solid #344e65; margin-top: 40px; padding-top: 20px; }
+@media (max-width: 480px) { .page { padding: 24px 18px 40px; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+@media print { :root { color-scheme: light; color: #111; background: #fff; } a, .brand, .lead, footer { color: #111; } .contact { background: #fff; border-color: #666; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <div class="page">
+    <header>
+      <div class="brand">Waddle Wars: Penguin Panic</div>
+      <h1>Mobile privacy policy</h1>
+      <p class="lead">Local adventures, with optional accounts in supported iOS builds. Clear information about what leaves your device.</p>
+      <nav aria-label="Information pages"><a href="support.html">Mobile support</a><a href="https://play.waddlewars.io/">Browser game</a></nav>
+    </header>
+    <aside class="contact" aria-label="Publisher and privacy contact">
+      <p>Publisher: Ninja Consulting LLC<br>Privacy contact: <a href="mailto:support@waddlewars.io">support@waddlewars.io</a><br>Effective date: October 9, 2026</p>
+    </aside>
+    <main id="main">
+      <section aria-labelledby="scope"><h2 id="scope">Which version this covers</h2>
+        <p>This document covers Waddle Wars: Penguin Panic for iOS and Android. iOS builds with Sign In, starting with build 41, offer optional accounts, cloud progress, and score submission. Android and earlier iOS builds keep progress on the device and can view public leaderboards. No account is required to play. These mobile editions have no in-app purchases; fish and cosmetic unlocks are earned through play.</p>
+        <p>The browser game is a separate version, with its own account configuration. This mobile policy does not cover browser-game payment services. Publishing this policy does not mean a particular build is already available in a store or TestFlight.</p>
+      </section>
+      <section aria-labelledby="local"><h2 id="local">Progress stored on your device</h2>
+        <p>The game stores progress, earned cosmetics, best results, runner missions, settings, and time-trial ghosts in local app storage. Core gameplay and local progress work without an internet connection.</p>
+        <p>Without signing in on a supported iOS build, the game does not upload your progress to a game account. The Android launch configuration disables automatic Android app-data backup. On iOS, device backup and restore behavior depends on your operating-system settings and policies; a device backup is separate from game-account cloud sync.</p>
+        <p>When you choose a sharing action, the mobile game hands the selected result or challenge text and game link to your device's share options where available, or copies it to the clipboard. The game does not automatically publish that text; you choose whether and where to send or paste it.</p>
+      </section>
+      <section aria-labelledby="online"><h2 id="online">When you use the Leaderboard</h2>
+        <p>Opening or using the Leaderboard requests public results over HTTPS from our Cloudflare-hosted service. Selecting a board, retrying a failed request, or rotating the screen can request results again. Public board requests send the selected mode, course, and result limit. Signed-out play, Android, and earlier iOS builds do not upload scores. The signed-in iOS features are described below.</p>
+        <p>Cloudflare handles requests and may process IP addresses, traffic-routing data, system-configuration information, and network/security records to deliver and protect the service. Its <a href="https://www.cloudflare.com/privacypolicy/">privacy policy</a> describes this processing. Provider retention depends on purposes and legal obligations, not a fixed Waddle Wars deletion deadline.</p>
+        <p>Workers Logs and Workers Traces were disabled for our game and leaderboard production services in the October 2, 2026 hosting review. The browser-game host later enabled Workers Logs for operational monitoring; the native game's leaderboard service is separate. This dated observation does not mean Cloudflare processes no data. Provider logs, security records, and retention follow its practices.</p>
+        <p>Our Workers logging settings do not give us control over every provider-held record. We do not promise a fixed retention period or immediate deletion for those records.</p>
+        <p>You can avoid these game-service requests by playing offline, staying signed out, and not opening the Leaderboard or sending Feedback.</p>
+      </section>
+      <section aria-labelledby="accounts"><h2 id="accounts">Optional iOS sign-in and saved progress</h2>
+        <p>Sign In opens a secure system authentication window using our production Clerk service at clerk.waddlewars.io. Clerk and the sign-in provider you choose process the account details needed for authentication, such as an account identifier, email address, and, when supplied by that provider, a name and profile picture. Their browser cookies and network/security information follow their own practices. See <a href="https://clerk.com/legal/privacy">Clerk's privacy information</a> and your chosen provider's privacy policy.</p>
+        <p>The game uses an account identifier and short-lived authentication credentials to connect your account to our Cloudflare-hosted game service. Credentials are held in app memory, not included in cloud progress or feedback. This does not clear cookies held by the system authentication window or records held by Clerk.</p>
+        <p>After you sign in, the game synchronizes earned fish, unlocked and equipped cosmetics, achievements, mission and run progress, best results, and related gameplay statistics. Existing progress on the device may be included. The game keeps an online copy associated with your account so that supported signed-in devices can recover progress. Settings and time-trial ghost files remain local. Signing out stops authenticated synchronization; it does not delete the existing online copy or local progress.</p>
+        <p>Completed signed-in runs can submit scores and course or mode information to the leaderboard. A separate Post Local Best action can submit a result already on the device. Public results show your chosen leaderboard name, or Penguin by default. Your social-login name and email are not automatically published as your leaderboard name. You can change your leaderboard name from Account.</p>
+        <p>We use this account and gameplay information for sign-in, saves, leaderboards, account support, and protection against unauthorized or repeated requests. Account and cloud records are kept while the account is active, subject to the deletion process below. The game service and authentication providers also process network and security information; we do not promise that all provider records have the same retention period.</p>
+      </section>
+      <section aria-labelledby="account-deletion"><h2 id="account-deletion">Deleting an iOS account</h2>
+        <p>In a supported iOS build, open Account → Privacy &amp; Data → Delete Account. Review and confirm the request. After server confirmation, your game profile, leaderboard scores, cloud save, and native game-session records are removed or invalidated, and deletion of the Clerk identity is requested. Check status distinguishes game-data removal from identity deletion; a network error does not mean the request was cancelled.</p>
+        <p>We retain a minimal account-retirement marker, a hashed deletion recovery receipt, and deletion-status records to prevent an old session or delayed save from recreating deleted data and to let you check the request. Identity-provider cleanup can remain pending. Provider security records and backups may persist under their practices. The current status does not certify that every retained record has been erased, and we do not promise a fixed deletion deadline for those records. Contact support for questions about retained information.</p>
+        <p>Account deletion keeps earned offline progress on this device. To remove that local progress too, delete the app or clear its app storage; device backups may keep a separate copy. A separate browser-game account is not automatically deleted. See <a href="delete-data.html">data deletion instructions</a>.</p>
+      </section>
+      <section aria-labelledby="website"><h2 id="website">When you visit these information pages</h2>
+        <p>These support and privacy pages are also hosted by Cloudflare. Our game website uses Cloudflare Web Analytics. If its Cloudflare Web Analytics beacon is loaded when you visit these information pages, it sends page-performance measurements and website-visit information to Cloudflare. Available reports include page paths, referring sites, browser, operating system, device type, and country. See Cloudflare's <a href="https://developers.cloudflare.com/web-analytics/data-metrics/data-origin-and-collection/">collection documentation</a> and <a href="https://developers.cloudflare.com/web-analytics/data-metrics/dimensions/">reported dimensions</a>.</p>
+        <p>This website measurement and browser-game analytics are separate from native game play: they run in a browser, not inside the mobile game. Provider retention and privacy practices apply. External links open other websites with their own policies.</p>
+      </section>
+      <section aria-labelledby="contact"><h2 id="contact">If you contact support</h2>
+        <p>If you email us, we receive the information you choose to send, such as your email address, device details, description of a problem, and attached screenshots. We use this information to respond and troubleshoot. Do not send passwords, payment credentials, account tokens, or unrelated personal information.</p>
+        <p>The optional in-game Feedback form sends your chosen category, message, optional reply email, game version, and platform to support@waddlewars.io only when you press Send Feedback. It does not attach your save, screenshots, account token, or purchase history. Cloudflare processes the request and limits repeated submissions using the client IP address; Amazon Simple Email Service sends the message. You can use the form without providing an email address, although we cannot reply without one.</p>
+        <p>The owner of Ninja Consulting LLC personally handles Waddle Wars support and privacy requests. Cloudflare Email Routing forwards messages sent to support@waddlewars.io to the publisher's Gmail inbox. Cloudflare and Gmail/Google process email under their respective <a href="https://policies.google.com/privacy">privacy policies</a>.</p>
+        <p>We retain routine support correspondence while an issue is open and delete it from the publisher's active mailbox within 90 days after resolution. We retain specific records longer only when required by legal obligations or necessary for fraud or security handling, limited to what those purposes require.</p>
+        <p>Email-provider backup copies may persist under the provider's practices. We do not promise a fixed deletion deadline for those copies.</p>
+      </section>
+      <section aria-labelledby="security"><h2 id="security">Handling and sharing information</h2>
+        <p>Game-service requests use HTTPS. Support information is used to handle your request, not posted to a public leaderboard. Publisher access is limited to the person handling support; Cloudflare, Clerk, your chosen sign-in provider, Amazon Simple Email Service, and Google process information needed for the services described above. Information may also be disclosed when required by law or necessary to address fraud or security incidents.</p>
+        <p>We do not sell personal information. No internet service or email system is completely secure, so send only information needed for your request. Provider processing can involve countries other than your own, as described in their policies.</p>
+      </section>
+      <section aria-labelledby="choices"><h2 id="choices">Your choices and requests</h2>
+        <p>You can play offline, stay signed out, avoid online leaderboards, and choose what to include in a support message. To ask about access, correction, or deletion of information sent to support or an online service, contact the privacy address shown above. Applicable rights depend on your location and the information involved; we may need sufficient details to locate and verify your request.</p>
+        <p>For Cloudflare processing, start a privacy request with Ninja Consulting LLC. Cloudflare's published policy directs users of customer applications to that customer. Requests may require identity verification and enough details to locate information. Its <a href="https://www.cloudflare.com/cloudflare-customer-dpa/">published data-processing terms</a> describe assistance to the extent it is able and in line with applicable law. We cannot promise that every provider record can be located or erased.</p>
+        <p>A parent or guardian can contact us about information a child has sent to support. Do not include a child's personal details in a public message.</p>
+        <p class="warning">Deleting the app or clearing its storage can permanently erase local progress. Device backups may retain a separate copy. Removing mobile app data does not delete an online account or its records. Use the account deletion flow for a supported iOS account; identify a separate browser-game account separately in a support request.</p>
+      </section>
+      <section aria-labelledby="changes"><h2 id="changes">Policy updates</h2>
+        <p>Updates will show their effective date on this page. If a later mobile version changes its account features or adds purchases, analytics, or other data-handling features, we will update this policy and the relevant store disclosures before enabling those features.</p>
+      </section>
+    </main>
+    <footer>Waddle Wars: Penguin Panic · Ninja Consulting LLC · Mobile privacy policy effective October 11, 2026.</footer>
+  </div>
+</body>
+</html>

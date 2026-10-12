@@ -1,0 +1,9 @@
+{
+  "generator": "built-in image_gen",
+  "source_reference": "art_src/ui/menu/penguins_v1.png",
+  "output_source": "art_src/ui/menu/wardrobe_category_icons_v3.png",
+  "runtime": "assets/art/ui/menu/wardrobe_category_icons_v3.png",
+  "purpose": "Faithful reconstruction of five painted reference category icons. Source reference unchanged.",
+  "transparent_background": true,
+  "prompt": "Use case: background-extraction. Asset type: transparent game UI icon sprite atlas.\nReference image: the supplied approved Penguins screen. Recreate ONLY the five small category icons in its horizontal category strip near the bottom, with extremely faithful shapes, colors and shading. These are: (1) front-facing small closed-mouth penguin face/chest, black/navy and white with orange beak, (2) flat blue ribbed beanie with small pompom and blue cuff, (3) navy ski goggles with pale silver double outline and empty navy lenses, (4) short simple blue wrapped scarf with two short fringed ends, (5) navy five-point star with three thin curved motion trails to lower left. Match the SIMPLE painted blue icon illustrations in that strip, NOT realistic knitwear or photographic equipment.\nOutput exactly one transparent PNG sprite atlas, landscape 5:1 aspect ratio with FIVE equal square cells arranged in one horizontal row, icons in that order. Each icon centered in its cell at equal perceived size, inset at least 15% on all sides. Genuine transparent background. No text, no labels, no UI buttons, no circles or background plates, no extra snow, no cast shadows outside silhouettes. No other art from the supplied reference. The original reference remains unchanged; this is a production extraction/reconstruction of its category icon art."
+}

@@ -1,0 +1,5 @@
+Use case: precise-object-edit
+Asset type: production game menu background plate, portrait 9:16.
+Input images: Image 1 is the approved Waddle Wars menu mockup and edit target.
+Primary request: Remove ONLY all interface elements from Image 1: the large WADDLE WARS title/logo, top fish and profile pills, the red WADDLE RUN button, and the ivory bottom navigation shelf with its three icons and labels. Reconstruct the underlying Antarctic sunrise sky, rolling avalanche, ice trail and snow naturally in those regions. Preserve the expressive running penguin, orange scarf, snow spray, camera angle, original color palette, warm sunrise, mountains, expedition outpost and detailed ice trail as closely as possible. The avalanche remains clearly visible behind the penguin. Leave open natural sky in the top quarter for a separate live logo overlay, and unobstructed detailed ice near the lower quarter for real Godot buttons.
+Constraints: no text, no logos, no UI, no signs with writing, no buttons, no panels, no watermark, no added characters. This is a clean art plate for independent interactive UI.

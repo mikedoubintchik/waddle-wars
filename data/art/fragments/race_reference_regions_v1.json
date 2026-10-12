@@ -1,0 +1,204 @@
+{
+  "concepts": [],
+  "generated_assets": [
+    {
+      "dimensions": [
+        1672,
+        941
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_controls_background_landscape_v3",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/controls_background_landscape_v3.png",
+      "prompt_path": "art_src/ui/menu/controls_background_landscape_v3.prompt.md",
+      "sha256": "9853aaa133dab39b80d0c0d3b6bc87553da6b7184a803e1575873cea28c72e75",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1672,
+        941
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_credits_background_landscape_v3",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/credits_background_landscape_v3.png",
+      "prompt_path": "art_src/ui/menu/credits_background_landscape_v3.prompt.md",
+      "sha256": "511a0045255490a04eb66edd66ff2c3364f00e75f55e6a7432de1be06ce767d6",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        941,
+        1672
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_loader_background_portrait_v3",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/loader_background_portrait_v3.png",
+      "prompt_path": "art_src/ui/menu/loader_background_portrait_v3.prompt.md",
+      "sha256": "1b95f5ccb92ff0b0a465bf5ad1185dd009e85e3bd439f1b94401e052723373ff",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1672,
+        941
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_missions_background_landscape_v3",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/missions_background_landscape_v3.png",
+      "prompt_path": "art_src/ui/menu/missions_background_landscape_v3.prompt.md",
+      "sha256": "163b4294bff5835d7551fc0b0188514a1e309b66cdfa38d40669fa962a257804",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1199,
+        1312
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_race_flag_penguin_v1",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/race_flag_penguin_v1.png",
+      "prompt_path": "art_src/ui/menu/race_flag_penguin_v1.prompt.md",
+      "sha256": "93e7bb420d4da5fb1f1779c4c612945dc4759e38b01b50c67801a1ac73d19477",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        941,
+        1672
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Existing project ImageGen reference, lossless runtime copy for AtlasTexture regions",
+      "id": "imagegen_race_mode_reference_v1",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/race_mode_select_v1.png",
+      "prompt_path": "art_src/ui/menu/race_reference_regions_v1.prompt.md",
+      "sha256": "613b6ede2fffd8d15d146f2106fa11cf48baeba2074ac02570ebd2375b75ad9e",
+      "status": "production_source"
+    },
+    {
+      "dimensions": [
+        1672,
+        941
+      ],
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_race_setup_background_landscape_v3",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/race_setup_background_landscape_v3.png",
+      "prompt_path": "art_src/ui/menu/race_setup_background_landscape_v3.prompt.md",
+      "sha256": "e55f67f9071b2bb3f32c35d698f9f0d0843ecde1b40b19435aecbbb241f033d9",
+      "status": "production_source"
+    }
+  ],
+  "runtime_assets": [
+    {
+      "groups": [
+        "frontend",
+        "menu",
+        "utility_fidelity"
+      ],
+      "id": "controls_background_landscape_v3",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/controls_background_landscape_v3.webp",
+      "production_ready": false,
+      "sha256": "01e8551db4aee7b266fc8b057a1ddd0d495f19e3819a1fdf940ca12ca83485f7",
+      "source_export_id": "imagegen_controls_background_landscape_v3"
+    },
+    {
+      "groups": [
+        "frontend",
+        "menu",
+        "utility_fidelity"
+      ],
+      "id": "credits_background_landscape_v3",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/credits_background_landscape_v3.webp",
+      "production_ready": false,
+      "sha256": "13295cd26f1095f70cebf9159f974361dc9b4b0d794e752715384237b38d9db0",
+      "source_export_id": "imagegen_credits_background_landscape_v3"
+    },
+    {
+      "groups": [
+        "frontend",
+        "loading",
+        "menu"
+      ],
+      "id": "loader_background_portrait_v3",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/loader_background_portrait_v3.webp",
+      "production_ready": false,
+      "sha256": "fcd8d16770ffcc88dc240c23bb198b20af6fde75650a33ca6bf6ab61c93da596",
+      "source_export_id": "imagegen_loader_background_portrait_v3"
+    },
+    {
+      "groups": [
+        "frontend",
+        "menu",
+        "utility_fidelity"
+      ],
+      "id": "missions_background_landscape_v3",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/missions_background_landscape_v3.webp",
+      "production_ready": false,
+      "sha256": "c499896e0f4e19ca7f8d230d0d203ac8a6109aa3845b6a0a6b9076c90b431df2",
+      "source_export_id": "imagegen_missions_background_landscape_v3"
+    },
+    {
+      "groups": [
+        "frontend",
+        "menu",
+        "race_reference"
+      ],
+      "id": "race_flag_penguin_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/race_flag_penguin_v1.webp",
+      "production_ready": false,
+      "sha256": "74bd8260102b938391b5713adcec3c9b4d3f3fcd81a2ef3de447f6eae2b5b20f",
+      "source_export_id": "imagegen_race_flag_penguin_v1"
+    },
+    {
+      "groups": [
+        "frontend",
+        "menu",
+        "race_reference"
+      ],
+      "id": "race_mode_reference_v1",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/race_mode_reference_v1.png",
+      "production_ready": false,
+      "sha256": "613b6ede2fffd8d15d146f2106fa11cf48baeba2074ac02570ebd2375b75ad9e",
+      "source_export_id": "imagegen_race_mode_reference_v1"
+    },
+    {
+      "groups": [
+        "frontend",
+        "menu",
+        "utility_fidelity"
+      ],
+      "id": "race_setup_background_landscape_v3",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/race_setup_background_landscape_v3.webp",
+      "production_ready": false,
+      "sha256": "87a65a43ceb03d1ec668de139e13d828b66384a7e0e509dcdaf741524255ff39",
+      "source_export_id": "imagegen_race_setup_background_landscape_v3"
+    }
+  ],
+  "source_exports": []
+}

@@ -1,0 +1,64 @@
+{
+  "concepts": [],
+  "generated_assets": [
+    {
+      "id": "imagegen_runner_crystal_ice_v2",
+      "path": "art_src/runner/painted/v5/runner_crystal_ice_v2.png",
+      "prompt_path": "art_src/runner/painted/v5/runner_crystal_ice_v2.prompt.md",
+      "license_id": "project_original",
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "status": "production_source",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "sha256": "278f9f3066c7c33f2d28fd4911b9e8cfe180856f9c86eca0a5af801642c5b26d"
+    },
+    {
+      "id": "imagegen_runner_cloud_bank_v1",
+      "path": "art_src/runner/painted/v5/runner_cloud_bank_v1.png",
+      "prompt_path": "art_src/runner/painted/v5/runner_cloud_bank_v1.prompt.md",
+      "license_id": "project_original",
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "status": "production_source",
+      "dimensions": [
+        2172,
+        724
+      ],
+      "sha256": "c5f3c328950a856028845d205ead3c9412be60879f9cc146c4d29c6450cf4d8d"
+    }
+  ],
+  "runtime_assets": [
+    {
+      "id": "runner_crystal_ice_v2",
+      "path": "res://assets/art/runner/textures/runner_crystal_ice_v2.webp",
+      "license_id": "project_original",
+      "kind": "texture",
+      "groups": [
+        "runner",
+        "runner_painted",
+        "texture"
+      ],
+      "production_ready": false,
+      "source_export_id": "imagegen_runner_crystal_ice_v2",
+      "sha256": "c721e547e3e8151f93c1eddf60203d18f70825513f7ed233213a64b6a41bc7f4"
+    },
+    {
+      "id": "runner_cloud_bank_v1",
+      "path": "res://assets/art/runner/textures/runner_cloud_bank_v1.webp",
+      "license_id": "project_original",
+      "kind": "texture",
+      "groups": [
+        "runner",
+        "runner_painted",
+        "texture"
+      ],
+      "production_ready": false,
+      "source_export_id": "imagegen_runner_cloud_bank_v1",
+      "sha256": "a340f6b6b4f63a84f9815e14d84a55536408a5b402f8cd560a48c4a4c6bcfba9"
+    }
+  ],
+  "source_exports": []
+}

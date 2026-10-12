@@ -18,7 +18,17 @@ render_mode blend_mix, cull_disabled, diffuse_burley, specular_schlick_ggx;
 uniform vec4 tint : source_color = vec4(0.45, 0.65, 0.88, 1.0);
 uniform vec4 strata_tint : source_color = vec4(0.9, 0.96, 1.0, 1.0);
 uniform vec4 lip_tint : source_color = vec4(0.95, 0.98, 1.0, 1.0);
-uniform float base_alpha : hint_range(0.0, 1.0) = 0.72;
+// Thick ice is not window glass. At 0.72 the wall showed the raw shapes behind
+// it — a hard-edged lake polygon, a facet of terrain — straight through the
+// body, which is what made it read as blue plastic sheeting rather than as a
+// cut glacier face. The body is now mostly opaque and gets MORE opaque toward
+// the base, where the ice is thickest.
+uniform float base_alpha : hint_range(0.0, 1.0) = 0.86;
+// World-space frequency of the trapped-air bubble speckle, and the distance
+// over which it fades out (it is a near-camera cue; at 40 m it is noise).
+uniform float bubble_freq = 6.5;
+uniform float bubble_fade_start = 14.0;
+uniform float bubble_fade_end = 34.0;
 uniform float rim_strength : hint_range(0.0, 1.0) = 0.55;
 uniform float rim_power = 2.2;
 uniform float strata_strength : hint_range(0.0, 1.0) = 0.4;
@@ -27,6 +37,7 @@ uniform float strata_freq = 1.7;
 uniform float lip_glow : hint_range(0.0, 1.0) = 0.12;
 
 varying vec3 world_pos;
+varying float view_dist;
 
 float hash21(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -45,6 +56,7 @@ float value_noise(vec2 p) {
 
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	view_dist = length((MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz);
 }
 
 void fragment() {
@@ -90,6 +102,21 @@ void fragment() {
 	col = mix(col, strata_tint.rgb, shine * 0.5);
 
 	col = mix(col, strata_tint.rgb, strata);
+
+	// Trapped air bubbles: the single most identifiable thing about glacier ice
+	// up close, and the cue that separates it from glass. Sparse bright specks
+	// through the body, denser toward the base where the ice is oldest, faded
+	// out with distance so a wall 40 m away stays a clean sheet instead of
+	// crawling with noise.
+	float bubble_fade = 1.0 - smoothstep(bubble_fade_start, bubble_fade_end, view_dist);
+	float bubble = 0.0;
+	if (bubble_fade > 0.001) {
+		float bn = value_noise(vec2((world_pos.x + world_pos.z) * bubble_freq,
+				world_pos.y * bubble_freq) + 29.0);
+		bubble = smoothstep(0.82, 0.98, bn) * bubble_fade * (0.35 + depth * 0.65);
+		col = mix(col, strata_tint.rgb, bubble * 0.45);
+	}
+
 	col = mix(col, lip_tint.rgb, lip);
 	ALBEDO = col;
 
@@ -114,9 +141,9 @@ void fragment() {
 	// Body stays see-through for race readability; rim + lip firm up so the
 	// silhouette of the wall never dissolves against bright snow. Deep ice is
 	// slightly more opaque: light does not make it through the thick base.
-	ALPHA = clamp(base_alpha + depth * 0.10 + fresnel * rim_strength * 0.25 + lip * 0.22, 0.0, 1.0);
+	ALPHA = clamp(base_alpha + depth * 0.12 + fresnel * rim_strength * 0.2 + lip * 0.14, 0.0, 1.0);
 	// Deep body is wet-glassy; frost lip and strata scatter. Cracks scatter too.
-	ROUGHNESS = mix(mix(0.10, 0.20, depth), 0.55, max(lip, max(strata, crack)));
+	ROUGHNESS = mix(mix(0.10, 0.20, depth), 0.55, max(max(lip, bubble), max(strata, crack)));
 	SPECULAR = 0.5;
 	EMISSION = lip_tint.rgb * lip * lip_glow
 			+ vec3(0.7, 0.85, 1.0) * fresnel * rim_strength * 0.08

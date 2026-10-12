@@ -1,0 +1,312 @@
+{
+  "$id": "https://waddlewars.ninjaconsulting.ai/schemas/art-manifest-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "assets": {
+      "items": {
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "sampling_policy"
+              ]
+            },
+            "then": {
+              "properties": {
+                "groups": {
+                  "contains": {
+                    "const": "frontend"
+                  }
+                },
+                "kind": {
+                  "const": "texture"
+                },
+                "path": {
+                  "pattern": "^res://assets/art/ui/(?!.*\\.\\.)"
+                }
+              }
+            }
+          }
+        ],
+        "properties": {
+          "groups": {
+            "items": {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
+          },
+          "id": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "scene",
+              "animation_library",
+              "material",
+              "texture",
+              "mesh",
+              "resource",
+              "metadata"
+            ]
+          },
+          "license_id": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "path": {
+            "pattern": "^res://assets/art/",
+            "type": "string"
+          },
+          "production_ready": {
+            "const": true
+          },
+          "sampling_policy": {
+            "const": "screen_space_no_mipmaps",
+            "description": "Explicit memory-conscious import policy for flat screen-space UI only; mipmaps/generate must be false."
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "source_export_id": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "path",
+          "groups",
+          "source_export_id",
+          "sha256",
+          "license_id",
+          "production_ready"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "budgets": {
+      "additionalProperties": false,
+      "properties": {
+        "character_deform_bones_max": {
+          "const": 36
+        },
+        "character_lod0_triangles_max": {
+          "const": 25000
+        },
+        "character_lod0_triangles_min": {
+          "const": 18000
+        },
+        "character_skin_influences_max": {
+          "const": 4
+        },
+        "character_surfaces_max": {
+          "const": 2
+        },
+        "distinct_shader_signatures_max": {
+          "const": 16
+        },
+        "draw_calls_high_average_max": {
+          "const": 250
+        },
+        "draw_calls_high_peak_max": {
+          "const": 300
+        },
+        "draw_calls_low_average_max": {
+          "const": 190
+        },
+        "draw_calls_low_peak_max": {
+          "const": 225
+        },
+        "draw_calls_medium_average_max": {
+          "const": 205
+        },
+        "draw_calls_medium_peak_max": {
+          "const": 250
+        },
+        "landmark_lod0_triangles_max": {
+          "const": 30000
+        },
+        "landmark_lod0_triangles_min": {
+          "const": 10000
+        },
+        "landmark_surfaces_max": {
+          "const": 3
+        },
+        "obstacle_lod0_triangles_max": {
+          "const": 5000
+        },
+        "obstacle_lod0_triangles_min": {
+          "const": 1500
+        },
+        "obstacle_surfaces_max": {
+          "const": 1
+        },
+        "regular_texture_size_max": {
+          "const": 2048
+        },
+        "repeated_prop_lod0_triangles_max": {
+          "const": 1500
+        },
+        "repeated_prop_lod0_triangles_min": {
+          "const": 300
+        },
+        "repeated_prop_surfaces_max": {
+          "const": 1
+        },
+        "runner_authored_compressed_mib_max": {
+          "const": 40
+        },
+        "runner_texture_vram_mib_max": {
+          "const": 64
+        },
+        "runner_vertical_slice_compressed_mib_max": {
+          "const": 15
+        },
+        "total_authored_art_compressed_mib_max": {
+          "const": 120
+        },
+        "visible_primitives_high_max": {
+          "const": 100000
+        },
+        "visible_primitives_low_max": {
+          "const": 50000
+        },
+        "visible_primitives_medium_max": {
+          "const": 75000
+        }
+      },
+      "required": [
+        "character_deform_bones_max",
+        "character_lod0_triangles_max",
+        "character_lod0_triangles_min",
+        "character_skin_influences_max",
+        "character_surfaces_max",
+        "distinct_shader_signatures_max",
+        "draw_calls_high_average_max",
+        "draw_calls_high_peak_max",
+        "draw_calls_low_average_max",
+        "draw_calls_low_peak_max",
+        "draw_calls_medium_average_max",
+        "draw_calls_medium_peak_max",
+        "landmark_lod0_triangles_max",
+        "landmark_lod0_triangles_min",
+        "landmark_surfaces_max",
+        "obstacle_lod0_triangles_max",
+        "obstacle_lod0_triangles_min",
+        "obstacle_surfaces_max",
+        "regular_texture_size_max",
+        "repeated_prop_lod0_triangles_max",
+        "repeated_prop_lod0_triangles_min",
+        "repeated_prop_surfaces_max",
+        "runner_authored_compressed_mib_max",
+        "runner_texture_vram_mib_max",
+        "runner_vertical_slice_compressed_mib_max",
+        "total_authored_art_compressed_mib_max",
+        "visible_primitives_high_max",
+        "visible_primitives_low_max",
+        "visible_primitives_medium_max"
+      ],
+      "type": "object"
+    },
+    "catalog_id": {
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "type": "string"
+    },
+    "licenses": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "notice_path": {
+            "pattern": "^res://assets/art/",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "notice_path"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "renderer_contract": {
+      "additionalProperties": false,
+      "properties": {
+        "native": {
+          "const": "mobile"
+        },
+        "required": {
+          "items": false,
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "const": "gl_compatibility"
+            },
+            {
+              "const": "mobile"
+            }
+          ],
+          "type": "array"
+        },
+        "web": {
+          "const": "gl_compatibility"
+        }
+      },
+      "required": [
+        "native",
+        "required",
+        "web"
+      ],
+      "type": "object"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "toolchain": {
+      "additionalProperties": false,
+      "properties": {
+        "blender": {
+          "const": "5.2.0"
+        },
+        "godot": {
+          "const": "4.7.1"
+        }
+      },
+      "required": [
+        "blender",
+        "godot"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "assets",
+    "budgets",
+    "catalog_id",
+    "licenses",
+    "renderer_contract",
+    "schema_version",
+    "toolchain"
+  ],
+  "title": "Waddle Wars runtime art manifest",
+  "type": "object"
+}

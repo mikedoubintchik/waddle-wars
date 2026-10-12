@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CourseVisualProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/art/course_visual_profile.gd" id="1_profile"]
+
+[resource]
+script = ExtResource("1_profile")
+profile_id = "runner_night"
+display_name = "Runner Aurora Night"
+biome_id = "night"
+art_direction = "Near-black blue route, indigo horizon, restrained green-violet sky motion, bright readable seams."
+approved_for_runtime = false
+sky_top = Color(0.01, 0.02, 0.1, 1)
+sky_horizon = Color(0.05, 0.12, 0.34, 1)
+ground_horizon = Color(0.03, 0.08, 0.24, 1)
+ground_bottom = Color(0.01, 0.02, 0.12, 1)
+fog_color = Color(0.04, 0.1, 0.28, 1)
+fog_density = 0.0024
+sun_color = Color(0.62, 0.76, 1, 1)
+sun_energy = 0.42
+ambient_energy = 0.24
+shaft_color = Color(0.42, 1, 0.74, 1)
+deck_dark = Color(0.02, 0.03, 0.14, 1)
+deck_mid = Color(0.11, 0.16, 0.36, 1)
+snow_bright = Color(0.24, 0.32, 0.6, 1)
+decorative_accent = Color(0.86, 0.3, 1, 1)

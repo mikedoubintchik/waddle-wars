@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "glb_sha256": "94f30dc898acb8abb85230ddad569e8e9530e8fca9bfe84a05a2ac8a34732fd1",
+  "method": "Three independent ray parity tests against final exported closed body mesh",
+  "checks": [
+    {
+      "part": "foot_L",
+      "glb_cap_position": [
+        -0.2744775712490082,
+        0.2849999964237213,
+        0.11467025429010391
+      ],
+      "ray_intersections": [
+        1,
+        1,
+        1
+      ],
+      "inside_actual_final_body": true
+    },
+    {
+      "part": "foot_R",
+      "glb_cap_position": [
+        0.2558070123195648,
+        0.2849999964237213,
+        -0.028664102777838707
+      ],
+      "ray_intersections": [
+        1,
+        1,
+        1
+      ],
+      "inside_actual_final_body": true
+    }
+  ],
+  "soles_grounded": {
+    "foot_L": 72,
+    "foot_R": 81
+  },
+  "right_foot_only_change": true,
+  "passed": true
+}

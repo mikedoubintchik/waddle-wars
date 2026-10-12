@@ -1,0 +1,36 @@
+{
+  "concepts": [],
+  "generated_assets": [
+    {
+      "dimensions": [
+        2048,
+        768
+      ],
+      "generated_on": "2026-10-08",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "id": "imagegen_settings_controls_header_v6",
+      "license_id": "project_original",
+      "path": "art_src/ui/menu/reference_iteration_v6/settings_controls_header_v6.png",
+      "prompt_path": "art_src/ui/menu/reference_iteration_v6/settings_controls_header_v6.prompt.txt",
+      "sha256": "8f4ee649afba56bd1b16d68ec363dde6e1b8d22a557059bcb84fecd6b5148ef0",
+      "status": "production_source"
+    }
+  ],
+  "runtime_assets": [
+    {
+      "groups": [
+        "frontend",
+        "menu",
+        "settings_reference"
+      ],
+      "id": "settings_controls_header_v6",
+      "kind": "texture",
+      "license_id": "project_original",
+      "path": "res://assets/art/ui/menu/settings_controls_header_v6.webp",
+      "production_ready": false,
+      "sha256": "1220c00566b0c18c039a6cf9bcdaf763aaef836cbbcf8a659c1a5fb0498e938e",
+      "source_export_id": "imagegen_settings_controls_header_v6"
+    }
+  ],
+  "source_exports": []
+}

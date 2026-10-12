@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "created_utc": "2026-10-11T22:59:05.863810+00:00",
+  "method": "Built-in image_gen tool; no CLI/API fallback",
+  "status": "Working reference set requested by owner; open to visual feedback",
+  "usage": "Character art direction and 3D artist/modeling reference; not runtime assets or captured engine output",
+  "master_panels": [
+    "front",
+    "three-quarter",
+    "side",
+    "back",
+    "run",
+    "jump",
+    "belly slide",
+    "chase view"
+  ],
+  "gameplay_panels": [
+    "run",
+    "jump",
+    "belly slide"
+  ],
+  "input_roles": {
+    "character-angles-and-actions.png": "New generated character identity, anatomy, markings and material target",
+    "qa_shots/tests/penguin-preview-browser-20261011-02/proof/desktop-run-chase.jpg": "Existing course and camera context only; old penguin explicitly excluded"
+  },
+  "review": {
+    "all_requested_views_present": true,
+    "belly_slide_is_horizontal": true,
+    "character_identity_visually_consistent": true,
+    "remaining_interpretation": [
+      "Resolve minor angle-to-angle generative differences in a single 3D mesh",
+      "Feather softness is a shading target, not a requirement for dense fur geometry",
+      "Gameplay concept uses larger review framing; real gameplay readability still requires engine verification"
+    ],
+    "runtime_parity_proven": false,
+    "runtime_files_modified": false
+  },
+  "files": [
+    {
+      "file": "character-angles-and-actions.png",
+      "sha256": "6b384e6c2622cb8e5a9fda09205afe0573753f172e9d8b3e459f6af90858e9a1",
+      "dimensions": [
+        1774,
+        887
+      ],
+      "prompt_file": "master-prompt.txt",
+      "prompt_sha256": "eda17851352a8fd61756065f6fdb6e54701a63b79b5942da8c55641f7ec2cb5f",
+      "generated_source": "/Users/ninja/.codex/generated_images/01a12d09-d5ea-7952-8a60-3670fc421c94/exec-4b352ef5-0e02-47a8-a9ce-95236cb951cf.png"
+    },
+    {
+      "file": "gameplay-run-jump-slide.png",
+      "sha256": "bb570fd4b5d56db19ed83b8e6beee242d6c4145958bca019da4484d281dcb3c6",
+      "dimensions": [
+        1774,
+        887
+      ],
+      "prompt_file": "gameplay-prompt.txt",
+      "prompt_sha256": "f3a66cac0a99e9e634d32f037d5d1bb1651b67ac58f32d8cb08a662cabcb7490",
+      "generated_source": "/Users/ninja/.codex/generated_images/01a12d09-d5ea-7952-8a60-3670fc421c94/exec-1207d922-5afb-4e6e-a86d-c80b6b5148dc.png"
+    }
+  ]
+}

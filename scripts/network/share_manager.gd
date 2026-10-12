@@ -9,9 +9,9 @@ extends RefCounted
 
 ## Which channel share() actually used, so callers know whether to toast
 ## "Copied!" (the native share sheet is its own feedback).
-enum Method { WEB_SHARE, CLIPBOARD }
+enum Method { WEB_SHARE, NATIVE_SHARE, CLIPBOARD }
 
-const SHARE_URL: String = "https://waddlewars.ninjaconsulting.ai"
+const SHARE_URL: String = "https://play.waddlewars.io"
 
 ## How long the confirmation toast stays fully visible (seconds).
 const TOAST_HOLD: float = 1.6
@@ -67,7 +67,10 @@ static func daily_link(day: int) -> String:
 
 
 static func compose_challenge_text() -> String:
-	return "Can you beat my crew on the Waddle Wars leaderboard? 🐧 %s" % SHARE_URL
+	var best := Progression.runner_high_score()
+	if best > 0:
+		return "🐧 I scored %d in Waddle Run. Can you outrun my avalanche? %s" % [best, SHARE_URL]
+	return "🐧 Think you can outrun the avalanche in Waddle Run? %s" % SHARE_URL
 
 
 static func _position_tag(position: int) -> String:
@@ -96,8 +99,33 @@ static func share(text: String) -> Method:
 		var used: Variant = JavaScriptBridge.eval(js, true)
 		if used is String and String(used) == "share":
 			return Method.WEB_SHARE
+	if OS.has_feature("android") and _android_share(text):
+		return Method.NATIVE_SHARE
 	DisplayServer.clipboard_set(text)
 	return Method.CLIPBOARD
+
+
+## Godot 4.7's built-in AndroidRuntime + JavaClassWrapper expose ACTION_SEND.
+## The chooser, not a browser page or clipboard toast, owns app selection.
+static func _android_share(text: String) -> bool:
+	var runtime := Engine.get_singleton("AndroidRuntime")
+	if runtime == null:
+		return false
+	var activity: Variant = runtime.call("getActivity")
+	if activity == null:
+		return false
+	var intent_class := JavaClassWrapper.wrap("android.content.Intent")
+	var intent: Variant = intent_class.Intent()
+	intent.setAction(intent_class.ACTION_SEND)
+	intent.putExtra(intent_class.EXTRA_TEXT, text)
+	intent.setType("text/plain")
+	var chooser: Variant = intent_class.createChooser(intent, "Challenge friends")
+	if chooser == null or JavaClassWrapper.get_exception() != null:
+		return false
+	var present := func() -> void:
+		activity.startActivity(chooser)
+	activity.runOnUiThread(runtime.call("createRunnableFromGodotCallable", present))
+	return JavaClassWrapper.get_exception() == null
 
 
 ## share() plus a "Copied to clipboard!" toast on `host` when the clipboard

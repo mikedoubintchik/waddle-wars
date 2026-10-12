@@ -46,6 +46,9 @@ func _ready() -> void:
 			"idx": _idx = int(parts[1])
 	DisplayServer.window_set_size(Vector2i(width, height))
 	DisplayServer.window_set_position(Vector2i(40, 60))
+	# An occluded window never draws, and a harness that waits on
+	# frame_post_draw then hangs forever with no output. Raise it.
+	DisplayServer.window_move_to_foreground()
 
 	# bearcourse brings its own world (the real course lights, sky and deck), so
 	# the neutral studio set is skipped for it.

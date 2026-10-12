@@ -13,6 +13,7 @@ const RICE := SurfacesDB.Surface.ICE_ROUGH
 static var run_seed: int = 0
 
 const SEGMENT_COUNT: int = 26
+const MOUNTAIN_MESH_VARIANTS: int = 16
 
 var _cursor: Vector3 = Vector3(0, 110, 30)
 var _heading: float = 0.0  # yaw; 0 = -Z
@@ -78,10 +79,13 @@ func build_course() -> void:
 		_build_segment(segments[i], 1.0 + float(i) * 0.05)
 	_advance(120, 0, 2, {"width": 20.0})
 
-	setup_main(_pts)
+	await setup_main(_pts)
+	await stage()
 	finalize()
+	await stage()
 	for hook: Callable in _post_build:
 		hook.call()
+	await stage()
 
 	# Fish and items sprinkled along the whole run.
 	var offset := 100.0
@@ -93,6 +97,7 @@ func build_course() -> void:
 		elif fmod(offset, 400.0) > 240.0:
 			add_snowball_row(offset + 30.0)  # no rng draws: seed determinism kept
 		offset += 170.0
+	await stage()
 
 	# Ice sheet first: the peaks, horizon bands and spires all seat themselves
 	# on it, so it has to exist before _decorate() runs.
@@ -100,9 +105,11 @@ func build_course() -> void:
 	for point: Vector3 in main_guide.points:
 		lowest = minf(lowest, point.y)
 	add_ground_plane(lowest - 18.0, Color(0.88, 0.93, 0.98))
+	await stage()
 
-	_decorate()
-	build_environment({
+	await _decorate()
+	await stage()
+	await build_environment({
 		"sky_top": Color(0.2, 0.5, 0.86),
 		"sky_horizon": Color(0.82, 0.92, 1.0),
 		"ground_color": Color(0.85, 0.92, 0.98),
@@ -248,6 +255,7 @@ func _decorate() -> void:
 		density = 0.75
 	elif quality == "low":
 		density = 0.5
+	await stage()
 
 	# Route markers just outside the racing floor. Segment widths swing from 11m
 	# to 20m along the expedition, so a constant 12-16m lateral planted flags on
@@ -273,9 +281,13 @@ func _decorate() -> void:
 		offset += 90.0
 
 	_decorate_mountains()
+	await stage()
 	_decorate_horizon_bands()
+	await stage()
 	_decorate_snowbanks(density)
+	await stage()
 	_decorate_boulders(density)
+	await stage()
 
 	# Expedition send-off and welcome crowds, standing on the shoulder.
 	for i: int in maxi(int(10.0 * density), 4):
@@ -321,7 +333,7 @@ func _place_peak(mat: Material, lat_min: float, lat_max: float, w_min: float, w_
 		if float(main_guide.nearest(pos, -1)["distance"]) < width * 1.5 + 40.0:
 			continue
 		var peak := MeshInstance3D.new()
-		peak.mesh = VisualLibrary.berg_mesh(rng.randi())
+		peak.mesh = _mountain_mesh(rng.randi())
 		peak.material_override = mat
 		peak.scale = Vector3(width * rng.randf_range(0.9, 1.4), rng.randf_range(h_min, h_max), width)
 		# Footed on the ice sheet itself (berg_mesh starts at local y = 0),
@@ -331,6 +343,12 @@ func _place_peak(mat: Material, lat_min: float, lat_max: float, w_min: float, w_
 		peak.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(peak)
 		return
+
+
+## Decorative silhouettes use a fixed bank across runs. Preserve the caller's
+## one RNG draw, placement, scales and collision-free backdrop contract.
+static func _mountain_mesh(random_seed: int) -> ArrayMesh:
+	return VisualLibrary.berg_mesh(10_000 + posmod(random_seed, MOUNTAIN_MESH_VARIANTS))
 
 
 ## Per-biome horizon bands: the 26-segment expedition crosses three difficulty

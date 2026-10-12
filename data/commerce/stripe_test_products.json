@@ -1,0 +1,12 @@
+{
+  "mode": "test",
+  "account_id": "acct_1ULn6IPRyv3Yftj5",
+  "observed_by": "owner-authorized Chrome Stripe setup",
+  "observed_on": "2026-10-01",
+  "products": {
+    "cozy_expedition": {"stripe_product_id": "prod_VMWCwFMQ9b6CNY", "stripe_price_id": "price_1ULn9lPRyv3Yftj5qHs8dLys", "price_minor": 299, "currency": "usd"},
+    "research_crew": {"stripe_product_id": "prod_VMWDyRIt44qCjK", "stripe_price_id": "price_1ULnAePRyv3Yftj5IZtSlDuE", "price_minor": 399, "currency": "usd"},
+    "aurora_celebration": {"stripe_product_id": "prod_VMWDYA0MFtyX38", "stripe_price_id": "price_1ULnB7PRyv3Yftj5SrBi4sZg", "price_minor": 499, "currency": "usd"}
+  },
+  "live_sales_enabled": false
+}

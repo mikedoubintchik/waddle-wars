@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "gate": "rear-shape-v1",
+  "unrigged": true,
+  "production_ready": false,
+  "animation_ready": false,
+  "visual_approval": "pending human Gate1 review",
+  "shape_revision": "v2: crown width +12% (neck blend +8%); flipper downward length +15%, rounded narrow end; torso and palette unchanged",
+  "material_contract": "plain-literal-COLOR_0",
+  "glb_sha256": "39d8b1d41d9e49c51a4a0a497f325b8bfea6de02a732139d8e654351647e40c8",
+  "source_sha256": "07140c3cfc41ab1adf43632adebc857b1435702d5c26eb3420114c09f1769f77",
+  "builder_sha256": "952c86dee7ec9b4c16cf2cab23cbb1eed44362cf1f792e43bd7bc4cce5a56fab",
+  "config_sha256": "91926a56a60622b8ce6382c522eb9a53ea949e42539f6bd242b11c8db21ff7c3",
+  "reference_file": "art_src/characters/reference_boards/penguin-gameplay-v2-20261011/waddle-rear-strong-lean-sequence.png",
+  "reference_sha256": "764acf53aecf29958e7ffc986bea753627b0af4f3ea95bf31f03a99c0f2ecac9",
+  "source_height_m": 1.7200000286102295,
+  "gameplay_height_m": 1.05,
+  "gameplay_scale": 0.6104651061246821,
+  "author_axes": "Blender +Z up, +Y forward; exporter converts to glTF/Godot +Y up, -Z forward",
+  "bounds_author_m": {
+    "min": [
+      -0.6725437641143799,
+      -0.4131999909877777,
+      0.0
+    ],
+    "max": [
+      0.6725437641143799,
+      0.41012707352638245,
+      1.7200000286102295
+    ]
+  },
+  "root_transform": "identity",
+  "vertices": 3964,
+  "triangles": 7904,
+  "surfaces": 1,
+  "material": {
+    "name": "RearBlockoutPlainMatte",
+    "roughness": 0.9,
+    "metallic": 0.0,
+    "color_space": "COLOR_0 linear RGBA from explicit sRGB palette; multiply imported baseColorFactor white",
+    "textures": []
+  },
+  "parts_vertex_ranges": {
+    "continuous_body_head": [
+      0,
+      2258
+    ],
+    "flipper_L": [
+      2258,
+      2620
+    ],
+    "flipper_R": [
+      2620,
+      2982
+    ],
+    "foot_L": [
+      2982,
+      3320
+    ],
+    "foot_R": [
+      3320,
+      3658
+    ],
+    "short_tail_fan": [
+      3658,
+      3964
+    ]
+  },
+  "geometry_validation": {
+    "nonmanifold_edges": 0,
+    "zero_area_faces": 0,
+    "signed_volume_m3": 0.550302939477855
+  },
+  "intentional_overlaps": "Flipper roots, upper feet and tail root bury into continuous body; six closed components in one mesh",
+  "deferred": [
+    "rig and skinning",
+    "all animation",
+    "front face detail",
+    "UVs and surface textures",
+    "LOD and species",
+    "runtime promotion"
+  ],
+  "old_mesh_skeleton_or_animation_used": false,
+  "rendered_frames": 0
+}

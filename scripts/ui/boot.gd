@@ -1,128 +1,93 @@
 extends Control
-## Studio splash: wordmark eases in with a fade + scale settle and an
-## expanding accent rule, holds, then fades and routes to title.
+## Keep the OS launch composition on screen until the one SceneRouter loader
+## takes over. BootWarmup belongs to SceneRouter so it survives this scene.
 
-## Minimum hold, and the ceiling on waiting for the shader warm-up to drain.
-## Past MAX_HOLD the title is better off paying whatever is left than leaving
-## the player on a wordmark.
-const MIN_HOLD: float = 2.4
-const MAX_HOLD: float = 9.0
+const PORTRAIT_STILL := "res://assets/art/ui/menu/launch_screen_portrait_v1.png"
+const LANDSCAPE_BACKDROP := "res://assets/art/ui/menu/loader_background_v3.webp"
+const LOGO := "res://assets/art/ui/menu/loader_logo_v3.webp"
 
-var _elapsed: float = 0.0
-var _routed: bool = false
-var _studio_label: Label
-var _sub_label: Label
-var _rule: ColorRect
+var _routed := false
+var _first_frame: TextureRect
+var _landscape_logo: TextureRect
 
 
 func _ready() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.03, 0.06, 0.12)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-
-	var glow_grad := Gradient.new()
-	glow_grad.colors = PackedColorArray([
-		Color(0.14, 0.26, 0.44, 0.55), Color(0.03, 0.06, 0.12, 0.0),
-	])
-	glow_grad.offsets = PackedFloat32Array([0.0, 1.0])
-	var glow_tex := GradientTexture2D.new()
-	glow_tex.gradient = glow_grad
-	glow_tex.fill = GradientTexture2D.FILL_RADIAL
-	glow_tex.fill_from = Vector2(0.5, 0.5)
-	glow_tex.fill_to = Vector2(0.5, 0.0)
-	var glow := TextureRect.new()
-	glow.texture = glow_tex
-	glow.stretch_mode = TextureRect.STRETCH_SCALE
-	glow.set_anchors_preset(Control.PRESET_FULL_RECT)
-	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(glow)
-
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
-	var vbox := VBoxContainer.new()
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", 10)
-	center.add_child(vbox)
-
-	_studio_label = Label.new()
-	_studio_label.text = GameConfig.STUDIO_NAME
-	_studio_label.add_theme_font_override("font", UITheme.display_font())
-	_studio_label.add_theme_font_size_override("font_size", 64)
-	_studio_label.add_theme_color_override("font_color", Color(0.85, 0.92, 1.0))
-	_studio_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.5))
-	_studio_label.add_theme_constant_override("shadow_offset_x", 0)
-	_studio_label.add_theme_constant_override("shadow_offset_y", 4)
-	_studio_label.add_theme_constant_override("shadow_outline_size", 8)
-	_studio_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_studio_label.modulate.a = 0.0
-	vbox.add_child(_studio_label)
-
-	var rule_holder := CenterContainer.new()
-	vbox.add_child(rule_holder)
-	_rule = ColorRect.new()
-	_rule.color = Color(UITheme.COLOR_ACCENT, 0.85)
-	_rule.custom_minimum_size = Vector2(0.0, 3.0)
-	rule_holder.add_child(_rule)
-
-	_sub_label = Label.new()
-	_sub_label.text = "presents"
-	_sub_label.add_theme_font_size_override("font_size", 24)
-	_sub_label.add_theme_color_override("font_color", Color(0.5, 0.6, 0.75))
-	_sub_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_sub_label.modulate.a = 0.0
-	vbox.add_child(_sub_label)
-
+	if BootProfiler.enabled():
+		print("[ww-startup] boot_ready_ms=", Time.get_ticks_msec())
+	_build_first_frame()
+	var viewport := get_viewport()
+	if viewport != null and not viewport.size_changed.is_connected(_apply_layout):
+		viewport.size_changed.connect(_apply_layout)
+	# The web page owns its cover until the main menu's first draw.
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval(
+			"if (window.__wwGraphicsAdvice && "
+			+ "typeof window.__wwGraphicsAdvice.inspectRunningCanvas === 'function') { "
+			+ "window.__wwGraphicsAdvice.inspectRunningCanvas(); }", true)
+	BootWarmup.warm(SceneRouter)
+	if BootProfiler.enabled():
+		print("[ww-startup] boot_warm_requested_ms=", Time.get_ticks_msec())
 	if GameConfig.is_headless():
+		_route.call_deferred()
+	else:
+		_upgrade_after_first_present()
+
+
+func _build_first_frame() -> void:
+	_first_frame = TextureRect.new()
+	_first_frame.name = "LaunchStill"
+	_first_frame.texture = load(PORTRAIT_STILL) as Texture2D
+	_first_frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_first_frame.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_first_frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_first_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_first_frame)
+	_apply_layout()
+
+
+func _apply_layout() -> void:
+	if _first_frame == null:
 		return
+	var view := get_viewport().get_visible_rect().size
+	var landscape := view.x > view.y
+	if not landscape:
+		_first_frame.texture = load(PORTRAIT_STILL) as Texture2D
+		if _landscape_logo != null:
+			_landscape_logo.visible = false
+		return
+	_first_frame.texture = load(LANDSCAPE_BACKDROP) as Texture2D
+	if _landscape_logo == null:
+		_landscape_logo = TextureRect.new()
+		_landscape_logo.name = "LandscapeLaunchLogo"
+		_landscape_logo.texture = load(LOGO) as Texture2D
+		_landscape_logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_landscape_logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		_landscape_logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_landscape_logo)
+	var card_width := minf(1000.0, minf(view.x * 0.90, view.y * 1.025))
+	var logo_size := Vector2(card_width * 0.64, card_width * 0.332)
+	_landscape_logo.position = Vector2((view.x - logo_size.x) * 0.5, view.y * 0.055)
+	_landscape_logo.size = logo_size
+	_landscape_logo.visible = true
 
-	# The splash is ~2.4 s of nearly idle main thread, and the title that
-	# follows costs seconds to draw its first frame on a cold GPU cache. Spend
-	# the hold linking those programs a few per frame so the handoff is instant.
-	BootWarmup.warm(self)
 
-	# Wordmark settles from slightly large; pivot needs post-layout size.
+func _upgrade_after_first_present() -> void:
+	# Leave the first draw callback before creating the richer loader. The
+	# destination's resource work waits behind SceneRouter's own draw boundary.
+	await RenderingServer.frame_post_draw
+	if not is_inside_tree():
+		return
 	await get_tree().process_frame
 	if not is_inside_tree():
 		return
-	_studio_label.pivot_offset = _studio_label.size * 0.5
-	_studio_label.scale = Vector2(1.12, 1.12)
-
-	var tween := create_tween()
-	tween.tween_property(_studio_label, "modulate:a", 1.0, 0.55)
-	tween.parallel().tween_property(_studio_label, "scale", Vector2.ONE, 0.7) \
-		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.parallel().tween_property(_rule, "custom_minimum_size:x", 280.0, 0.7) \
-		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.parallel().tween_property(_sub_label, "modulate:a", 1.0, 0.85)
-	tween.tween_interval(0.8)
-	tween.tween_property(_studio_label, "modulate:a", 0.0, 0.4)
-	tween.parallel().tween_property(_sub_label, "modulate:a", 0.0, 0.4)
-	tween.parallel().tween_property(_rule, "modulate:a", 0.0, 0.4)
+	_route()
 
 
-func _process(delta: float) -> void:
-	_elapsed += delta
-	var skip := Input.is_action_just_pressed("ui_accept") or Input.is_action_just_pressed("pause")
-	if skip or _elapsed > MAX_HOLD:
-		_route()
-	elif _elapsed > MIN_HOLD and BootWarmup.is_finished():
-		_route()
-
-
-## _input (not _unhandled_input) so a tap skips the splash even if a Control
-## in this scene consumes it first — touch-first mobile-web requirement.
-func _input(event: InputEvent) -> void:
-	if (event is InputEventScreenTouch and event.pressed) \
-			or (event is InputEventMouseButton and event.pressed):
-		_route()
-
-
-## Single route path; guarded so auto-route, action skip, and tap skip
-## cannot double-fire.
 func _route() -> void:
 	if _routed:
 		return
 	_routed = true
-	SceneRouter.go_to(Game.SCENE_TITLE)
+	if BootProfiler.enabled():
+		print("[ww-startup] boot_route_ms=", Time.get_ticks_msec(),
+			" warm_done=", BootWarmup.is_finished())
+	SceneRouter.go_to(Game.SCENE_MAIN_MENU)

@@ -1,0 +1,176 @@
+{
+  "concepts": [],
+  "generated_assets": [
+    {
+      "id": "imagegen_achievement_icons_v3",
+      "path": "art_src/ui/menu/reference_iteration_v3/achievement_icons_v3.png",
+      "prompt_path": "art_src/ui/menu/reference_iteration_v3/achievement_icons_v3.prompt.md",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "sha256": "f4cc593cef4e455f5fa6bf848f7407c1961eb039a1d74f188026fb2b14492155",
+      "license_id": "project_original",
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "status": "production_source"
+    },
+    {
+      "id": "imagegen_achievement_background_desktop_v3",
+      "path": "art_src/ui/menu/reference_iteration_v3/achievement_background_desktop_v3.png",
+      "prompt_path": "art_src/ui/menu/reference_iteration_v3/achievement_background_desktop_v3.prompt.md",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "72f57f701c7849c81af0de03556a821840dd48d60d97b0ffa2f8043194c780db",
+      "license_id": "project_original",
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "status": "production_source"
+    },
+    {
+      "id": "imagegen_shop_background_desktop_v3",
+      "path": "art_src/ui/menu/reference_iteration_v3/shop_background_desktop_v3.png",
+      "prompt_path": "art_src/ui/menu/reference_iteration_v3/shop_background_desktop_v3.prompt.md",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "6348e3082b8e88fe88c3ca66ebffe45726d74d0ebffaaec2ab5ef65c07ece6c7",
+      "license_id": "project_original",
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "status": "production_source"
+    },
+    {
+      "id": "imagegen_shop_background_portrait_v3",
+      "path": "art_src/ui/menu/reference_iteration_v3/shop_background_portrait_v3.png",
+      "prompt_path": "art_src/ui/menu/reference_iteration_v3/shop_background_portrait_v3.prompt.md",
+      "dimensions": [
+        941,
+        1672
+      ],
+      "sha256": "65db6a05bee4bc602c0915d69f833f3a64492fa15538d0b336f9df266585fbd6",
+      "license_id": "project_original",
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "status": "production_source"
+    },
+    {
+      "id": "imagegen_achievement_goal_trophy_v3",
+      "path": "art_src/ui/menu/reference_iteration_v3/achievement_goal_trophy_v3.png",
+      "prompt_path": "art_src/ui/menu/reference_iteration_v3/achievement_goal_trophy_v3.prompt.md",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "sha256": "e93f1dfa2edb1aec60d7d321aa665c6e31cf2c4eaf3ce7cd9343dbdf29108ace",
+      "license_id": "project_original",
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "status": "production_source"
+    },
+    {
+      "id": "imagegen_shop_aurora_trail_v3",
+      "path": "art_src/ui/menu/reference_iteration_v3/shop_aurora_trail_v3.png",
+      "prompt_path": "art_src/ui/menu/reference_iteration_v3/shop_aurora_trail_v3.prompt.md",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "sha256": "dfa2f6ae339ac75ee9dc07853a8152a3388b5051a2c858f07c67e842661c6bab",
+      "license_id": "project_original",
+      "generated_on": "2026-10-07",
+      "generator": "Codex built-in ImageGen (model/build identifier not exposed)",
+      "status": "production_source"
+    }
+  ],
+  "runtime_assets": [
+    {
+      "id": "achievement_icons_v3",
+      "path": "res://assets/art/ui/menu/achievement_icons_v3.webp",
+      "kind": "texture",
+      "source_export_id": "imagegen_achievement_icons_v3",
+      "sha256": "c605ff2523a93b228091cefbb10db4e76edd53028784e10ca6e87eaa39d45126",
+      "license_id": "project_original",
+      "production_ready": true,
+      "groups": [
+        "frontend",
+        "menu",
+        "reference_composition_v3"
+      ]
+    },
+    {
+      "id": "achievement_background_desktop_v3",
+      "path": "res://assets/art/ui/menu/achievement_background_desktop_v3.webp",
+      "kind": "texture",
+      "source_export_id": "imagegen_achievement_background_desktop_v3",
+      "sha256": "f3db388617165c2a72575998d29b451ad674bbf11ae50c1a20c063a5ca28deb3",
+      "license_id": "project_original",
+      "production_ready": true,
+      "groups": [
+        "frontend",
+        "menu",
+        "reference_composition_v3"
+      ]
+    },
+    {
+      "id": "shop_background_desktop_v3",
+      "path": "res://assets/art/ui/menu/shop_background_desktop_v3.webp",
+      "kind": "texture",
+      "source_export_id": "imagegen_shop_background_desktop_v3",
+      "sha256": "4bfce0e36e561baaf469cc044651a501bd0b57454673387c2205f75b35ffe8b0",
+      "license_id": "project_original",
+      "production_ready": true,
+      "groups": [
+        "frontend",
+        "menu",
+        "reference_composition_v3"
+      ]
+    },
+    {
+      "id": "shop_background_portrait_v3",
+      "path": "res://assets/art/ui/menu/shop_background_portrait_v3.webp",
+      "kind": "texture",
+      "source_export_id": "imagegen_shop_background_portrait_v3",
+      "sha256": "b1f6b4c1b7f37fc5c0083f526dc624e10836d0157b9a6820d86ba3fdccf71e83",
+      "license_id": "project_original",
+      "production_ready": true,
+      "groups": [
+        "frontend",
+        "menu",
+        "reference_composition_v3"
+      ]
+    },
+    {
+      "id": "achievement_goal_trophy_v3",
+      "path": "res://assets/art/ui/menu/achievement_goal_trophy_v3.webp",
+      "kind": "texture",
+      "source_export_id": "imagegen_achievement_goal_trophy_v3",
+      "sha256": "979788329b00eb35b8bb8fca3b930a47259ba1cac3df268b170561aa5377293d",
+      "license_id": "project_original",
+      "production_ready": true,
+      "groups": [
+        "frontend",
+        "menu",
+        "reference_composition_v3"
+      ]
+    },
+    {
+      "id": "shop_aurora_trail_v3",
+      "path": "res://assets/art/ui/menu/shop_aurora_trail_v3.webp",
+      "kind": "texture",
+      "source_export_id": "imagegen_shop_aurora_trail_v3",
+      "sha256": "43b73c49f72a383244cea18091703ec9f823d504aa2e26314264b51cfac92b9a",
+      "license_id": "project_original",
+      "production_ready": true,
+      "groups": [
+        "frontend",
+        "menu",
+        "reference_composition_v3"
+      ]
+    }
+  ],
+  "source_exports": []
+}

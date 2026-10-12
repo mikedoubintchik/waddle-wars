@@ -1,0 +1,73 @@
+diff --git a/tools/release/android_upload_keychain.swift b/tools/release/android_upload_keychain.swift
+--- a/tools/release/android_upload_keychain.swift
++++ b/tools/release/android_upload_keychain.swift
+@@ -17,6 +17,8 @@ var stage = "validating"
+ var passwordCreated = false
+ var keyGenerated = false
+ var backupVerified = false
++var passwordQueryStatus: OSStatus?
++var passwordFailureCategory: String?
+ 
+ struct SigningFailure: Error {}
+ 
+@@ -23,8 +25,13 @@ func fail() throws -> Never { throw SigningFailure() }
+ 
+ func publicResult(_ state: String) {
+-    let result: [String: Any] = ["state": state, "stage": stage,
++    var result: [String: Any] = ["state": state, "stage": stage,
+         "keychain_password_created": passwordCreated, "key_generated": keyGenerated,
+         "backup_verified": backupVerified]
++    if state == "operation_failed", stage == "reading_app_specific_keychain_password",
++       let status = passwordQueryStatus, let category = passwordFailureCategory {
++        result["keychain_status"] = status
++        result["failure_category"] = category
++    }
+     if let data = try? JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]) {
+         FileHandle.standardOutput.write(data)
+         FileHandle.standardOutput.write(Data([10]))
+@@ -116,9 +123,17 @@ func loadPassword() throws -> String {
+     // Signing is unattended. A locked/protected Keychain must fail closed,
+     // not open an authentication dialog or wait for user interaction.
+     var value: CFTypeRef?
+-    guard SecItemCopyMatching(request as CFDictionary, &value) == errSecSuccess,
+-          let data = value as? Data, let password = String(data: data, encoding: .utf8),
++    let status = SecItemCopyMatching(request as CFDictionary, &value)
++    passwordQueryStatus = status
++    guard status == errSecSuccess else {
++        passwordFailureCategory = "keychain_query_failed"
++        try fail()
++    }
++    guard let data = value as? Data, let password = String(data: data, encoding: .utf8),
+           password.utf8.count == 64,
+-          Data(base64Encoded: password)?.count == 48 else { try fail() }
++          Data(base64Encoded: password)?.count == 48 else {
++        passwordFailureCategory = "keychain_value_format_invalid"
++        try fail()
++    }
+     return password
+ }
+diff --git a/tools/release/android_upload_signing.py b/tools/release/android_upload_signing.py
+--- a/tools/release/android_upload_signing.py
++++ b/tools/release/android_upload_signing.py
+@@ -123,8 +123,19 @@ def helper_call(helper: Path, arguments: list[str], environment: dict[str, str]) ->
+     result = run_public([str(helper), *arguments], environment, "App-specific Keychain helper")
+     try:
+         response = json.loads(result.stdout)
+-        if (not isinstance(response, dict) or set(response) != {"state", "stage", "keychain_password_created", "key_generated", "backup_verified"}
++        base_fields = {"state", "stage", "keychain_password_created", "key_generated", "backup_verified"}
++        if not isinstance(response, dict) or set(response) not in (base_fields, base_fields | {"keychain_status", "failure_category"}):
++            raise ValueError()
++        if "keychain_status" in response:
++            status, category = response["keychain_status"], response["failure_category"]
++            if (type(status) is not int or not -(2 ** 31) <= status < 2 ** 31
++                    or response.get("state") != "operation_failed"
++                    or response.get("stage") != "reading_app_specific_keychain_password"
++                    or category not in ("keychain_query_failed", "keychain_value_format_invalid")
++                    or (category == "keychain_query_failed" and status == 0)
++                    or (category == "keychain_value_format_invalid" and status != 0)):
++                raise ValueError()
++        if (response["state"] not in HELPER_STATES or response["stage"] not in STAGES
+-                or response["state"] not in HELPER_STATES or response["stage"] not in STAGES
+                 or any(type(response[key]) is not bool for key in ("keychain_password_created", "key_generated", "backup_verified"))
+                 or bool(result.returncode) != (response["state"] == "operation_failed")):
+             raise ValueError()
